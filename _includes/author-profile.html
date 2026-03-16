@@ -69,6 +69,9 @@
       {% if author.github %}
         <li><a href="https://github.com/{{ author.github }}"><i class="fab fa-fw fa-github" aria-hidden="true"></i> Github</a></li>
       {% endif %}
+      {% if author.zhihu %}
+        <li><a href="{{ author.zhihu }}"><i class="fas fa-fw fa-book-open" aria-hidden="true"></i> Zhihu</a></li>
+      {% endif %}
       {% if author.stackoverflow %}
         <li><a href="https://www.stackoverflow.com/users/{{ author.stackoverflow }}"><i class="fab fa-fw fa-stack-overflow" aria-hidden="true"></i> Stackoverflow</a></li>
       {% endif %}
