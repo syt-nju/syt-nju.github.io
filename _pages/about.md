@@ -1,20 +1,18 @@
 ---
 permalink: /
 title: "Yuteng Shen"
-excerpt: "AI undergraduate focused on LLM agents, RL, and practical AI systems."
+excerpt: "AI undergraduate focused on agent training, post-training, evaluation, and reliable model systems."
 author_profile: true
 ---
 
 I am a final-year undergraduate student in Artificial Intelligence at Nanjing University, interested in building reliable AI systems that connect model capability with real-world deployment.
 
-I like widening the boundary of my understanding a little at a time, while focusing on work that can create real value in practice. My recent work has focused on agent training, post-training with reinforcement learning, and evaluation workflows for fast system iteration. I have interned as an algorithm engineer at Tencent and Huawei, where I worked on practical model behavior, training stability, and testing infrastructure.
-
-[Experience](/experience/) | [Projects](/projects/) | [Writing](/writing/) | [About](/about/) | [GitHub](https://github.com/syt-nju) | [Email](mailto:nju221300094@163.com)
+I like widening the boundary of my understanding a little at a time, while focusing on work that can create real value in practice. My recent work has focused on agent training, post-training, and evaluation workflows for fast system iteration. I have interned as an algorithm engineer at Tencent and Huawei, where I worked on practical model behavior, training stability, and testing infrastructure.
 
 ## Focus
 
-- LLM agents and function calling
-- Reinforcement learning and post-training
+- Agent training and tool-use behavior
+- Post-training with reinforcement learning
 - Evaluation systems for reliable model iteration
 - Practical AI engineering with strong feedback loops
 
@@ -45,4 +43,4 @@ A NumPy-based neural network framework that mimics parts of the PyTorch experien
 
 ## Writing
 
-I regularly share technical notes and reflections on model training, agents, and engineering trade-offs. I also use this site as a place to collect selected long-form writing over time.
+I use writing to organize newly learned material, capture temporary ideas from work, and reflect on experiences that changed my understanding. Over time, this site will collect the notes that best reflect how I learn, think, and build.

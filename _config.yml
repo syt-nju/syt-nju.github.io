@@ -10,7 +10,7 @@ locale                   : "en-US"
 title                    : "Yuteng Shen"
 title_separator          : "-"
 name                     : "Yuteng Shen"
-description              : "AI undergraduate at Nanjing University focused on LLM agents, reinforcement learning, and practical AI systems."
+description              : "AI undergraduate at Nanjing University focused on agent training, post-training, evaluation, and reliable model systems."
 url                      : https://syt-nju.github.io # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
 repository               : "syt-nju/syt-nju.github.io"
@@ -82,8 +82,8 @@ analytics:
 # Site Author
 author:
   name             : "Yuteng Shen"
-  avatar           :
-  bio              : "Final-year AI undergraduate focused on agent training, post-training, and reliable model systems."
+  avatar           : "profile.jpg"
+  bio              : "Final-year AI undergraduate focused on agent training, post-training, evaluation, and reliable model systems."
   location         : "Nanjing, China"
   employer         :
   pubmed           :

@@ -8,10 +8,9 @@ I treat writing as a way to organize my thoughts and force myself to understand 
 
 ## What I Write About
 
-- LLM agents and tool-use behavior
-- Reinforcement learning and post-training workflows
-- Evaluation design and benchmark stability
-- Engineering trade-offs in practical AI systems
+- Reading notes and summaries on papers, blogs, and newly learned technical material
+- Temporary work ideas and abstract reflections that emerge during day-to-day problem solving
+- Retrospective notes on experiences, including what worked, what did not, and what changed my understanding
 
 ## Current Direction
 
