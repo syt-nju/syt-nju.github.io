@@ -7,13 +7,13 @@
 
 # Site Settings
 locale                   : "en-US"
-title                    : "SocratesClub / Homepage"
+title                    : "Yuteng Shen"
 title_separator          : "-"
-name                     : "SocratesClub"
-description              : "We are a small social science lab focusing on computational social science!"
-url                      : https://socratesgroup.github.io/ # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
+name                     : "Yuteng Shen"
+description              : "AI undergraduate at Nanjing University focused on LLM agents, reinforcement learning, and practical AI systems."
+url                      : https://syt-nju.github.io # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
-repository               : "socratesgroup.github.io"
+repository               : "syt-nju/syt-nju.github.io"
 teaser                   :  # filename of teaser fallback teaser image placed in /images/, .e.g. "500x300.png"
 breadcrumbs              : false # true, false (default)
 words_per_minute         : 160
@@ -66,9 +66,10 @@ og_image                 :  # Open Graph/Twitter default site image
 # For specifying social profiles
 # - https://developers.google.com/structured-data/customize/social-profiles
 social:
-  type                   : # Person or Organization (defaults to Person)
-  name                   : # If the user or organization name differs from the site's name
-  links: # An array of links to social media profiles
+  type                   : Person
+  name                   : Yuteng Shen
+  links:
+    - "https://github.com/syt-nju"
 
 
 # Analytics
@@ -80,14 +81,14 @@ analytics:
 
 # Site Author
 author:
-  name             : "SocratesClub"
-  avatar           : "profile.png"
-  bio              : "Your biography for the left-hand sidebar"
-  location         : "Location"
+  name             : "Yuteng Shen"
+  avatar           :
+  bio              : "Final-year AI undergraduate focused on agent training, post-training, and reliable model systems."
+  location         : "Nanjing, China"
   employer         :
-  pubmed           : "https://www.ncbi.nlm.nih.gov/pubmed/?term=john+snow"
-  googlescholar    : "http://yourfullgooglescholarurl.com"
-  email            :
+  pubmed           :
+  googlescholar    :
+  email            : "nju221300094@163.com"
   researchgate     :  # example: "https://www.researchgate.net/profile/yourprofile"
   uri              :
   bitbucket        :
@@ -96,20 +97,20 @@ author:
   flickr           :
   facebook         :
   foursquare       :
-  github           : "socratesclub"
+  github           : "syt-nju"
   google_plus      :
   keybase          :
   instagram        :
   impactstory      : #"https://profiles.impactstory.org/u/xxxx-xxxx-xxxx-xxxx"
   lastfm           :
   linkedin         :
-  orcid            : "http://orcid.org/yourorcidurl"
+  orcid            :
   pinterest        :
   soundcloud       :
   stackoverflow    : # http://stackoverflow.com/users/123456/username
   steam            :
   tumblr           :
-  twitter          : "replacethistwitterhandle"
+  twitter          :
   vine             :
   weibo            :
   xing             :

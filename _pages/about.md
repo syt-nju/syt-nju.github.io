@@ -1,22 +1,48 @@
 ---
 permalink: /
-title: "academicpages is a ready-to-fork GitHub Pages template for academic personal websites"
-excerpt: "About me"
+title: "Yuteng Shen"
+excerpt: "AI undergraduate focused on LLM agents, RL, and practical AI systems."
 author_profile: true
-redirect_from: 
-  - /about/
-  - /about.html
 ---
 
- 
+I am a final-year undergraduate student in Artificial Intelligence at Nanjing University, interested in building reliable AI systems that connect model capability with real-world deployment.
 
-Welcome to the Socrates Lab! We are a small research team affiliated with the Computational Communication Collaboratory, School of Journalism and Communication, Nanjing University.
+I like widening the boundary of my understanding a little at a time, while focusing on work that can create real value in practice. My recent work has focused on agent training, post-training with reinforcement learning, and evaluation workflows for fast system iteration. I have interned as an algorithm engineer at Tencent and Huawei, where I worked on practical model behavior, training stability, and testing infrastructure.
 
-Github: https://github.com/socratesclub
+[Experience](/experience/) | [Projects](/projects/) | [Writing](/writing/) | [About](/about/) | [GitHub](https://github.com/syt-nju) | [Email](mailto:nju221300094@163.com)
 
-## People
-### Directer
-- Cheng-Jun Wang https://chengjun.github.io/
+## Focus
 
+- LLM agents and function calling
+- Reinforcement learning and post-training
+- Evaluation systems for reliable model iteration
+- Practical AI engineering with strong feedback loops
 
-🖋[Revise this page](https://github.com/SocratesGroup/socratesgroup.github.io/edit/master/_pages/about.md)
+## Selected Experience
+
+### Tencent, Algorithm Engineer Intern
+
+- Worked on a multi-intent financial function-calling component trained with multi-turn SFT and DAPO, and supported online financial traffic in production systems.
+- Built the interaction and testing workflow for a financial search agent based on Qwen3 30A3B, helping the system surpass DeepSeek V3.2 on FinSearchComp under the same business tool setting.
+- Reduced evaluation instability by standardizing tool environments, lowering judge variance, and iterating the judging prompt until score fluctuation dropped from 10% to 1%.
+- Received a return offer and continued working on production-facing model systems.
+
+### Huawei, Algorithm Engineer Intern
+
+- Improved an internal RL training framework by introducing DAPO and designing dynamic sampling for high-variance rewards.
+- Increased training stability without extra compute by prioritizing informative samples during optimization.
+
+## Selected Projects
+
+### myTorch
+
+A NumPy-based neural network framework that mimics parts of the PyTorch experience. It uses operator overloading to enter the computation graph, manages the graph lifecycle during backpropagation, and emphasizes reusable abstractions in the core design.
+
+### Open Source Fixes
+
+- Fixed a checkpoint-saving bug in the DAPO trainer of `verl` and contributed the patch upstream.
+- Identified and fixed a typing issue in the `GRPO` trainer of `TRL`.
+
+## Writing
+
+I regularly share technical notes and reflections on model training, agents, and engineering trade-offs. I also use this site as a place to collect selected long-form writing over time.
