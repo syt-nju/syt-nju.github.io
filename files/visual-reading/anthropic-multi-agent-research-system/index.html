@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>How we built our multi-agent research system · 教学可视化</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #FAF7F0;
+    --bg-surface: #FFFFFF;
+    --bg-dark: #1A1816;
+    --bg-dark-2: #252220;
+    --text: #1A1816;
+    --text-muted: #6B6660;
+    --text-invert: #F5F1E8;
+    --accent: #CC6A3D;
+    --accent-hover: #B85A30;
+    --accent-soft: #F4E3D7;
+    --accent-2: #3B6B5A;
+    --accent-2-soft: #DCE8E2;
+    --warn: #C4883F;
+    --warn-soft: #F7EBD6;
+    --border: #E8E0CC;
+    --border-dark: #3A3633;
+    --shadow-sm: 0 1px 2px rgba(26, 24, 22, 0.04);
+    --shadow-md: 0 4px 12px rgba(26, 24, 22, 0.06);
+    --shadow-lg: 0 12px 32px rgba(26, 24, 22, 0.10);
+    --radius: 10px;
+    --radius-lg: 16px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ---------- Layout ---------- */
+  .container { max-width: 1160px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- Top Bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(250, 247, 240, 0.85);
+    backdrop-filter: blur(12px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px; max-width: 1160px; margin: 0 auto;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 10px;
+    font-weight: 700; font-size: 15px; letter-spacing: -0.01em;
+  }
+  .brand-logo {
+    width: 26px; height: 26px; border-radius: 6px;
+    background: linear-gradient(135deg, var(--accent) 0%, #E89968 100%);
+    display: grid; place-items: center; color: white; font-size: 14px; font-weight: 800;
+  }
+  .topnav { display: flex; gap: 6px; }
+  .topnav a {
+    padding: 6px 12px; border-radius: 6px;
+    color: var(--text-muted); text-decoration: none;
+    font-size: 13px; font-weight: 500; transition: all 0.15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--accent-soft); }
+  .source-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12px; color: var(--text-muted); text-decoration: none;
+    padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border);
+    transition: all 0.15s;
+  }
+  .source-link:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 72px 0 56px; }
+  .eyebrow {
+    display: inline-block; font-size: 12px; font-weight: 600;
+    color: var(--accent); text-transform: uppercase; letter-spacing: 0.08em;
+    background: var(--accent-soft); padding: 5px 12px; border-radius: 100px;
+    margin-bottom: 20px;
+  }
+  h1 {
+    font-size: clamp(32px, 5vw, 48px); line-height: 1.15; letter-spacing: -0.025em;
+    font-weight: 800; margin-bottom: 20px;
+  }
+  .hero-sub {
+    font-size: 18px; color: var(--text-muted); max-width: 680px; line-height: 1.6;
+  }
+  .hero-meta {
+    display: flex; gap: 18px; margin-top: 28px; font-size: 13px; color: var(--text-muted);
+    flex-wrap: wrap;
+  }
+  .hero-meta span { display: inline-flex; align-items: center; gap: 6px; }
+  .hero-meta svg { width: 14px; height: 14px; stroke: currentColor; }
+
+  /* TL;DR card */
+  .tldr {
+    margin-top: 44px; background: var(--bg-dark); color: var(--text-invert);
+    border-radius: var(--radius-lg); padding: 32px 36px;
+    box-shadow: var(--shadow-lg);
+  }
+  .tldr-title {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 16px;
+  }
+  .tldr-text {
+    font-size: 18px; line-height: 1.7; color: var(--text-invert);
+    font-weight: 400;
+  }
+  .tldr-text b { color: #F7B98C; font-weight: 600; }
+
+  /* ---------- Metric strip ---------- */
+  .metrics {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    margin-top: 20px;
+  }
+  .metric {
+    background: var(--bg-dark-2); border-radius: 12px; padding: 20px;
+    border: 1px solid var(--border-dark);
+  }
+  .metric-value {
+    font-size: 32px; font-weight: 800; letter-spacing: -0.02em;
+    color: #F7B98C; line-height: 1;
+  }
+  .metric-label {
+    font-size: 12px; color: #B3AB9F; margin-top: 8px; line-height: 1.4;
+  }
+
+  /* ---------- Section ---------- */
+  section.block { padding: 64px 0; border-top: 1px solid var(--border); }
+  .section-head { margin-bottom: 40px; max-width: 780px; }
+  .section-num {
+    display: inline-block; font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--accent); font-weight: 600;
+    background: var(--accent-soft); padding: 4px 10px; border-radius: 100px;
+    margin-bottom: 14px;
+  }
+  h2 {
+    font-size: clamp(24px, 3.2vw, 32px); font-weight: 700; letter-spacing: -0.02em;
+    margin-bottom: 12px; line-height: 1.2;
+  }
+  .section-sub { color: var(--text-muted); font-size: 16px; line-height: 1.65; }
+
+  /* ---------- Benefit / Tradeoff ---------- */
+  .two-col {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  }
+  .panel {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 28px;
+    box-shadow: var(--shadow-sm);
+  }
+  .panel-title {
+    display: flex; align-items: center; gap: 10px;
+    font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 16px;
+  }
+  .panel.good .panel-title { color: var(--accent-2); }
+  .panel.bad .panel-title { color: var(--accent); }
+  .panel-title .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .panel ul { list-style: none; }
+  .panel li {
+    padding: 10px 0; border-bottom: 1px dashed var(--border);
+    display: flex; gap: 12px; font-size: 14.5px; line-height: 1.55;
+  }
+  .panel li:last-child { border-bottom: none; }
+  .panel li::before {
+    content: ''; flex-shrink: 0; width: 18px; height: 18px; margin-top: 3px;
+    border-radius: 4px;
+  }
+  .panel.good li::before { background: var(--accent-2-soft);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%233B6B5A'><path d='M6.5 10.5L3.5 7.5L4.5 6.5L6.5 8.5L11.5 3.5L12.5 4.5Z'/></svg>");
+    background-size: contain;
+  }
+  .panel.bad li::before { background: var(--accent-soft);
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='%23CC6A3D'><path d='M8 2a6 6 0 100 12A6 6 0 008 2zm0 9a.9.9 0 110 1.8.9.9 0 010-1.8zm-.8-5.5h1.6l-.2 4.5H7.4l-.2-4.5z'/></svg>");
+    background-size: contain;
+  }
+
+  /* ---------- Architecture Diagram ---------- */
+  .arch-wrap {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 28px;
+    box-shadow: var(--shadow-md);
+  }
+  .arch-controls {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 16px; border-radius: 8px; border: none; cursor: pointer;
+    font-family: inherit; font-size: 13.5px; font-weight: 600;
+    transition: all 0.15s;
+  }
+  .btn-primary { background: var(--accent); color: white; }
+  .btn-primary:hover { background: var(--accent-hover); }
+  .btn-ghost { background: transparent; color: var(--text-muted); border: 1px solid var(--border); }
+  .btn-ghost:hover { border-color: var(--text-muted); color: var(--text); }
+  .step-indicator {
+    flex: 1; display: flex; gap: 4px; align-items: center;
+    font-size: 12px; color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .step-dots { display: flex; gap: 4px; margin-left: 8px; }
+  .step-dot {
+    width: 18px; height: 4px; border-radius: 2px;
+    background: var(--border); transition: background 0.3s;
+  }
+  .step-dot.active { background: var(--accent); }
+  .step-dot.done { background: var(--accent-2); }
+
+  .arch-canvas {
+    position: relative; height: 520px; background: #FDFBF5;
+    border-radius: 12px; border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .arch-canvas svg.arch-bg {
+    position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
+  }
+  .node {
+    position: absolute; background: white; border: 2px solid var(--border);
+    border-radius: 12px; padding: 12px 16px; min-width: 120px;
+    box-shadow: var(--shadow-sm);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    z-index: 2;
+  }
+  .node.active {
+    border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft), var(--shadow-md);
+    transform: translate(-50%, -50%) scale(1.05);
+  }
+  .node.done { border-color: var(--accent-2); background: var(--accent-2-soft); }
+  .node-icon { font-size: 22px; }
+  .node-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  .node-sub { font-size: 10.5px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+
+  .node.user { left: 8%; top: 50%; transform: translate(-50%, -50%); }
+  .node.lead { left: 30%; top: 50%; transform: translate(-50%, -50%); min-width: 140px; }
+  .node.memory { left: 30%; top: 17%; transform: translate(-50%, -50%); }
+  .node.sub1 { left: 58%; top: 22%; transform: translate(-50%, -50%); }
+  .node.sub2 { left: 58%; top: 50%; transform: translate(-50%, -50%); }
+  .node.sub3 { left: 58%; top: 78%; transform: translate(-50%, -50%); }
+  .node.citation { left: 82%; top: 32%; transform: translate(-50%, -50%); }
+  .node.output { left: 82%; top: 72%; transform: translate(-50%, -50%); }
+
+  .node.active.lead, .node.done.lead { transform: translate(-50%, -50%) scale(1.05); }
+  .node.active.memory, .node.done.memory { transform: translate(-50%, -50%) scale(1.05); }
+  .node.active.sub1, .node.done.sub1 { transform: translate(-50%, -50%) scale(1.05); }
+  .node.active.sub2, .node.done.sub2 { transform: translate(-50%, -50%) scale(1.05); }
+  .node.active.sub3, .node.done.sub3 { transform: translate(-50%, -50%) scale(1.05); }
+  .node.active.citation, .node.done.citation { transform: translate(-50%, -50%) scale(1.05); }
+  .node.active.output, .node.done.output { transform: translate(-50%, -50%) scale(1.05); }
+  .node.active.user, .node.done.user { transform: translate(-50%, -50%) scale(1.05); }
+
+  .edge {
+    stroke: #CFC5B0; stroke-width: 2; fill: none; stroke-linecap: round;
+    transition: stroke 0.3s;
+  }
+  .edge.active { stroke: var(--accent); stroke-width: 2.5; }
+  .edge.done { stroke: var(--accent-2); stroke-width: 2.5; }
+
+  .packet {
+    fill: var(--accent); r: 6;
+    filter: drop-shadow(0 0 6px rgba(204, 106, 61, 0.6));
+  }
+
+  .arch-log {
+    margin-top: 16px; background: var(--bg-dark); color: var(--text-invert);
+    border-radius: 10px; padding: 16px 20px; font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; min-height: 80px; line-height: 1.6;
+  }
+  .log-prompt { color: #8DB5A4; font-weight: 600; }
+  .log-body { color: var(--text-invert); }
+  .log-note { color: #B3AB9F; font-size: 12px; display: block; margin-top: 6px; }
+
+  /* ---------- Principles Grid ---------- */
+  .principles {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;
+  }
+  .principle {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 22px;
+    cursor: pointer; transition: all 0.2s;
+    box-shadow: var(--shadow-sm);
+  }
+  .principle:hover { border-color: var(--accent); box-shadow: var(--shadow-md); transform: translateY(-2px); }
+  .principle-head {
+    display: flex; align-items: flex-start; gap: 14px;
+  }
+  .principle-num {
+    flex-shrink: 0; width: 32px; height: 32px; border-radius: 8px;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; font-weight: 700; font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .principle-title { font-size: 16px; font-weight: 700; line-height: 1.35; margin-bottom: 4px; }
+  .principle-hint { font-size: 13px; color: var(--text-muted); }
+  .principle-body {
+    max-height: 0; overflow: hidden; transition: max-height 0.35s ease, margin-top 0.3s;
+    font-size: 14px; line-height: 1.65;
+  }
+  .principle.open .principle-body { max-height: 480px; margin-top: 16px; }
+  .principle-example {
+    background: var(--bg); border-left: 3px solid var(--accent);
+    padding: 12px 14px; border-radius: 0 8px 8px 0;
+    margin-top: 10px; font-size: 13.5px; color: var(--text);
+  }
+  .principle-example b { color: var(--accent); }
+
+  /* ---------- Eval Triangle ---------- */
+  .eval-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+  }
+  .eval-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 24px; position: relative;
+    box-shadow: var(--shadow-sm);
+  }
+  .eval-icon {
+    width: 44px; height: 44px; border-radius: 10px;
+    display: grid; place-items: center; font-size: 22px;
+    background: var(--accent-soft); margin-bottom: 14px;
+  }
+  .eval-card h3 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+  .eval-card .tagline { font-size: 13px; color: var(--text-muted); margin-bottom: 14px; }
+  .eval-card ul { list-style: none; font-size: 14px; }
+  .eval-card li {
+    padding: 6px 0; color: var(--text);
+    padding-left: 18px; position: relative; line-height: 1.55;
+  }
+  .eval-card li::before {
+    content: '→'; position: absolute; left: 0; color: var(--accent); font-weight: 700;
+  }
+
+  /* ---------- Production Challenges ---------- */
+  .challenges {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;
+  }
+  .challenge {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 24px;
+    box-shadow: var(--shadow-sm);
+  }
+  .challenge-icon {
+    display: inline-grid; place-items: center;
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--warn-soft); color: var(--warn);
+    margin-bottom: 12px; font-size: 18px;
+  }
+  .challenge h3 { font-size: 16px; margin-bottom: 8px; }
+  .challenge p { font-size: 14px; color: var(--text-muted); line-height: 1.6; }
+  .challenge .solve {
+    margin-top: 12px; font-size: 13px; padding: 10px 12px;
+    background: var(--accent-2-soft); color: var(--accent-2);
+    border-radius: 6px; font-weight: 500;
+  }
+  .challenge .solve b { font-weight: 700; }
+
+  /* ---------- Decision Framework ---------- */
+  .decision {
+    background: var(--bg-dark); color: var(--text-invert);
+    border-radius: var(--radius-lg); padding: 36px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 40px;
+  }
+  .decision h3 {
+    font-size: 18px; margin-bottom: 16px;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .decision ul { list-style: none; }
+  .decision li {
+    padding: 10px 0; border-bottom: 1px solid var(--border-dark);
+    font-size: 14.5px; line-height: 1.6; color: #D8D2C3;
+  }
+  .decision li:last-child { border-bottom: none; }
+  .decision .yes h3 { color: #8DB5A4; }
+  .decision .no h3 { color: #E89968; }
+
+  /* ---------- Appendix tips ---------- */
+  .tips {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  }
+  .tip {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 22px;
+  }
+  .tip-label {
+    display: inline-block; font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--accent); text-transform: uppercase;
+    letter-spacing: 0.05em; margin-bottom: 10px;
+  }
+  .tip h4 { font-size: 15px; margin-bottom: 10px; line-height: 1.4; }
+  .tip p { font-size: 13.5px; color: var(--text-muted); line-height: 1.6; }
+
+  /* ---------- Footer ---------- */
+  footer {
+    padding: 48px 0 64px; border-top: 1px solid var(--border);
+    color: var(--text-muted); font-size: 13px; text-align: center;
+    margin-top: 48px;
+  }
+  footer a { color: var(--accent); text-decoration: none; }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 880px) {
+    .topnav { display: none; }
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .two-col, .principles, .challenges, .decision { grid-template-columns: 1fr; }
+    .eval-grid, .tips { grid-template-columns: 1fr; }
+    .arch-canvas { height: 640px; }
+    .node.user { left: 50%; top: 6%; }
+    .node.lead { left: 50%; top: 22%; }
+    .node.memory { left: 15%; top: 22%; }
+    .node.sub1 { left: 22%; top: 50%; }
+    .node.sub2 { left: 50%; top: 50%; }
+    .node.sub3 { left: 78%; top: 50%; }
+    .node.citation { left: 30%; top: 78%; }
+    .node.output { left: 70%; top: 78%; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ========== TOP BAR ========== -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-logo">A</div>
+      <span>Multi-Agent Research System · 教学可视化</span>
+    </div>
+    <nav class="topnav">
+      <a href="#why">为什么</a>
+      <a href="#arch">架构</a>
+      <a href="#prompts">Prompt 原则</a>
+      <a href="#eval">评估</a>
+      <a href="#prod">生产</a>
+      <a href="#decision">何时使用</a>
+    </nav>
+    <a class="source-link" href="https://www.anthropic.com/engineering/multi-agent-research-system" target="_blank" rel="noopener">
+      原文 ↗
+    </a>
+  </div>
+</div>
+
+<!-- ========== HERO ========== -->
+<div class="container">
+  <section class="hero">
+    <span class="eyebrow">Engineering at Anthropic · 2025-06-13</span>
+    <h1>我们如何构建多智能体研究系统</h1>
+    <p class="hero-sub">
+      一个由 Lead Agent 协调、多个 Subagent 并行搜索的系统，如何从原型走向生产？
+      本页把原文的工程教训浓缩为可交互的可视化学习路径。
+    </p>
+    <div class="hero-meta">
+      <span>✍️ Jeremy Hadfield, Barry Zhang, 等</span>
+      <span>⏱ 预计学习 8 分钟</span>
+      <span>🎯 为 LLM 应用工程师而写</span>
+    </div>
+
+    <!-- TL;DR -->
+    <div class="tldr">
+      <div class="tldr-title">TL;DR · 30 秒读懂</div>
+      <p class="tldr-text">
+        多智能体系统通过<b>分发 token 到并行上下文</b>来扩展模型能力，
+        在广度优先的研究任务上比单 Agent 高 <b>90.2%</b>，但也烧掉 <b>15× 的 tokens</b>。
+        成败关键不在模型，而在 <b>Prompt 工程、工具设计、可观测性</b> 三件事。
+        生产化的难点是：<b>错误会级联、Agent 有状态、调试是非确定性的</b>。
+      </p>
+      <div class="metrics">
+        <div class="metric">
+          <div class="metric-value">+90.2%</div>
+          <div class="metric-label">多智能体 vs 单 Opus 4 在内部 research eval 上的性能提升</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">15×</div>
+          <div class="metric-label">相比普通 chat 的 token 消耗（chat 本身已是 4× ）</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">80%</div>
+          <div class="metric-label">BrowseComp 性能方差可以仅用 token 用量解释</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">−90%</div>
+          <div class="metric-label">引入并行工具调用后，复杂查询的研究时间下降</div>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<!-- ========== WHY ========== -->
+<section id="why" class="block">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">01 / WHY</span>
+      <h2>为什么是"多智能体"，而不是一个更大的 Agent？</h2>
+      <p class="section-sub">
+        研究类任务是 <b>开放式、路径依赖、不可预测</b> 的 —— 你无法硬编码一条固定的探索路径。
+        多智能体的本质优势是：<b>用并行的独立上下文，把"搜索即压缩"这件事做到极致</b>。
+      </p>
+    </div>
+
+    <div class="two-col">
+      <div class="panel good">
+        <div class="panel-title"><span class="dot"></span>适合：并行 · 大上下文 · 高价值</div>
+        <ul>
+          <li>广度优先的查询（同时追多个独立方向）</li>
+          <li>信息量超过单个 context window 的任务</li>
+          <li>需要使用大量复杂工具的场景</li>
+          <li>任务价值足够高，能覆盖 15× 的 token 成本</li>
+          <li>Subagent 之间解耦：不同工具、不同 prompt、不同探索轨迹</li>
+        </ul>
+      </div>
+      <div class="panel bad">
+        <div class="panel-title"><span class="dot"></span>不适合：共享上下文 · 强依赖</div>
+        <ul>
+          <li>所有 agent 必须共享同一份 context 的任务</li>
+          <li>agent 之间存在大量实时依赖与协调</li>
+          <li>大部分编码任务（可并行部分少，且 LLM 实时协调能力弱）</li>
+          <li>价值低、对延迟敏感、对成本敏感的任务</li>
+          <li>本质上是线性流水线的问题</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== ARCHITECTURE ========== -->
+<section id="arch" class="block">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">02 / ARCHITECTURE</span>
+      <h2>Orchestrator-Worker 架构：一次查询的完整旅程</h2>
+      <p class="section-sub">
+        点击「播放」按钮，看一次用户查询如何流经 LeadResearcher → 并行 Subagents → CitationAgent。
+        注意 <b>Memory 模块</b>：当上下文超过 200K tokens 会被截断，所以计划要持久化。
+      </p>
+    </div>
+
+    <div class="arch-wrap">
+      <div class="arch-controls">
+        <button id="playBtn" class="btn btn-primary">▶ 播放流程</button>
+        <button id="resetBtn" class="btn btn-ghost">⟲ 重置</button>
+        <div class="step-indicator">
+          <span id="stepLabel">步骤 0 / 8</span>
+          <div class="step-dots" id="stepDots"></div>
+        </div>
+      </div>
+
+      <div class="arch-canvas" id="archCanvas">
+        <svg class="arch-bg" id="archSvg" viewBox="0 0 1000 520" preserveAspectRatio="none">
+          <!-- User -> Lead -->
+          <path id="e1" class="edge" d="M 80 260 L 300 260" />
+          <!-- Lead -> Memory -->
+          <path id="e2" class="edge" d="M 300 245 L 300 100" marker-end="url(#arrow)" />
+          <!-- Lead -> Sub1/2/3 -->
+          <path id="e3" class="edge" d="M 300 240 Q 450 140 580 115" />
+          <path id="e4" class="edge" d="M 300 260 L 580 260" />
+          <path id="e5" class="edge" d="M 300 280 Q 450 380 580 405" />
+          <!-- Sub1/2/3 -> Lead (return) -->
+          <path id="e6" class="edge" d="M 580 130 Q 450 155 300 250" stroke-dasharray="4 4" />
+          <path id="e7" class="edge" d="M 580 275 L 300 275" stroke-dasharray="4 4" />
+          <path id="e8" class="edge" d="M 580 395 Q 450 365 300 290" stroke-dasharray="4 4" />
+          <!-- Lead -> Citation -->
+          <path id="e9" class="edge" d="M 320 240 Q 600 200 820 170" />
+          <!-- Citation -> Output -->
+          <path id="e10" class="edge" d="M 820 190 L 820 370" />
+
+          <defs>
+            <marker id="arrow" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#CFC5B0" />
+            </marker>
+          </defs>
+
+          <!-- Animated packet -->
+          <circle id="packet" class="packet" cx="-100" cy="-100" r="6" style="opacity:0" />
+        </svg>
+
+        <div class="node user" id="n-user">
+          <div class="node-icon">👤</div>
+          <div class="node-title">User</div>
+          <div class="node-sub">query</div>
+        </div>
+        <div class="node lead" id="n-lead">
+          <div class="node-icon">🧠</div>
+          <div class="node-title">LeadResearcher</div>
+          <div class="node-sub">Claude Opus 4</div>
+        </div>
+        <div class="node memory" id="n-memory">
+          <div class="node-icon">💾</div>
+          <div class="node-title">Memory</div>
+          <div class="node-sub">保存 plan</div>
+        </div>
+        <div class="node sub1" id="n-sub1">
+          <div class="node-icon">🔍</div>
+          <div class="node-title">Subagent 1</div>
+          <div class="node-sub">Sonnet 4</div>
+        </div>
+        <div class="node sub2" id="n-sub2">
+          <div class="node-icon">🔍</div>
+          <div class="node-title">Subagent 2</div>
+          <div class="node-sub">Sonnet 4</div>
+        </div>
+        <div class="node sub3" id="n-sub3">
+          <div class="node-icon">🔍</div>
+          <div class="node-title">Subagent 3</div>
+          <div class="node-sub">Sonnet 4</div>
+        </div>
+        <div class="node citation" id="n-citation">
+          <div class="node-icon">📎</div>
+          <div class="node-title">CitationAgent</div>
+          <div class="node-sub">引用校对</div>
+        </div>
+        <div class="node output" id="n-output">
+          <div class="node-icon">📄</div>
+          <div class="node-title">Final Report</div>
+          <div class="node-sub">→ User</div>
+        </div>
+      </div>
+
+      <div class="arch-log" id="archLog">
+        <div class="log-prompt">$ ready</div>
+        <div class="log-body">点击「播放流程」查看 Agent 间的消息流转。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== PROMPTS ========== -->
+<section id="prompts" class="block">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">03 / PROMPT ENGINEERING</span>
+      <h2>八条 Prompt 工程原则（点击展开看例子）</h2>
+      <p class="section-sub">
+        Prompt 是控制 Agent 行为的主要杠杆。这些原则是 Anthropic 从真实失败模式中提炼出来的 ——
+        不是规则，而是 <b>启发式（heuristics）</b>。
+      </p>
+    </div>
+
+    <div class="principles" id="principles"></div>
+  </div>
+</section>
+
+<!-- ========== EVALUATION ========== -->
+<section id="eval" class="block">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">04 / EVALUATION</span>
+      <h2>三层评估策略：小样本 + LLM-as-Judge + 人工</h2>
+      <p class="section-sub">
+        多智能体的输出是非确定性的 —— 同一个 query，不同路径都可能是"对的"。
+        所以评估的重点是 <b>"结果是否正确 + 过程是否合理"</b>，而不是复核每一步。
+      </p>
+    </div>
+
+    <div class="eval-grid">
+      <div class="eval-card">
+        <div class="eval-icon">⚡️</div>
+        <h3>立刻开始，小样本</h3>
+        <p class="tagline">20 条用例 &gt; 0 条完美用例</p>
+        <ul>
+          <li>早期改动效应大（命中率 30% → 80% 很常见）</li>
+          <li>20 个真实 query 就够看出 prompt 改动的影响</li>
+          <li>别等"完整评测集"再开始，否则永远开始不了</li>
+        </ul>
+      </div>
+      <div class="eval-card">
+        <div class="eval-icon">⚖️</div>
+        <h3>LLM-as-Judge</h3>
+        <p class="tagline">一个 prompt，五项 rubric，0.0–1.0 打分</p>
+        <ul>
+          <li>事实准确性：claim 是否匹配 source</li>
+          <li>引用准确性：source 是否真的支持 claim</li>
+          <li>完整性：是否覆盖所有要点</li>
+          <li>来源质量：优先用一手资料</li>
+          <li>工具效率：是否用了合适工具合适次数</li>
+        </ul>
+      </div>
+      <div class="eval-card">
+        <div class="eval-icon">👀</div>
+        <h3>人工评测兜底</h3>
+        <p class="tagline">自动化永远抓不到的边界情况</p>
+        <ul>
+          <li>小众 query 上的幻觉</li>
+          <li>系统级的偶发失败</li>
+          <li>微妙的来源选择偏差</li>
+          <li>真实案例：早期 Agent 偏爱 SEO 内容农场，冷落学术 PDF</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== PRODUCTION ========== -->
+<section id="prod" class="block">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">05 / PRODUCTION</span>
+      <h2>从原型到生产：四个你一定会撞到的坑</h2>
+      <p class="section-sub">
+        传统软件里 bug 只会坏一个功能；Agentic 系统里，<b>小变动会级联成大行为差异</b>。
+      </p>
+    </div>
+
+    <div class="challenges">
+      <div class="challenge">
+        <div class="challenge-icon">🔁</div>
+        <h3>Agent 有状态，错误会复合</h3>
+        <p>长时间运行，跨多次工具调用维护状态。一个小故障被后续步骤放大，重启代价巨大。</p>
+        <div class="solve">
+          <b>方案 →</b> 支持"从断点恢复"的执行；让 Agent 感知工具失败并自适应；组合 AI 的灵活与确定性的重试/检查点。
+        </div>
+      </div>
+      <div class="challenge">
+        <div class="challenge-icon">🔬</div>
+        <h3>调试是非确定性的</h3>
+        <p>相同 prompt 两次运行轨迹不同。用户说"找不到明显信息"，但你看不出哪一步错了。</p>
+        <div class="solve">
+          <b>方案 →</b> 全链路追踪（tracing）+ 模式级观测（监控决策模式与交互结构，而非对话内容，保护隐私）。
+        </div>
+      </div>
+      <div class="challenge">
+        <div class="challenge-icon">🚀</div>
+        <h3>部署会打断在跑的 Agent</h3>
+        <p>Agent 是长生命周期状态机，部署时它可能正停在任意步骤。直接替换版本 = 在跑的任务报废。</p>
+        <div class="solve">
+          <b>方案 →</b> 彩虹部署（rainbow deployment）：新旧版本并存，流量逐步迁移，让在跑的 Agent 跑完在旧版。
+        </div>
+      </div>
+      <div class="challenge">
+        <div class="challenge-icon">⏳</div>
+        <h3>同步执行成为瓶颈</h3>
+        <p>目前 Lead 同步等待所有 Subagent 完成。一个慢的 Subagent 拖住全局；Lead 无法实时引导 Subagent。</p>
+        <div class="solve">
+          <b>方案 →</b> 异步执行是下一步，但引入结果协调/状态一致/错误传播的新复杂度 —— 目前还在权衡。
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== DECISION FRAMEWORK ========== -->
+<section id="decision" class="block">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">06 / WHEN TO USE</span>
+      <h2>在你自己的项目里，该不该上多智能体？</h2>
+      <p class="section-sub">一页决策框：先问清楚三个问题，再决定架构。</p>
+    </div>
+
+    <div class="decision">
+      <div class="yes">
+        <h3>✓ 这些情况，值得上</h3>
+        <ul>
+          <li><b>任务是广度优先的</b> —— 同时追多条独立线索（例：列出 S&P 500 IT 公司所有董事会成员）</li>
+          <li><b>单上下文装不下</b> —— 需要把搜索工作"压缩"后再返回</li>
+          <li><b>任务价值 &gt;&gt; 15× token 成本</b> —— 研究、合规、尽调、医疗等</li>
+          <li><b>子任务之间解耦</b> —— 不同工具、不同 prompt、不同轨迹互不干扰</li>
+          <li><b>复杂工具集</b> —— 多个 MCP / 外部工具需要专门 Subagent 来驾驭</li>
+        </ul>
+      </div>
+      <div class="no">
+        <h3>✗ 这些情况，别硬上</h3>
+        <ul>
+          <li><b>强共享上下文</b> —— 编码任务里所有改动都要看到彼此</li>
+          <li><b>实时依赖密集</b> —— Agent A 的输出是 B 的实时前置</li>
+          <li><b>任务价值低 / 延迟敏感</b> —— 聊天机器人、简单问答</li>
+          <li><b>本质是线性流水线</b> —— 没有真正可以并行的子问题</li>
+          <li><b>团队还没建起可观测性</b> —— 没 tracing 就上多 Agent，等同于盲飞</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== APPENDIX TIPS ========== -->
+<section class="block">
+  <div class="container">
+    <div class="section-head">
+      <span class="section-num">07 / APPENDIX</span>
+      <h2>三条来自附录的额外 tip</h2>
+      <p class="section-sub">很容易被忽略但极有用的工程技巧。</p>
+    </div>
+
+    <div class="tips">
+      <div class="tip">
+        <span class="tip-label">Evaluation</span>
+        <h4>End-state 评估</h4>
+        <p>对于会修改持久状态的 Agent，别去逐轮校验每一步决策 —— 那是徒劳。检查它<b>最终达到的状态</b>是否正确。复杂流程就拆成若干离散 checkpoint。</p>
+      </div>
+      <div class="tip">
+        <span class="tip-label">Memory</span>
+        <h4>长对话的 context 管理</h4>
+        <p>上百轮对话时标准 context window 不够。让 Agent <b>总结阶段性工作写入外部 memory</b>，逼近上限时用干净 context 启动新 Subagent 承接工作，实现"分布式"的对话连续性。</p>
+      </div>
+      <div class="tip">
+        <span class="tip-label">I/O</span>
+        <h4>Subagent 直接写文件系统</h4>
+        <p>不要让所有结果都经由 Lead 转交 —— 那是"传话游戏"，信息会损耗。让 Subagent <b>把结构化产出写到外部存储</b>，只把引用传回 Lead，对代码/报告/数据尤其有效。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== FOOTER ========== -->
+<footer>
+  <div class="container">
+    <p>
+      原文：<a href="https://www.anthropic.com/engineering/multi-agent-research-system" target="_blank" rel="noopener">How we built our multi-agent research system · Anthropic Engineering</a>
+    </p>
+    <p style="margin-top: 8px; font-size: 12px;">本页为学习用途的可视化改编，所有数据与观点来源于原文。</p>
+  </div>
+</footer>
+
+<script>
+  /* ============ Principles data ============ */
+  const principles = [
+    {
+      title: "像 Agent 一样思考",
+      hint: "Think like your agents.",
+      body: "要调 prompt，先要理解 prompt 的效果。用 Console 把真实 prompt + 工具搭成 simulator，<b>逐步观察 Agent 的行为</b>。",
+      example: "真实失败模式：已经拿到足够结果还继续搜；查询语句过于啰嗦；选错工具。建立准确的 mental model 后，最有价值的改动就会变得显而易见。"
+    },
+    {
+      title: "教会 Orchestrator 如何委派",
+      hint: "Teach the orchestrator how to delegate.",
+      body: "Lead Agent 必须给 Subagent 提供：<b>objective、输出格式、可用工具与资源、清晰的任务边界</b>。",
+      example: "反例：Lead 只说 'research the semiconductor shortage'。结果 1 个 Subagent 查 2021 汽车芯片危机，另外 2 个重复查 2025 年供应链 —— 没有分工。"
+    },
+    {
+      title: "把「努力程度」按复杂度 scale",
+      hint: "Scale effort to query complexity.",
+      body: "Agent 不会自己判断该花多少精力。必须在 prompt 里<b>显式写出 scaling 规则</b>。",
+      example: "简单事实：1 个 Agent + 3–10 次工具调用；直接对比：2–4 个 Subagent + 每个 10–15 次；复杂研究：&gt;10 个 Subagent，职责明确分工。"
+    },
+    {
+      title: "工具设计与选择是生死攸关",
+      hint: "Tool design and selection are critical.",
+      body: "Agent-工具接口之于 Agent，就像 UI 之于人。<b>工具描述写得烂，Agent 会整个走错路。</b>",
+      example: "实战技巧：先看全工具清单、按用户意图匹配工具、广度搜索用 web、优先选专用工具而非通用工具。每个工具应有独立目的与清晰描述。"
+    },
+    {
+      title: "让 Agent 自我改进",
+      hint: "Let agents improve themselves.",
+      body: "Claude 4 可以做优秀的 prompt engineer —— 给它一个失败模式，它能诊断原因并给出改进。",
+      example: "他们做了个 tool-testing agent：给它一个坑爹的 MCP 工具，它反复用几十次、改写工具描述。结果：下游 Agent 的任务完成时间<b>下降 40%</b>。"
+    },
+    {
+      title: "先广后深",
+      hint: "Start wide, then narrow down.",
+      body: "Agent 的默认倾向是用过长、过具体的 query —— 然后什么都搜不到。",
+      example: "模仿专家行为：先短 + 宽的 query → 评估可得资源 → 再逐步收窄焦点。这和人类研究员的策略是一致的。"
+    },
+    {
+      title: "引导思考过程",
+      hint: "Guide the thinking process.",
+      body: "Extended thinking 是可控的 scratchpad。Lead 用它规划策略、Subagent 用 interleaved thinking 评估工具结果。",
+      example: "Lead 的思考内容：哪个工具合适、query 有多复杂、需要几个 Subagent、每个 Subagent 干什么。实测：instruction-following 和推理效率都有提升。"
+    },
+    {
+      title: "并行工具调用是效率倍增器",
+      hint: "Parallel tool calling transforms speed.",
+      body: "串行搜索慢得令人绝望。引入两级并行：<b>Lead 同时启动 3–5 个 Subagent；Subagent 同时调用 3+ 个工具。</b>",
+      example: "效果：复杂 query 的研究时间<b>下降最多 90%</b> —— 原本几小时变几分钟，覆盖的信息量还更大。"
+    }
+  ];
+
+  const principlesEl = document.getElementById('principles');
+  principles.forEach((p, i) => {
+    const el = document.createElement('div');
+    el.className = 'principle';
+    el.innerHTML = `
+      <div class="principle-head">
+        <div class="principle-num">${String(i + 1).padStart(2, '0')}</div>
+        <div>
+          <div class="principle-title">${p.title}</div>
+          <div class="principle-hint">${p.hint}</div>
+        </div>
+      </div>
+      <div class="principle-body">
+        <p>${p.body}</p>
+        <div class="principle-example"><b>💡 例子 ·</b> ${p.example}</div>
+      </div>
+    `;
+    el.addEventListener('click', () => el.classList.toggle('open'));
+    principlesEl.appendChild(el);
+  });
+
+  /* ============ Architecture animation ============ */
+  const steps = [
+    {
+      active: ['user', 'lead'], edge: 'e1',
+      log: { prompt: '[1] User → LeadResearcher', body: '用户提交 query：在 2025 年识别出 AI agent 相关公司' }
+    },
+    {
+      active: ['lead', 'memory'], edge: 'e2',
+      log: { prompt: '[2] LeadResearcher → Memory', body: '分析意图 · 制定策略 · 把 plan 持久化', note: '避免超过 200K tokens 后计划丢失' }
+    },
+    {
+      active: ['lead', 'sub1', 'sub2', 'sub3'], edge: ['e3', 'e4', 'e5'], parallel: true,
+      log: { prompt: '[3] LeadResearcher → 3 × Subagent (parallel)', body: '创建 Subagent，各自带独立 context 与工具', note: '每个 Subagent 收到 objective + 输出格式 + 工具范围 + 任务边界' }
+    },
+    {
+      active: ['sub1', 'sub2', 'sub3'], pulse: true,
+      log: { prompt: '[4] Subagents · parallel web search', body: '各自调用 3+ 个工具并行搜索，用 interleaved thinking 评估结果', note: '核心加速点：串行变并行，研究时间 −90%' }
+    },
+    {
+      active: ['sub1', 'sub2', 'sub3', 'lead'], edge: ['e6', 'e7', 'e8'], parallel: true,
+      log: { prompt: '[5] Subagents → LeadResearcher', body: '把压缩后的发现返回 Lead 汇总' }
+    },
+    {
+      active: ['lead'], pulse: true,
+      log: { prompt: '[6] LeadResearcher · synthesize', body: '综合结果，判断是否还需要更多 research · 不够则再派新 Subagent', note: '迭代循环：大部分复杂 query 会经历多轮' }
+    },
+    {
+      active: ['lead', 'citation'], edge: 'e9',
+      log: { prompt: '[7] LeadResearcher → CitationAgent', body: '把报告和原始文档交给 CitationAgent，定位每条 claim 的来源' }
+    },
+    {
+      active: ['citation', 'output'], edge: 'e10',
+      log: { prompt: '[8] CitationAgent → Final Report', body: '输出带准确引用的最终报告，返回给用户', note: '完整闭环：所有 claim 都可溯源' }
+    }
+  ];
+
+  const nodeIds = ['user', 'lead', 'memory', 'sub1', 'sub2', 'sub3', 'citation', 'output'];
+  const allEdges = ['e1', 'e2', 'e3', 'e4', 'e5', 'e6', 'e7', 'e8', 'e9', 'e10'];
+
+  const stepLabel = document.getElementById('stepLabel');
+  const stepDots = document.getElementById('stepDots');
+  const logEl = document.getElementById('archLog');
+
+  steps.forEach((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'step-dot';
+    stepDots.appendChild(d);
+  });
+
+  let current = -1;
+  let playing = false;
+  let timer = null;
+
+  function resetAll() {
+    nodeIds.forEach(id => {
+      const n = document.getElementById('n-' + id);
+      n.classList.remove('active', 'done');
+    });
+    allEdges.forEach(id => {
+      const e = document.getElementById(id);
+      e.classList.remove('active', 'done');
+    });
+    [...stepDots.children].forEach(d => d.classList.remove('active', 'done'));
+    current = -1;
+    stepLabel.textContent = '步骤 0 / ' + steps.length;
+    logEl.innerHTML = '<div class="log-prompt">$ ready</div><div class="log-body">点击「播放流程」查看 Agent 间的消息流转。</div>';
+  }
+
+  function markStep(i) {
+    // Mark previous as done
+    for (let k = 0; k < i; k++) {
+      steps[k].active.forEach(id => {
+        const n = document.getElementById('n-' + id);
+        n.classList.remove('active');
+        n.classList.add('done');
+      });
+      const edges = Array.isArray(steps[k].edge) ? steps[k].edge : (steps[k].edge ? [steps[k].edge] : []);
+      edges.forEach(eid => {
+        const e = document.getElementById(eid);
+        e.classList.remove('active');
+        e.classList.add('done');
+      });
+      stepDots.children[k].classList.remove('active');
+      stepDots.children[k].classList.add('done');
+    }
+
+    // Clear any future steps' state
+    for (let k = i + 1; k < steps.length; k++) {
+      stepDots.children[k].classList.remove('active', 'done');
+    }
+
+    // Activate current
+    const s = steps[i];
+    s.active.forEach(id => {
+      const n = document.getElementById('n-' + id);
+      n.classList.add('active');
+    });
+    const edges = Array.isArray(s.edge) ? s.edge : (s.edge ? [s.edge] : []);
+    edges.forEach(eid => {
+      const e = document.getElementById(eid);
+      e.classList.add('active');
+    });
+    stepDots.children[i].classList.add('active');
+
+    stepLabel.textContent = `步骤 ${i + 1} / ${steps.length}`;
+    logEl.innerHTML = `
+      <div class="log-prompt">${s.log.prompt}</div>
+      <div class="log-body">${s.log.body}</div>
+      ${s.log.note ? `<span class="log-note">// ${s.log.note}</span>` : ''}
+    `;
+  }
+
+  function next() {
+    current++;
+    if (current >= steps.length) {
+      // Mark all as done
+      steps.forEach((s, k) => {
+        s.active.forEach(id => {
+          const n = document.getElementById('n-' + id);
+          n.classList.remove('active');
+          n.classList.add('done');
+        });
+        const edges = Array.isArray(s.edge) ? s.edge : (s.edge ? [s.edge] : []);
+        edges.forEach(eid => {
+          const e = document.getElementById(eid);
+          e.classList.remove('active');
+          e.classList.add('done');
+        });
+        stepDots.children[k].classList.remove('active');
+        stepDots.children[k].classList.add('done');
+      });
+      stepLabel.textContent = `完成 · ${steps.length} / ${steps.length}`;
+      logEl.innerHTML = '<div class="log-prompt">$ done</div><div class="log-body">完整流程回放结束。点击「重置」可再次播放。</div>';
+      playing = false;
+      document.getElementById('playBtn').textContent = '▶ 播放流程';
+      return;
+    }
+    markStep(current);
+    if (playing) {
+      timer = setTimeout(next, 1700);
+    }
+  }
+
+  document.getElementById('playBtn').addEventListener('click', () => {
+    if (playing) {
+      playing = false;
+      clearTimeout(timer);
+      document.getElementById('playBtn').textContent = '▶ 继续';
+      return;
+    }
+    if (current >= steps.length - 1) resetAll();
+    playing = true;
+    document.getElementById('playBtn').textContent = '⏸ 暂停';
+    next();
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    playing = false;
+    clearTimeout(timer);
+    resetAll();
+    document.getElementById('playBtn').textContent = '▶ 播放流程';
+  });
+
+  resetAll();
+</script>
+
+</body>
+</html>

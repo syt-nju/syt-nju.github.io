@@ -1,0 +1,18 @@
+# Visualized paper/blog reading entries.
+# Each entry becomes a card on /visual-reading/.
+# Keep newest first (the publish command prepends).
+#
+# Fields:
+#   slug        : directory name under files/visual-reading/<slug>/
+#   title       : card title
+#   date        : YYYY-MM-DD, used for sorting and display
+#   summary     : one-line description shown under the title
+#   source_type : "paper" | "blog"  (optional, drives the tag)
+#   source_url  : link to the original paper/blog (optional)
+entries:
+  - slug: anthropic-multi-agent-research-system
+    title: "我们如何构建多智能体研究系统"
+    date: 2026-04-23
+    summary: "Anthropic 把多智能体研究系统从原型推上生产的工程教训：架构拆分、Prompt 与工具设计、评估与可观测性。"
+    source_type: blog
+    source_url: "https://www.anthropic.com/engineering/multi-agent-research-system"
