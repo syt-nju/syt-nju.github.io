@@ -13,6 +13,6 @@ entries:
   - slug: anthropic-multi-agent-research-system
     title: "我们如何构建多智能体研究系统"
     date: 2026-04-23
-    summary: "Anthropic 把多智能体研究系统从原型推上生产的工程教训：架构拆分、Prompt 与工具设计、评估与可观测性。"
+    summary: "多智能体在广度研究上干翻单 Agent 90%，代价是 15× tokens——真正决定成败的不是模型，是 Prompt、工具和可观测性。"
     source_type: blog
     source_url: "https://www.anthropic.com/engineering/multi-agent-research-system"

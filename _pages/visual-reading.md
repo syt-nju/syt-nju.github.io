@@ -26,7 +26,7 @@ I turn papers and blogs I am actively reading into single-file, self-contained i
   {% if item.source_url %} · <a href="{{ item.source_url }}">original</a>{% endif %}
 </p>
 
-{{ item.summary }}
+<p style="font-size: 0.88em; color: #6b6f76; margin-top: -0.25em;">{{ item.summary }}</p>
 
 {% endfor %}
 
