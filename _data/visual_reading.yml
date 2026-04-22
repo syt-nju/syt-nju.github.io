@@ -4,15 +4,14 @@
 #
 # Fields:
 #   slug        : directory name under files/visual-reading/<slug>/
-#   title       : card title
+#   title       : card title; keep it short and self-explanatory
+#                 (the title alone should tell the reader what the piece is about)
 #   date        : YYYY-MM-DD, used for sorting and display
-#   summary     : one-line description shown under the title
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
   - slug: anthropic-multi-agent-research-system
-    title: "我们如何构建多智能体研究系统"
+    title: "Anthropic 怎么构建 multi-agent research system"
     date: 2026-04-23
-    summary: "多智能体在广度研究上干翻单 Agent 90%，代价是 15× tokens——真正决定成败的不是模型，是 Prompt、工具和可观测性。"
     source_type: blog
     source_url: "https://www.anthropic.com/engineering/multi-agent-research-system"
