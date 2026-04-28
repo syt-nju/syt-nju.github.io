@@ -10,6 +10,10 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: deepseek-v4-report
+    title: "DeepSeek-V4 Report"
+    date: 2026-04-28
+    source_type: paper
   - slug: anthropic-multi-agent-research-system
     title: "Anthropic 怎么构建 multi-agent research system"
     date: 2026-04-23
