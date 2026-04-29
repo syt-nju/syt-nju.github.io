@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: rlvr-off-principal-updates
+    title: "RLVR 的参数更新大多落在非主成分方向"
+    date: 2026-04-30
+    source_type: paper
+    source_url: "https://arxiv.org/abs/2511.08567"
   - slug: verl-batch-balance-dynamic-bsz
     title: "verl 的 batch 分发机制：balance batch 和 dynamic bsz"
     date: 2026-04-29
