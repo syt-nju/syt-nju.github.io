@@ -1,0 +1,987 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>verl batch size 划分机制 — 静态 vs dynamic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fafaf9;
+  --panel: #ffffff;
+  --panel-soft: #f5f5f4;
+  --text: #18181b;
+  --text-2: #52525b;
+  --text-3: #a1a1aa;
+  --border: #e7e5e4;
+  --divider: #f0eeed;
+  --accent: #0f766e;
+  --accent-soft: rgba(15, 118, 110, 0.08);
+  --accent-line: rgba(15, 118, 110, 0.25);
+  --warn: #b45309;
+  --warn-soft: rgba(180, 83, 9, 0.08);
+  --code-bg: #f7f7f6;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 1px 3px rgba(0, 0, 0, 0.06), 0 4px 12px rgba(0, 0, 0, 0.03);
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', 'Noto Sans SC', -apple-system, system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+code, pre, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-line); }
+a:hover { border-bottom-color: var(--accent); }
+
+/* ---------- layout ---------- */
+.wrap { max-width: 920px; margin: 0 auto; padding: 32px 28px 96px; }
+
+/* ---------- hero ---------- */
+.hero { padding: 48px 0 32px; border-bottom: 1px solid var(--divider); margin-bottom: 40px; }
+.eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 12px;
+}
+h1 {
+  font-size: 36px; line-height: 1.2; font-weight: 700; margin: 0 0 16px;
+  letter-spacing: -0.02em;
+}
+.subtitle { font-size: 17px; color: var(--text-2); margin: 0 0 24px; max-width: 640px; }
+.hero-meta {
+  display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--text-3);
+}
+.hero-meta .src-link { color: var(--text-2); }
+
+/* ---------- TL;DR card ---------- */
+.tldr {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  margin-bottom: 48px;
+  box-shadow: var(--shadow-sm);
+}
+.tldr h2 {
+  font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em;
+  color: var(--text-2); margin: 0 0 12px; font-weight: 600;
+}
+.tldr p { margin: 0 0 20px; font-size: 15.5px; }
+.metric-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+.metric {
+  border-left: 2px solid var(--accent);
+  padding: 6px 0 6px 14px;
+}
+.metric .num { font-size: 22px; font-weight: 700; line-height: 1.2; font-family: 'JetBrains Mono', monospace; }
+.metric .label { font-size: 12.5px; color: var(--text-2); margin-top: 4px; }
+
+/* ---------- section ---------- */
+section { margin-bottom: 56px; }
+.sec-num {
+  display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  color: var(--text-3); margin-bottom: 6px;
+}
+h2.sec-title {
+  font-size: 24px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.01em;
+}
+.sec-lead { color: var(--text-2); margin: 0 0 24px; max-width: 640px; }
+
+/* ---------- panel ---------- */
+.panel {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px 24px;
+  box-shadow: var(--shadow-sm);
+}
+.panel + .panel { margin-top: 16px; }
+
+/* ---------- code ---------- */
+.code-block {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 12px 0;
+  font-size: 12.5px;
+  line-height: 1.6;
+  overflow-x: auto;
+  white-space: pre;
+}
+.code-block .hl { color: var(--accent); }
+.code-block .cm { color: var(--text-3); font-style: italic; }
+.code-caption {
+  font-size: 11.5px; color: var(--text-3); margin-top: -4px; margin-bottom: 16px;
+  font-family: 'JetBrains Mono', monospace;
+}
+code.inline {
+  background: var(--code-bg); padding: 1px 6px; border-radius: 4px;
+  font-size: 0.92em; border: 1px solid var(--border);
+}
+
+/* ---------- pipeline diagram (section 1) ---------- */
+.pipeline { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 4px; }
+.pipe-row { display: flex; gap: 6px; align-items: center; }
+.pipe-row .pipe-tag {
+  width: 130px; flex-shrink: 0; font-size: 12px; color: var(--text-2);
+  font-family: 'JetBrains Mono', monospace;
+}
+.pipe-bar {
+  flex: 1; height: 28px; border-radius: 6px; display: flex; gap: 2px;
+  background: var(--panel-soft); padding: 2px;
+}
+.pipe-cell {
+  flex: 1; background: var(--accent-soft);
+  border: 1px solid var(--accent-line);
+  border-radius: 4px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: var(--accent); font-weight: 500;
+}
+.pipe-arrow { text-align: center; color: var(--text-3); font-size: 13px; padding: 4px 0; }
+.kk-tag {
+  display: inline-block;
+  background: var(--accent-soft); color: var(--accent);
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;
+  padding: 1px 7px; border-radius: 3px; letter-spacing: 0.04em;
+  margin-right: 4px;
+}
+
+/* ---------- comparison viz (section 4) ---------- */
+.compare-tabs {
+  display: inline-flex; gap: 0; background: var(--panel-soft);
+  border: 1px solid var(--border); border-radius: 8px; padding: 3px;
+  margin-bottom: 18px;
+}
+.compare-tabs button {
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  padding: 6px 14px; border-radius: 6px; border: 0;
+  background: transparent; color: var(--text-2); cursor: pointer;
+  transition: all 0.15s;
+}
+.compare-tabs button.active {
+  background: var(--panel); color: var(--text);
+  box-shadow: var(--shadow-sm);
+}
+.compare-tabs button:hover:not(.active) { color: var(--text); }
+
+.viz-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  margin: 0 0 16px;
+}
+.viz-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 16px 18px;
+}
+.viz-card h4 {
+  margin: 0 0 4px; font-size: 14px; font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+}
+.viz-card .desc {
+  font-size: 12px; color: var(--text-3); margin: 0 0 14px;
+}
+.bucket {
+  margin-bottom: 10px;
+}
+.bucket-label {
+  font-size: 11px; color: var(--text-2); margin-bottom: 4px;
+  display: flex; justify-content: space-between;
+  font-family: 'JetBrains Mono', monospace;
+}
+.bucket-bar {
+  height: 24px; border-radius: 4px; background: var(--panel-soft);
+  display: flex; gap: 1px; overflow: hidden;
+  border: 1px solid var(--divider);
+}
+.sample-cell {
+  background: var(--accent-soft);
+  border-right: 1px solid var(--accent-line);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 10px; color: var(--accent); font-weight: 500;
+  min-width: 0; overflow: hidden;
+}
+.sample-cell:last-child { border-right: 0; }
+.bucket-bar.over .sample-cell { background: var(--warn-soft); color: var(--warn); border-right-color: rgba(180, 83, 9, 0.25); }
+
+.budget-line {
+  position: relative; height: 4px;
+  margin: 8px 0 0;
+  background: var(--divider); border-radius: 2px;
+}
+.budget-marker {
+  position: absolute; top: -3px; height: 10px; width: 2px;
+  background: var(--text-3);
+}
+.budget-marker::after {
+  content: 'budget'; position: absolute; top: -16px; left: -22px;
+  font-size: 10px; color: var(--text-3); font-family: 'JetBrains Mono', monospace;
+  white-space: nowrap;
+}
+
+.viz-stats {
+  display: flex; gap: 16px; padding-top: 12px; margin-top: 8px;
+  border-top: 1px solid var(--divider); font-size: 11.5px; color: var(--text-2);
+}
+.viz-stats .stat .v { font-family: 'JetBrains Mono', monospace; color: var(--text); font-weight: 600; }
+
+/* ---------- DP sync viz (section 5) ---------- */
+.dp-stage { display: flex; flex-direction: column; gap: 12px; }
+.dp-row {
+  display: grid; grid-template-columns: 78px 1fr 110px; gap: 12px; align-items: center;
+}
+.dp-rank {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-2);
+}
+.dp-mb-bar {
+  display: flex; gap: 4px; height: 32px;
+}
+.dp-mb {
+  flex: 1; background: var(--accent-soft); border: 1px solid var(--accent-line);
+  border-radius: 4px; display: flex; align-items: center; justify-content: center;
+  font-size: 11px; color: var(--accent); font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  transition: all 0.4s ease;
+}
+.dp-mb.pad { background: var(--panel-soft); border-style: dashed; color: var(--text-3); }
+.dp-num {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; color: var(--text-2);
+  text-align: right;
+}
+.dp-num strong { color: var(--accent); font-weight: 600; }
+
+.dp-controls { margin: 16px 0 4px; display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.btn {
+  font-family: inherit; font-size: 13px; font-weight: 500;
+  padding: 8px 16px; border-radius: 6px; cursor: pointer;
+  background: var(--panel); border: 1px solid var(--border); color: var(--text);
+  transition: all 0.15s;
+}
+.btn:hover { border-color: var(--text-3); }
+.btn.primary {
+  background: var(--accent); color: white; border-color: var(--accent);
+}
+.btn.primary:hover { background: #115e59; border-color: #115e59; }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.dp-hint {
+  font-size: 12px; color: var(--text-3); padding: 0 4px;
+}
+
+/* ---------- expandable cards (section 6) ---------- */
+.haz-list { display: flex; flex-direction: column; gap: 10px; }
+.haz {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden;
+}
+.haz summary {
+  list-style: none; cursor: pointer; padding: 14px 18px;
+  display: flex; gap: 14px; align-items: flex-start;
+  user-select: none;
+}
+.haz summary::-webkit-details-marker { display: none; }
+.haz-idx {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  color: var(--text-3); flex-shrink: 0; padding-top: 2px; min-width: 22px;
+}
+.haz-title { font-weight: 600; font-size: 14.5px; flex: 1; }
+.haz-arrow {
+  color: var(--text-3); transition: transform 0.2s; flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace; font-size: 14px;
+}
+.haz[open] .haz-arrow { transform: rotate(90deg); }
+.haz-body {
+  padding: 0 18px 18px 54px; color: var(--text-2); font-size: 14px;
+  border-top: 1px solid var(--divider); padding-top: 14px;
+}
+.haz-body .ref {
+  display: inline-block; margin-top: 8px; font-size: 12px;
+  color: var(--text-3); font-family: 'JetBrains Mono', monospace;
+}
+
+/* ---------- table (section 7) ---------- */
+.tbl {
+  width: 100%; border-collapse: collapse; font-size: 13.5px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden;
+}
+.tbl th, .tbl td { padding: 11px 14px; text-align: left; }
+.tbl th {
+  background: var(--panel-soft); font-weight: 600; font-size: 12px;
+  color: var(--text-2); text-transform: uppercase; letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--border);
+}
+.tbl td { border-top: 1px solid var(--divider); }
+.tbl td.mono { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; }
+.tag {
+  display: inline-block; font-size: 11px; padding: 2px 8px; border-radius: 4px;
+  font-weight: 500; font-family: 'JetBrains Mono', monospace;
+}
+.tag.on { background: var(--accent-soft); color: var(--accent); }
+.tag.off { background: var(--panel-soft); color: var(--text-3); border: 1px solid var(--border); }
+
+/* ---------- footer ---------- */
+footer {
+  margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--divider);
+  font-size: 13px; color: var(--text-3);
+}
+footer .ref-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+
+/* ---------- callout ---------- */
+.callout {
+  background: var(--accent-soft); border-left: 3px solid var(--accent);
+  padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 16px 0;
+  font-size: 14px; color: var(--text);
+}
+.callout.warn { background: var(--warn-soft); border-left-color: var(--warn); }
+.callout strong { color: var(--accent); font-weight: 600; }
+.callout.warn strong { color: var(--warn); }
+
+/* ---------- responsive ---------- */
+@media (max-width: 880px) {
+  .wrap { padding: 24px 18px 64px; }
+  h1 { font-size: 28px; }
+  .metric-row { grid-template-columns: 1fr; }
+  .viz-grid { grid-template-columns: 1fr; }
+  .dp-row { grid-template-columns: 64px 1fr 80px; gap: 8px; }
+  .pipe-row .pipe-tag { width: 100px; font-size: 11px; }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ========== HERO ========== -->
+<header class="hero">
+  <div class="eyebrow">verl · 训练机制笔记</div>
+  <h1>batch size 是怎么被切开的</h1>
+  <p class="subtitle">从「按条等分」到「按 token 动态打包」——一次讲清 verl 训练侧两条 micro-batch 切分路径，以及为什么 dynamic 模式更容易踩到 NCCL hang。</p>
+  <div class="hero-meta">
+    <span>verl-project / verl</span>
+    <span>·</span>
+    <a class="src-link" href="https://verl.readthedocs.io/en/latest/perf/perf_tuning.html" target="_blank" rel="noopener">原文：Performance Tuning Guide ↗</a>
+  </div>
+</header>
+
+<!-- ========== TL;DR ========== -->
+<div class="tldr">
+  <h2>TL;DR</h2>
+  <p>verl 的训练侧把一个 mini-batch 切成 micro-batch 时有两条路径：默认按 <code class="inline">micro_batch_size_per_gpu</code> <strong>等条数切</strong>，开了 <code class="inline">use_dynamic_bsz=True</code> 后改为按 <code class="inline">max_token_len_per_gpu</code> <strong>等 token 数动态打包</strong>。后者用 Karmarkar-Karp 算法做 partition，并在 DP 维度用 <code class="inline">all_reduce(MAX)</code> 把 micro-batch 数量拉齐——这两步是它能跑通的关键，也是它最容易引发 NCCL hang 的根源。</p>
+  <div class="metric-row">
+    <div class="metric"><div class="num">2</div><div class="label">条切分路径，由 use_dynamic_bsz 二选一</div></div>
+    <div class="metric"><div class="num">3</div><div class="label">dynamic 模式的关键步骤：算切数 → DP 同步 → KK 分桶</div></div>
+    <div class="metric"><div class="num">5+</div><div class="label">由 dynamic batch 直接/间接引发的已知 hang issue</div></div>
+  </div>
+</div>
+
+<!-- ========== Section 1: 三层 batch ========== -->
+<section>
+  <span class="sec-num">01</span>
+  <h2 class="sec-title">先把三层 batch 概念分清楚</h2>
+  <p class="sec-lead">verl 里 "batch size" 这个词在不同位置含义不同。在讨论怎么切之前，先看清数据是怎么从一个 step 流到一张 GPU 的。</p>
+
+  <div class="panel">
+    <div class="pipeline">
+      <div class="pipe-row">
+        <div class="pipe-tag">train_batch_size</div>
+        <div class="pipe-bar" id="pipe-l1"></div>
+      </div>
+      <div class="pipe-arrow">↓ 切成若干个 mini-batch（PPO 多个 epoch 复用）</div>
+      <div class="pipe-row">
+        <div class="pipe-tag">ppo_mini_batch</div>
+        <div class="pipe-bar" id="pipe-l2"></div>
+      </div>
+      <div class="pipe-arrow">↓ <span class="kk-tag">KK 第 1 层</span> <strong><code class="inline">_balance_batch</code></strong> 全局重排，让 chunk 后各 rank 总 token 接近</div>
+      <div class="pipe-row">
+        <div class="pipe-tag">per-GPU shard</div>
+        <div class="pipe-bar" id="pipe-l3"></div>
+      </div>
+      <div class="pipe-arrow">↓ <span class="kk-tag">KK 第 2 层</span> <strong>dynamic_bsz</strong> 按 token 预算切 micro-batch（仅 <code class="inline">use_dynamic_bsz=True</code>）</div>
+      <div class="pipe-row">
+        <div class="pipe-tag">micro-batch</div>
+        <div class="pipe-bar" id="pipe-l4"></div>
+      </div>
+    </div>
+    <div class="callout">verl 在数据流上做了<strong>两层 KK 平衡</strong>：第 1 层在 single controller 上跨 DP rank 重排（默认开），第 2 层在每个 rank 内切 micro-batch（要开 <code class="inline">use_dynamic_bsz</code>）。本文会分别拆解这两层的作用和局限。</div>
+  </div>
+</section>
+
+<!-- ========== Section 2: 静态切分 ========== -->
+<section>
+  <span class="sec-num">02</span>
+  <h2 class="sec-title">路径 A：静态切分（默认）</h2>
+  <p class="sec-lead">关键参数：<code class="inline">ppo_micro_batch_size_per_gpu</code> / <code class="inline">log_prob_micro_batch_size_per_gpu</code>。逻辑非常简单——按 <strong>样本条数</strong> 等分。</p>
+
+  <div class="panel">
+    <pre class="code-block"><span class="cm"># verl/workers/engine/utils.py</span>
+<span class="hl">if</span> use_dynamic_bsz:
+    ...
+<span class="hl">else</span>:
+    total_data_size = len(data)
+    micro_batch_size_per_gpu = data["micro_batch_size_per_gpu"]
+    <span class="hl">assert</span> total_data_size % (force_group_size * micro_batch_size_per_gpu) == 0
+    micro_batches = tu.chunk_tensordict(
+        data, total_data_size // (micro_batch_size_per_gpu * force_group_size)
+    )</pre>
+    <div class="code-caption">verl/workers/engine/utils.py:88–95</div>
+
+    <p style="margin: 18px 0 8px; font-weight: 600; font-size: 14px;">特性</p>
+    <ul style="margin: 0; padding-left: 20px; color: var(--text-2); font-size: 14px; line-height: 1.85;">
+      <li><strong>条数固定</strong>：每个 micro-batch 恰好 <code class="inline">micro_batch_size_per_gpu</code> 条样本，无论它们多长。</li>
+      <li><strong>显存不可控</strong>：极端情况一个 micro-batch 全是长样本，token 总数远超预期，OOM。</li>
+      <li><strong>DP 间天然对齐</strong>：每张卡的 micro-batch 数完全一致，FSDP/Megatron 的集合通信节奏天然同步。</li>
+      <li><strong>失衡浪费算力</strong>：短样本 padding 到 batch 里最长那条，长样本拉低吞吐，GPU 利用率低。</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ========== Section 3: 动态切分 ========== -->
+<section>
+  <span class="sec-num">03</span>
+  <h2 class="sec-title">路径 B：动态切分（use_dynamic_bsz=True）</h2>
+  <p class="sec-lead">关键参数：<code class="inline">ppo_max_token_len_per_gpu</code>。不再按条数切，而是<strong>给每张卡一个 token 预算</strong>，由算法去打包。</p>
+
+  <div class="panel">
+    <p style="margin: 0 0 8px; font-weight: 600; font-size: 14px;">入口代码</p>
+    <pre class="code-block"><span class="cm"># verl/workers/engine/utils.py — prepare_micro_batches()</span>
+<span class="hl">if</span> use_dynamic_bsz:
+    <span class="hl">assert</span> "max_token_len_per_gpu" in data.keys()
+    max_token_len_per_gpu = data["max_token_len_per_gpu"]
+    max_token_len = max_token_len_per_gpu * sp_size   <span class="cm"># SP 倍率</span>
+    micro_batches, batch_idx_list = rearrange_micro_batches(
+        data, max_token_len=max_token_len,
+        dp_group=dp_group,
+        same_micro_num_in_dp=same_micro_num_in_dp,   <span class="cm"># 关键</span>
+        ...
+    )</pre>
+    <div class="code-caption">verl/workers/engine/utils.py:74–87</div>
+  </div>
+
+  <div class="panel" style="margin-top: 16px;">
+    <p style="margin: 0 0 12px; font-weight: 600; font-size: 14px;">三步切分流程</p>
+
+    <p style="margin: 12px 0 6px; font-size: 13.5px; color: var(--text-2);"><strong>步骤 1</strong>：算每张卡至少要切几个 micro-batch</p>
+    <pre class="code-block">total_seqlen     = attention_mask.sum()
+num_micro_batches = ceil(total_seqlen / max_token_len)</pre>
+
+    <p style="margin: 12px 0 6px; font-size: 13.5px; color: var(--text-2);"><strong>步骤 2</strong>：DP 维度同步 micro-batch 数（<span style="color: var(--accent); font-weight: 600;">这步是 dynamic 模式独有的关键</span>）</p>
+    <pre class="code-block"><span class="hl">if</span> dist.is_initialized() and same_micro_num_in_dp and dp_group is not None:
+    num_micro_batches = torch.tensor([num_micro_batches], device=...)
+    dist.all_reduce(num_micro_batches, op=<span class="hl">dist.ReduceOp.MAX</span>, group=dp_group)
+    num_micro_batches = num_micro_batches.cpu().item()</pre>
+    <div class="code-caption">verl/utils/seqlen_balancing.py:402–405</div>
+
+    <p style="margin: 12px 0 6px; font-size: 13.5px; color: var(--text-2);"><strong>步骤 3</strong>：用 Karmarkar-Karp 算法把样本按工作量平均分进 num_micro_batches 个桶</p>
+    <pre class="code-block"><span class="cm"># 工作量估算：模拟 attention FLOPs ≈ 12·h²·L + 2·h·L²</span>
+workload = 24576 * seqlen + seqlen ** 2
+partitions = karmarkar_karp(workload, k_partitions=num_micro_batches, equal_size=False)</pre>
+    <div class="code-caption">verl/utils/seqlen_balancing.py:46 + get_seqlen_balanced_partitions()</div>
+
+    <div class="callout"><strong>为什么 all_reduce(MAX) 不可省</strong>：DP 各 rank 拿到的样本长度分布不同 → 各自算出的 num_micro_batches 不一样 → FSDP forward 循环里调用 all_gather 的次数不一样 → 集合通信永远配不上对，直接 NCCL hang。verl 用 MAX 把所有 rank 拉齐到全局最大值，短的 rank 通过把样本切成更稀疏的桶来对齐（不是补空 padding）。</div>
+  </div>
+</section>
+
+<!-- ========== Section 4: DP 间的全局 KK 重排 ========== -->
+<section>
+  <span class="sec-num">04</span>
+  <h2 class="sec-title">先于 dynamic_bsz：DP 间的全局 KK 重排</h2>
+  <p class="sec-lead">第 03 节的 dynamic_bsz 只管 rank 内的 micro-batch 切分。那 rank 之间的总 token 数谁负责？答案是：在 dynamic_bsz 进各 rank 之前，verl 在 single controller 上先做了一次全局 KK 重排，叫 <code class="inline">_balance_batch</code>。由 <code class="inline">trainer.balance_batch=True</code> 默认开启。</p>
+
+  <div class="panel">
+    <pre class="code-block"><span class="cm"># verl/trainer/ppo/ray_trainer.py — _balance_batch()</span>
+global_seqlen_lst = batch.batch["attention_mask"].sum(-1)
+workload_lst = calculate_workload(global_seqlen_lst)
+dp_size = self._get_dp_size(self.actor_rollout_wg, "actor")
+
+<span class="cm"># equal_size=True：每个 rank 拿到等条数样本</span>
+global_partition_lst = get_seqlen_balanced_partitions(
+    workload_lst, k_partitions=dp_size, <span class="hl">equal_size=True</span>
+)
+
+<span class="cm"># 把 batch 按 KK 给的分组重排，再 chunk 出去</span>
+global_idx = torch.tensor([j for partition in global_partition_lst for j in partition])
+batch.reorder(global_idx)</pre>
+    <div class="code-caption">verl/trainer/ppo/ray_trainer.py:1102–1170</div>
+
+    <p style="margin: 18px 0 8px; font-weight: 600; font-size: 14px;">这层和 dynamic_bsz 的关键区别</p>
+    <ul style="margin: 0; padding-left: 20px; color: var(--text-2); font-size: 14px; line-height: 1.85;">
+      <li><strong><code class="inline">equal_size=True</code></strong>：每个 rank 必须拿到等条数样本（PPO 后续 mini-batch 数对齐需要），KK 在这个硬约束下做平衡。</li>
+      <li><strong>只重排顺序，不重切样本</strong>：原样本不变，只是 chunk 时被分到不同 rank。</li>
+      <li><strong>对 workload 而非 token 数平衡</strong>：用 <code class="inline">12·h²·L + 2·h·L²</code> 估算 attention FLOPs，让长样本被特别"重视"。</li>
+      <li><strong>每个 mini-batch 跑一次</strong>，rollout 完成后、进 forward 前。</li>
+    </ul>
+  </div>
+
+  <h3 style="margin: 28px 0 8px; font-size: 16px; font-weight: 600;">演示：16 条样本下发到 4 个 DP rank</h3>
+  <p style="font-size: 13px; color: var(--text-3); margin: 0 0 14px;">同一组 16 条不同长度样本，按原顺序 chunk vs 经过 <code class="inline">_balance_batch</code> 重排后再 chunk。</p>
+
+  <div class="compare-tabs" id="balance-tabs">
+    <button class="active" data-mode="raw">按原顺序 chunk（balance_batch=False）</button>
+    <button data-mode="balanced">_balance_batch（KK + 等条数）</button>
+  </div>
+
+  <div class="panel">
+    <div class="dp-stage" id="dp-balance-stage"></div>
+    <div class="viz-stats" style="border-top: 1px solid var(--divider); margin-top: 16px; padding-top: 14px;">
+      <div class="stat">rank 数 <span class="v">4</span></div>
+      <div class="stat">每 rank 样本数 <span class="v">4</span></div>
+      <div class="stat">最大 rank token <span class="v" id="bal-max">—</span></div>
+      <div class="stat">最小 rank token <span class="v" id="bal-min">—</span></div>
+      <div class="stat">极差比 <span class="v" id="bal-ratio">—</span></div>
+    </div>
+  </div>
+
+  <div class="callout warn"><strong>限制</strong>：<code class="inline">equal_size=True</code> 让 KK 不能完全自由，比如「单条特别长的样本」总会落到某个 rank 上、把那个 rank 的 token 总数推高。这是为什么 log 里 <code class="inline">balanced_max - balanced_min</code> 不会真的变成 0，只是从原始的 ~10% 极差压到 ~3-5%。</div>
+
+  <p style="font-size: 12.5px; color: var(--text-3); margin-top: 14px;">
+    log 里 <code class="inline">global_seqlen/min,max</code> 是<strong>未重排时</strong>的统计；<code class="inline">global_seqlen/balanced_min,balanced_max</code> 是<strong>KK 重排后</strong>的统计。在自己的训练 metric 里直接对比这两组数字就能看 <code class="inline">_balance_batch</code> 在你的数据上有多大效果。
+  </p>
+</section>
+
+<!-- ========== Section 5: 切分对比可视化 ========== -->
+<section>
+  <span class="sec-num">05</span>
+  <h2 class="sec-title">同一组样本，两种 micro-batch 切法的对比</h2>
+  <p class="sec-lead">假设这张 GPU 拿到 8 条样本，token 长度依次为 <span class="mono" id="seq-list-text"></span>。共 <span class="mono" id="seq-total-text"></span> token。</p>
+
+  <div class="compare-tabs" id="compare-tabs">
+    <button class="active" data-budget="13312">budget = 13312</button>
+    <button data-budget="20000">budget = 20000</button>
+    <button data-budget="26624">budget = 26624</button>
+  </div>
+
+  <div class="viz-grid" id="viz-grid">
+    <div class="viz-card">
+      <h4>静态：micro_batch_size_per_gpu = 2</h4>
+      <p class="desc">按 batch 顺序每 2 条切一个 micro-batch。token 数完全失衡。</p>
+      <div id="viz-static"></div>
+      <div class="viz-stats">
+        <div class="stat">桶数 <span class="v" id="static-num">—</span></div>
+        <div class="stat">最大桶 <span class="v" id="static-max">—</span></div>
+        <div class="stat">最小桶 <span class="v" id="static-min">—</span></div>
+        <div class="stat">极差比 <span class="v" id="static-ratio">—</span></div>
+      </div>
+    </div>
+    <div class="viz-card">
+      <h4>动态：max_token_len_per_gpu = <span id="budget-label">13312</span></h4>
+      <p class="desc">按 token 预算切，KK 算法做平衡，每桶 token 数接近预算。</p>
+      <div id="viz-dynamic"></div>
+      <div class="viz-stats">
+        <div class="stat">桶数 <span class="v" id="dyn-num">—</span></div>
+        <div class="stat">最大桶 <span class="v" id="dyn-max">—</span></div>
+        <div class="stat">最小桶 <span class="v" id="dyn-min">—</span></div>
+        <div class="stat">极差比 <span class="v" id="dyn-ratio">—</span></div>
+      </div>
+    </div>
+  </div>
+  <p style="font-size: 12.5px; color: var(--text-3); margin-top: 12px;">
+    桶里的色块代表一条样本，宽度正比于该样本 token 数。预算线表示 <code class="inline">max_token_len_per_gpu</code>；超过预算的桶会被高亮（动态模式不会出现，静态可能会 OOM）。
+  </p>
+</section>
+
+<!-- ========== Section 6: DP 同步演示 ========== -->
+<section>
+  <span class="sec-num">06</span>
+  <h2 class="sec-title">DP 维度同步：从「各算各的」到「整齐划一」</h2>
+  <p class="sec-lead">动态模式下，4 张卡各自算出来的 num_micro_batches 大概率不一样。verl 用 <code class="inline">all_reduce(MAX)</code> 把它们拉齐，否则 FSDP 集合通信对不上号会直接 hang。点击按钮看演示。</p>
+
+  <div class="panel">
+    <div class="dp-stage" id="dp-stage"></div>
+    <div class="dp-controls">
+      <button class="btn primary" id="dp-sync-btn">all_reduce(MAX) 拉齐</button>
+      <button class="btn" id="dp-reset-btn">重置</button>
+      <span class="dp-hint" id="dp-hint">每个 rank 按自己的样本算出 num_micro_batches，目前不同步。</span>
+    </div>
+  </div>
+
+  <div class="callout"><strong>关键事实澄清</strong>：「拉齐」靠的<strong>不是补 dummy padding</strong>，而是让短的 rank 把自己手里的样本切成更多、更稀疏的桶——代码里的硬约束是 <code class="inline">assert num_micro_batches &le; num_groups</code>，每个桶至少 1 条真实样本，没有空 batch。短 rank 后续 forward 循环里跑的是<strong>稀疏的真样本</strong>而非 padding。</div>
+
+  <div class="callout warn" style="margin-top: 12px;"><strong>遗留隐患</strong>：verl 在进 dynamic_bsz 之前其实<strong>还有一层全局 KK 平衡（<code class="inline">_balance_batch</code>，由 <code class="inline">trainer.balance_batch=True</code> 默认开）</strong>，会先重排样本让各 rank 总 token 数尽量接近（log 里 <code class="inline">global_seqlen/balanced_min/max</code> 就是它的产物）。但它有 <code class="inline">equal_size=True</code> 的硬约束（每 rank 等条数），且只平衡总和不平衡每个 micro-batch 的工作量。所以单条特别长的样本仍可能让某 rank 的某个 micro-batch 慢得多，触发 NCCL watchdog timeout（issue <a href="https://github.com/verl-project/verl/issues/5750" target="_blank" rel="noopener">#5750</a> 的根因之一）。</div>
+</section>
+
+<!-- ========== Section 7: 参数生效表 ========== -->
+<section>
+  <span class="sec-num">07</span>
+  <h2 class="sec-title">速查：哪些参数随 use_dynamic_bsz 开关生效</h2>
+  <p class="sec-lead">遇到「我设了这个参数怎么没用」的时候回来看一眼。</p>
+
+  <table class="tbl">
+    <thead>
+      <tr>
+        <th>参数</th>
+        <th>use_dynamic_bsz=False</th>
+        <th>use_dynamic_bsz=True</th>
+        <th>说明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td class="mono">*.ppo_micro_batch_size_per_gpu</td>
+        <td><span class="tag on">生效</span></td>
+        <td><span class="tag off">忽略</span></td>
+        <td>每卡 micro-batch 的样本条数</td>
+      </tr>
+      <tr>
+        <td class="mono">*.log_prob_micro_batch_size_per_gpu</td>
+        <td><span class="tag on">生效</span></td>
+        <td><span class="tag off">忽略</span></td>
+        <td>compute_log_prob / ref_log_prob 用</td>
+      </tr>
+      <tr>
+        <td class="mono">actor.ppo_max_token_len_per_gpu</td>
+        <td><span class="tag off">忽略</span></td>
+        <td><span class="tag on">生效</span></td>
+        <td>actor 训练 micro-batch 的 token 上限</td>
+      </tr>
+      <tr>
+        <td class="mono">ref / rollout.log_prob_max_token_len_per_gpu</td>
+        <td><span class="tag off">忽略</span></td>
+        <td><span class="tag on">生效</span></td>
+        <td>前向算 logprob 时的 token 上限</td>
+      </tr>
+      <tr>
+        <td class="mono">critic.ppo_max_token_len_per_gpu</td>
+        <td><span class="tag off">忽略</span></td>
+        <td><span class="tag on">生效</span></td>
+        <td>critic 用 dynamic 时才生效</td>
+      </tr>
+      <tr>
+        <td class="mono">data.max_prompt_length / max_response_length</td>
+        <td><span class="tag on">生效</span></td>
+        <td><span class="tag on">生效</span></td>
+        <td>跟 dynamic_bsz 无关，是单条样本的硬上限</td>
+      </tr>
+      <tr>
+        <td class="mono">rollout.max_model_len / max_num_batched_tokens</td>
+        <td><span class="tag on">生效</span></td>
+        <td><span class="tag on">生效</span></td>
+        <td>vLLM 引擎参数，跟训练侧切分无关</td>
+      </tr>
+    </tbody>
+  </table>
+</section>
+
+<!-- ========== footer ========== -->
+<footer>
+  <div>原文与参考</div>
+  <div class="ref-list">
+    <a href="https://verl.readthedocs.io/en/latest/perf/perf_tuning.html" target="_blank" rel="noopener">Performance Tuning Guide — verl docs</a>
+    <a href="https://github.com/verl-project/verl/issues/5750" target="_blank" rel="noopener">issue #5750 — NCCL timeout during compute_log_prob</a>
+    <a href="https://github.com/verl-project/verl/issues/3873" target="_blank" rel="noopener">issue #3873 — DAPO+Megatron+SGLang hang</a>
+    <a href="https://github.com/verl-project/verl/pull/5110" target="_blank" rel="noopener">PR #5110 — upcast seq_len_effective to int64</a>
+    <a href="https://github.com/verl-project/verl/issues/6073" target="_blank" rel="noopener">issue #6073 — VLM nested tensor jagged 翻转</a>
+    <a href="https://github.com/verl-project/verl/issues/12" target="_blank" rel="noopener">issue #12 — Hangs during vllm rollout</a>
+  </div>
+  <div style="margin-top: 16px; color: var(--text-3); font-size: 12px;">代码引用基于本仓库 verl/utils/seqlen_balancing.py 与 verl/workers/engine/utils.py 当前版本。</div>
+</footer>
+
+</div>
+
+<script>
+(function () {
+  // ----- Section 1: pipeline ----- 
+  function fillBar(id, n, label) {
+    const el = document.getElementById(id);
+    let html = '';
+    for (let i = 0; i < n; i++) {
+      html += '<div class="pipe-cell">' + (label ? label + (i + 1) : '') + '</div>';
+    }
+    el.innerHTML = html;
+  }
+  fillBar('pipe-l1', 1, 'global');
+  fillBar('pipe-l2', 4, 'mini ');
+  fillBar('pipe-l3', 8, 'rank ');
+  fillBar('pipe-l4', 16, 'mb ');
+
+  // ----- Section 4: _balance_batch 演示 -----
+  // 16 条样本（乱序的真实长度分布）
+  const balanceSamples = [9000, 6500, 1200, 4000, 7500, 2500, 1500, 800, 8000, 5500, 3500, 4500, 2000, 1800, 5000, 3000];
+  const dpSize = 4;
+  const samplesPerRank = balanceSamples.length / dpSize;
+
+  function rawChunk(samples, k) {
+    const buckets = [];
+    const perRank = samples.length / k;
+    for (let i = 0; i < k; i++) {
+      const items = [];
+      for (let j = 0; j < perRank; j++) {
+        const globalIdx = i * perRank + j;
+        items.push({ idx: globalIdx, len: samples[globalIdx] });
+      }
+      buckets.push(items);
+    }
+    return buckets;
+  }
+
+  // 简化版"等条数 KK"：按工作量降序 + snake 分配，已经接近 KK 效果
+  function snakeBalance(samples, k) {
+    const sorted = samples.map((len, idx) => ({ idx: idx, len: len }))
+                          .sort((a, b) => b.len - a.len);
+    const buckets = Array.from({ length: k }, () => []);
+    for (let i = 0; i < sorted.length; i++) {
+      const cycle = Math.floor(i / k);
+      const rankIdx = (cycle % 2 === 0) ? (i % k) : (k - 1 - (i % k));
+      buckets[rankIdx].push(sorted[i]);
+    }
+    buckets.forEach(b => b.sort((a, b) => a.idx - b.idx));
+    return buckets;
+  }
+
+  function renderBalance(mode) {
+    const stage = document.getElementById('dp-balance-stage');
+    stage.innerHTML = '';
+    const buckets = (mode === 'raw')
+      ? rawChunk(balanceSamples, dpSize)
+      : snakeBalance(balanceSamples, dpSize);
+
+    let minSum = Infinity, maxSum = -Infinity;
+    buckets.forEach(b => {
+      const sum = b.reduce((a, c) => a + c.len, 0);
+      if (sum < minSum) minSum = sum;
+      if (sum > maxSum) maxSum = sum;
+    });
+    const widthScale = maxSum * 1.1;
+
+    buckets.forEach((items, i) => {
+      const sum = items.reduce((a, c) => a + c.len, 0);
+      const row = document.createElement('div');
+      row.className = 'dp-row';
+
+      const tag = document.createElement('div');
+      tag.className = 'dp-rank';
+      tag.textContent = 'rank ' + i;
+
+      const barWrap = document.createElement('div');
+      barWrap.className = 'dp-mb-bar';
+      barWrap.style.width = (sum / widthScale * 100) + '%';
+      items.forEach(it => {
+        const cell = document.createElement('div');
+        cell.className = 'dp-mb';
+        cell.style.flex = it.len;
+        cell.textContent = (it.len / 1000).toFixed(1) + 'k';
+        cell.title = 's' + it.idx + ': ' + it.len + ' tok';
+        barWrap.appendChild(cell);
+      });
+
+      const num = document.createElement('div');
+      num.className = 'dp-num';
+      num.innerHTML = items.length + 's · <strong>' + sum.toLocaleString() + '</strong>';
+
+      row.appendChild(tag);
+      row.appendChild(barWrap);
+      row.appendChild(num);
+      stage.appendChild(row);
+    });
+
+    document.getElementById('bal-max').textContent = maxSum.toLocaleString();
+    document.getElementById('bal-min').textContent = minSum.toLocaleString();
+    document.getElementById('bal-ratio').textContent = (maxSum / minSum).toFixed(2) + '×';
+  }
+
+  document.getElementById('balance-tabs').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('balance-tabs').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      renderBalance(btn.dataset.mode);
+    });
+  });
+  renderBalance('raw');
+
+  // ----- Section 5: 切分对比 -----
+  const seqLens = [800, 6500, 1200, 4000, 9000, 2500, 1500, 7500];
+  const seqTotal = seqLens.reduce((a, b) => a + b, 0);
+  const microBatchPerGpu = 2;
+
+  document.getElementById('seq-list-text').textContent = '[' + seqLens.join(', ') + ']';
+  document.getElementById('seq-total-text').textContent = seqTotal.toLocaleString();
+
+  function staticPartition(seqs, mbSize) {
+    const buckets = [];
+    for (let i = 0; i < seqs.length; i += mbSize) {
+      buckets.push(seqs.slice(i, i + mbSize).map((len, j) => ({ idx: i + j, len: len })));
+    }
+    return buckets;
+  }
+
+  // 简化版 KK / greedy partition: 按工作量降序贪心放进当前最小桶
+  function dynamicPartition(seqs, budget) {
+    const total = seqs.reduce((a, b) => a + b, 0);
+    const k = Math.max(1, Math.ceil(total / budget));
+    const sorted = seqs
+      .map((len, idx) => ({ idx: idx, len: len }))
+      .sort((a, b) => b.len - a.len);
+    const buckets = Array.from({ length: k }, () => ({ items: [], sum: 0 }));
+    for (const item of sorted) {
+      let minBucket = buckets[0];
+      for (const b of buckets) if (b.sum < minBucket.sum) minBucket = b;
+      minBucket.items.push(item);
+      minBucket.sum += item.len;
+    }
+    return buckets.map(b => b.items.sort((a, b) => a.idx - b.idx));
+  }
+
+  function renderBuckets(containerId, buckets, budget) {
+    const el = document.getElementById(containerId);
+    el.innerHTML = '';
+    const stats = { sums: [], maxBucket: 0, minBucket: Infinity };
+    const widthScale = budget * 1.1;
+
+    buckets.forEach((items, i) => {
+      const sum = items.reduce((a, b) => a + b.len, 0);
+      stats.sums.push(sum);
+      if (sum > stats.maxBucket) stats.maxBucket = sum;
+      if (sum < stats.minBucket) stats.minBucket = sum;
+
+      const bucket = document.createElement('div');
+      bucket.className = 'bucket';
+
+      const label = document.createElement('div');
+      label.className = 'bucket-label';
+      const left = document.createElement('span');
+      left.textContent = 'mb' + (i + 1) + ' (' + items.length + ' samples)';
+      const right = document.createElement('span');
+      right.textContent = sum.toLocaleString() + ' tok';
+      if (sum > budget) right.style.color = 'var(--warn)';
+      label.appendChild(left);
+      label.appendChild(right);
+
+      const bar = document.createElement('div');
+      bar.className = 'bucket-bar' + (sum > budget ? ' over' : '');
+      bar.style.width = (sum / widthScale * 100) + '%';
+      items.forEach(it => {
+        const cell = document.createElement('div');
+        cell.className = 'sample-cell';
+        cell.style.flex = it.len;
+        cell.title = 's' + it.idx + ': ' + it.len + ' tok';
+        cell.textContent = it.len >= 1500 ? 's' + it.idx : '';
+        bar.appendChild(cell);
+      });
+
+      bucket.appendChild(label);
+      bucket.appendChild(bar);
+
+      // budget marker
+      const budgetLine = document.createElement('div');
+      budgetLine.className = 'budget-line';
+      const marker = document.createElement('div');
+      marker.className = 'budget-marker';
+      marker.style.left = (budget / widthScale * 100) + '%';
+      budgetLine.appendChild(marker);
+      bucket.appendChild(budgetLine);
+
+      el.appendChild(bucket);
+    });
+
+    return stats;
+  }
+
+  function updateCompare(budget) {
+    document.getElementById('budget-label').textContent = budget.toLocaleString();
+
+    const sBuckets = staticPartition(seqLens, microBatchPerGpu);
+    const dBuckets = dynamicPartition(seqLens, budget);
+
+    const sStats = renderBuckets('viz-static', sBuckets, budget);
+    const dStats = renderBuckets('viz-dynamic', dBuckets, budget);
+
+    document.getElementById('static-num').textContent = sBuckets.length;
+    document.getElementById('static-max').textContent = sStats.maxBucket.toLocaleString();
+    document.getElementById('static-min').textContent = sStats.minBucket.toLocaleString();
+    document.getElementById('static-ratio').textContent = (sStats.maxBucket / sStats.minBucket).toFixed(2) + '×';
+
+    document.getElementById('dyn-num').textContent = dBuckets.length;
+    document.getElementById('dyn-max').textContent = dStats.maxBucket.toLocaleString();
+    document.getElementById('dyn-min').textContent = dStats.minBucket.toLocaleString();
+    document.getElementById('dyn-ratio').textContent = (dStats.maxBucket / dStats.minBucket).toFixed(2) + '×';
+  }
+
+  document.getElementById('compare-tabs').querySelectorAll('button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.getElementById('compare-tabs').querySelectorAll('button').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateCompare(parseInt(btn.dataset.budget, 10));
+    });
+  });
+  updateCompare(13312);
+
+  // ----- Section 6: DP 同步演示 -----
+  // 各 rank 手里有不同条数 / 长度的样本
+  // 自己算的 num_micro_batches = ceil(total_seqlen / budget)
+  const dpRanks = [
+    { name: 'rank 0', samples: [4000, 6000, 3000, 2000], orig: 2 },
+    { name: 'rank 1', samples: [9000, 7500, 6500, 4000, 2500, 1500, 1200, 800], orig: 3 },
+    { name: 'rank 2', samples: [3500, 5000, 4000, 2500], orig: 2 },
+    { name: 'rank 3', samples: [8000, 6000, 5500, 4500, 3000, 2000], orig: 3 }
+  ];
+
+  function partitionInto(samples, k) {
+    if (k <= 0) return [];
+    const sorted = samples.map((len, i) => ({ idx: i, len: len })).sort((a, b) => b.len - a.len);
+    const buckets = Array.from({ length: k }, () => ({ items: [], sum: 0 }));
+    for (const it of sorted) {
+      let m = buckets[0];
+      for (const b of buckets) if (b.sum < m.sum) m = b;
+      m.items.push(it);
+      m.sum += it.len;
+    }
+    return buckets;
+  }
+
+  function renderDP(synced) {
+    const stage = document.getElementById('dp-stage');
+    stage.innerHTML = '';
+    const target = synced ? Math.max.apply(null, dpRanks.map(r => r.orig)) : null;
+
+    dpRanks.forEach(r => {
+      const row = document.createElement('div');
+      row.className = 'dp-row';
+
+      const rk = document.createElement('div');
+      rk.className = 'dp-rank';
+      rk.textContent = r.name;
+
+      const bar = document.createElement('div');
+      bar.className = 'dp-mb-bar';
+      const k = synced ? target : r.orig;
+      const buckets = partitionInto(r.samples, k);
+      buckets.forEach(b => {
+        const mb = document.createElement('div');
+        mb.className = 'dp-mb';
+        mb.textContent = b.items.length + 's · ' + (b.sum / 1000).toFixed(1) + 'k';
+        mb.title = '样本数 = ' + b.items.length + '，token 总数 = ' + b.sum;
+        bar.appendChild(mb);
+      });
+
+      const num = document.createElement('div');
+      num.className = 'dp-num';
+      if (synced && r.orig < target) {
+        num.innerHTML = 'n: ' + r.orig + ' → <strong>' + target + '</strong>';
+      } else {
+        num.innerHTML = 'n = ' + (synced ? '<strong>' + target + '</strong>' : r.orig);
+      }
+
+      row.appendChild(rk);
+      row.appendChild(bar);
+      row.appendChild(num);
+      stage.appendChild(row);
+    });
+  }
+
+  const dpHint = document.getElementById('dp-hint');
+  document.getElementById('dp-sync-btn').addEventListener('click', () => {
+    renderDP(true);
+    dpHint.innerHTML = '所有 rank 拉齐到 MAX = 3。rank 0 / rank 2 不是补 dummy，而是<strong>把自己的样本重新切成 3 个更小的桶</strong>（每桶至少 1 条真实样本），让 forward 循环次数与其他 rank 一致。';
+  });
+  document.getElementById('dp-reset-btn').addEventListener('click', () => {
+    renderDP(false);
+    dpHint.textContent = '每个 rank 按自己的样本独立算 num_micro_batches，目前不同步。每格上的数字代表「样本数 · 该桶 token 总数」。';
+  });
+  renderDP(false);
+  dpHint.textContent = '每个 rank 按自己的样本独立算 num_micro_batches，目前不同步。每格上的数字代表「样本数 · 该桶 token 总数」。';
+})();
+</script>
+</body>
+</html>

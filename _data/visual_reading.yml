@@ -10,6 +10,10 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: verl-batch-balance-dynamic-bsz
+    title: "verl 的 batch 分发机制：balance batch 和 dynamic bsz"
+    date: 2026-04-29
+    source_type: blog
   - slug: deepseek-v4-report
     title: "DeepSeek-V4 Report"
     date: 2026-04-28
