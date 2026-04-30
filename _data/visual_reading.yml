@@ -10,6 +10,10 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: verl-rank-mesh
+    title: "verl 的 rank 划分机制：一个 rank 挂多套 mesh"
+    date: 2026-04-30
+    source_type: blog
   - slug: rlvr-off-principal-updates
     title: "RLVR 的参数更新大多落在非主成分方向"
     date: 2026-04-30

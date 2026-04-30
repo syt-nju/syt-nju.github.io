@@ -1,0 +1,1833 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>verl rank 划分机制 — 一个 RANK，多套 mesh</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fbf6ea;
+  --panel: #fffaf0;
+  --panel-soft: #f4ead7;
+  --panel-deep: #e8dcc7;
+  --text: #2b2417;
+  --text-2: #6b5d44;
+  --text-3: #a89b80;
+  --border: #e0d2b6;
+  --divider: #ece1c8;
+  --accent: #a85a1f;
+  --accent-soft: rgba(168, 90, 31, 0.10);
+  --accent-line: rgba(168, 90, 31, 0.28);
+  --accent-deep: #8a4717;
+  --warn: #9c6f12;
+  --warn-soft: rgba(156, 111, 18, 0.10);
+  --code-bg: #f1e6cc;
+  --shadow-sm: 0 1px 2px rgba(80, 60, 20, 0.05);
+  --shadow-md: 0 1px 3px rgba(80, 60, 20, 0.07), 0 4px 12px rgba(80, 60, 20, 0.04);
+  --radius: 10px;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; padding: 0; }
+body {
+  font-family: 'Inter', 'Noto Sans SC', -apple-system, system-ui, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  font-size: 15px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+code, pre, .mono { font-family: 'JetBrains Mono', ui-monospace, monospace; }
+a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-line); }
+a:hover { border-bottom-color: var(--accent); }
+
+.wrap { max-width: 940px; margin: 0 auto; padding: 32px 28px 96px; }
+
+/* ---------- hero ---------- */
+.hero { padding: 48px 0 32px; border-bottom: 1px solid var(--divider); margin-bottom: 40px; }
+.eyebrow {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.14em; text-transform: uppercase;
+  color: var(--accent); margin-bottom: 12px;
+}
+h1 {
+  font-size: 36px; line-height: 1.2; font-weight: 700; margin: 0 0 16px;
+  letter-spacing: -0.02em;
+}
+.subtitle { font-size: 17px; color: var(--text-2); margin: 0 0 24px; max-width: 660px; }
+.hero-meta {
+  display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--text-3);
+  align-items: center;
+}
+.hero-meta .src-link { color: var(--text-2); }
+
+/* ---------- hero quick nav ---------- */
+.hero-nav {
+  display: flex; gap: 6px; flex-wrap: wrap;
+  margin-top: 18px;
+}
+.hero-nav a {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  color: var(--text-2); border: 1px solid var(--border);
+  background: var(--panel); padding: 5px 11px; border-radius: 5px;
+  text-decoration: none; transition: all 0.15s;
+}
+.hero-nav a:hover { color: var(--accent); border-color: var(--accent-line); background: var(--accent-soft); }
+.hero-nav .nav-tag {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--text-3); padding: 5px 4px 5px 0;
+  align-self: center; letter-spacing: 0.04em;
+}
+.hero-tip {
+  margin-top: 16px;
+  font-size: 13px; color: var(--text-2);
+  padding: 10px 14px;
+  background: var(--accent-soft);
+  border-left: 2px solid var(--accent-line);
+  border-radius: 0 6px 6px 0;
+  line-height: 1.55;
+}
+.hero-tip strong { color: var(--accent); font-weight: 600; }
+.hero-tip a {
+  color: var(--accent); border-bottom: 1px solid var(--accent-line);
+  font-weight: 500;
+}
+.hero-tip a:hover { border-bottom-color: var(--accent); }
+
+/* ---------- section ---------- */
+section { margin-bottom: 56px; }
+.sec-num {
+  display: inline-block; font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  color: var(--text-3); margin-bottom: 6px;
+}
+h2.sec-title {
+  font-size: 24px; font-weight: 700; margin: 0 0 8px; letter-spacing: -0.01em;
+}
+.sec-lead { color: var(--text-2); margin: 0 0 24px; max-width: 660px; }
+
+/* ---------- panel ---------- */
+.panel {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px 24px;
+  box-shadow: var(--shadow-sm);
+}
+.panel + .panel { margin-top: 16px; }
+.panel h3 {
+  font-size: 14px; font-weight: 600; margin: 0 0 12px; color: var(--text);
+  font-family: 'JetBrains Mono', monospace; letter-spacing: -0.01em;
+}
+
+/* ---------- code ---------- */
+.code-block {
+  background: var(--code-bg);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 14px 16px;
+  margin: 12px 0;
+  font-size: 12.5px;
+  line-height: 1.65;
+  overflow-x: auto;
+  white-space: pre;
+}
+.code-block .hl { color: var(--accent); }
+.code-block .cm { color: var(--text-3); font-style: italic; }
+.code-caption {
+  font-size: 11.5px; color: var(--text-3); margin-top: -4px; margin-bottom: 16px;
+  font-family: 'JetBrains Mono', monospace;
+}
+code.inline {
+  background: var(--code-bg); padding: 1px 6px; border-radius: 4px;
+  font-size: 0.92em; border: 1px solid var(--border);
+}
+
+/* ---------- primer / 名词卡片 ---------- */
+.primer-controls {
+  display: flex; gap: 8px; justify-content: flex-end;
+  margin: 0 0 14px;
+}
+.primer-controls button {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11.5px; color: var(--text-2);
+  padding: 4px 10px; border-radius: 5px;
+  background: transparent; border: 1px solid var(--border);
+  cursor: pointer; transition: all 0.15s;
+}
+.primer-controls button:hover { color: var(--accent); border-color: var(--accent-line); }
+
+.primer-group { margin-bottom: 18px; }
+.primer-group:last-child { margin-bottom: 0; }
+.primer-group h3 {
+  font-size: 12px; color: var(--text-2); font-weight: 600;
+  margin: 0 0 10px;
+  font-family: 'JetBrains Mono', monospace;
+  text-transform: uppercase; letter-spacing: 0.06em;
+}
+.primer-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.primer-card {
+  background: var(--panel-soft); border: 1px solid var(--border);
+  border-radius: 8px; padding: 12px 14px;
+  transition: border-color 0.15s, background 0.15s;
+}
+.primer-card:hover { border-color: var(--accent-line); }
+.primer-card .term {
+  display: flex; justify-content: space-between; align-items: center;
+  font-family: 'JetBrains Mono', monospace; font-size: 13px;
+  font-weight: 600; color: var(--accent);
+  letter-spacing: -0.01em;
+  cursor: pointer; user-select: none;
+  margin: 0;
+  transition: margin 0.15s;
+}
+.primer-card .primer-arrow {
+  color: var(--text-3); font-family: 'JetBrains Mono', monospace;
+  font-size: 14px; flex-shrink: 0; margin-left: 10px;
+  transition: transform 0.2s;
+  transform: rotate(0);
+}
+.primer-card.expanded .primer-arrow { transform: rotate(90deg); }
+.primer-card.expanded .term { margin-bottom: 6px; }
+.primer-card .def, .primer-card .hint { display: none; }
+.primer-card.expanded .def, .primer-card.expanded .hint { display: block; }
+.primer-card .def {
+  font-size: 13px; color: var(--text); margin: 0 0 6px;
+  line-height: 1.55;
+}
+.primer-card .hint {
+  font-size: 11.5px; color: var(--text-3); font-style: italic;
+  line-height: 1.5;
+}
+.primer-card .hint strong { color: var(--text-2); font-weight: 500; font-style: normal; }
+
+/* ---------- 三层 rank 图 ---------- */
+.layer-stack { display: flex; flex-direction: column; gap: 10px; margin: 8px 0 4px; }
+.layer {
+  background: var(--panel-soft); border: 1px solid var(--border); border-radius: 8px;
+  padding: 14px 18px;
+  display: grid; grid-template-columns: 110px 1fr; gap: 16px; align-items: center;
+}
+.layer-tag {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+  color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em;
+}
+.layer-body .ttl { font-weight: 600; font-size: 14.5px; margin-bottom: 4px; }
+.layer-body .desc { font-size: 13px; color: var(--text-2); }
+.layer-body .ref-line {
+  margin-top: 6px; font-size: 11.5px; color: var(--text-3);
+  font-family: 'JetBrains Mono', monospace;
+}
+.layer-arrow { text-align: center; color: var(--text-3); font-size: 14px; padding: 2px 0; font-family: 'JetBrains Mono', monospace; }
+
+/* ---------- 启动时序 ---------- */
+.flow {
+  position: relative; padding: 8px 0 4px 28px;
+  margin-top: 8px;
+}
+.flow::before {
+  content: ''; position: absolute; left: 8px; top: 14px; bottom: 14px;
+  width: 2px; background: var(--accent-line);
+}
+.flow-step {
+  position: relative; padding: 10px 0 14px 18px; margin-bottom: 0;
+}
+.flow-step::before {
+  content: ''; position: absolute; left: -28px; top: 14px;
+  width: 14px; height: 14px; border-radius: 50%;
+  background: var(--panel); border: 2px solid var(--accent);
+  box-sizing: border-box;
+}
+.flow-step .ttl { font-weight: 600; font-size: 14px; }
+.flow-step .desc { font-size: 13px; color: var(--text-2); margin-top: 3px; }
+.flow-step .ref {
+  display: inline-block; margin-top: 6px; font-size: 11px; color: var(--text-3);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ---------- GPU 网格 ---------- */
+.grid-controls {
+  display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 16px;
+  align-items: center;
+}
+.grid-controls .label {
+  font-size: 12px; color: var(--text-3); margin-right: 4px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.grid-controls .seg {
+  display: inline-flex; gap: 0; background: var(--panel-soft);
+  border: 1px solid var(--border); border-radius: 8px; padding: 3px;
+}
+.grid-controls .seg button {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 500;
+  padding: 5px 11px; border-radius: 5px; border: 0;
+  background: transparent; color: var(--text-2); cursor: pointer;
+  transition: all 0.15s;
+}
+.grid-controls .seg button.active {
+  background: var(--panel); color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+.grid-controls .seg button:hover:not(.active) { color: var(--text); }
+
+.gpu-grid-wrap {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 18px; margin-bottom: 12px;
+}
+.node-block { margin-bottom: 14px; }
+.node-block:last-child { margin-bottom: 0; }
+.node-label {
+  font-size: 11.5px; color: var(--text-3); margin-bottom: 8px;
+  font-family: 'JetBrains Mono', monospace; display: flex; gap: 12px;
+}
+.node-label .ip { color: var(--text-2); }
+.gpu-row { display: grid; grid-template-columns: repeat(8, 1fr); gap: 8px; }
+.gpu-cell {
+  aspect-ratio: 1.15 / 1;
+  border-radius: 6px;
+  background: var(--panel-soft);
+  border: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  font-family: 'JetBrains Mono', monospace;
+  position: relative;
+  transition: all 0.25s ease;
+  padding: 4px;
+  text-align: center;
+}
+.gpu-cell .primary {
+  font-size: 16px; font-weight: 700; color: var(--accent);
+  line-height: 1;
+}
+.gpu-cell .secondary {
+  font-size: 10px; color: var(--text-3); margin-top: 4px;
+  line-height: 1.1;
+}
+.gpu-cell.hl-a { background: rgba(168, 90, 31, 0.10); border-color: var(--accent-line); }
+.gpu-cell.hl-b { background: rgba(168, 90, 31, 0.20); border-color: var(--accent); }
+.gpu-cell.hl-c { background: rgba(156, 111, 18, 0.14); border-color: rgba(156, 111, 18, 0.4); }
+.gpu-cell.hl-c .primary { color: var(--warn); }
+
+.grid-legend {
+  display: flex; gap: 16px; flex-wrap: wrap; margin-top: 14px;
+  padding-top: 14px; border-top: 1px solid var(--divider);
+  font-size: 12px; color: var(--text-2);
+}
+.grid-legend .swatch {
+  display: inline-block; width: 12px; height: 12px; border-radius: 3px;
+  vertical-align: middle; margin-right: 6px;
+  border: 1px solid var(--border);
+}
+.grid-legend .swatch.a { background: rgba(168, 90, 31, 0.10); }
+.grid-legend .swatch.b { background: rgba(168, 90, 31, 0.20); }
+.grid-legend .swatch.c { background: rgba(156, 111, 18, 0.14); }
+
+.grid-hint {
+  font-size: 12.5px; color: var(--text-2);
+  background: var(--panel-soft); border-left: 2px solid var(--accent);
+  padding: 10px 14px; border-radius: 0 6px 6px 0;
+  margin-top: 12px;
+}
+.grid-hint code { font-size: 0.95em; }
+
+/* ---------- compare ---------- */
+.cmp-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 18px;
+}
+.cmp-card {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  padding: 18px 20px;
+}
+.cmp-card.left { border-left: 3px solid var(--accent); }
+.cmp-card.right { border-left: 3px solid var(--text-3); }
+.cmp-card h4 {
+  margin: 0 0 4px; font-size: 14.5px; font-weight: 600;
+}
+.cmp-card .sub {
+  font-size: 12px; color: var(--text-3); margin-bottom: 14px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.cmp-card ul {
+  margin: 0; padding-left: 18px; font-size: 13.5px; color: var(--text-2);
+}
+.cmp-card ul li { margin-bottom: 8px; }
+.cmp-card ul li:last-child { margin-bottom: 0; }
+.cmp-card code.inline { font-size: 0.9em; }
+
+/* ---------- expandable ---------- */
+.haz-list { display: flex; flex-direction: column; gap: 10px; }
+.haz {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 8px; overflow: hidden;
+}
+.haz summary {
+  list-style: none; cursor: pointer; padding: 14px 18px;
+  display: flex; gap: 14px; align-items: flex-start;
+  user-select: none;
+}
+.haz summary::-webkit-details-marker { display: none; }
+.haz-idx {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  color: var(--text-3); flex-shrink: 0; padding-top: 2px; min-width: 22px;
+}
+.haz-title { font-weight: 600; font-size: 14.5px; flex: 1; }
+.haz-arrow {
+  color: var(--text-3); transition: transform 0.2s; flex-shrink: 0;
+  font-family: 'JetBrains Mono', monospace; font-size: 14px;
+}
+.haz[open] .haz-arrow { transform: rotate(90deg); }
+.haz-body {
+  padding: 0 18px 18px 54px; color: var(--text-2); font-size: 14px;
+  border-top: 1px solid var(--divider); padding-top: 14px;
+}
+.haz-body .ref {
+  display: inline-block; margin-top: 8px; font-size: 12px;
+  color: var(--text-3); font-family: 'JetBrains Mono', monospace;
+}
+
+/* ---------- table ---------- */
+.tbl {
+  width: 100%; border-collapse: collapse; font-size: 13.5px;
+  background: var(--panel); border: 1px solid var(--border); border-radius: 8px;
+  overflow: hidden;
+}
+.tbl th, .tbl td { padding: 11px 14px; text-align: left; }
+.tbl th {
+  background: var(--panel-soft); font-weight: 600; font-size: 12px;
+  color: var(--text-2); text-transform: uppercase; letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--border);
+}
+.tbl td { border-top: 1px solid var(--divider); vertical-align: top; }
+.tbl td.mono { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--text-2); }
+
+/* ---------- callout ---------- */
+.callout {
+  background: var(--accent-soft); border-left: 3px solid var(--accent);
+  padding: 14px 18px; border-radius: 0 8px 8px 0; margin: 16px 0;
+  font-size: 14px; color: var(--text);
+}
+.callout.warn { background: var(--warn-soft); border-left-color: var(--warn); }
+.callout strong { color: var(--accent); font-weight: 600; }
+.callout.warn strong { color: var(--warn); }
+
+/* ---------- footer ---------- */
+footer {
+  margin-top: 64px; padding-top: 24px; border-top: 1px solid var(--divider);
+  font-size: 13px; color: var(--text-3);
+}
+footer .ref-list { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+footer code.inline { background: transparent; border: 0; padding: 0; color: var(--text-2); }
+
+/* ---------- binding chain (RANK ↔ GPU) ---------- */
+.binding-chain {
+  display: flex; align-items: stretch; gap: 0;
+  margin: 4px 0 14px;
+}
+.binding-node {
+  flex: 0 0 auto; min-width: 130px;
+  background: var(--panel-soft); border: 1px solid var(--accent-line);
+  border-radius: 10px; padding: 12px 14px; text-align: center;
+}
+.binding-node-tag {
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em;
+  margin-bottom: 4px;
+}
+.binding-node-name {
+  font-family: 'JetBrains Mono', monospace; font-weight: 700;
+  font-size: 15px; color: var(--accent); margin-bottom: 3px;
+}
+.binding-node-desc { font-size: 11.5px; color: var(--text-2); line-height: 1.4; }
+.binding-edge {
+  flex: 1 1 auto; min-width: 0;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: 0 6px;
+}
+.binding-edge-line {
+  width: 100%; height: 0;
+  border-top: 1.5px dashed var(--accent-line);
+}
+.binding-edge-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--accent); font-weight: 600;
+  background: var(--panel); padding: 0 8px; margin-top: -8px;
+}
+.binding-edge-sub {
+  font-size: 11px; color: var(--text-3); margin-top: 4px; text-align: center;
+}
+.binding-relax {
+  display: flex; gap: 12px; align-items: flex-start;
+  background: var(--accent-soft); border-left: 3px solid var(--accent);
+  padding: 12px 16px; border-radius: 0 8px 8px 0;
+  font-size: 13.5px; color: var(--text);
+}
+.binding-relax-arrow {
+  font-family: 'JetBrains Mono', monospace; color: var(--accent);
+  font-weight: 700; font-size: 16px; flex-shrink: 0; line-height: 1.4;
+}
+.binding-layout {
+  font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+  color: var(--text-2); background: var(--code-bg);
+  padding: 8px 10px; border-radius: 5px;
+  border: 1px solid var(--border); display: block;
+  white-space: pre; line-height: 1.55; margin: 4px 0 2px;
+}
+
+/* ---------- engines section (Section 02) ---------- */
+.engine-tbl td span.cap-yes {
+  color: var(--accent); font-weight: 500;
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+}
+.engine-tbl td span.cap-no {
+  color: var(--text-3);
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+}
+.engine-case {
+  display: grid; grid-template-columns: 60px 1fr; gap: 12px;
+  padding: 14px 16px; margin: 12px 0;
+  background: var(--panel-soft); border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.engine-case-tag {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--text-3); padding-top: 2px; letter-spacing: 0.05em;
+}
+.engine-case-title {
+  font-size: 14px; font-weight: 600; margin: 0 0 4px;
+}
+.engine-case-mesh {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  color: var(--text-2); margin-bottom: 10px;
+}
+.engine-case-foot {
+  font-size: 12.5px; color: var(--text-2); line-height: 1.55;
+  margin-top: 10px; padding-top: 8px; border-top: 1px dashed var(--border);
+}
+.engine-case-foot strong { color: var(--text); font-weight: 600; }
+
+.engine-mini-grid {
+  display: flex; gap: 6px; flex-wrap: wrap;
+}
+.engine-mini-grid.one-group {
+  background: rgba(168, 90, 31, 0.10);
+  border: 1px solid var(--accent-line);
+  border-radius: 6px; padding: 4px;
+}
+.engine-mini-grid.one-group > span {
+  flex: 1; min-width: 38px; height: 28px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--panel); border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+  color: var(--accent); font-weight: 600;
+}
+.mini-group {
+  flex: 1; display: flex; gap: 2px; padding: 4px;
+  background: rgba(168, 90, 31, 0.14); border: 1px solid var(--accent-line);
+  border-radius: 6px; position: relative;
+  padding-top: 18px;
+}
+.mini-group.sp { background: rgba(156, 111, 18, 0.12); border-color: rgba(156, 111, 18, 0.3); }
+.mini-group::before {
+  content: attr(data-label); position: absolute;
+  top: 3px; left: 6px;
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  color: var(--text-2); letter-spacing: 0.04em;
+}
+.mini-group > span {
+  flex: 1; min-width: 32px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--panel); border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+  color: var(--accent); font-weight: 600;
+}
+
+/* dual-view: 同一组 RANK 两个视角对照 */
+.dual-view { display: flex; flex-direction: column; gap: 10px; margin: 4px 0 2px; }
+.dual-row {
+  display: grid; grid-template-columns: 80px 1fr; gap: 10px; align-items: stretch;
+}
+.dual-tag {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--text-2); padding: 6px 8px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 6px; line-height: 1.35;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.dual-tag span {
+  color: var(--accent); font-size: 10.5px; margin-top: 2px;
+}
+.fsdp-band {
+  position: relative; display: flex; gap: 2px;
+  padding: 14px 4px 4px;
+  background: rgba(168, 90, 31, 0.10);
+  border: 1px solid var(--accent-line); border-radius: 6px;
+}
+.fsdp-band::before {
+  content: 'FSDP 大组 (size=8) — 同组内 all-gather 拼参数';
+  position: absolute; top: 2px; left: 8px;
+  font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+  color: var(--text-2);
+}
+.fsdp-band > span {
+  flex: 1; min-width: 32px; height: 36px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: var(--panel); border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.fsdp-band > span b { font-size: 11.5px; color: var(--accent); font-weight: 700; }
+.fsdp-band > span small { font-size: 9px; color: var(--text-3); margin-top: 1px; }
+.fsdp-band .band-foot {
+  flex: 0 0 100%; margin-top: 4px;
+  font-size: 11px; color: var(--text-3); font-style: italic;
+  padding-left: 2px;
+}
+.sp-grid { padding: 4px 0; }
+
+/* megatron stages */
+.megatron-stages {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+}
+.megatron-stage {
+  border: 1px solid var(--accent-line); border-radius: 6px;
+  padding: 6px; background: rgba(168, 90, 31, 0.06);
+}
+.stage-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--accent); margin-bottom: 6px; padding: 2px 4px;
+  font-weight: 600;
+}
+.stage-body { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
+.dp-pair {
+  display: flex; gap: 2px; padding: 14px 3px 3px;
+  background: var(--panel); border-radius: 4px;
+  position: relative;
+  border: 1px solid var(--border);
+}
+.dp-pair::before {
+  content: attr(data-label); position: absolute;
+  top: 2px; left: 5px;
+  font-family: 'JetBrains Mono', monospace; font-size: 9px;
+  color: var(--text-3); letter-spacing: 0.04em;
+}
+.dp-pair .r {
+  flex: 1; height: 32px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  background: rgba(168, 90, 31, 0.10); border: 1px solid var(--accent-line);
+  border-radius: 3px;
+  font-family: 'JetBrains Mono', monospace;
+}
+.dp-pair .r b { font-size: 11px; color: var(--accent); }
+.dp-pair .r small { font-size: 8.5px; color: var(--text-3); margin-top: 1px; }
+
+/* ---------- GRPO flow (Section 06) ---------- */
+.grpo-panel { padding: 18px 20px; }
+
+.grpo-timeline {
+  display: grid; grid-template-columns: repeat(7, 1fr); gap: 6px;
+  margin: 0 0 22px;
+}
+.grpo-step {
+  display: flex; flex-direction: column; align-items: stretch;
+  padding: 10px 8px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 6px; cursor: pointer;
+  font-family: inherit;
+  text-align: center;
+  transition: all 0.18s;
+  position: relative;
+}
+.grpo-step:hover { border-color: var(--accent-line); background: var(--accent-soft); }
+.grpo-step.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  box-shadow: var(--shadow-sm);
+}
+.grpo-step .step-num {
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  color: var(--text-3); margin-bottom: 4px; letter-spacing: 0.04em;
+}
+.grpo-step.active .step-num { color: var(--accent); font-weight: 600; }
+.grpo-step .step-name {
+  font-size: 12px; font-weight: 500; color: var(--text); line-height: 1.3;
+}
+.grpo-step.active .step-name { color: var(--accent-deep); font-weight: 600; }
+.grpo-step .step-frac {
+  font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  color: var(--text-3); margin-top: 6px;
+}
+.grpo-step.active .step-frac { color: var(--accent); }
+
+.grpo-detail {
+  background: var(--panel-soft); border: 1px solid var(--border);
+  border-radius: 8px; padding: 16px 18px;
+  margin-bottom: 14px;
+}
+.grpo-detail-head {
+  display: flex; justify-content: space-between; align-items: center;
+  flex-wrap: wrap; gap: 10px;
+  padding-bottom: 12px; margin-bottom: 14px;
+  border-bottom: 1px solid var(--divider);
+}
+.grpo-detail-title {
+  font-size: 15.5px; font-weight: 600; color: var(--text);
+}
+.grpo-detail-tag {
+  font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+  color: var(--accent); padding: 4px 10px;
+  background: var(--accent-soft); border: 1px solid var(--accent-line);
+  border-radius: 4px;
+}
+
+.grpo-detail-grid {
+  display: grid; grid-template-columns: 1fr 1.1fr; gap: 18px;
+}
+
+.grpo-gpu-view-label {
+  font-family: 'JetBrains Mono', monospace; font-size: 11px;
+  color: var(--text-2); margin-bottom: 8px; letter-spacing: 0.04em;
+}
+.grpo-gpus {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+}
+.grpo-gpu {
+  aspect-ratio: 1.05 / 1;
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 6px;
+  font-family: 'JetBrains Mono', monospace;
+  padding: 4px;
+  text-align: center;
+  transition: all 0.25s;
+}
+.grpo-gpu .gpu-rank {
+  font-size: 10px; color: var(--text-3);
+}
+.grpo-gpu .gpu-load {
+  font-size: 10.5px; font-weight: 600; color: var(--text-2);
+  margin-top: 4px; line-height: 1.25;
+}
+.grpo-gpu.role-actor { background: rgba(168,90,31,0.12); border-color: var(--accent-line); }
+.grpo-gpu.role-actor .gpu-load { color: var(--accent); }
+.grpo-gpu.role-ref { background: rgba(156,111,18,0.12); border-color: rgba(156,111,18,0.30); }
+.grpo-gpu.role-ref .gpu-load { color: var(--warn); }
+.grpo-gpu.role-rollout { background: rgba(168,90,31,0.22); border-color: var(--accent); }
+.grpo-gpu.role-rollout .gpu-load { color: var(--accent-deep); }
+.grpo-gpu.role-idle { background: var(--panel); }
+.grpo-gpu.role-idle .gpu-load { color: var(--text-3); font-style: italic; }
+
+.grpo-explain {
+  display: flex; flex-direction: column; gap: 4px;
+}
+.grpo-explain .grpo-section-title {
+  font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+  color: var(--text-3); text-transform: uppercase; letter-spacing: 0.06em;
+  margin-top: 8px;
+}
+.grpo-explain .grpo-section-title:first-child { margin-top: 0; }
+.grpo-explain .grpo-desc,
+.grpo-explain .grpo-role,
+.grpo-explain .grpo-coll,
+.grpo-explain .grpo-mem {
+  font-size: 13px; color: var(--text-2); line-height: 1.55;
+}
+.grpo-explain .grpo-mem strong { color: var(--accent); font-weight: 600; }
+.grpo-explain .grpo-mem code { background: var(--code-bg); padding: 1px 4px; border-radius: 3px; font-size: 11.5px; }
+.grpo-explain .grpo-desc { color: var(--text); }
+.grpo-explain .grpo-code {
+  font-size: 11.5px; color: var(--text-3);
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 4px; padding: 4px 8px;
+}
+
+.grpo-controls {
+  display: flex; gap: 10px; align-items: center; flex-wrap: wrap;
+}
+.grpo-progress {
+  font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  color: var(--text-3); margin-left: auto;
+}
+
+/* ---------- responsive ---------- */
+@media (max-width: 880px) {
+  .wrap { padding: 24px 18px 64px; }
+  h1 { font-size: 28px; }
+  .cmp-grid { grid-template-columns: 1fr; }
+  .hero-nav { gap: 4px; }
+  .hero-nav a { font-size: 11px; padding: 4px 8px; }
+  .layer { grid-template-columns: 1fr; gap: 6px; }
+  .primer-cards { grid-template-columns: 1fr; }
+  .gpu-row { grid-template-columns: repeat(4, 1fr); }
+  .gpu-cell .primary { font-size: 14px; }
+  .gpu-cell .secondary { font-size: 9px; }
+  .binding-chain { flex-direction: column; }
+  .binding-edge { padding: 6px 0; }
+  .binding-edge-line { width: 0; height: 16px; border-top: 0; border-left: 1.5px dashed var(--accent-line); }
+  .binding-edge-label { margin-top: 0; }
+  .engine-case { grid-template-columns: 1fr; gap: 8px; }
+  .engine-case-tag { padding-top: 0; }
+  .megatron-stages { grid-template-columns: 1fr; }
+  .stage-body { grid-template-columns: 1fr; }
+  .dual-row { grid-template-columns: 1fr; gap: 4px; }
+  .dual-tag { padding: 4px 8px; flex-direction: row; gap: 6px; align-items: center; }
+  .dual-tag br { display: none; }
+  .fsdp-band { padding-top: 18px; flex-wrap: wrap; }
+  .grpo-timeline { grid-template-columns: repeat(2, 1fr); }
+  .grpo-detail-grid { grid-template-columns: 1fr; }
+  .grpo-gpus { grid-template-columns: repeat(4, 1fr); }
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<!-- ========== HERO ========== -->
+<header class="hero">
+  <div class="eyebrow">verl · 训练机制笔记</div>
+  <h1>一个 RANK，多套 mesh</h1>
+  <p class="subtitle">RANK 跟 GPU 怎么对应？两条 engine 路径（FSDP / Megatron）各自怎么切？一次 GRPO step 里这些 RANK 到底在干什么？四个问题，一篇说清。</p>
+  <div class="hero-meta">
+    <span>verl-project / verl</span>
+    <span>·</span>
+    <span class="src-link"><code class="inline" style="font-size:12px">verl/single_controller/</code> &amp; <code class="inline" style="font-size:12px">verl/workers/engine/</code></span>
+  </div>
+
+  <nav class="hero-nav">
+    <span class="nav-tag">跳到</span>
+    <a href="#sec-binding">绑定关系</a>
+    <a href="#sec-engines">两条 engine</a>
+    <a href="#sec-logic">划分逻辑</a>
+    <a href="#sec-grpo">GRPO 流程</a>
+    <a href="#sec-glossary">名词速查 ↘</a>
+  </nav>
+
+  <div class="hero-tip">读到 <code class="inline">RANK</code> / <code class="inline">FSDP</code> / <code class="inline">WorkerGroup</code> 这种术语<strong>不太熟</strong>？随时跳到 <a href="#sec-glossary">§10 名词速查</a> 回查再回来——后文默认你已经认识这些词。</div>
+</header>
+
+<!-- ========== Section 01: RANK ↔ GPU 绑定关系 ========== -->
+<section id="sec-binding">
+  <span class="sec-num">01 · 绑定关系</span>
+  <h2 class="sec-title">RANK 跟 GPU 是什么关系？</h2>
+  <p class="sec-lead">一条单向强绑定链 + 一个可配置的多对一例外。把这条链画清楚，后面所有 mesh 切换 / role 复用的讨论才不会回头怀疑「rank 和 GPU 是不是又被重新分了」。</p>
+
+  <div class="panel">
+    <div class="binding-chain">
+      <div class="binding-node">
+        <div class="binding-node-tag">身份</div>
+        <div class="binding-node-name">RANK</div>
+        <div class="binding-node-desc">分布式编号 0..N-1</div>
+      </div>
+      <div class="binding-edge">
+        <div class="binding-edge-line"></div>
+        <div class="binding-edge-label">永远 1:1</div>
+        <div class="binding-edge-sub">绑死，不可调</div>
+      </div>
+      <div class="binding-node">
+        <div class="binding-node-tag">载体</div>
+        <div class="binding-node-name">Ray 进程</div>
+        <div class="binding-node-desc">一个常驻 Python actor</div>
+      </div>
+      <div class="binding-edge">
+        <div class="binding-edge-line"></div>
+        <div class="binding-edge-label">默认 1:1</div>
+        <div class="binding-edge-sub">可配置成 N:1</div>
+      </div>
+      <div class="binding-node">
+        <div class="binding-node-tag">硬件</div>
+        <div class="binding-node-name">物理 GPU</div>
+        <div class="binding-node-desc">一张卡</div>
+      </div>
+    </div>
+
+    <div class="binding-relax">
+      <div class="binding-relax-arrow">↑</div>
+      <div>
+        <strong>左半段</strong>（<code class="inline">RANK ↔ Ray 进程</code>）<strong>永远 1:1</strong>，<code class="inline">Worker.__init__</code> 注入后就锁死；<strong>右半段</strong>（<code class="inline">Ray 进程 ↔ GPU</code>）默认 1:1，但当 <code class="inline">max_colocate_count &gt; 1</code> <strong>且</strong>多个 WorkerGroup 共用同一个 PG 时，可以放宽成多进程挤一张卡——也就是「一张 GPU 上有多个不同 WG 的 RANK」。
+      </div>
+    </div>
+  </div>
+
+  <div class="cmp-grid" style="margin-top: 18px;">
+    <div class="cmp-card left">
+      <h4>默认 colocate（hybrid）</h4>
+      <div class="sub">所有 role 共用 global_pool</div>
+      <ul>
+        <li>每张 GPU 上<strong>只起一个 Ray actor 进程</strong>，进程拿一个 RANK。</li>
+        <li>actor / ref / rollout 是这同一进程内的<strong>子对象</strong>，按时间错峰跑（hot-swap），共享显存与 RANK。</li>
+        <li>物理布局：<code class="binding-layout">GPU0 ── 1 个 Ray actor 进程 ── RANK=0
+        └─ 进程内同时持有 actor / ref / rollout</code></li>
+        <li><code class="inline">max_colocate_count=3</code> 在这里只是 Ray 调度配额——并不会真的触发"多个 RANK 挤一张卡"，因为只有<strong>一个</strong> WorkerGroup 来抢这张卡。</li>
+      </ul>
+    </div>
+    <div class="cmp-card right">
+      <h4>独立 resource_pool</h4>
+      <div class="sub">reward / teacher 自带 pool</div>
+      <ul>
+        <li>不同 role 的 WorkerGroup <strong>可以共用同一组物理 GPU</strong>（pool 重叠时），但<strong>各起一份 Ray actor 进程</strong>，各拿一份 RANK 0..N-1。</li>
+        <li>物理布局：<code class="binding-layout">GPU0 ─┬─ Ray actor #A (actor WG · RANK=0)
+      └─ Ray actor #B (reward WG · RANK=0)</code></li>
+        <li>显存被两个进程<strong>真正瓜分</strong>，需要自己算每份能放多大模型。</li>
+        <li>跨 pool 的数据交换走 Ray RPC，而不是 NCCL collective。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <strong>关键差别：</strong><code class="inline">max_colocate_count</code> 是 <strong>Ray 调度层的会计配额</strong>（用 <code class="inline">num_gpus = 1 / max_colocate_count</code> 控制"最多几个 actor 能调度到同一张 GPU"），<strong>不是显存的物理切片</strong>。多个 RANK 真正挤一张卡时显存会物理竞争——verl 默认走"<strong>时间错峰（actor ↔ rollout hot-swap）</strong>"而非"空间瓜分"，所以默认配置下你不会感到这个配额带来的显存压力。
+  </div>
+
+  <div class="callout">
+    <strong>实操建议：</strong>默认场景下放心地把 <code class="inline">RANK ≡ GPU</code> 当一回事用，省脑力。只有看到这三种信号才需要切换到严格意义思考——① 给某个 role 配了独立的 <code class="inline">resource_pool</code>（reward / teacher 单独配 pool）；② <code class="inline">max_colocate_count &gt; 1</code> <strong>且</strong>多个 WorkerGroup 共用同一个 PG；③ 显式用了 <code class="inline">SubRayResourcePool</code> 切分 rollout 副本。
+  </div>
+</section>
+
+<!-- ========== Section 02: 两条 engine 两种切法 ========== -->
+<section id="sec-engines">
+  <span class="sec-num">02 · 两条 engine</span>
+  <h2 class="sec-title">FSDP 和 Megatron 各自怎么切</h2>
+  <p class="sec-lead">verl 有两条<strong>互斥</strong>的训练 engine——选哪条由 yaml 里 <code class="inline">strategy</code> 决定。两条路径支持的并行维度完全不同，mesh 形状自然也不同。</p>
+
+  <!-- 顶部对比表 -->
+  <div class="panel">
+    <h3 style="margin-bottom: 10px;">支持的并行维度对比</h3>
+    <table class="tbl engine-tbl">
+      <thead>
+        <tr>
+          <th>切什么</th>
+          <th>FSDP engine</th>
+          <th>Megatron engine</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td>切参数 / 优化器（"模型放不下一张卡"）</td><td><span class="cap-yes">FSDP / Hybrid Shard</span></td><td><span class="cap-yes">TP（张量切分）</span></td></tr>
+        <tr><td>切层（PP 流水线）</td><td><span class="cap-no">不支持</span></td><td><span class="cap-yes">PP / VPP</span></td></tr>
+        <tr><td>切序列（长上下文）</td><td><span class="cap-yes">Ulysses SP</span></td><td><span class="cap-yes">CP</span></td></tr>
+        <tr><td>切专家（MoE）</td><td><span class="cap-no">不支持</span></td><td><span class="cap-yes">EP / Expert-TP</span></td></tr>
+        <tr><td>数据并行（DP）</td><td><span class="cap-yes">FSDP 自带 / Hybrid 的 DDP 维</span></td><td><span class="cap-yes">DP（通过 ZeRO 分片）</span></td></tr>
+        <tr><td>mesh API</td><td><code class="inline">torch.distributed.DeviceMesh</code></td><td>Megatron <code class="inline">parallel_state</code></td></tr>
+        <tr><td>关键代码</td><td class="mono">workers/engine/fsdp/utils.py:38-56</td><td class="mono">workers/engine/megatron/transformer_impl.py:148-158</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- 路径 A：FSDP -->
+  <div class="panel" style="margin-top: 18px;">
+    <h3 style="margin-bottom: 6px;">路径 A · FSDP engine：最多两维 mesh</h3>
+    <p style="margin: 4px 0 14px; color: var(--text-2); font-size: 13.5px;">所有切法都<strong>没有 PP</strong>。以 8 卡为例展示三种典型配置。</p>
+
+    <div class="engine-case">
+      <div class="engine-case-tag">case A1</div>
+      <div class="engine-case-body">
+        <div class="engine-case-title">纯 FSDP（默认）</div>
+        <div class="engine-case-mesh"><code class="inline">fsdp_size = 8 = world</code> ⇒ 1D mesh <code class="inline">[fsdp]</code></div>
+        <div class="engine-mini-grid one-group">
+          <span>R0</span><span>R1</span><span>R2</span><span>R3</span><span>R4</span><span>R5</span><span>R6</span><span>R7</span>
+        </div>
+        <div class="engine-case-foot">所有 8 个 RANK 共享一个 FSDP 分片组。每个 RANK 持有 1/8 的参数+梯度+优化器状态，forward 前 all-gather 拼回完整权重。</div>
+      </div>
+    </div>
+
+    <div class="engine-case">
+      <div class="engine-case-tag">case A2</div>
+      <div class="engine-case-body">
+        <div class="engine-case-title">Hybrid Shard（节点内分片 + 节点间复制）</div>
+        <div class="engine-case-mesh"><code class="inline">fsdp_size = 4 &lt; world</code> ⇒ 2D mesh <code class="inline">[ddp=2, fsdp=4]</code></div>
+        <div class="engine-mini-grid">
+          <div class="mini-group" data-label="ddp=0 · fsdp 组 1"><span>R0</span><span>R1</span><span>R2</span><span>R3</span></div>
+          <div class="mini-group" data-label="ddp=1 · fsdp 组 2"><span>R4</span><span>R5</span><span>R6</span><span>R7</span></div>
+        </div>
+        <div class="engine-case-foot">两个 FSDP 分片组，组内 4 个 RANK 切参数；组与组之间是 DDP 复制（all-reduce 同步梯度）。常用于多机：<strong>fsdp 维 = 单机内 GPU 数，ddp 维 = 节点数</strong>，跨节点带宽小所以走 DDP，节点内带宽大走 FSDP。</div>
+      </div>
+    </div>
+
+    <div class="engine-case">
+      <div class="engine-case-tag">case A3</div>
+      <div class="engine-case-body">
+        <div class="engine-case-title">FSDP + Ulysses（长序列）· 同一组 RANK 同时戴两顶帽子</div>
+        <div class="engine-case-mesh"><code class="inline">fsdp_size = 8</code> + <code class="inline">ulysses_sp = 2</code> ⇒ 两套 mesh 叠加</div>
+
+        <div class="dual-view">
+          <div class="dual-row">
+            <div class="dual-tag">FSDP 视角<br/><span>切参数</span></div>
+            <div class="fsdp-band">
+              <span><b>R0</b><small>p0</small></span>
+              <span><b>R1</b><small>p1</small></span>
+              <span><b>R2</b><small>p2</small></span>
+              <span><b>R3</b><small>p3</small></span>
+              <span><b>R4</b><small>p4</small></span>
+              <span><b>R5</b><small>p5</small></span>
+              <span><b>R6</b><small>p6</small></span>
+              <span><b>R7</b><small>p7</small></span>
+              <div class="band-foot">8 张卡共同持有 1 份完整模型参数，每卡只存 1/8（p0..p7）。forward 前 all-gather 拼回，算完释放。</div>
+            </div>
+          </div>
+
+          <div class="dual-row">
+            <div class="dual-tag">Ulysses 视角<br/><span>切序列</span></div>
+            <div class="engine-mini-grid sp-grid">
+              <div class="mini-group sp" data-label="dp=0 · sp=2"><span>R0</span><span>R1</span></div>
+              <div class="mini-group sp" data-label="dp=1 · sp=2"><span>R2</span><span>R3</span></div>
+              <div class="mini-group sp" data-label="dp=2 · sp=2"><span>R4</span><span>R5</span></div>
+              <div class="mini-group sp" data-label="dp=3 · sp=2"><span>R6</span><span>R7</span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="engine-case-foot"><strong>读法</strong>：以 R3 为例 — <strong>FSDP 视角</strong>下它持有参数分片 p3，跟另外 7 张卡 all-gather 拼出完整层；<strong>Ulysses 视角</strong>下它跟 R2 组成 sp 组（dp=1），共同负责一份长序列的不同注意力头。两个视角同时成立，因为<strong>切的是不同维度</strong>——FSDP 切参数张量、Ulysses 切 attention 计算。</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 路径 B：Megatron -->
+  <div class="panel" style="margin-top: 18px;">
+    <h3 style="margin-bottom: 6px;">路径 B · Megatron engine：多维 mesh（最多 5 维）</h3>
+    <p style="margin: 4px 0 14px; color: var(--text-2); font-size: 13.5px;"><code class="inline">tp · pp · cp · ep · dp</code>，每维都可独立配。Megatron 默认 order 是 <code class="inline">tp-cp-ep-dp-pp</code>（从内到外）——意思是 <strong>TP 最内、PP 最外</strong>。这不是直觉错位，是<strong>通信频率决定的</strong>：</p>
+
+    <div class="callout" style="margin-bottom: 14px;">
+      <strong>为什么 TP 在最内、PP 在最外：</strong>从最内层到最外层，通信频率<strong>递减</strong>，对带宽要求<strong>递减</strong>。<br/>
+      · <strong>TP</strong>（每层 all-reduce）频率最高 → 必须在节点内，吃 NVLink 带宽<br/>
+      · <strong>DP</strong>（梯度同步）频率次之 → 节点内或同机房网络<br/>
+      · <strong>PP</strong>（层间 send-recv）频率最低 → 可以跨节点甚至跨机房<br/>
+      所以"DP 在中间、PP 在外"是<strong>把高频通信塞进高带宽链路</strong>的工程优化，不是逻辑顺序。
+    </div>
+
+    <div class="engine-case">
+      <div class="engine-case-tag">B1</div>
+      <div class="engine-case-body">
+        <div class="engine-case-title">最简单：TP=2, DP=4 · 8 卡（不开 PP）</div>
+        <div class="engine-case-mesh">不开 PP 时，<strong>DP 自然成为最外层</strong>。这才符合大家直觉中的"DP 最高层"。</div>
+        <div class="engine-mini-grid">
+          <div class="mini-group" data-label="dp=0"><span>R0</span><span>R1</span></div>
+          <div class="mini-group" data-label="dp=1"><span>R2</span><span>R3</span></div>
+          <div class="mini-group" data-label="dp=2"><span>R4</span><span>R5</span></div>
+          <div class="mini-group" data-label="dp=3"><span>R6</span><span>R7</span></div>
+        </div>
+        <div class="engine-case-foot">4 个 DP 副本，每副本 2 卡跑 TP=2。<strong>每张卡的坐标是 <code class="inline">(tp_idx, dp_idx)</code></strong>：R5 = (tp=1, dp=2)。同 dp 的 2 张卡做 TP all-reduce；4 个 dp 之间做梯度 all-reduce。模型参数被 TP 切了 2 份；每个 dp 副本各持一整份切完的模型。</div>
+      </div>
+    </div>
+
+    <div class="engine-case">
+      <div class="engine-case-tag">B2</div>
+      <div class="engine-case-body">
+        <div class="engine-case-title">完整三维：TP=2, PP=2, DP=4 · 16 卡</div>
+        <div class="engine-case-mesh">每个 RANK 同时拿到 <code class="inline">(tp_idx, dp_idx, pp_idx)</code> 三个坐标。<strong>PP 是最外层（不是 DP）</strong>。</div>
+
+        <div class="megatron-stages">
+          <div class="megatron-stage">
+            <div class="stage-label">pp_stage 0 — 前半层</div>
+            <div class="stage-body">
+              <div class="dp-pair" data-label="dp=0"><span class="r"><b>R0</b><small>tp=0</small></span><span class="r"><b>R1</b><small>tp=1</small></span></div>
+              <div class="dp-pair" data-label="dp=1"><span class="r"><b>R2</b><small>tp=0</small></span><span class="r"><b>R3</b><small>tp=1</small></span></div>
+              <div class="dp-pair" data-label="dp=2"><span class="r"><b>R4</b><small>tp=0</small></span><span class="r"><b>R5</b><small>tp=1</small></span></div>
+              <div class="dp-pair" data-label="dp=3"><span class="r"><b>R6</b><small>tp=0</small></span><span class="r"><b>R7</b><small>tp=1</small></span></div>
+            </div>
+          </div>
+          <div class="megatron-stage">
+            <div class="stage-label">pp_stage 1 — 后半层</div>
+            <div class="stage-body">
+              <div class="dp-pair" data-label="dp=0"><span class="r"><b>R8</b><small>tp=0</small></span><span class="r"><b>R9</b><small>tp=1</small></span></div>
+              <div class="dp-pair" data-label="dp=1"><span class="r"><b>R10</b><small>tp=0</small></span><span class="r"><b>R11</b><small>tp=1</small></span></div>
+              <div class="dp-pair" data-label="dp=2"><span class="r"><b>R12</b><small>tp=0</small></span><span class="r"><b>R13</b><small>tp=1</small></span></div>
+              <div class="dp-pair" data-label="dp=3"><span class="r"><b>R14</b><small>tp=0</small></span><span class="r"><b>R15</b><small>tp=1</small></span></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="engine-case-foot"><strong>读法</strong>：以 R5 为例 → <code class="inline">(tp=1, dp=2, pp=0)</code>。collective op 沿哪个维度做由 mpu 决定：<br/>· <strong>TP 组（size=2）</strong>：{R0,R1} / {R2,R3} / ... — 同一对算同一层 → <strong>每层都 all-reduce，最高频</strong><br/>· <strong>DP 组（size=4）</strong>：{R0,R2,R4,R6}（tp=0,pp=0）等 — 同 layer 不同 batch，反传完后 all-reduce 梯度 → <strong>中等频率</strong><br/>· <strong>PP 组（size=2）</strong>：{R0,R8} / {R1,R9} / ... — 流水线传递激活值 → <strong>层间才 send-recv，最低频</strong><br/>这就是为什么 rank 编号在每个 pp_stage 内连续（R0..R7 同在 stage 0），而 pp 跨 stage 时直接跳到 R8——把高频通信留在编号相邻的卡上。</div>
+      </div>
+    </div>
+
+    <div class="engine-case">
+      <div class="engine-case-tag">B3</div>
+      <div class="engine-case-body">
+        <div class="engine-case-title">MoE 专用：TP=2, EP=4, DP=2 · 16 卡</div>
+        <div class="engine-case-mesh">EP（专家并行）切的是不同的 expert，和 DP 正交。每张卡的坐标是 <code class="inline">(tp_idx, ep_idx, dp_idx)</code>。</div>
+        <div class="megatron-stages">
+          <div class="megatron-stage">
+            <div class="stage-label">dp=0 — 一份完整数据</div>
+            <div class="stage-body">
+              <div class="dp-pair" data-label="ep=0"><span class="r"><b>R0</b><small>tp=0</small></span><span class="r"><b>R1</b><small>tp=1</small></span></div>
+              <div class="dp-pair" data-label="ep=1"><span class="r"><b>R2</b><small>tp=0</small></span><span class="r"><b>R3</b><small>tp=1</small></span></div>
+              <div class="dp-pair" data-label="ep=2"><span class="r"><b>R4</b><small>tp=0</small></span><span class="r"><b>R5</b><small>tp=1</small></span></div>
+              <div class="dp-pair" data-label="ep=3"><span class="r"><b>R6</b><small>tp=0</small></span><span class="r"><b>R7</b><small>tp=1</small></span></div>
+            </div>
+          </div>
+          <div class="megatron-stage">
+            <div class="stage-label">dp=1 — 另一份数据</div>
+            <div class="stage-body">
+              <div class="dp-pair" data-label="ep=0"><span class="r"><b>R8</b><small>tp=0</small></span><span class="r"><b>R9</b><small>tp=1</small></span></div>
+              <div class="dp-pair" data-label="ep=1"><span class="r"><b>R10</b><small>tp=0</small></span><span class="r"><b>R11</b><small>tp=1</small></span></div>
+              <div class="dp-pair" data-label="ep=2"><span class="r"><b>R12</b><small>tp=0</small></span><span class="r"><b>R13</b><small>tp=1</small></span></div>
+              <div class="dp-pair" data-label="ep=3"><span class="r"><b>R14</b><small>tp=0</small></span><span class="r"><b>R15</b><small>tp=1</small></span></div>
+            </div>
+          </div>
+        </div>
+        <div class="engine-case-foot">注意：MoE 模型不开 PP 时，<strong>DP 又一次成为最外层</strong>（B1 那种情况）。EP 在中间——同一 dp 副本里的 4 个 ep 组各持有不同 expert。token 经过 routing 后通过 all-to-all 送到对应 expert 所在的 RANK 上算。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <strong>常见误会：</strong>「FSDP + PP」在 PyTorch 原生（<code class="inline">torch.distributed.pipelining</code> + FSDP）里能跑，但 verl <strong>不支持</strong>这种组合——FSDP engine 没有 PP 维，Megatron engine 不用 FSDP（用 ZeRO 形式做 DP 分片）。要 PP 必须切到 Megatron 后端；要走 PyTorch 原生 FSDP 就只能在 FSDP engine 里玩 FSDP × DDP × Ulysses。
+  </div>
+</section>
+
+<!-- ========== Section 03: 启动 → RANK ========== -->
+<section id="sec-logic">
+  <span class="sec-num">03</span>
+  <h2 class="sec-title">从 trainer 启动到 worker 拿到 RANK</h2>
+  <p class="sec-lead">六步走，从 yaml 里的 <code class="inline">trainer.n_gpus_per_node × nnodes</code> 到 GPU 上的一个 Ray 进程。</p>
+
+  <div class="panel">
+    <div class="flow">
+      <div class="flow-step">
+        <div class="ttl">① 算 ResourcePool 的 process_on_nodes</div>
+        <div class="desc"><code class="inline">main_ppo.py</code> 把 <code class="inline">global_pool = [n_gpus_per_node] * nnodes</code> 喂给 <code class="inline">ResourcePoolManager</code>。reward / teacher 如果开了独立 pool，会走 <code class="inline">reward_pool</code> / <code class="inline">teacher_pool</code> 分支。</div>
+        <div class="ref">verl/trainer/main_ppo.py:156-188</div>
+      </div>
+
+      <div class="flow-step">
+        <div class="ttl">② 申请 placement group</div>
+        <div class="desc">每个节点一个 PG，PG 里每张卡一个 bundle：<code class="inline">{"GPU": 1, "CPU": max_colocate_count}</code>。<code class="inline">max_colocate_count</code> 默认 3——意味着 Ray 把这张 GPU 切成 3 份逻辑额度，对应「actor+critic+ref / rollout / reward」三种 WorkerGroup 复用同一张卡。</div>
+        <div class="ref">verl/single_controller/ray/base.py:130-160 · 199-207</div>
+      </div>
+
+      <div class="flow-step">
+        <div class="ttl">③ 按节点 IP 排序 PG（重要）</div>
+        <div class="desc"><code class="inline">sort_placement_group_by_node_ip(pgs)</code>。这一步保证「断点续训时，同一台机器上的 worker 拿到的 RANK 不会变」——因为 FSDPCheckpointManager 把分片存在本地。</div>
+        <div class="ref">verl/single_controller/ray/base.py:69-86</div>
+      </div>
+
+      <div class="flow-step">
+        <div class="ttl">④ 双层 for 循环分配 RANK</div>
+        <div class="desc"><code class="inline">for pg in sorted_pgs: for local_rank in range(local_world_size): rank += 1</code>。第一个 PG 的第一个 bundle 还会跑 <code class="inline">get_master_addr_port</code>，作为后续 NCCL 的 master。</div>
+        <div class="ref">verl/single_controller/ray/base.py:557-575</div>
+      </div>
+
+      <div class="flow-step">
+        <div class="ttl">⑤ 通过 env_vars 启动 Ray actor</div>
+        <div class="desc">每个 worker 进程被注入 <code class="inline">RANK / WORLD_SIZE / RAY_LOCAL_WORLD_SIZE / MASTER_ADDR / MASTER_PORT</code>，并按 <code class="inline">num_gpus = 1 / max_colocate_count</code> 申请 GPU 资源。<strong>注意：env_vars 里没有 <code class="inline">LOCAL_RANK</code></strong>，靠 Ray 自己设置 <code class="inline">CUDA_VISIBLE_DEVICES</code>。</div>
+        <div class="ref">verl/single_controller/ray/base.py:617-674 · 622-623</div>
+      </div>
+
+      <div class="flow-step">
+        <div class="ttl">⑥ Worker 进程内 init_process_group</div>
+        <div class="desc"><code class="inline">Worker.__init__</code> 读 RANK；<code class="inline">TrainingWorker</code> 触发 <code class="inline">initialize_global_process_group_ray()</code>，<code class="inline">torch.distributed.get_rank()</code> 与 RANK 完全一致。然后 FSDPEngine / MegatronEngine 在它之上构建 mesh。</div>
+        <div class="ref">verl/single_controller/base/worker.py:181-216 · verl/workers/engine_workers.py:82-92</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== Section 04: 16 卡示例 ========== -->
+<section>
+  <span class="sec-num">04</span>
+  <h2 class="sec-title">16 卡跑起来：一个 RANK，四种视角</h2>
+  <p class="sec-lead">同一份 16 个 RANK（2 节点 × 8 卡），切换下方按钮看 verl 在不同层视角下怎么读这套编号。</p>
+
+  <div class="grid-controls">
+    <span class="label">切视角：</span>
+    <div class="seg" id="grid-mode">
+      <button data-mode="rank" class="active">global RANK</button>
+      <button data-mode="local">LOCAL_RANK</button>
+      <button data-mode="fsdp">FSDP 2D mesh<br><span style="font-size:10px;color:var(--text-3)">(ddp=4, fsdp=4)</span></button>
+      <button data-mode="rollout">Rollout 3D mesh<br><span style="font-size:10px;color:var(--text-3)">(dp=2, infer_tp=4, infer_pp=2)</span></button>
+      <button data-mode="megatron">Megatron<br><span style="font-size:10px;color:var(--text-3)">(tp=2, pp=2, dp=4)</span></button>
+    </div>
+  </div>
+
+  <div class="gpu-grid-wrap">
+    <div class="node-block">
+      <div class="node-label"><span class="ip">node-A · 10.0.0.11</span><span>placement_group[0]</span></div>
+      <div class="gpu-row" id="row-a"></div>
+    </div>
+    <div class="node-block">
+      <div class="node-label"><span class="ip">node-B · 10.0.0.12</span><span>placement_group[1]</span></div>
+      <div class="gpu-row" id="row-b"></div>
+    </div>
+    <div class="grid-legend" id="legend">
+      <span><span class="swatch a"></span> 主坐标</span>
+      <span><span class="swatch b"></span> 当前高亮组</span>
+      <span><span class="swatch c"></span> 第二维分组（如 fsdp / pp）</span>
+    </div>
+    <div class="grid-hint" id="grid-hint">
+      <code>RANK = 0 .. 15</code>。<code>placement_group</code> 按 node IP 排序后线性编号；同一节点内 <code>LOCAL_RANK</code> 从 0 起。这是后续所有视角的"基底"。
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>展开公式（DeviceMesh 默认 C-order，最后一维 stride 最快）：</strong><br>
+    · 2D <code class="inline">(ddp, fsdp)</code> ⇒ <code class="inline">rank = ddp · fsdp_size + fsdp</code><br>
+    · 3D <code class="inline">(dp, infer_tp, infer_pp)</code> ⇒ <code class="inline">rank = dp · (infer_tp · infer_pp) + infer_tp · infer_pp + infer_pp</code><br>
+    Megatron 的 (tp, pp, dp) 顺序由 <code class="inline">mpu.initialize_model_parallel</code> 内部决定，verl 这里只把 sizes 传过去，不再自己排。
+  </div>
+</section>
+
+<!-- ========== Section 05: 一次 GRPO step 的全流程 ========== -->
+<section id="sec-grpo">
+  <span class="sec-num">05 · GRPO 流程</span>
+  <h2 class="sec-title">一次 GRPO step 里 RANK 到底在干什么</h2>
+  <p class="sec-lead">把前面所有概念串起来：默认 colocate 的 8 张卡，在一次 GRPO step 里依次经历 7 个阶段。<strong>点击下方阶段方块切换</strong>查看每个阶段的活跃 role、显存里装着什么、用到的通信。</p>
+
+  <div class="panel grpo-panel">
+    <!-- 阶段时间线 -->
+    <div class="grpo-timeline" id="grpo-timeline">
+      <button class="grpo-step active" data-step="0">
+        <div class="step-num">1</div>
+        <div class="step-name">采 prompts</div>
+        <div class="step-frac">~0%</div>
+      </button>
+      <button class="grpo-step" data-step="1">
+        <div class="step-num">2</div>
+        <div class="step-name">权重 sync</div>
+        <div class="step-frac">~5%</div>
+      </button>
+      <button class="grpo-step" data-step="2">
+        <div class="step-num">3</div>
+        <div class="step-name">rollout 生成</div>
+        <div class="step-frac">~50%</div>
+      </button>
+      <button class="grpo-step" data-step="3">
+        <div class="step-num">4</div>
+        <div class="step-name">log π_old</div>
+        <div class="step-frac">~10%</div>
+      </button>
+      <button class="grpo-step" data-step="4">
+        <div class="step-num">5</div>
+        <div class="step-name">log π_ref</div>
+        <div class="step-frac">~10%</div>
+      </button>
+      <button class="grpo-step" data-step="5">
+        <div class="step-num">6</div>
+        <div class="step-name">reward + advantage</div>
+        <div class="step-frac">~5%</div>
+      </button>
+      <button class="grpo-step" data-step="6">
+        <div class="step-num">7</div>
+        <div class="step-name">actor 反传更新</div>
+        <div class="step-frac">~20%</div>
+      </button>
+    </div>
+
+    <!-- 详细面板 -->
+    <div class="grpo-detail" id="grpo-detail">
+      <div class="grpo-detail-head">
+        <div class="grpo-detail-title" id="grpo-title">阶段 1 / 7：从 dataset 采 prompts</div>
+        <div class="grpo-detail-tag" id="grpo-tag">controller · CPU</div>
+      </div>
+
+      <div class="grpo-detail-grid">
+        <!-- 左：8 张卡的显存视图 -->
+        <div class="grpo-gpu-view">
+          <div class="grpo-gpu-view-label">8 张 GPU 当前装的什么（colocate 模式）</div>
+          <div class="grpo-gpus" id="grpo-gpus">
+            <!-- 8 个 GPU 槽，由 JS 填充 -->
+          </div>
+        </div>
+
+        <!-- 右：阶段说明 -->
+        <div class="grpo-explain">
+          <div class="grpo-section-title">这一步在干什么</div>
+          <div class="grpo-desc" id="grpo-desc">Controller (driver) 从 dataset batch 取 N 条 prompts，按 dp 维度切分成 N/dp_size 份分发给各 RANK。GPU 还没启动，全部 idle。</div>
+
+          <div class="grpo-section-title">活跃 role</div>
+          <div class="grpo-role" id="grpo-role">controller / driver（不在 GPU 上）</div>
+
+          <div class="grpo-section-title">显存状态</div>
+          <div class="grpo-mem" id="grpo-mem">GPU 此刻基本空载或残留上一 step 的训练态。这一步纯 CPU。</div>
+
+          <div class="grpo-section-title">通信</div>
+          <div class="grpo-coll" id="grpo-coll">无 NCCL 通信（仅 Ray RPC 派发数据）</div>
+
+          <div class="grpo-section-title">关键代码</div>
+          <div class="grpo-code mono" id="grpo-code">verl/trainer/ppo/ray_trainer.py · DataProto.split</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 控制按钮 -->
+    <div class="grpo-controls">
+      <button class="btn" id="grpo-prev">← 上一步</button>
+      <button class="btn primary" id="grpo-next">下一步 →</button>
+      <button class="btn" id="grpo-play">▶ 自动播放</button>
+      <span class="grpo-progress" id="grpo-progress">1 / 7</span>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>关键观察：</strong>整个 step 里 <strong>同一组 8 个 RANK</strong> 始终是这 8 个 RANK，没有任何重新分配。变的只是「<strong>这一刻它们的进程内部哪个子对象在用 GPU</strong>」——actor、ref、还是 rollout-engine。这就是 colocate 的 hot-swap 设计：<strong>同一 RANK，时间换空间</strong>。
+  </div>
+</section>
+
+<!-- ========== Section 06: Colocate vs Separated ========== -->
+<section>
+  <span class="sec-num">06</span>
+  <h2 class="sec-title">Colocate vs Separated：rank 复用还是切开</h2>
+  <p class="sec-lead">同一个 GPU 上，verl 默认让 actor / ref / rollout <strong>共享一个 RANK</strong>。这不是巧合，是设计——它直接决定了你要不要为不同 role 配不同的并行尺寸。</p>
+
+  <div class="cmp-grid">
+    <div class="cmp-card left">
+      <h4>Colocate（默认 hybrid）</h4>
+      <div class="sub">global_pool · max_colocate_count = 3</div>
+      <ul>
+        <li>所有共享 <code class="inline">global_pool</code> 的 role 进入同一份 <code class="inline">class_dict</code>，由 <code class="inline">create_colocated_worker_cls(class_dict)</code> 融合成一个 <strong>WorkerDict</strong>。</li>
+        <li>每张 GPU <strong>只起一个 Ray actor 进程</strong>，进程内同时持有 <code class="inline">actor</code> / <code class="inline">ref</code> / <code class="inline">rollout</code> 三个子对象，共用一个 RANK 与一个 <code class="inline">torch.distributed</code> 通信域。</li>
+        <li>显存共享、权重 hot-swap（actor → rollout）成本最低；但要求 <strong>三个 role 的并行尺寸都能在同一组 RANK 上对齐</strong>。</li>
+        <li>若你想给 rollout 用 TP=4、给 actor 用 TP=2，colocate 就跑不通——不是技术不允许，是同一组 RANK 没法同时是两个不同 mesh 的合法分解。</li>
+      </ul>
+    </div>
+    <div class="cmp-card right">
+      <h4>Separated（独立 pool）</h4>
+      <div class="sub">reward_pool / teacher_pool · 自带 nnodes &amp; n_gpus_per_node</div>
+      <ul>
+        <li>触发条件：在 yaml 里给 reward / teacher / 单独的 rollout 池子单独配置 <code class="inline">enable_resource_pool=true</code> 与各自的 <code class="inline">n_gpus_per_node × nnodes</code>。</li>
+        <li>这些 pool 各自走一遍 ②③④ 步，<strong>各拿一份 RANK 0..N-1</strong> 和各自的 master，互不干扰。</li>
+        <li>跨 pool 的数据交换变成 Ray RPC（结果走 object store），而不是 NCCL collective。</li>
+        <li>代价：需要更多 GPU；权重同步多一层 pickle/transfer。收益：每个 role 可独立选并行尺寸 / 后端（FSDP vs Megatron vs vLLM）。</li>
+      </ul>
+    </div>
+  </div>
+
+  <div class="callout warn">
+    <strong>注意：</strong><code class="inline">RayPPOTrainer.__init__</code> 显式 <code class="inline">assert hybrid_engine</code>。verl 当前主路径假设 actor + rollout 至少在 colocate 意义下"在一起"；要做完全 disaggregated 的异步 rollout，需要走 trainer / engine 之外的另一条路（async server adapter）。
+  </div>
+</section>
+
+<!-- ========== Section 07: 名词速查 ========== -->
+<section id="sec-glossary">
+  <span class="sec-num">07 · 名词速查</span>
+  <h2 class="sec-title">先认识几个分布式名词</h2>
+  <p class="sec-lead">从顶部跳到这里查名词。点击术语行展开释义。</p>
+
+  <div class="panel">
+    <div class="primer-controls">
+      <button id="primer-expand-all">＋ 展开全部</button>
+      <button id="primer-collapse-all">－ 折叠全部</button>
+    </div>
+    <div class="primer-group">
+      <h3>① Ray 编排层 — 管「谁在哪台机器上起进程」</h3>
+      <div class="primer-cards">
+        <div class="primer-card">
+          <div class="term">Ray</div>
+          <div class="def">分布式任务编排框架。verl 用它跨多机起进程、做 RPC 调用。</div>
+          <div class="hint">类比：<strong>跨机版的 multiprocessing.Pool</strong>，能在 16 台机器上同时起 128 个进程并互相喊话。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">Ray actor</div>
+          <div class="def">一个常驻进程，对应 Python 里一个有状态对象。verl 的每张 GPU 一般对应一个 actor。</div>
+          <div class="hint">类比：远端 server-side 的<strong>有状态对象实例</strong>，方法调用通过 RPC 转发。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">placement group / bundle</div>
+          <div class="def">Ray 的资源预约单位。一个 placement group 占住一台机器上的几张 GPU；每张 GPU 是一个 bundle。</div>
+          <div class="hint">类比：<strong>给一群进程提前订好一桌（PG），每个座位（bundle）至少 1 张 GPU</strong>。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">max_colocate_count</div>
+          <div class="def">Ray 把一张 GPU 切成几"份逻辑额度"允许复用。verl 默认 3，给 actor+critic+ref / rollout / reward 三类 worker 复用同一张卡。</div>
+          <div class="hint">注意：这只是<strong>调度层的额度</strong>，真显存不会变多。三类 worker 还是要排队用同一张卡。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">ResourcePool</div>
+          <div class="def">verl 给一组物理 GPU 起的名字，由 yaml 里 <code class="inline">n_gpus_per_node × nnodes</code> 决定。是 verl 调度的<strong>最小资源单元</strong>。默认只有一个 <code class="inline">global_pool</code>。</div>
+          <div class="hint"><strong>"几机几卡" ≠ "几个 pool"</strong>——前者是硬件，后者是配置。<br/>· 4 机 8 卡（32 GPU）默认 = <code class="inline">global_pool: [8,8,8,8]</code>，<strong>1 个 pool</strong><br/>· reward 想单占 1 台机？yaml 打开 <code class="inline">reward.reward_model.enable_resource_pool</code> → 变 <strong>2 个 pool</strong>（global 24 + reward 8）<br/>· 跨 pool 通信只能 Ray RPC，<strong>不能</strong> NCCL collective。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">WorkerGroup / RayWorkerGroup</div>
+          <div class="def">verl 在一个 ResourcePool 上起的<strong>一组 Ray actor 进程</strong>，自带 RANK 0..N-1 编号、独立的 master、独立的 NCCL 通信域。一个 pool 一个 WG，一个 WG 一个 distributed 世界。</div>
+          <div class="hint">关键边界：<strong>NCCL collective 只在同一 WG 内有效</strong>，跨 WG 的通信只能走 Ray RPC（pickle 序列化）。所以"actor + reward 在两个 pool"意味着它俩之间只能 RPC 传数据。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">WorkerDict / FusedWorker</div>
+          <div class="def">colocate 模式下的"角色融合容器"——一个 Ray actor 进程内同时持有 actor / ref / rollout 三个子对象，三者共用 RANK 与显存，按时间错峰跑。由 <code class="inline">create_colocated_worker_cls</code> 生成。</div>
+          <div class="hint">默认 verl 跑的就是这个。它是为什么"一个 RANK 同时是 actor 又是 ref 又是 rollout"的真相——不是 RANK 复用，是<strong>进程内对象复用</strong>。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">Ray RPC</div>
+          <div class="def">Ray 提供的远程方法调用机制——driver 调 <code class="inline">actor_wg.compute_log_prob(data)</code>，Ray 把参数 pickle 序列化、扔进 object store、通过网络送到目标 actor 进程执行。跨 WorkerGroup / 跨 pool 的通信都走它。</div>
+          <div class="hint">类比：<strong>跨进程的 Python 函数调用</strong>。和 NCCL collective 的本质区别——<br/>· <strong>NCCL</strong>：GPU 直连，只在同 WG 内有效，传裸 tensor，毫秒级<br/>· <strong>Ray RPC</strong>：CPU 序列化 + 网络，跨 pool / 跨 WG 通用，传任意 Python 对象，但慢得多<br/>所以"actor 把数据发给 reward"不是 all-gather，是 RPC。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="primer-group">
+      <h3>② PyTorch 分布式基础 — 进程之间怎么通信</h3>
+      <div class="primer-cards">
+        <div class="primer-card">
+          <div class="term">RANK / WORLD_SIZE</div>
+          <div class="def">RANK = 当前进程在分布式世界的全局编号 (0..N-1)；WORLD_SIZE = 总进程数 N。</div>
+          <div class="hint">类比：班级里<strong>每人一个固定学号</strong>。点名时按号叫人。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">LOCAL_RANK</div>
+          <div class="def">当前进程在<strong>本机</strong>的编号 (0..每机 GPU 数-1)。决定它绑哪张本地 GPU。</div>
+          <div class="hint">RANK 是全局学号，LOCAL_RANK 是<strong>"在你们组内的序号"</strong>。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">process group (PG)</div>
+          <div class="def">一组可以互相做集合通信（all-reduce 等）的进程。<code class="inline">init_process_group</code> 之后就建好了一个全局 PG。</div>
+          <div class="hint">类比：<strong>微信群</strong>。在群里发的消息所有人都收得到，群外的人收不到。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">NCCL / Gloo</div>
+          <div class="def">两种通信后端。NCCL 走 GPU-GPU NVLink/PCIe，CUDA 训练用它；Gloo 走 CPU 网络，做兜底和 CPU tensor。</div>
+          <div class="hint">NCCL 快但只服务 GPU；Gloo 通用但慢。verl 同时启用：<code class="inline">cpu:gloo,cuda:nccl</code>。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">all-reduce / all-gather</div>
+          <div class="def">两种集合通信原语。all-reduce：所有 rank 把各自 tensor 求和后大家都拿到结果；all-gather：把每个 rank 的不同分片拼成完整张量发给所有人。</div>
+          <div class="hint">DDP 同步梯度用 all-reduce；FSDP 在 forward 前 all-gather 把分片参数拼回完整权重。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">MASTER_ADDR / MASTER_PORT</div>
+          <div class="def">分布式启动时的"集合点"。所有进程先通过这个 IP:port 互相握手，再建立 NCCL 组。</div>
+          <div class="hint">类比：<strong>开会前指定的集合地点</strong>。第一个 rank 出来吼一嗓子，其他人按这个地址来对暗号。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="primer-group">
+      <h3>③ 并行策略 — 一个大模型怎么塞进多张卡</h3>
+      <div class="primer-cards">
+        <div class="primer-card">
+          <div class="term">DP (Data Parallel)</div>
+          <div class="def">每张卡都<strong>有完整一份模型</strong>，把 batch 切成 N 段，每张卡算自己那段，再 all-reduce 同步梯度。</div>
+          <div class="hint">最简单，也是其他并行的"基线"。模型放不下时它就失效了。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">DDP</div>
+          <div class="def">PyTorch 的 DP 实现。每张卡完整模型 + 自己梯度 + 自己优化器状态，all-reduce 同步梯度。</div>
+          <div class="hint">显存效率最差（参数 + 梯度 + 优化器状态都 ×N 份），但通信最简单。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">FSDP (Fully Sharded DP)</div>
+          <div class="def">参数、梯度、优化器状态都<strong>切片分散</strong>在所有 rank 上；前向时临时 all-gather 拼回完整权重，算完丢掉。</div>
+          <div class="hint">显存最省（每项都 ÷N），代价是通信量上升。verl 的默认训练后端之一。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">TP (Tensor Parallel)</div>
+          <div class="def">把一个矩阵乘法<strong>横切或竖切</strong>分到多张卡上算。每张卡只有部分权重，做完再 all-reduce 拼结果。</div>
+          <div class="hint">解决"单层放不下一张卡"的问题。Megatron-LM 是 TP 的经典实现。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">PP (Pipeline Parallel)</div>
+          <div class="def">把模型<strong>按层切成段</strong>，前 N 层在 GPU0，中间 N 层在 GPU1……数据像流水线一样穿过。</div>
+          <div class="hint">解决"全模型放不下"。代价是首末批次有 bubble（等待）。VPP（virtual PP）是它的优化版。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">CP (Context Parallel)</div>
+          <div class="def">把<strong>序列长度维度</strong>切到多张卡——每张卡持有<strong>部分 token 的全部注意力头</strong>，专为超长上下文（128k+ token）设计。</div>
+          <div class="hint">和 SP/Ulysses 是镜像关系：CP 切 token、SP 切注意力头。CP 更扩展（token 维通常远大于头数），但实现上要让 KV 在卡间流动（ring attention 之类），通信调度更复杂。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">EP (Expert Parallel)</div>
+          <div class="def">MoE 模型专用：把不同专家（expert）分到不同卡。每个 token 只走少数几个 expert。</div>
+          <div class="hint">和 TP 正交。Qwen-MoE / DeepSeek-V3 这类模型必备。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">SP / Ulysses</div>
+          <div class="def">Sequence Parallel。先按 token 把序列切到多卡，再做一次 <strong>all-to-all 交换</strong>：交换后每张卡<strong>持有完整序列长度</strong>，但只负责<strong>部分注意力头</strong>。这样每卡都能本地算自己那几个头的完整 attention。</div>
+          <div class="hint">和 CP 的差别：CP = 部分 token × 全部注意力头；SP = 全部 token × 部分注意力头。SP 实现简单、通信靠 all-to-all，适合中长序列；CP 更扩展，适合超长上下文 + 大规模并行。verl 的 FSDP engine 用 Ulysses 做长序列；和 FSDP 一起组成 2D mesh <code class="inline">[dp, sp]</code>。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="primer-group">
+      <h3>④ Mesh 与 Megatron — 把 RANK 投影成多维坐标</h3>
+      <div class="primer-cards">
+        <div class="primer-card">
+          <div class="term">DeviceMesh</div>
+          <div class="def">PyTorch 把一组 RANK reshape 成 N 维网格的工具。每个 rank 在每一维上自动得到一个坐标，同维度的 rank 自动组成一个通信组。</div>
+          <div class="hint">类比：<strong>把 16 个士兵排成 4×4 方阵</strong>，"同一行"和"同一列"就是天然的两个通信组，不用手动建。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">mesh_dim_names</div>
+          <div class="def">给 mesh 每一维起名字，比如 <code class="inline">["ddp", "fsdp"]</code>。后面用 <code class="inline">mesh["fsdp"]</code> 拿那一维的子通信组。</div>
+          <div class="hint">名字纯逻辑，不强制对应任何并行策略——你叫它 "foo"/"bar" 也行。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">Megatron-LM / mpu</div>
+          <div class="def">NVIDIA 的大模型训练框架。<code class="inline">mpu = megatron parallel utilities</code>，负责 TP/PP/CP/EP 的进程组管理。</div>
+          <div class="hint">和 DeviceMesh 解决类似问题，但比 DeviceMesh 早。verl 同时支持两条后端。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">parallel_state</div>
+          <div class="def">Megatron 的全局状态对象，存着所有 TP/PP/DP/CP/EP 子通信组。<code class="inline">mpu.get_tensor_model_parallel_rank()</code> 这类调用都从它读。</div>
+          <div class="hint">和 PyTorch DeviceMesh 是<strong>同类东西</strong>，只是 API 风格不同。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="primer-group">
+      <h3>⑤ RLHF / PPO 角色 — verl 训练流程里的几个"模型实例"</h3>
+      <div class="primer-cards">
+        <div class="primer-card">
+          <div class="term">Actor</div>
+          <div class="def">正在训练的策略模型本体。每个 step 它生成回答、被打分、被更新。</div>
+          <div class="hint">参数会变。它的更新公式就是 PPO loss。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">Reference (ref)</div>
+          <div class="def">Actor 的"原始版本"快照，<strong>参数冻结不动</strong>。用来算 KL 散度避免 actor 跑太远。</div>
+          <div class="hint">显存大头。冻结但要 forward。可以 offload 到 CPU 省显存。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">Critic</div>
+          <div class="def">Value 模型，预测每个 token 的"未来回报"。PPO 用它估计 advantage。</div>
+          <div class="hint">GRPO / RLOO 这类算法<strong>不需要</strong> critic（用组内对比代替）。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">Rollout</div>
+          <div class="def">用 actor 当前权重<strong>生成回答</strong>的过程。一般跑在 vLLM / SGLang 推理引擎上，不是训练框架。</div>
+          <div class="hint">推理引擎和训练后端是两套东西，需要做<strong>权重同步（hot-swap）</strong>把 actor 最新参数刷过去。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">Reward model</div>
+          <div class="def">给 actor 生成的回答打分。可以是训练好的模型，也可以是 rule-based / verifier。</div>
+          <div class="hint">如果是 rule-based（比如数学验证），就不需要 GPU worker，省一份资源。</div>
+        </div>
+        <div class="primer-card">
+          <div class="term">colocate（共驻）</div>
+          <div class="def">让 actor / ref / rollout 这三类<strong>共享同一组 GPU 进程</strong>，按时间错峰用显存。verl 的默认模式。</div>
+          <div class="hint">代价：三个 role 必须能在同一组 RANK 上对齐并行尺寸（比如不能给 rollout 用 TP=4、actor 用 TP=2）。</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="callout">
+    <strong>读完这一页，你应该能理解后文的核心叙事：</strong> Ray 给每张卡起一个进程拿到 <code class="inline">RANK</code> → torch 把这些 RANK 注册进一个全局通信组 → FSDP / Megatron / Rollout 在这同一组进程上各自用 mesh 切出自己想要的并行结构。所有"模型并行 rank"都只是 mesh 给同一个 RANK 的不同视角。
+  </div>
+</section>
+
+<!-- ========== Section 08: 关键代码索引 ========== -->
+<section>
+  <span class="sec-num">08</span>
+  <h2 class="sec-title">关键代码索引</h2>
+  <p class="sec-lead">展开看每一层最值得跳进去读的几个文件 / 行号。</p>
+
+  <table class="tbl">
+    <thead>
+      <tr><th>主题</th><th>路径</th><th>行号</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>Ray RANK 分配主循环</td><td class="mono">verl/single_controller/ray/base.py</td><td class="mono">532-575</td></tr>
+      <tr><td>worker env 注入（RANK / WORLD_SIZE / MASTER_*）</td><td class="mono">verl/single_controller/ray/base.py</td><td class="mono">617-674</td></tr>
+      <tr><td>placement group 节点 IP 排序</td><td class="mono">verl/single_controller/ray/base.py</td><td class="mono">69-86</td></tr>
+      <tr><td>SubResourcePool（rollout 副本切分）</td><td class="mono">verl/single_controller/ray/base.py</td><td class="mono">264-311</td></tr>
+      <tr><td>ResourcePoolManager + max_colocate_count=3</td><td class="mono">verl/single_controller/ray/base.py</td><td class="mono">191-217</td></tr>
+      <tr><td>Worker 读 RANK / 设置 LOCAL_RANK</td><td class="mono">verl/single_controller/base/worker.py</td><td class="mono">181-281</td></tr>
+      <tr><td>Worker 注册 dispatch dp_rank</td><td class="mono">verl/single_controller/base/worker.py</td><td class="mono">86-116</td></tr>
+      <tr><td>ResourcePool 抽象（world_size / store）</td><td class="mono">verl/single_controller/base/worker_group.py</td><td class="mono">27-74</td></tr>
+      <tr><td>torch.distributed init</td><td class="mono">verl/utils/distributed.py</td><td class="mono">60-95</td></tr>
+      <tr><td>main_ppo 构造 resource_pool_spec</td><td class="mono">verl/trainer/main_ppo.py</td><td class="mono">156-202</td></tr>
+      <tr><td>colocated WorkerDict 创建</td><td class="mono">verl/trainer/ppo/ray_trainer.py</td><td class="mono">797-828</td></tr>
+      <tr><td>FSDP device_mesh 构造</td><td class="mono">verl/workers/engine/fsdp/utils.py</td><td class="mono">38-56</td></tr>
+      <tr><td>FSDP Ulysses mesh + dp_rank</td><td class="mono">verl/workers/engine/fsdp/transformer_impl.py</td><td class="mono">196-213 · 570-583</td></tr>
+      <tr><td>Megatron parallel_state 初始化</td><td class="mono">verl/workers/engine/megatron/transformer_impl.py</td><td class="mono">131-158</td></tr>
+      <tr><td>Rollout 3D mesh (dp, infer_tp, infer_pp)</td><td class="mono">verl/workers/engine_workers.py</td><td class="mono">587-607</td></tr>
+    </tbody>
+  </table>
+</section>
+
+<footer>
+  <div>verl rank 划分机制 · 训练机制系列笔记 · 2026</div>
+  <div class="ref-list">
+    <span>· 仓库：<code class="inline">verl-project/verl</code></span>
+    <span>· 配套阅读：<a href="./verl_batch_size_mechanism.html">verl batch size 划分机制 ↗</a></span>
+  </div>
+</footer>
+
+</div>
+
+<script>
+// ============================================================
+// 16-GPU grid: data definition
+// 2 nodes × 8 GPUs, RANK 0..15, sorted by node IP
+// ============================================================
+const NUM_GPUS = 16;
+const PER_NODE = 8;
+
+const MODES = {
+  rank: {
+    primary: r => r,
+    secondary: r => `pg=${Math.floor(r / PER_NODE)} · lr=${r % PER_NODE}`,
+    hl: r => 'a',
+    hint: '<code>RANK = 0 .. 15</code>。<code>placement_group</code> 按 node IP 排序后线性编号；同一节点内 <code>LOCAL_RANK</code> 从 0 起。这是后续所有视角的"基底"。'
+  },
+  local: {
+    primary: r => r % PER_NODE,
+    secondary: r => `RANK=${r}`,
+    hl: r => 'a',
+    hint: '<code>LOCAL_RANK = RANK % local_world_size</code>。<strong>注意：</strong>这是逻辑值，<code>RayWorkerGroup</code> 的 env 里<em>没有</em>这个变量；Ray 通过 <code>get_accelerator_ids()</code> 把它写进 <code>os.environ["LOCAL_RANK"]</code>（worker.py:273-281）。'
+  },
+  fsdp: {
+    // mesh_shape = (ddp=4, fsdp=4)，C-order：rank = ddp * 4 + fsdp
+    primary: r => `(${Math.floor(r/4)},${r%4})`,
+    secondary: r => `R${r}`,
+    hl: r => (Math.floor(r/4) === 0 ? 'b' : (Math.floor(r/4) === 2 ? 'c' : 'a')),
+    hint: '<code>create_device_mesh(world=16, fsdp_size=4)</code> 建 2D mesh <code>[ddp, fsdp]</code>，C-order 展开：<code>rank = ddp · 4 + fsdp</code>。同一行 (ddp 不变) 是一个 FSDP 全分片组；同一列是 DDP 复制组。'
+  },
+  rollout: {
+    // mesh_shape = (dp=2, infer_tp=4, infer_pp=2)
+    // rank = dp * 8 + infer_tp * 2 + infer_pp
+    primary: r => {
+      const dp = Math.floor(r / 8);
+      const tp = Math.floor((r % 8) / 2);
+      const pp = r % 2;
+      return `(${dp},${tp},${pp})`;
+    },
+    secondary: r => `R${r}`,
+    hl: r => {
+      const dp = Math.floor(r / 8);
+      return dp === 0 ? 'b' : 'c';
+    },
+    hint: '<code>infer_tp = tp · dp_rollout = 2·2 = 4</code>，<code>infer_pp = 2</code>，<code>dp = world / (infer_tp·infer_pp) = 16/8 = 2</code>。3D mesh <code>[dp, infer_tp, infer_pp]</code>，最后一维 stride 最快。两个高亮颜色对应 dp=0 / dp=1 两组 rollout 副本（engine_workers.py:587-607）。'
+  },
+  megatron: {
+    // mpu 默认 order: tp-cp-ep-dp-pp（CP=EP=1）
+    // rank = pp · (dp·tp) + dp · tp + tp，tp 最内，pp 最外
+    // 坐标顺序：(tp, dp, pp)，对应 hint 里的 mesh dim 顺序
+    primary: r => {
+      const pp = Math.floor(r / 8);
+      const dp = Math.floor((r % 8) / 2);
+      const tp = r % 2;
+      return `(${tp},${dp},${pp})`;
+    },
+    secondary: r => `R${r}`,
+    hl: r => {
+      const pp = Math.floor(r / 8);
+      return pp === 0 ? 'b' : 'c';
+    },
+    hint: '坐标 = <code>(tp, dp, pp)</code>。Megatron 调 <code>mpu.initialize_model_parallel(tp=2, pp=2, …)</code>，DP 由 <code>world / (tp·pp·cp·ep) = 16/4 = 4</code> 自动算出。这里展示的是 Megatron-LM 默认 order（tp 最内、pp 最外）下的排布——<strong>真实顺序由 mpu 内部决定，verl 不重排</strong>（megatron/transformer_impl.py:148-158）。两个高亮颜色对应 pp_stage=0 / 1。'
+  }
+};
+
+function renderGrid(mode){
+  const cfg = MODES[mode];
+  for (let r = 0; r < NUM_GPUS; r++){
+    const cell = document.querySelector(`[data-rank="${r}"]`);
+    if (!cell) continue;
+    cell.querySelector('.primary').textContent = cfg.primary(r);
+    cell.querySelector('.secondary').textContent = cfg.secondary(r);
+    cell.classList.remove('hl-a', 'hl-b', 'hl-c');
+    cell.classList.add('hl-' + cfg.hl(r));
+  }
+  document.getElementById('grid-hint').innerHTML = cfg.hint;
+}
+
+function buildGrid(){
+  const rowA = document.getElementById('row-a');
+  const rowB = document.getElementById('row-b');
+  for (let r = 0; r < NUM_GPUS; r++){
+    const cell = document.createElement('div');
+    cell.className = 'gpu-cell';
+    cell.dataset.rank = String(r);
+    cell.innerHTML = '<div class="primary"></div><div class="secondary"></div>';
+    if (r < PER_NODE) rowA.appendChild(cell);
+    else rowB.appendChild(cell);
+  }
+}
+
+// init
+buildGrid();
+renderGrid('rank');
+
+// segmented control
+document.querySelectorAll('#grid-mode button').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.querySelectorAll('#grid-mode button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    renderGrid(btn.dataset.mode);
+  });
+});
+
+// ============================================================
+// primer cards: click term to expand/collapse
+// ============================================================
+document.querySelectorAll('.primer-card').forEach(card => {
+  const term = card.querySelector('.term');
+  if (!term) return;
+  const arrow = document.createElement('span');
+  arrow.className = 'primer-arrow';
+  arrow.textContent = '›';
+  term.appendChild(arrow);
+  term.addEventListener('click', () => card.classList.toggle('expanded'));
+});
+
+const expandAllBtn = document.getElementById('primer-expand-all');
+const collapseAllBtn = document.getElementById('primer-collapse-all');
+if (expandAllBtn) {
+  expandAllBtn.addEventListener('click', () => {
+    document.querySelectorAll('.primer-card').forEach(c => c.classList.add('expanded'));
+  });
+}
+if (collapseAllBtn) {
+  collapseAllBtn.addEventListener('click', () => {
+    document.querySelectorAll('.primer-card').forEach(c => c.classList.remove('expanded'));
+  });
+}
+
+// ============================================================
+// GRPO flow interactive stepper
+// ============================================================
+const GRPO_PHASES = [
+  {
+    title: '阶段 1 / 7：从 dataset 采 prompts',
+    tag: 'controller · CPU · ~0%',
+    role: 'controller / driver（不在 GPU 上）',
+    desc: 'Controller (driver) 从 dataset batch 取 N 条 prompts，按 dp 维度切分成 N/dp_size 份分发给各 RANK。GPU 还没启动，全部 idle。',
+    coll: '无 NCCL 通信（仅 Ray RPC 派发数据）',
+    code: 'verl/trainer/ppo/ray_trainer.py · DataProto.split',
+    gpu: ['idle', '准备就绪'],
+    mem: 'GPU 此刻基本空载或残留上一 step 的训练态参数。这一步纯 CPU，无显存动作。'
+  },
+  {
+    title: '阶段 2 / 7：actor 权重 hot-swap 到 rollout 引擎',
+    tag: 'actor → rollout · ~5%',
+    role: 'actor (FSDP 训练态) + rollout-engine (vLLM/SGLang)',
+    desc: 'FSDP 当前持有的分片权重 all-gather 拼回完整权重，再 sync 到 vLLM/SGLang 推理引擎。这是 colocate 设计的核心动作——同一进程内把训练态切到推理态。',
+    coll: 'all-gather (FSDP unshard) + 自定义 weight-sync',
+    code: 'workers/engine_workers.py · sync_weights_to_rollout',
+    gpu: ['rollout', 'actor + rollout 共存'],
+    mem: '<strong>显存峰值 #1</strong>：FSDP 分片 all-gather 出完整 actor 权重，并复制一份给 vLLM/SGLang。同一份参数同时在 GPU 上存了两份（训练态 + 推理态）。<br/><strong>变化</strong>：sync 完成后立刻把 actor 优化器状态 + 梯度 <strong>offload 到 CPU</strong>，腾出显存给 rollout 即将分配的 KV cache。'
+  },
+  {
+    title: '阶段 3 / 7：rollout 生成响应',
+    tag: 'rollout · ~50% (step 主要耗时)',
+    role: 'rollout-engine（vLLM 或 SGLang）',
+    desc: '推理引擎用刚 sync 过来的最新 actor 权重，给每条 prompt 生成 G 个不同 response（GRPO 的 group）。actor / ref 此时被 offload 让出显存。',
+    coll: '推理引擎内部 NCCL（沿 infer_tp 做 all-reduce / 沿 infer_pp 做 send-recv）',
+    code: 'workers/rollout/* · BaseRollout.generate',
+    gpu: ['rollout', 'rollout 占满显存'],
+    mem: '<strong>显存大头：vLLM/SGLang 的 KV cache</strong>，随 <code>batch × group_size × seq_len</code> 增长。长上下文场景 KV cache 单卡可能 30-50GB。<br/><strong>变化</strong>：actor 训练态参数（除 rollout 副本外）+ 优化器状态 + 梯度全部 offload 到 CPU；ref 也保持在 CPU。GPU 几乎全归 rollout 用。'
+  },
+  {
+    title: '阶段 4 / 7：actor 算 log π_old',
+    tag: 'actor (forward only) · ~10%',
+    role: 'actor 训练 engine（FSDP）',
+    desc: '把 rollout 出来的 (prompt + response) 喂回 actor 做一次 forward-only，拿到 log π_old(y|x)。这是 PPO 重要性采样比的分母——记住 rollout 时的策略。',
+    coll: 'FSDP unshard (forward) + DP 维 all-gather logits（如有需要）',
+    code: 'workers/actor.py · compute_log_prob',
+    gpu: ['actor', 'actor 训练态 forward'],
+    mem: '<strong>切回 training 态</strong>：vLLM 释放 KV cache，actor 参数从 CPU reload 到 GPU（仍是 FSDP shard）。<strong>不需要</strong>梯度和优化器状态，所以它们继续留在 CPU。<br/>显存：<code>1/N 参数 + 临时 all-gather buffer + forward activations</code>，相对低位。'
+  },
+  {
+    title: '阶段 5 / 7：reference 算 log π_ref',
+    tag: 'reference · ~10%',
+    role: 'reference 模型（冻结）',
+    desc: 'ref 是 actor 的"原始版本"快照，参数永不更新。forward 算 log π_ref，给 KL penalty 用。ref 通常 offload 在 CPU，需要时临时 load 回 GPU。',
+    coll: 'FSDP unshard (ref forward)',
+    code: 'workers/ref.py · compute_ref_log_prob',
+    gpu: ['ref', 'ref 临时 load'],
+    mem: '<strong>actor 暂离 / ref 上线</strong>：actor 释放 forward activations（参数仍占 1/N），ref 从 CPU 临时 load 回 GPU（FSDP shard）。ref 没有梯度/优化器状态，纯 forward。<br/>显存：<code>actor 1/N 参数 + ref 1/N 参数 + activations</code>。'
+  },
+  {
+    title: '阶段 6 / 7：算 reward 和 GRPO advantage',
+    tag: 'reward + controller · ~5%',
+    role: 'reward model（如有）/ rule-based / controller',
+    desc: 'reward 给每条 response 打分（model forward 或纯规则）；GRPO 不需要 critic，直接用 group-relative advantage：A_i = (r_i − mean(r_group)) / std(r_group)。',
+    coll: 'reward 是 model 的话有 forward 通信；advantage 计算纯 CPU',
+    code: 'workers/reward.py · core_algos.compute_grpo_advantage',
+    gpu: ['reward-or-idle', 'reward forward 或 idle'],
+    mem: 'ref 释放 forward 状态后，根据 reward 类型分两种：<br/>· <strong>model-based reward</strong>：临时 load reward 模型到 GPU（同样 FSDP shard），forward 完丢弃<br/>· <strong>rule-based reward</strong>（数学验证 / 字符匹配）：GPU 闲置，CPU 算就行<br/>advantage 计算量很小，CPU 几乎瞬间完成。'
+  },
+  {
+    title: '阶段 7 / 7：actor 反传 + optimizer step',
+    tag: 'actor (forward + backward) · ~20%',
+    role: 'actor 训练 engine（FSDP）',
+    desc: '对 mini-batch 跑 PPO loss + KL penalty 的反传，optimizer.step 更新 actor 参数。ppo_epochs 决定循环几次。这一步是真正的"训练"——下次 step 开始时就会用新 actor 权重重新 sync。',
+    coll: 'FSDP unshard+reshard (fwd+bwd) + DP all-reduce 梯度',
+    code: 'workers/actor.py · update_policy',
+    gpu: ['actor', 'actor 训练（含优化器状态）'],
+    mem: '<strong>显存峰值 #2</strong>：训练态全栈打开。<br/>· 优化器状态从 CPU <strong>reload</strong> 到 GPU（Adam 占 ~2× 参数显存）<br/>· forward activations 全部保留（反传需要）<br/>· 梯度 buffer 创建（1× 参数）<br/>· FSDP 在 fwd / bwd 中反复 all-gather + reduce-scatter，临时 buffer 也吃显存<br/>每张卡占用 ≈ <code>shard(参数+梯度+优化器) + activations + 临时 buffer</code>。bf16 + 8B 模型 + FSDP=8 时常见 30-50GB/卡。'
+  }
+];
+
+const GRPO_GPU_PROFILES = {
+  // 8 张卡的载荷状态：每张可以是 idle/actor/ref/rollout
+  idle:    Array(8).fill({ role: 'idle', label: 'idle' }),
+  rollout: Array(8).fill({ role: 'rollout', label: 'rollout-engine' }),
+  actor:   Array(8).fill({ role: 'actor', label: 'actor (FSDP)' }),
+  ref:     Array(8).fill({ role: 'ref', label: 'ref (frozen)' }),
+  'reward-or-idle': Array(8).fill({ role: 'idle', label: 'idle / reward' }),
+};
+
+function renderGrpoGpus(profileKey) {
+  const cont = document.getElementById('grpo-gpus');
+  if (!cont) return;
+  const profile = GRPO_GPU_PROFILES[profileKey] || GRPO_GPU_PROFILES.idle;
+  cont.innerHTML = '';
+  for (let i = 0; i < 8; i++) {
+    const slot = profile[i];
+    const div = document.createElement('div');
+    div.className = `grpo-gpu role-${slot.role}`;
+    div.innerHTML = `<div class="gpu-rank">GPU${i} · R${i}</div><div class="gpu-load">${slot.label}</div>`;
+    cont.appendChild(div);
+  }
+}
+
+function renderGrpoPhase(idx) {
+  const p = GRPO_PHASES[idx];
+  if (!p) return;
+  document.getElementById('grpo-title').textContent = p.title;
+  document.getElementById('grpo-tag').textContent = p.tag;
+  document.getElementById('grpo-desc').textContent = p.desc;
+  document.getElementById('grpo-role').textContent = p.role;
+  document.getElementById('grpo-mem').innerHTML = p.mem || '—';
+  document.getElementById('grpo-coll').textContent = p.coll;
+  document.getElementById('grpo-code').textContent = p.code;
+  document.getElementById('grpo-progress').textContent = `${idx + 1} / ${GRPO_PHASES.length}`;
+  document.querySelectorAll('#grpo-timeline .grpo-step').forEach(b => {
+    b.classList.toggle('active', Number(b.dataset.step) === idx);
+  });
+  renderGrpoGpus(p.gpu[0]);
+}
+
+let grpoCurrent = 0;
+let grpoTimer = null;
+
+function setGrpoPhase(i) {
+  grpoCurrent = Math.max(0, Math.min(GRPO_PHASES.length - 1, i));
+  renderGrpoPhase(grpoCurrent);
+}
+
+if (document.getElementById('grpo-timeline')) {
+  document.querySelectorAll('#grpo-timeline .grpo-step').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (grpoTimer) { clearInterval(grpoTimer); grpoTimer = null; updatePlayBtn(); }
+      setGrpoPhase(Number(btn.dataset.step));
+    });
+  });
+
+  document.getElementById('grpo-prev').addEventListener('click', () => {
+    if (grpoTimer) { clearInterval(grpoTimer); grpoTimer = null; updatePlayBtn(); }
+    setGrpoPhase(grpoCurrent - 1);
+  });
+  document.getElementById('grpo-next').addEventListener('click', () => {
+    if (grpoTimer) { clearInterval(grpoTimer); grpoTimer = null; updatePlayBtn(); }
+    setGrpoPhase(grpoCurrent + 1);
+  });
+
+  const playBtn = document.getElementById('grpo-play');
+  function updatePlayBtn() {
+    playBtn.textContent = grpoTimer ? '⏸ 暂停' : '▶ 自动播放';
+  }
+  playBtn.addEventListener('click', () => {
+    if (grpoTimer) {
+      clearInterval(grpoTimer); grpoTimer = null;
+    } else {
+      grpoTimer = setInterval(() => {
+        const next = (grpoCurrent + 1) % GRPO_PHASES.length;
+        setGrpoPhase(next);
+      }, 2000);
+    }
+    updatePlayBtn();
+  });
+
+  setGrpoPhase(0);
+}
+</script>
+
+</body>
+</html>
