@@ -11,7 +11,7 @@
 #   source_url  : link to the original paper/blog (optional)
 entries:
   - slug: verl-rank-mesh
-    title: "verl 的 rank 划分机制：一个 rank 挂多套 mesh"
+    title: "verl 在训练的时候，发生了什么？"
     date: 2026-04-30
     source_type: blog
   - slug: rlvr-off-principal-updates
