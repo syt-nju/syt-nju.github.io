@@ -1,0 +1,1869 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>面向长任务的应用 Harness 设计 · 可视化阅读</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #FBF6EA;
+    --bg-surface: #FFFFFF;
+    --bg-soft: #F5ECD8;
+    --bg-dark: #1A1816;
+    --bg-dark-2: #252220;
+    --text: #1A1816;
+    --text-muted: #6B6660;
+    --text-soft: #8C857B;
+    --text-invert: #F5F1E8;
+    --accent: #C04E2D;
+    --accent-hover: #A8401F;
+    --accent-soft: #F4DCD0;
+    --accent-deep: #7A2E16;
+    --gen-tone: #B8860B;
+    --gen-soft: #F4E8C7;
+    --eval-tone: #2E5A6B;
+    --eval-soft: #D8E4EA;
+    --plan-tone: #5A4A8C;
+    --plan-soft: #E2DDEE;
+    --border: #E8DCC7;
+    --border-strong: #D4C4A6;
+    --border-dark: #3A3633;
+    --shadow-sm: 0 1px 2px rgba(26, 24, 22, 0.04);
+    --shadow-md: 0 4px 14px rgba(26, 24, 22, 0.06);
+    --shadow-lg: 0 16px 40px rgba(26, 24, 22, 0.10);
+    --radius: 10px;
+    --radius-lg: 16px;
+    --radius-xl: 22px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-hover); }
+
+  .container { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- Top Bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(251, 246, 234, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px; max-width: 1180px; margin: 0 auto;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    font-weight: 700; font-size: 14.5px; letter-spacing: -0.005em;
+  }
+  .brand-logo {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: var(--bg-dark);
+    display: grid; place-items: center; color: var(--accent); font-size: 16px; font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .brand-text { color: var(--text); }
+  .brand-text small { color: var(--text-muted); font-weight: 500; font-size: 12px; margin-left: 8px; }
+  .topnav { display: flex; gap: 4px; align-items: center; }
+  .topnav a {
+    padding: 7px 9px; border-radius: 8px;
+    color: var(--text-muted); font-size: 12.5px; font-weight: 500;
+    transition: color 0.15s, background 0.15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--accent-soft); }
+  .source-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; color: var(--text-muted); text-decoration: none;
+    padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border);
+    transition: all 0.15s; font-weight: 500;
+  }
+  .source-link:hover { border-color: var(--accent); color: var(--accent); }
+  .source-link svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 72px 0 44px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--accent); text-transform: uppercase;
+    background: var(--accent-soft); padding: 6px 14px; border-radius: 100px;
+    margin-bottom: 22px; font-family: 'JetBrains Mono', monospace;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  h1 {
+    font-size: clamp(34px, 5.2vw, 54px); line-height: 1.1; letter-spacing: -0.025em;
+    font-weight: 800; margin-bottom: 22px; max-width: 880px;
+  }
+  .hero-sub {
+    font-size: 19px; color: var(--text-muted); max-width: 720px; line-height: 1.6;
+    font-weight: 400;
+  }
+  .hero-meta {
+    display: flex; gap: 22px; margin-top: 28px; font-size: 13px; color: var(--text-muted);
+    flex-wrap: wrap; align-items: center;
+  }
+  .hero-meta span { display: inline-flex; align-items: center; gap: 7px; }
+  .hero-meta svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .hero-meta b { color: var(--text); font-weight: 600; }
+
+  /* TL;DR card */
+  .tldr {
+    margin-top: 48px; background: var(--bg-dark); color: var(--text-invert);
+    border-radius: var(--radius-xl); padding: 36px 40px;
+    box-shadow: var(--shadow-lg); position: relative; overflow: hidden;
+  }
+  .tldr::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent);
+  }
+  .tldr-title {
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 18px; font-family: 'JetBrains Mono', monospace;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .tldr-title::after {
+    content: ''; flex: 1; height: 1px; background: rgba(192, 78, 45, 0.2);
+  }
+  .tldr-text {
+    font-size: 19px; line-height: 1.65; color: var(--text-invert); font-weight: 400;
+  }
+  .tldr-text b { color: #F2A07A; font-weight: 600; }
+  .tldr-text + .tldr-text { margin-top: 14px; font-size: 16px; color: #C8C0B3; }
+
+  /* ---------- Metric strip ---------- */
+  .metrics-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-top: 22px;
+  }
+  .metric {
+    background: var(--bg-dark-2); border-radius: 14px; padding: 22px 22px;
+    border: 1px solid var(--border-dark);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .metric-value {
+    font-size: 30px; font-weight: 800; letter-spacing: -0.02em;
+    color: #F2A07A; line-height: 1; font-family: 'JetBrains Mono', monospace;
+  }
+  .metric-value small { font-size: 14px; font-weight: 500; color: #8C857B; margin-left: 4px; }
+  .metric-label {
+    font-size: 12px; color: #B3AB9F; line-height: 1.45; margin-top: 6px;
+  }
+
+  /* ---------- Section ---------- */
+  section.block { padding: 64px 0; border-top: 1px solid var(--border); }
+  .section-head { margin-bottom: 26px; max-width: 760px; }
+  .section-num {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--accent); font-weight: 600;
+    background: var(--accent-soft); padding: 5px 12px; border-radius: 100px;
+    margin-bottom: 16px;
+  }
+  h2 {
+    font-size: clamp(26px, 3.4vw, 36px); font-weight: 700; letter-spacing: -0.022em;
+    margin-bottom: 14px; line-height: 1.18;
+  }
+  h3 {
+    font-size: 19px; font-weight: 700; letter-spacing: -0.012em;
+    margin-bottom: 10px; line-height: 1.3;
+  }
+  .section-sub { color: var(--text-muted); font-size: 16.5px; line-height: 1.65; }
+  .section-sub b { color: var(--text); font-weight: 600; }
+  .article-copy {
+    max-width: 760px;
+    font-size: 17px;
+    line-height: 1.82;
+    color: var(--text);
+  }
+  .article-copy p + p { margin-top: 16px; }
+  .article-copy b { font-weight: 600; color: var(--text); }
+  .article-copy em { color: var(--text-muted); font-style: normal; }
+  .reader-note {
+    margin-top: 24px;
+    padding: 18px 22px;
+    background: rgba(255, 255, 255, 0.62);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    color: var(--text-muted);
+    font-size: 14.5px;
+    line-height: 1.7;
+  }
+  .reader-note b { color: var(--text); font-weight: 600; }
+  .visual-bridge {
+    margin: 30px 0 14px;
+    max-width: 760px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  /* ---------- Narrative goal and harness map ---------- */
+  .goal-panel,
+  .harness-map {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 34px;
+    box-shadow: var(--shadow-md);
+  }
+  .goal-grid {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 24px;
+    align-items: stretch;
+  }
+  .goal-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px;
+  }
+  .goal-card.dark {
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    border-color: var(--bg-dark);
+  }
+  .goal-kicker,
+  .map-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .goal-title {
+    font-size: 24px;
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+    font-weight: 800;
+    margin-bottom: 14px;
+  }
+  .goal-card.dark .goal-title { color: var(--text-invert); }
+  .goal-body {
+    color: var(--text-muted);
+    font-size: 15px;
+    line-height: 1.72;
+  }
+  .goal-card.dark .goal-body { color: #C8C0B3; }
+  .goal-body b { color: var(--text); font-weight: 600; }
+  .goal-card.dark .goal-body b { color: #F2A07A; }
+  .goal-steps {
+    margin-top: 18px;
+    display: grid;
+    gap: 10px;
+  }
+  .goal-step {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 12px;
+    align-items: start;
+    font-size: 14px;
+    line-height: 1.55;
+    color: var(--text-muted);
+  }
+  .goal-step span {
+    width: 24px;
+    height: 24px;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    background: var(--accent-soft);
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 11px;
+  }
+  .goal-step b { color: var(--text); font-weight: 600; }
+  .map-flow {
+    display: grid;
+    grid-template-columns: 0.9fr auto 1fr auto 1.25fr;
+    gap: 14px;
+    align-items: center;
+  }
+  .map-node,
+  .map-loop,
+  .feature-list {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+  }
+  .map-node.planner { border-top: 4px solid var(--plan-tone); }
+  .map-node.output { border-top: 4px solid var(--accent); }
+  .map-node.done { border-top: 4px solid var(--gen-tone); }
+  .map-node-title {
+    font-size: 17px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    margin-bottom: 8px;
+  }
+  .map-node-body {
+    color: var(--text-muted);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+  .map-arrow {
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 18px;
+  }
+  .feature-list {
+    display: grid;
+    gap: 10px;
+  }
+  .feature-pill {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+  .feature-pill b { color: var(--text); font-weight: 600; }
+  .feature-pill.current {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+    color: var(--accent-deep);
+  }
+  .map-loop {
+    border: 2px solid var(--border-strong);
+    background: var(--bg-surface);
+  }
+  .loop-title {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: baseline;
+    margin-bottom: 16px;
+  }
+  .loop-title h3 {
+    margin: 0;
+    font-size: 18px;
+  }
+  .loop-title span {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-soft);
+  }
+  .loop-steps {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 12px;
+    align-items: stretch;
+  }
+  .loop-box {
+    border-radius: 14px;
+    padding: 16px;
+    min-height: 136px;
+  }
+  .loop-box.generator {
+    background: var(--gen-soft);
+    border: 1px solid rgba(184, 134, 11, 0.28);
+  }
+  .loop-box.evaluator {
+    background: var(--eval-soft);
+    border: 1px solid rgba(46, 90, 107, 0.28);
+  }
+  .loop-box h4 {
+    font-size: 15px;
+    margin-bottom: 8px;
+  }
+  .loop-box p {
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-muted);
+  }
+  .loop-cycle {
+    display: grid;
+    place-items: center;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+  }
+  .map-footnote {
+    margin-top: 16px;
+    padding-top: 14px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 13.5px;
+    line-height: 1.6;
+  }
+
+  /* ---------- The core loop visualization ---------- */
+  .loop-stage {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-xl); padding: 36px;
+    box-shadow: var(--shadow-md); margin: 28px 0 24px;
+  }
+  .loop-controls {
+    display: flex; align-items: center; gap: 14px; margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 18px; border-radius: 100px; border: 1px solid var(--border-strong);
+    background: var(--bg); color: var(--text); font-weight: 500;
+    font-size: 13px; cursor: pointer; transition: all 0.15s;
+    font-family: inherit;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn.primary {
+    background: var(--accent); color: white; border-color: var(--accent);
+  }
+  .btn.primary:hover { background: var(--accent-hover); border-color: var(--accent-hover); color: white; }
+  .btn svg { width: 14px; height: 14px; stroke: currentColor; fill: currentColor; }
+  .iter-counter {
+    margin-left: auto; display: inline-flex; align-items: center; gap: 10px;
+    font-family: 'JetBrains Mono', monospace; font-size: 13px; color: var(--text-muted);
+  }
+  .iter-num {
+    font-size: 18px; font-weight: 700; color: var(--accent);
+    background: var(--accent-soft); padding: 4px 12px; border-radius: 8px;
+    min-width: 48px; text-align: center;
+  }
+
+  .loop-diagram {
+    position: relative; width: 100%; aspect-ratio: 5 / 2.4;
+    background: var(--bg); border-radius: var(--radius-lg);
+    border: 1px solid var(--border); overflow: hidden;
+  }
+  .loop-svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+
+  .agent-node {
+    position: absolute; width: 27%; max-width: 240px;
+    background: var(--bg-surface); border: 2px solid var(--border-strong);
+    border-radius: 14px; padding: 18px 18px;
+    transition: all 0.3s ease;
+  }
+  .agent-node.gen { left: 7%; top: 50%; transform: translateY(-50%); }
+  .agent-node.eval { right: 7%; top: 50%; transform: translateY(-50%); }
+  .agent-node.active.gen { border-color: var(--gen-tone); box-shadow: 0 0 0 6px rgba(184, 134, 11, 0.12); }
+  .agent-node.active.eval { border-color: var(--eval-tone); box-shadow: 0 0 0 6px rgba(46, 90, 107, 0.12); }
+  .agent-icon {
+    width: 36px; height: 36px; border-radius: 9px;
+    display: grid; place-items: center; margin-bottom: 10px;
+    font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 15px;
+  }
+  .agent-node.gen .agent-icon { background: var(--gen-soft); color: var(--gen-tone); }
+  .agent-node.eval .agent-icon { background: var(--eval-soft); color: var(--eval-tone); }
+  .agent-name {
+    font-size: 15px; font-weight: 700; margin-bottom: 4px; letter-spacing: -0.01em;
+  }
+  .agent-role {
+    font-size: 12.5px; color: var(--text-muted); line-height: 1.45;
+  }
+  .agent-status {
+    margin-top: 12px; padding: 6px 10px; border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500;
+    background: var(--bg-soft); color: var(--text-muted);
+    transition: all 0.3s;
+  }
+  .agent-node.active .agent-status { background: var(--accent-soft); color: var(--accent); }
+
+  /* Loop annotation labels */
+  .loop-label {
+    position: absolute; padding: 5px 12px; border-radius: 100px;
+    background: var(--bg-surface); border: 1px solid var(--border-strong);
+    font-size: 11.5px; font-weight: 600; color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.02em;
+    white-space: nowrap;
+  }
+  .loop-label.top { top: 14%; left: 50%; transform: translateX(-50%); }
+  .loop-label.bottom { bottom: 14%; left: 50%; transform: translateX(-50%); }
+  .loop-label .arrow { color: var(--accent); margin: 0 4px; }
+
+  .loop-explainer {
+    margin-top: 24px; padding: 18px 22px; background: var(--bg-soft);
+    border-radius: var(--radius); border-left: 3px solid var(--accent);
+    font-size: 14.5px; color: var(--text); line-height: 1.6;
+  }
+  .loop-explainer b { color: var(--accent); }
+
+  /* ---------- Two-failure-mode cards ---------- */
+  .two-col {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  }
+  .failure-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 28px;
+    box-shadow: var(--shadow-sm);
+    display: flex; flex-direction: column; gap: 14px;
+    position: relative;
+  }
+  .failure-card::before {
+    content: ''; position: absolute; top: 0; left: 28px; right: 28px;
+    height: 2px; background: var(--accent); border-radius: 0 0 2px 2px;
+    opacity: 0.7;
+  }
+  .failure-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+    color: var(--accent); letter-spacing: 0.08em;
+  }
+  .failure-title {
+    font-size: 20px; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em;
+  }
+  .failure-symptom {
+    font-size: 14.5px; color: var(--text-muted); line-height: 1.6;
+  }
+  .failure-fix {
+    margin-top: auto; padding: 14px 16px; background: var(--bg-soft);
+    border-radius: 10px; font-size: 13.5px; line-height: 1.55;
+  }
+  .failure-fix-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;
+    color: var(--accent); letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 6px; display: block;
+  }
+  .failure-fix b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Criteria grid ---------- */
+  .criteria-grid {
+    display: grid; grid-template-columns: repeat(2, 1fr); gap: 16px;
+  }
+  .criterion {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 24px;
+    transition: all 0.2s;
+  }
+  .criterion:hover {
+    border-color: var(--border-strong);
+  }
+  .criterion-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .criterion-name {
+    font-size: 17px; font-weight: 700; letter-spacing: -0.01em;
+    display: inline-flex; align-items: center; gap: 10px;
+  }
+  .criterion-name .num {
+    width: 26px; height: 26px; border-radius: 7px;
+    background: var(--bg-soft); color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px; font-weight: 600;
+    display: grid; place-items: center;
+  }
+  .criterion.weighted .criterion-name .num {
+    background: var(--accent-soft); color: var(--accent);
+  }
+  .weight-badge {
+    font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 100px;
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em;
+    background: var(--bg-soft); color: var(--text-soft);
+  }
+  .criterion.weighted .weight-badge {
+    background: var(--accent-soft); color: var(--accent);
+  }
+  .criterion-desc {
+    font-size: 14px; color: var(--text-muted); line-height: 1.55;
+  }
+  .criterion-detail {
+    margin-top: 16px; max-height: none; overflow: visible;
+    opacity: 1;
+  }
+  .criterion.open .criterion-detail {
+    max-height: none; margin-top: 16px; opacity: 1;
+  }
+  .criterion-detail-inner {
+    padding: 14px 16px; background: var(--bg-soft); border-radius: 10px;
+    font-size: 13.5px; line-height: 1.6; color: var(--text);
+    border-left: 2px solid var(--accent);
+  }
+  .criterion-detail-inner b { color: var(--accent); font-weight: 600; }
+
+  /* Story callout */
+  .story-callout {
+    margin-top: 28px; padding: 28px 32px;
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); position: relative;
+    box-shadow: var(--shadow-sm);
+  }
+  .story-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+    color: var(--accent); letter-spacing: 0.06em; margin-bottom: 12px;
+  }
+  .story-iterations {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; align-items: center;
+    margin-top: 18px;
+  }
+  .story-iter {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 12px; padding: 18px 20px;
+  }
+  .story-iter .iter-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+    color: var(--text-muted); margin-bottom: 8px;
+  }
+  .story-iter h4 {
+    font-size: 14.5px; font-weight: 600; margin-bottom: 6px; line-height: 1.3;
+  }
+  .story-iter p {
+    font-size: 13px; color: var(--text-muted); line-height: 1.55;
+  }
+  .story-iter.notable {
+    background: var(--bg-dark); border-color: var(--bg-dark); color: var(--text-invert);
+  }
+  .story-iter.notable .iter-tag { color: var(--accent); }
+  .story-iter.notable h4 { color: var(--text-invert); }
+  .story-iter.notable p { color: #C8C0B3; }
+  .story-arrow {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; font-size: 18px;
+    flex-shrink: 0;
+  }
+
+  /* ---------- Three-agent architecture ---------- */
+  .arch-stage {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-xl); padding: 36px;
+    box-shadow: var(--shadow-md);
+  }
+  .arch-grid {
+    display: grid; grid-template-columns: 1fr 1fr 1fr;
+    gap: 18px; position: relative;
+    margin-bottom: 28px;
+  }
+  .arch-agent {
+    background: var(--bg); border: 2px solid var(--border-strong);
+    border-radius: var(--radius-lg); padding: 22px;
+    cursor: pointer; transition: all 0.2s;
+    position: relative;
+  }
+  .arch-agent:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+  .arch-agent.planner { border-top: 4px solid var(--plan-tone); }
+  .arch-agent.generator { border-top: 4px solid var(--gen-tone); }
+  .arch-agent.evaluator { border-top: 4px solid var(--eval-tone); }
+  .arch-agent.active { background: var(--bg-surface); }
+  .arch-agent-head {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 12px;
+  }
+  .arch-agent-icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    display: grid; place-items: center;
+    font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 16px;
+  }
+  .arch-agent.planner .arch-agent-icon { background: var(--plan-soft); color: var(--plan-tone); }
+  .arch-agent.generator .arch-agent-icon { background: var(--gen-soft); color: var(--gen-tone); }
+  .arch-agent.evaluator .arch-agent-icon { background: var(--eval-soft); color: var(--eval-tone); }
+  .arch-agent-name {
+    font-size: 17px; font-weight: 700; letter-spacing: -0.01em;
+  }
+  .arch-agent-tagline {
+    font-size: 12.5px; color: var(--text-muted); margin-top: 2px;
+  }
+  .arch-agent-body {
+    font-size: 13.5px; line-height: 1.6; color: var(--text);
+  }
+  .arch-agent-body b { font-weight: 600; }
+  .arch-agent-tools {
+    margin-top: 14px; display: flex; flex-wrap: wrap; gap: 6px;
+  }
+  .tool-chip {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 500;
+    padding: 3px 10px; border-radius: 100px;
+    background: var(--bg-soft); color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+
+  .arch-flow {
+    display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 0;
+    align-items: center; padding: 0 22px;
+    margin-bottom: 22px;
+  }
+  .arch-flow .col { display: flex; justify-content: center; }
+  .flow-arrow {
+    color: var(--text-soft); font-size: 14px; font-family: 'JetBrains Mono', monospace;
+  }
+  .flow-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;
+    color: var(--accent); letter-spacing: 0.06em; text-transform: uppercase;
+    background: var(--accent-soft); padding: 4px 10px; border-radius: 100px;
+  }
+
+  /* Sprint contract block */
+  .contract {
+    margin-top: 22px; background: var(--bg); border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-lg); padding: 22px 26px;
+  }
+  .contract-head {
+    display: flex; align-items: center; gap: 12px; margin-bottom: 14px;
+  }
+  .contract-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center;
+    font-family: 'JetBrains Mono', monospace; font-weight: 700;
+  }
+  .contract-title { font-size: 15px; font-weight: 700; }
+  .contract-sub { font-size: 12.5px; color: var(--text-muted); margin-top: 2px; }
+  .contract-flow {
+    display: grid; grid-template-columns: 1fr auto 1fr; gap: 16px; align-items: center;
+    margin-top: 14px;
+  }
+  .contract-step {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: 10px; padding: 14px 16px; font-size: 13px; line-height: 1.55;
+  }
+  .contract-step b { color: var(--gen-tone); font-weight: 600; }
+  .contract-step.right b { color: var(--eval-tone); }
+  .contract-arrow {
+    font-family: 'JetBrains Mono', monospace; color: var(--accent); font-size: 16px;
+  }
+
+  /* ---------- Solo vs Full toggle ---------- */
+  .compare-stage {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-xl); padding: 36px;
+    box-shadow: var(--shadow-md);
+  }
+  .compare-tabs {
+    display: inline-flex; padding: 4px; background: var(--bg-soft);
+    border-radius: 100px; margin-bottom: 24px;
+  }
+  .compare-tab {
+    padding: 9px 22px; border-radius: 100px; border: none;
+    background: transparent; color: var(--text-muted); font-weight: 500;
+    font-size: 13.5px; cursor: pointer; transition: all 0.2s;
+    font-family: inherit;
+  }
+  .compare-tab.active {
+    background: var(--bg-surface); color: var(--text);
+    box-shadow: var(--shadow-sm); font-weight: 600;
+  }
+
+  .compare-panel {
+    display: none;
+  }
+  .compare-panel.active {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 22px;
+  }
+
+  .run-card {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 24px;
+    display: flex; flex-direction: column; gap: 16px;
+  }
+  .run-card.solo { border-left: 3px solid var(--text-soft); }
+  .run-card.full { border-left: 3px solid var(--accent); }
+  .run-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 14px; flex-wrap: wrap;
+  }
+  .run-title {
+    font-size: 17px; font-weight: 700; letter-spacing: -0.01em;
+  }
+  .run-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+    padding: 3px 10px; border-radius: 100px;
+  }
+  .run-card.solo .run-tag { background: var(--bg-soft); color: var(--text-muted); }
+  .run-card.full .run-tag { background: var(--accent-soft); color: var(--accent); }
+
+  .run-stats {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+  }
+  .run-stat {
+    padding: 14px; background: var(--bg-surface); border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .run-stat-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px; font-weight: 600;
+    color: var(--text-muted); letter-spacing: 0.08em; text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .run-stat-value {
+    font-size: 22px; font-weight: 800; letter-spacing: -0.02em;
+    font-family: 'JetBrains Mono', monospace; line-height: 1;
+  }
+  .run-card.full .run-stat-value { color: var(--accent); }
+
+  .run-outcome {
+    font-size: 14px; line-height: 1.6; color: var(--text);
+  }
+  .run-outcome b { font-weight: 600; }
+
+  .run-issues {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .run-issue {
+    display: flex; gap: 10px; align-items: flex-start;
+    font-size: 13.5px; line-height: 1.5;
+  }
+  .run-issue-icon {
+    flex-shrink: 0; width: 18px; height: 18px; border-radius: 5px;
+    display: grid; place-items: center; font-size: 12px;
+    margin-top: 2px;
+    font-family: 'JetBrains Mono', monospace; font-weight: 700;
+  }
+  .run-issue.bad .run-issue-icon { background: var(--accent-soft); color: var(--accent); }
+  .run-issue.good .run-issue-icon { background: var(--gen-soft); color: var(--gen-tone); }
+
+  /* ---------- Evolution timeline ---------- */
+  .evo-stage {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-xl); padding: 36px;
+    box-shadow: var(--shadow-md);
+  }
+  .evo-track {
+    position: relative; padding: 12px 0;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+  }
+  .evo-track::before {
+    content: ''; position: absolute; top: 50px; left: 12%; right: 12%;
+    height: 2px; background: var(--border-strong);
+    background-image: linear-gradient(to right, var(--border-strong) 60%, transparent 40%);
+    background-size: 12px 2px;
+    z-index: 0;
+  }
+  .evo-step {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 22px;
+    position: relative; z-index: 1;
+  }
+  .evo-step .ts {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: var(--bg-surface); border: 2px solid var(--border-strong);
+    margin: 0 auto 14px;
+    display: grid; place-items: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    color: var(--text-muted);
+  }
+  .evo-step.current .ts { border-color: var(--accent); background: var(--accent); color: white; }
+  .evo-step h4 {
+    font-size: 15px; font-weight: 700; text-align: center; margin-bottom: 6px;
+  }
+  .evo-step .model {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+    color: var(--accent); text-align: center; margin-bottom: 10px;
+  }
+  .evo-step ul {
+    list-style: none; font-size: 13px; line-height: 1.55;
+  }
+  .evo-step li {
+    padding: 5px 0; padding-left: 16px; position: relative;
+    color: var(--text-muted);
+  }
+  .evo-step li::before {
+    content: ''; position: absolute; left: 0; top: 12px;
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--border-strong);
+  }
+  .evo-step li.kept { color: var(--text); }
+  .evo-step li.kept::before { background: var(--gen-tone); }
+  .evo-step li.removed { color: var(--text-muted); text-decoration: line-through; opacity: 0.7; }
+  .evo-step li.removed::before { background: var(--accent); opacity: 0.5; }
+  .evo-step li.added { color: var(--text); font-weight: 500; }
+  .evo-step li.added::before { background: var(--accent); }
+
+  .evo-principle {
+    margin-top: 28px; padding: 22px 26px;
+    background: var(--bg-soft); border-radius: var(--radius-lg);
+    font-size: 15px; line-height: 1.6; color: var(--text);
+    border-left: 3px solid var(--accent);
+  }
+  .evo-principle b { color: var(--accent); }
+
+  /* DAW stats table */
+  .daw-table {
+    margin-top: 24px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); overflow: hidden;
+  }
+  .daw-table table {
+    width: 100%; border-collapse: collapse; font-size: 13.5px;
+  }
+  .daw-table thead {
+    background: var(--bg-soft);
+  }
+  .daw-table th {
+    text-align: left; padding: 12px 18px; font-weight: 600;
+    font-size: 11.5px; color: var(--text-muted); letter-spacing: 0.08em;
+    text-transform: uppercase; font-family: 'JetBrains Mono', monospace;
+  }
+  .daw-table td {
+    padding: 12px 18px; border-top: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace; color: var(--text);
+  }
+  .daw-table tr.total td {
+    background: var(--bg-soft); font-weight: 700; color: var(--accent);
+    border-top: 2px solid var(--border-strong);
+  }
+  .daw-table .phase-build { color: var(--gen-tone); font-weight: 600; }
+  .daw-table .phase-qa { color: var(--eval-tone); font-weight: 600; }
+  .daw-table .phase-plan { color: var(--plan-tone); font-weight: 600; }
+
+  /* ---------- Bug findings ---------- */
+  .bugs-list {
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .bug-row {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 20px 24px;
+    transition: all 0.2s;
+  }
+  .bug-row:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+  .bug-head {
+    display: grid; grid-template-columns: auto 1fr; gap: 16px; align-items: center;
+  }
+  .bug-status {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    padding: 4px 10px; border-radius: 6px; letter-spacing: 0.05em;
+    background: var(--accent-soft); color: var(--accent);
+  }
+  .bug-criterion {
+    font-size: 14.5px; font-weight: 500; color: var(--text); line-height: 1.4;
+  }
+  .bug-toggle {
+    display: none;
+  }
+  .bug-row.open .bug-toggle { transform: rotate(45deg); color: var(--accent); }
+  .bug-detail {
+    max-height: none; overflow: visible;
+    margin-top: 14px;
+  }
+  .bug-row.open .bug-detail {
+    max-height: none; margin-top: 14px;
+  }
+  .bug-finding {
+    padding: 14px 16px; background: var(--bg); border-radius: 8px;
+    font-size: 13.5px; line-height: 1.6; color: var(--text);
+    border-left: 2px solid var(--accent);
+  }
+  .bug-finding code {
+    font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+    background: var(--bg-soft); padding: 1px 6px; border-radius: 4px;
+    color: var(--accent-deep); font-weight: 500;
+  }
+
+  /* ---------- Takeaways ---------- */
+  .takeaways {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+  }
+  .takeaway {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 26px 24px;
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  .takeaway-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+    color: var(--accent); letter-spacing: 0.1em;
+  }
+  .takeaway-title {
+    font-size: 16.5px; font-weight: 700; line-height: 1.3; letter-spacing: -0.01em;
+  }
+  .takeaway-body {
+    font-size: 13.5px; color: var(--text-muted); line-height: 1.6;
+  }
+  .takeaway-body b { color: var(--text); font-weight: 600; }
+
+  /* Concluding quote block */
+  .quote-block {
+    margin-top: 32px; padding: 36px 40px;
+    background: var(--bg-dark); color: var(--text-invert);
+    border-radius: var(--radius-xl);
+    position: relative; overflow: hidden;
+  }
+  .quote-block::before {
+    content: '"'; position: absolute;
+    font-family: Georgia, serif; font-size: 200px;
+    color: var(--accent); opacity: 0.18;
+    top: -40px; left: 24px; line-height: 1;
+  }
+  .quote-text {
+    font-size: 22px; line-height: 1.5; font-weight: 500;
+    letter-spacing: -0.012em; position: relative;
+    max-width: 760px;
+  }
+  .quote-text b { color: #F2A07A; font-weight: 600; }
+  .quote-attr {
+    margin-top: 18px; font-size: 13px; color: #B3AB9F;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ---------- Footer ---------- */
+  footer.site-footer {
+    background: var(--bg-dark); color: var(--text-invert);
+    padding: 48px 0 36px; margin-top: 80px;
+  }
+  .footer-grid {
+    display: grid; grid-template-columns: 2fr 1fr; gap: 48px; margin-bottom: 36px;
+  }
+  .footer-grid h4 {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 14px; font-family: 'JetBrains Mono', monospace;
+  }
+  .footer-source {
+    background: var(--bg-dark-2); border: 1px solid var(--border-dark);
+    border-radius: var(--radius-lg); padding: 22px 26px;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 20px; flex-wrap: wrap;
+  }
+  .footer-source-meta {
+    font-size: 14px; color: var(--text-invert); line-height: 1.5;
+  }
+  .footer-source-meta div { color: #C8C0B3; font-size: 12.5px; margin-top: 4px; }
+  .footer-source a {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 16px; border-radius: 100px;
+    background: var(--accent); color: white; text-decoration: none;
+    font-size: 13px; font-weight: 600;
+    transition: background 0.15s;
+  }
+  .footer-source a:hover { background: var(--accent-hover); }
+  .footer-bottom {
+    border-top: 1px solid var(--border-dark); padding-top: 22px;
+    display: flex; justify-content: space-between; align-items: center;
+    font-size: 12px; color: #8C857B; flex-wrap: wrap; gap: 12px;
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 880px) {
+    .container { padding: 0 20px; }
+    .topbar-inner { padding: 12px 20px; }
+    .topnav { display: none; }
+    .hero { padding: 56px 0 36px; }
+    .tldr { padding: 28px; }
+    .metrics-row { grid-template-columns: repeat(2, 1fr); }
+    section.block { padding: 56px 0; }
+    .two-col, .criteria-grid, .compare-panel.active, .takeaways, .goal-grid { grid-template-columns: 1fr !important; }
+    .goal-panel, .harness-map { padding: 24px; }
+    .map-flow { grid-template-columns: 1fr; }
+    .map-arrow { text-align: center; transform: rotate(90deg); }
+    .loop-steps { grid-template-columns: 1fr; }
+    .loop-cycle { transform: rotate(90deg); }
+    .arch-grid { grid-template-columns: 1fr; }
+    .arch-flow { display: none; }
+    .evo-track { grid-template-columns: 1fr; gap: 14px; }
+    .evo-track::before { display: none; }
+    .story-iterations { grid-template-columns: 1fr; }
+    .story-arrow { transform: rotate(90deg); margin: 0 auto; }
+    .contract-flow { grid-template-columns: 1fr; }
+    .contract-arrow { transform: rotate(90deg); margin: 0 auto; }
+    .agent-node { width: 38%; }
+    .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+    h1 { font-size: 32px; }
+    .quote-text { font-size: 18px; }
+    .loop-stage, .arch-stage, .compare-stage, .evo-stage { padding: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ---------- Top Bar ---------- -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-logo">⌘</div>
+      <div class="brand-text">
+        Harness 设计 <small>可视化阅读</small>
+      </div>
+    </div>
+    <nav class="topnav">
+      <a href="#purpose">设计目的</a>
+      <a href="#failures">错误形式</a>
+      <a href="#solution">解决方案</a>
+      <a href="#arch">角色与契约</a>
+      <a href="#compare">实战对比</a>
+      <a href="#bugs">QA 证据</a>
+      <a href="#evolve">演进</a>
+      <a href="#takeaways">结论</a>
+    </nav>
+    <a class="source-link" href="https://www.anthropic.com/engineering/harness-design-long-running-apps" target="_blank" rel="noopener">
+      <svg viewBox="0 0 16 16"><path d="M3 13L13 3M13 3H6M13 3V10"/></svg>
+      阅读原文
+    </a>
+  </div>
+</div>
+
+<!-- ---------- Hero ---------- -->
+<section class="hero">
+  <div class="container">
+    <div class="eyebrow"><span class="dot"></span>Engineering at Anthropic · 2026 年 3 月 24 日</div>
+    <h1>面向长任务的应用 Harness 设计</h1>
+    <p class="hero-sub">
+      目标不是做一个更炫的多 Agent 图，而是让 Claude 能在无人持续干预的情况下，
+      把一个真实应用从一句 Prompt 推进到可用项目。为此，Harness 必须先解决长程项目里会反复出现的跑偏、漏做和自评过宽。
+    </p>
+    <div class="hero-meta">
+      <span><svg viewBox="0 0 16 16"><circle cx="8" cy="6" r="3"/><path d="M2 14c1-3 3-4 6-4s5 1 6 4"/></svg> 作者：<b>Prithvi Rajasekaran</b>，Anthropic Labs</span>
+      <span><svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="11" rx="1"/><path d="M2 6h12M5 1v3M11 1v3"/></svg> 发布于 2026 年 3 月 24 日</span>
+      <span><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg> 约 12 分钟阅读</span>
+    </div>
+
+    <div class="tldr">
+      <div class="tldr-title">TL;DR · 核心想法</div>
+      <p class="tldr-text">
+        这篇文章的主线是：为了让 Agent <b>自动完成一个完整项目</b>，
+        先用 <b>Planner</b> 把含糊 Prompt 扩成 feature list，再让 <b>Generator</b> 和挑剔的 <b>Evaluator</b>
+        围绕每个 feature 反复协商、实现、测试和修复。
+      </p>
+      <p class="tldr-text">
+        Generator/Evaluator 的价值来自两个失败事实：长程任务会失去连贯性，模型又很容易宽容地通过自己的半成品。
+        外部 QA、硬阈值和可测试契约，才把“看起来完成”推向“真的能用”。
+      </p>
+
+      <div class="metrics-row">
+        <div class="metric">
+          <div class="metric-value">3</div>
+          <div class="metric-label">Agent 角色：Planner / Generator / Evaluator</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">4<small>项</small></div>
+          <div class="metric-label">评分维度：设计感 · 原创性 · 工艺 · 可用性</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">~20×</div>
+          <div class="metric-label">同 Prompt 下，Harness 跑相对单 Agent 的成本</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">27</div>
+          <div class="metric-label">仅关卡编辑器一个 Sprint 契约里的测试条目数</div>
+        </div>
+      </div>
+      <div class="reader-note">
+        <b>阅读方式建议：</b>按顺序读：设计目的 → 错误形式 → 解决方案 → 证据。
+        这篇文章真正的主线不是“多 Agent 越多越好”，而是：每个 Harness 组件都应该对应一个当前模型确实补不上的能力缺口。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 1: Purpose ---------- -->
+<section class="block" id="purpose">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">01 · 设计目的</div>
+      <h2>目标是自动完成一个项目，而不是单次生成一个页面</h2>
+      <p class="section-sub">
+        原文讨论的 Harness，不是为了让输出看起来更复杂，而是为了让模型从一句模糊需求出发，
+        在几个小时的无人干预中持续推进，最后交付一个功能真的可用的完整应用。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        这篇文章的起点是一个产品工程问题：用户只给 1-4 句话，
+        Claude 要自己补全产品规格、拆出 feature、实现应用、发现问题、再修到可用。
+        如果只把它理解成“Generator 和 Evaluator 互相发消息”，就会丢掉最重要的设计目的。
+      </p>
+      <p>
+        所以叙事应该先问：一个长程项目为什么不能靠单 Agent 一路写到底？
+        然后再看 Harness 里的每个部件分别补哪个缺口。
+        <b>Planner 补规格，Generator 补实现，Evaluator 补外部判断和真实使用验证</b>。
+      </p>
+    </div>
+
+    <div class="goal-panel">
+      <div class="goal-grid">
+        <div class="goal-card dark">
+          <div class="goal-kicker">Target outcome</div>
+          <div class="goal-title">从一句 Prompt 到完整可用应用</div>
+          <div class="goal-body">
+            Harness 的成功标准不是“产出很多代码”，而是让模型持续完成一个有产品边界、有交互链路、
+            有 QA 反馈的项目。原文里的 2D 复古游戏制作器，就是用来测试这一点。
+          </div>
+        </div>
+        <div class="goal-card">
+          <div class="goal-kicker">What must be automated</div>
+          <div class="goal-steps">
+            <div class="goal-step"><span>1</span><div><b>补全规格：</b>把短 Prompt 扩成明确的 feature list。</div></div>
+            <div class="goal-step"><span>2</span><div><b>推进实现：</b>每次围绕一个 feature 建立可测试目标。</div></div>
+            <div class="goal-step"><span>3</span><div><b>外部验收：</b>通过真实页面操作、API 和数据库检查发现偏差。</div></div>
+            <div class="goal-step"><span>4</span><div><b>闭环修复：</b>把 QA 反馈交回 Generator，直到当前 feature 过线。</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 2: Failure modes ---------- -->
+<section class="block" id="failures">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">02 · 朴素 Harness 为什么不够用</div>
+      <h2>两类长期存在的失效模式</h2>
+      <p class="section-sub">
+        过去的长任务 Harness 已经在用「初始化 Agent + 编码 Agent + 结构化交接」，
+        但在复杂任务上，Agent 仍然会跑偏。把这件事拆开来看，能分成两个截然不同的问题。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        这部分是理解全文的地基。作者并不是一开始就想做复杂的多 Agent 系统，
+        而是先从失败日志里拆出了两个反复出现的问题：长上下文下的连贯性下降，以及模型对自己产出的过度宽容。
+      </p>
+      <p>
+        第一个问题偏工程编排：什么时候该重置上下文，怎样交接状态。
+        第二个问题偏判断力：即使任务有测试，模型也可能因为自我评估太松而把半成品当成完成品。
+        后文的 Planner、Generator、Evaluator 都是在回应这些具体失败，而不是为了架构复杂而复杂。
+      </p>
+    </div>
+
+    <div class="two-col">
+      <div class="failure-card">
+        <div class="failure-num">失效模式 01</div>
+        <div class="failure-title">连贯性丢失 &amp;「上下文焦虑」</div>
+        <div class="failure-symptom">
+          随着上下文越填越满，模型在长任务上会逐渐失去连贯性。某些模型（Sonnet 4.5 尤为明显）
+          还会出现「<i>上下文焦虑</i>」：当它<b>以为</b>自己快撞到上下文上限时，会开始草草收尾。
+        </div>
+        <div class="failure-fix">
+          <span class="failure-fix-label">→ 解法</span>
+          <b>上下文重置</b> —— 完全清空窗口、起一个全新 Agent，靠结构化交接传递状态。
+          这和<i>压缩（compaction）</i>不同：压缩是原地总结历史，保留连续性但不给 Agent 一张白纸，
+          焦虑因此仍然存在。Opus 4.5 大幅缓解了这个问题，新 Harness 已经可以不用重置。
+        </div>
+      </div>
+
+      <div class="failure-card">
+        <div class="failure-num">失效模式 02</div>
+        <div class="failure-title">自信地胡夸 —— 自我评估失灵</div>
+        <div class="failure-symptom">
+          让 Agent 评估自己产出时，它会信心满满地夸——即使质量在人眼里明显平庸。
+          这一点在主观任务（设计）上最明显，但在可验证任务上同样可见：
+          做事过程中糟糕的自我判断会拖累整体表现。
+        </div>
+        <div class="failure-fix">
+          <span class="failure-fix-label">→ 解法</span>
+          <b>把「干活的」和「打分的」分开。</b>这本身不会自动消除偏宽 —— Evaluator 仍然是个 LLM ——
+          但把<i>单独的</i> Evaluator 调教得挑剔，比让 Generator 自我批判要可控得多。
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 3: Solution flow ---------- -->
+<section class="block" id="solution">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">03 · 解决方案</div>
+      <h2>Planner 先确定 feature list，再让 Generator 和 Evaluator 围绕 feature 迭代</h2>
+      <p class="section-sub">
+        真正的结构不是两个 Agent 空转互评，而是先把项目边界固定下来：
+        Planner 把需求扩成 feature list；随后每个 feature 都经历“契约 → 实现 → QA → 修复”的闭环。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        这套 Harness 的关键，是把“完成一个应用”拆成两个层级。
+        第一层是全局规划：Planner 不写实现细节，而是把一句话需求变成有野心但仍然高层的产品规格和 feature list。
+        第二层是局部闭环：Generator 每次只拿一个 feature，先和 Evaluator 谈清楚怎样算完成，再开始写代码。
+      </p>
+      <p>
+        Evaluator 的职责也不是“事后写几句评价”，而是像用户一样打开真实应用，
+        点击 UI、调用 API、检查数据库状态，并用硬阈值决定当前 feature 是否通过。
+        不通过时，反馈回到 Generator，下一轮围绕同一个 feature 修复。
+      </p>
+    </div>
+
+    <div class="harness-map">
+      <div class="map-kicker">Correct mental model</div>
+      <div class="map-flow">
+        <div class="map-node planner">
+          <div class="map-node-title">Planner</div>
+          <div class="map-node-body">把 1-4 句 Prompt 扩成产品规格，不提前钉死实现细节。</div>
+        </div>
+        <div class="map-arrow">→</div>
+        <div class="feature-list">
+          <div class="feature-pill current"><b>Feature 01</b><span>Project dashboard</span></div>
+          <div class="feature-pill"><b>Feature 02</b><span>Sprite editor</span></div>
+          <div class="feature-pill"><b>Feature 03</b><span>Level editor</span></div>
+          <div class="feature-pill"><b>...</b><span>16 features / 10 sprints</span></div>
+        </div>
+        <div class="map-arrow">→</div>
+        <div class="map-loop">
+          <div class="loop-title">
+            <h3>围绕当前 feature 闭环</h3>
+            <span>repeat until pass</span>
+          </div>
+          <div class="loop-steps">
+            <div class="loop-box generator">
+              <h4>Generator</h4>
+              <p>提出 sprint contract，说明要做什么、怎样验证，然后实现当前 feature。</p>
+            </div>
+            <div class="loop-cycle">⇄</div>
+            <div class="loop-box evaluator">
+              <h4>Evaluator</h4>
+              <p>先审核 contract，再用 Playwright MCP 操作真实应用；未达标就返回具体 Bug。</p>
+            </div>
+          </div>
+          <div class="map-footnote">
+            当前 feature 通过后才进入下一个 feature；这就是为什么它能把长程项目约束在 feature list 上，而不是让 Generator 漫无目的地自我迭代。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 4: Three-agent architecture ---------- -->
+<section class="block" id="arch">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">04 · 角色与契约</div>
+      <h2>三个 Agent 各自补一个缺口，Sprint 契约把 feature 变成可验收行为</h2>
+      <p class="section-sub">
+        上一节是总图；这一节拆开看每个角色为什么存在，以及 contract 为什么要发生在写代码之前。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        这套设计的关键不是把任务平均分给三个 Agent，而是让每个 Agent 避开不适合自己的判断。
+        Planner 不决定底层实现；Generator 不独自裁决质量；Evaluator 不写主要代码，而是把“是否真的可用”拉回到外部证据上。
+      </p>
+      <p>
+        这里最值得注意的是 <b>Sprint 契约</b>。
+        产品规格刻意保持高层，避免过早钉死实现细节；但真正写代码之前，
+        Generator 和 Evaluator 要先把“这一步怎样算完成”谈清楚。
+        这一步把抽象需求翻译成了可测试行为。
+      </p>
+    </div>
+
+    <div class="arch-stage">
+      <div class="arch-grid">
+        <div class="arch-agent planner">
+          <div class="arch-agent-head">
+            <div class="arch-agent-icon">P</div>
+            <div>
+              <div class="arch-agent-name">Planner</div>
+              <div class="arch-agent-tagline">1–4 句 Prompt → 完整产品规格</div>
+            </div>
+          </div>
+          <div class="arch-agent-body">
+            把用户那一两句话 Prompt 扩成一份<b>有野心的</b>完整产品规格。
+            只停留在<b>产品语境和高层设计</b>，不下沉到细节实现 —— 这样上游错了不会向下游级联。
+            还会被要求主动把 AI 功能编进规格里。
+          </div>
+          <div class="arch-agent-tools">
+            <span class="tool-chip">prompt</span>
+            <span class="tool-chip">frontend design skill</span>
+          </div>
+        </div>
+
+        <div class="arch-agent generator">
+          <div class="arch-agent-head">
+            <div class="arch-agent-icon">G</div>
+            <div>
+              <div class="arch-agent-name">Generator</div>
+              <div class="arch-agent-tagline">按 Sprint 推进，每次只做一个 feature</div>
+            </div>
+          </div>
+          <div class="arch-agent-body">
+            从规格里<b>一次挑一个 feature</b> 来做。每个 Sprint 用 React + Vite + FastAPI + SQLite / PostgreSQL 实现，
+            收尾前先自评一次再交给 QA。自带 git 做版本管理。
+          </div>
+          <div class="arch-agent-tools">
+            <span class="tool-chip">React + Vite</span>
+            <span class="tool-chip">FastAPI</span>
+            <span class="tool-chip">PostgreSQL</span>
+            <span class="tool-chip">git</span>
+          </div>
+        </div>
+
+        <div class="arch-agent evaluator">
+          <div class="arch-agent-head">
+            <div class="arch-agent-icon">E</div>
+            <div>
+              <div class="arch-agent-name">Evaluator (QA)</div>
+              <div class="arch-agent-tagline">像真实用户那样点击运行中的应用</div>
+            </div>
+          </div>
+          <div class="arch-agent-body">
+            通过 Playwright MCP 驱动真实应用 —— 走 UI、调 API、看数据库。
+            评分维度从前端实验改造而来：<b>产品深度、功能、视觉设计、代码质量</b>。
+            每个维度都有<b>硬阈值</b>，一项不过 → Sprint 直接判失败。
+          </div>
+          <div class="arch-agent-tools">
+            <span class="tool-chip">Playwright MCP</span>
+            <span class="tool-chip">硬阈值评分</span>
+            <span class="tool-chip">Bug 记录</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="arch-flow">
+        <div class="col"><span class="flow-label">spec 规格</span></div>
+        <div class="col"><span class="flow-arrow">━━━▶</span></div>
+        <div class="col"><span class="flow-label">sprint contract ⇄ build</span></div>
+        <div class="col"><span class="flow-arrow">━━━▶</span></div>
+        <div class="col"><span class="flow-label">QA + 打分</span></div>
+      </div>
+
+      <div class="contract">
+        <div class="contract-head">
+          <div class="contract-icon">⇆</div>
+          <div>
+            <div class="contract-title">Sprint 契约 —— 在任何代码写出来之前先谈妥</div>
+            <div class="contract-sub">在「高层用户故事」和「可测试实现」之间搭一座桥；通过文件交互反复迭代，直到双方达成一致。</div>
+          </div>
+        </div>
+        <div class="contract-flow">
+          <div class="contract-step">
+            <b>Generator 提案：</b>这次准备做什么、怎样算「成功」。
+          </div>
+          <div class="contract-arrow">⇄</div>
+          <div class="contract-step right">
+            <b>Evaluator 审核：</b>确认 Generator 真的在做正确的事，两边来回直到达成一致。
+          </div>
+        </div>
+        <div style="margin-top:14px;font-size:13px;color:var(--text-muted);line-height:1.55;">
+          为什么这一步重要：产品规格是有意保留在高层的，所以「规格 → 可测试行为」需要一个独立的环节。
+          通信完全通过文件 —— 一边写、另一边读取并回应。这样既能让工作忠于规格，又不会过早把实现细节钉死。
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 5: Solo vs Full ---------- -->
+<section class="block" id="compare">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">05 · Harness 实战 · Opus 4.5</div>
+      <h2>同一句 Prompt：单 Agent vs 完整 Harness</h2>
+      <p class="section-sub">
+        Prompt：<i>「做一个 2D 复古游戏制作器，包含关卡编辑器、精灵编辑器、实体行为系统，以及可试玩的测试模式。」</i>
+        <br>Harness 跑的成本是单跑的 <b>20 倍以上</b> —— 但输出质量的差距是肉眼可见的。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        这组对比是全文最有说服力的部分：单 Agent 版本看起来接近完成，
+        但一旦真实使用，核心玩法链路就断了。完整 Harness 贵很多、慢很多，
+        但它把同一句简单 Prompt 扩成了更完整的产品，并且让关键路径真的可用。
+      </p>
+      <p>
+        所以这里的结论不是“多花钱就一定更好”，而是当任务处在模型单跑能力边缘时，
+        Planner 和 Evaluator 会把输出从“表面完整”推向“实际可操作”。
+      </p>
+    </div>
+
+    <div class="compare-stage">
+      <div class="compare-tabs" role="tablist">
+        <button class="compare-tab active" data-target="cmpHarness">并列对比</button>
+        <button class="compare-tab" data-target="cmpDetail">哪些坏了 / 哪些好了</button>
+      </div>
+
+      <div class="compare-panel active" id="cmpHarness">
+        <div class="run-card solo">
+          <div class="run-head">
+            <div class="run-title">单 Agent 跑</div>
+            <span class="run-tag">Single agent</span>
+          </div>
+          <div class="run-stats">
+            <div class="run-stat">
+              <div class="run-stat-label">用时</div>
+              <div class="run-stat-value">20 min</div>
+            </div>
+            <div class="run-stat">
+              <div class="run-stat-label">成本</div>
+              <div class="run-stat-value">$9</div>
+            </div>
+          </div>
+          <div class="run-outcome">
+            初看应用还像那么回事。点进去操作之后<b>问题逐一冒出来</b>：布局浪费空间、流程僵硬、
+            UI 不引导，最关键的是 —— 实体能显示在屏幕上，但<b>对输入完全没反应</b>。
+            实体定义和运行时的连接环节坏了，而且界面上没有任何提示在哪里坏了。
+          </div>
+          <div class="run-issues">
+            <div class="run-issue bad"><span class="run-issue-icon">!</span><div>固定高度的面板让大半屏幕空着。</div></div>
+            <div class="run-issue bad"><span class="run-issue-icon">!</span><div>流程僵硬，UI 不引导用户先去做精灵和实体。</div></div>
+            <div class="run-issue bad"><span class="run-issue-icon">!</span><div><b>游戏不能玩</b>：实体出现了，但完全不响应输入。</div></div>
+          </div>
+        </div>
+
+        <div class="run-card full">
+          <div class="run-head">
+            <div class="run-title">完整 Harness 跑</div>
+            <span class="run-tag">Planner + Generator + Evaluator</span>
+          </div>
+          <div class="run-stats">
+            <div class="run-stat">
+              <div class="run-stat-label">用时</div>
+              <div class="run-stat-value">6 hr</div>
+            </div>
+            <div class="run-stat">
+              <div class="run-stat-label">成本</div>
+              <div class="run-stat-value">$200</div>
+            </div>
+          </div>
+          <div class="run-outcome">
+            Planner 把同一句 Prompt 扩成了一份 <b>10 个 Sprint、16 个 feature</b> 的规格 ——
+            远超单 Agent 所做的范围：精灵动画系统、行为模板、音效与音乐、AI 辅助关卡设计、
+            带分享链接的游戏导出等等。
+          </div>
+          <div class="run-issues">
+            <div class="run-issue good"><span class="run-issue-icon">✓</span><div>画布用满了视口，面板尺寸合理，整体视觉风格一致。</div></div>
+            <div class="run-issue good"><span class="run-issue-icon">✓</span><div>精灵编辑器更完整：调色盘更整洁、取色器更好、缩放控件能用。</div></div>
+            <div class="run-issue good"><span class="run-issue-icon">✓</span><div>内置了 Claude 集成：<b>可以直接通过 Prompt 生成游戏要素</b>。</div></div>
+            <div class="run-issue good"><span class="run-issue-icon">✓</span><div><b>试玩模式真的能玩</b>：物理边缘略糙，但核心机制是通的。</div></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="compare-panel" id="cmpDetail">
+        <div class="run-card solo">
+          <div class="run-head">
+            <div class="run-title">单跑 · 核心功能直接是坏的</div>
+          </div>
+          <div class="run-outcome">
+            试图布关卡时系统提示你要先建精灵和实体，但 UI 完全不引导这个顺序。
+            即便建完之后，实体能显示但对输入没反应 —— 实体定义和运行时之间的连接断了，
+            而且界面上看不出在哪里断的。
+          </div>
+        </div>
+        <div class="run-card full">
+          <div class="run-head">
+            <div class="run-title">Harness · Evaluator 把实现牢牢拽在规格上</div>
+          </div>
+          <div class="run-outcome">
+            每个 Sprint，Evaluator 都通过 Playwright 走一遍契约里的测试条目，对偏离行为逐一开 Bug。
+            <b>仅 Sprint 3（关卡编辑器）就有 27 条测试</b>，开出的 Bug 描述具体到不需要额外排查就能直接动手修。
+            Harness 也并非完美 —— 还有小布局问题、深层 feature 里没被覆盖的 Bug ——
+            但和「核心功能直接不能用」的单跑比起来，提升非常明显。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 6: Bug findings ---------- -->
+<section class="block" id="bugs">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">06 · Evaluator 抓到的真实 Bug</div>
+      <h2>颗粒度足够细的契约，定位到具体的失败点</h2>
+      <p class="section-sub">
+        Evaluator 报出的问题<b>具体到不需要额外排查就能直接动手修</b> ——
+        指出代码位置、函数名、错误的路由顺序。开箱即用的 Claude 其实是个糟糕的 QA
+        （会主动给自己台阶下，把真问题说成不大要紧），需要好几轮对 QA Prompt 的调教才达到能用的水平。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        这些 Bug 例子应该直接露出来，因为它们证明 Evaluator 不是在写泛泛而谈的建议。
+        好的 QA 反馈要能落到具体行为、具体代码路径、具体失败条件上，Generator 才能在下一轮真正修复。
+      </p>
+    </div>
+
+    <div class="visual-bridge">Evaluator findings</div>
+
+    <div class="bugs-list" id="bugsList">
+      <div class="bug-row" data-id="b1">
+        <div class="bug-head">
+          <span class="bug-status">FAIL</span>
+          <div class="bug-criterion">矩形填充工具：拖拽时应该用所选 tile 填充选中的矩形区域</div>
+          <span class="bug-toggle">+</span>
+        </div>
+        <div class="bug-detail">
+          <div class="bug-finding">
+            目前只在拖拽起点和终点放了 tile，并没有填充整个区域。
+            <code>fillRectangle</code> 函数已经存在，但没有在 <code>mouseUp</code> 上正确触发。
+          </div>
+        </div>
+      </div>
+
+      <div class="bug-row" data-id="b2">
+        <div class="bug-head">
+          <span class="bug-status">FAIL</span>
+          <div class="bug-criterion">用户可以选中并删除已放置的实体出生点</div>
+          <span class="bug-toggle">+</span>
+        </div>
+        <div class="bug-detail">
+          <div class="bug-finding">
+            <code>LevelEditor.tsx:892</code> 处的 Delete 键处理同时要求 <code>selection</code> 和
+            <code>selectedEntityId</code> 都被设置，但点选一个实体时只会设 <code>selectedEntityId</code>。
+            条件应改成 <code>selection || (selectedEntityId &amp;&amp; activeLayer === 'entity')</code>。
+          </div>
+        </div>
+      </div>
+
+      <div class="bug-row" data-id="b3">
+        <div class="bug-head">
+          <span class="bug-status">FAIL</span>
+          <div class="bug-criterion">用户可以通过 API 重新排序动画帧</div>
+          <span class="bug-toggle">+</span>
+        </div>
+        <div class="bug-detail">
+          <div class="bug-finding">
+            <code>PUT /frames/reorder</code> 路由定义在了 <code>/{frame_id}</code> 之<i>后</i>。
+            FastAPI 把 <code>'reorder'</code> 当成了 <code>frame_id</code> 整数去解析，
+            直接返回 <code>422: "unable to parse string as an integer."</code>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 7: Iterating on harness ---------- -->
+<section class="block" id="evolve">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">07 · Harness 演进</div>
+      <h2>每个部件都编码了一个假设 —— 都得拿出来重新检验</h2>
+      <p class="section-sub">
+        第一版 Harness <b>笨重、慢、贵</b>。后续的「瘦身」一半是常识，一半是更深一层的原则：
+        <i>Harness 里的每个部件，本质上都在编码一个关于「模型自己做不到什么」的假设 ——
+        模型一变强，这些假设就可能立刻过时。</i>
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        后半篇的重点是“删东西”。作者不是把三 Agent Harness 当成最终形态，
+        而是随着 Opus 4.6 的能力变化，重新检查哪些组件还在承重。
+        Sprint 切分从必要约束变成了可以移除的开销，Evaluator 也从每个 Sprint 都评估，变成最后集中评估。
+      </p>
+      <p>
+        这让文章的观点更细：Harness 不是越复杂越先进。
+        它应该随着模型能力移动，只在模型当前还不可靠的边界上增加外部结构。
+      </p>
+    </div>
+
+    <div class="evo-stage">
+      <div class="evo-track">
+        <div class="evo-step">
+          <div class="ts">V1</div>
+          <h4>更早期的 Harness</h4>
+          <div class="model">Sonnet 4.5</div>
+          <ul>
+            <li class="kept">初始化 Agent + 编码 Agent</li>
+            <li class="kept">会话间做上下文重置</li>
+            <li class="kept">用户需要提供详细规格</li>
+            <li>一次只做一个 feature</li>
+          </ul>
+        </div>
+        <div class="evo-step">
+          <div class="ts">V2</div>
+          <h4>三 Agent Harness</h4>
+          <div class="model">Opus 4.5</div>
+          <ul>
+            <li class="added">+ Planner：1–4 句 → 完整规格</li>
+            <li class="added">+ 带 Playwright MCP 的 Evaluator</li>
+            <li class="added">+ Sprint 契约</li>
+            <li class="removed">去掉了上下文重置（Opus 4.5）</li>
+          </ul>
+        </div>
+        <div class="evo-step current">
+          <div class="ts">V3</div>
+          <h4>精简后的 Harness</h4>
+          <div class="model">Opus 4.6</div>
+          <ul>
+            <li class="kept">保留 Planner</li>
+            <li class="kept">保留 Evaluator（改为最后一次性评估）</li>
+            <li class="removed">移除 Sprint 切分</li>
+            <li class="added">+ 针对 AI feature 的更精细 Prompt 调教</li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="evo-principle">
+        <b>实战含义。</b>Evaluator 不是一个固定的「要 / 不要」选择 ——
+        <i>当任务已经超出当前模型独立可靠完成的边界时</i>，加上它才划算。
+        模型能力一涨，边界就向外移，原本需要 Evaluator 兜底的任务会被 Generator 单跑吃掉。
+      </div>
+
+      <div class="daw-table">
+        <div style="padding: 14px 18px 0; font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600; color: var(--text-muted); letter-spacing: 0.08em;">
+          V3 实测 · DAW Prompt ——「在浏览器里基于 Web Audio API 做一个功能完整的 DAW。」
+        </div>
+        <table>
+          <thead>
+            <tr><th>Agent / 阶段</th><th>用时</th><th>成本</th></tr>
+          </thead>
+          <tbody>
+            <tr><td class="phase-plan">Planner</td><td>4.7 min</td><td>$0.46</td></tr>
+            <tr><td class="phase-build">Build · 第 1 轮</td><td>2 hr 7 min</td><td>$71.08</td></tr>
+            <tr><td class="phase-qa">QA · 第 1 轮</td><td>8.8 min</td><td>$3.24</td></tr>
+            <tr><td class="phase-build">Build · 第 2 轮</td><td>1 hr 2 min</td><td>$36.89</td></tr>
+            <tr><td class="phase-qa">QA · 第 2 轮</td><td>6.8 min</td><td>$3.09</td></tr>
+            <tr><td class="phase-build">Build · 第 3 轮</td><td>10.9 min</td><td>$5.88</td></tr>
+            <tr><td class="phase-qa">QA · 第 3 轮</td><td>9.6 min</td><td>$4.06</td></tr>
+            <tr class="total"><td>V3 Harness 总计</td><td>3 hr 50 min</td><td>$124.70</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="loop-explainer" style="margin-top:18px;">
+        <b>大部分时间花在 Builder 上</b> —— 连续运行超过两小时仍然连贯，不再需要 Sprint 切分。
+        QA 仍然抓到了真问题：录音功能只是空壳、片段不能拖边调长、效果可视化只用了数字滑块没做图形化。
+        Generator 单干时仍然容易漏细节、留半成品，这时候 QA 依然有它的价值。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 8: Takeaways ---------- -->
+<section class="block" id="takeaways">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">08 · 接下来</div>
+      <h2>有意思的 Harness 组合空间不会缩小 —— 只是会移动</h2>
+      <p class="section-sub">
+        模型变强时，套在它外面的脚手架往往会变得不那么重要。
+        但反过来：模型越强，越有空间去搭一些超出它原生能力之外的复杂 Harness。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        最后的结论可以压成一句工程判断：
+        <b>先用真实模型在真实任务上读 trace，再决定要给模型外面加什么结构</b>。
+        如果一个组件不能解释清楚它补的是哪个能力缺口，就应该被怀疑。
+      </p>
+    </div>
+
+    <div class="takeaways">
+      <div class="takeaway">
+        <div class="takeaway-num">01 · 总是这样做</div>
+        <div class="takeaway-title">用你实际要部署的那个模型去做实验</div>
+        <div class="takeaway-body">
+          在真实问题上读它的 trace，针对你想要的结果去调。
+          「上下文焦虑」这个假设在 Sonnet 4.5 上成立，但到 Opus 4.6 上几乎消失了 ——
+          <b>脚手架必须反映你真正用的那个模型</b>。
+        </div>
+      </div>
+      <div class="takeaway">
+        <div class="takeaway-num">02 · 任务复杂时</div>
+        <div class="takeaway-title">分解任务，给每个面专门派一个 Agent</div>
+        <div class="takeaway-body">
+          Planner / Generator / Evaluator 各补一个具体的洞。
+          <b>先找最简单的方案，仅在确有必要时再加复杂度</b> ——
+          但当确有必要时，「拆」是一个非常有效的杠杆。
+        </div>
+      </div>
+      <div class="takeaway">
+        <div class="takeaway-num">03 · 新模型来了</div>
+        <div class="takeaway-title">回头审 Harness，把不再「承重」的部件砍掉</div>
+        <div class="takeaway-body">
+          Sprint 切分从「必要」（4.5）变成「不需要」（4.6）。
+          <b>同时加上能让模型够到此前够不到的能力的新部件</b> ——
+          目标不是「Harness 越小越好」，而是「Harness 真的有用」。
+        </div>
+      </div>
+    </div>
+
+    <div class="quote-block">
+      <div class="quote-text">
+        做完这套工作之后，我的信念是：随着模型变强，
+        <b>有意思的 Harness 组合空间并不会缩小</b>，而是在移动。
+        AI 工程师真正有意思的工作，就是不断去找下一个新颖的组合。
+      </div>
+      <div class="quote-attr">— Prithvi Rajasekaran · Anthropic Labs</div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Footer ---------- -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <h4>原文</h4>
+        <div class="footer-source">
+          <div class="footer-source-meta">
+            <strong>Harness design for long-running application development</strong>
+            <div>Prithvi Rajasekaran · Engineering at Anthropic · 2026 年 3 月 24 日</div>
+          </div>
+          <a href="https://www.anthropic.com/engineering/harness-design-long-running-apps" target="_blank" rel="noopener">
+            阅读原文
+            <svg viewBox="0 0 16 16" width="12" height="12" stroke="currentColor" fill="none" stroke-width="2"><path d="M3 13L13 3M13 3H6M13 3V10"/></svg>
+          </a>
+        </div>
+      </div>
+      <div>
+        <h4>关于本页</h4>
+        <p style="font-size:13.5px;color:#C8C0B3;line-height:1.6;">
+          一份配合阅读用的可视化，用来呈现原文的整体脉络：
+          <i>生成器 - 评估器模式 → 三 Agent 架构 → Harness 精简化</i>。
+          所有数字、代码引用、Bug 发现均来自原文。
+        </p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 · 可视化阅读 · 仅供学习</span>
+      <span style="font-family:'JetBrains Mono',monospace;">harness-design-long-running-apps</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  // ---------- 1. Criterion expand/collapse ----------
+  const criteria = document.querySelectorAll('#criteriaGrid .criterion');
+  criteria.forEach(function (c) {
+    c.addEventListener('click', function () {
+      c.classList.toggle('open');
+    });
+  });
+
+  // ---------- 2. Solo vs Full tabs ----------
+  const tabs = document.querySelectorAll('.compare-tab');
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      const target = tab.getAttribute('data-target');
+      tabs.forEach(function (t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      document.querySelectorAll('.compare-panel').forEach(function (p) {
+        p.classList.toggle('active', p.id === target);
+      });
+    });
+  });
+
+  // ---------- 3. Bug rows expand/collapse ----------
+  const bugs = document.querySelectorAll('#bugsList .bug-row');
+  bugs.forEach(function (b) {
+    b.addEventListener('click', function () {
+      b.classList.toggle('open');
+    });
+  });
+
+  // ---------- 4. Architecture agent click highlight ----------
+  const archAgents = document.querySelectorAll('.arch-agent');
+  archAgents.forEach(function (a) {
+    a.addEventListener('click', function () {
+      archAgents.forEach(function (x) { x.classList.remove('active'); });
+      a.classList.add('active');
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

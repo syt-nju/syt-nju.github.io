@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: anthropic-harness-design
+    title: "Anthropic 怎么设计长程编码 Harness"
+    date: 2026-05-06
+    source_type: blog
+    source_url: "https://www.anthropic.com/engineering/harness-design-long-running-apps"
   - slug: verl-rank-mesh
     title: "verl 在训练的时候，发生了什么？"
     date: 2026-04-30
