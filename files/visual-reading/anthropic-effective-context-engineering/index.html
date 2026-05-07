@@ -1,0 +1,1969 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Context Engineering · 把上下文当稀缺资源来管 · Anthropic</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #FBF6EA;
+    --bg-surface: #FFFFFF;
+    --bg-soft: #F4EAD7;
+    --bg-softer: #EFE3CB;
+    --bg-dark: #1A1816;
+    --bg-dark-2: #252220;
+    --text: #1A1816;
+    --text-muted: #6B6660;
+    --text-soft: #8C857B;
+    --text-invert: #F5F1E8;
+    --accent: #C04E2D;
+    --accent-hover: #A8401F;
+    --accent-soft: #F4DCD0;
+    --accent-deep: #7A2E16;
+    --tone-1: #B8860B;
+    --tone-1-soft: #F4E8C7;
+    --tone-2: #2E5A6B;
+    --tone-2-soft: #DDE8ED;
+    --tone-3: #6E4A2C;
+    --tone-3-soft: #EFE0CE;
+    --good: #4A6B3E;
+    --good-soft: #E2EBD8;
+    --bad: #B23A2A;
+    --bad-soft: #F4D9D2;
+    --border: #E8DCC7;
+    --border-strong: #D4C4A6;
+    --border-dark: #3A3633;
+    --shadow-sm: 0 1px 2px rgba(26, 24, 22, 0.04);
+    --shadow-md: 0 4px 14px rgba(26, 24, 22, 0.06);
+    --shadow-lg: 0 16px 40px rgba(26, 24, 22, 0.10);
+    --radius: 10px;
+    --radius-lg: 16px;
+    --radius-xl: 22px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-hover); }
+
+  .container { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- Top Bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(251, 246, 234, 0.85);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px; max-width: 1180px; margin: 0 auto;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    font-weight: 700; font-size: 14.5px; letter-spacing: -0.005em;
+  }
+  .brand-logo {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: var(--bg-dark);
+    display: grid; place-items: center; color: var(--accent);
+    font-size: 13px; font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .brand-text { color: var(--text); }
+  .brand-text small { color: var(--text-muted); font-weight: 500; font-size: 12px; margin-left: 8px; }
+  .topnav { display: flex; gap: 4px; align-items: center; }
+  .topnav a {
+    padding: 7px 9px; border-radius: 8px;
+    color: var(--text-muted); font-size: 12.5px; font-weight: 500;
+    transition: color 0.15s, background 0.15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--accent-soft); }
+  .source-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; color: var(--text-muted); text-decoration: none;
+    padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border);
+    transition: all 0.15s; font-weight: 500;
+  }
+  .source-link:hover { border-color: var(--accent); color: var(--accent); }
+  .source-link svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 72px 0 44px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--accent); text-transform: uppercase;
+    background: var(--accent-soft); padding: 6px 14px; border-radius: 100px;
+    margin-bottom: 22px; font-family: 'JetBrains Mono', monospace;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  h1 {
+    font-size: clamp(34px, 5.2vw, 54px); line-height: 1.1; letter-spacing: -0.025em;
+    font-weight: 800; margin-bottom: 22px; max-width: 920px;
+  }
+  .hero-sub {
+    font-size: 19px; color: var(--text-muted); max-width: 760px; line-height: 1.6;
+    font-weight: 400;
+  }
+  .hero-meta {
+    display: flex; gap: 22px; margin-top: 28px; font-size: 13px; color: var(--text-muted);
+    flex-wrap: wrap; align-items: center;
+  }
+  .hero-meta span { display: inline-flex; align-items: center; gap: 7px; }
+  .hero-meta svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .hero-meta b { color: var(--text); font-weight: 600; }
+
+  /* TL;DR card */
+  .tldr {
+    margin-top: 48px; background: var(--bg-dark); color: var(--text-invert);
+    border-radius: var(--radius-xl); padding: 36px 40px;
+    box-shadow: var(--shadow-lg); position: relative; overflow: hidden;
+  }
+  .tldr::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent);
+  }
+  .tldr-title {
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 18px; font-family: 'JetBrains Mono', monospace;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .tldr-title::after {
+    content: ''; flex: 1; height: 1px; background: rgba(192, 78, 45, 0.2);
+  }
+  .tldr-text {
+    font-size: 19px; line-height: 1.65; color: var(--text-invert); font-weight: 400;
+  }
+  .tldr-text b { color: #F2A07A; font-weight: 600; }
+  .tldr-text + .tldr-text { margin-top: 14px; font-size: 16px; color: #C8C0B3; }
+
+  /* Stance pull-quote */
+  .stance {
+    margin-top: 26px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius-lg);
+    padding: 22px 26px;
+    font-size: 16.5px; line-height: 1.7;
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+  }
+  .stance b { font-weight: 700; }
+  .stance small {
+    display: block; margin-top: 8px;
+    font-size: 12px; color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em;
+  }
+
+  /* ---------- Metric strip ---------- */
+  .metrics-row {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+    margin-top: 28px;
+  }
+  .metric {
+    background: var(--bg-surface); border-radius: 14px; padding: 22px 22px;
+    border: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .metric-value {
+    font-size: 30px; font-weight: 800; letter-spacing: -0.02em;
+    color: var(--accent); line-height: 1; font-family: 'JetBrains Mono', monospace;
+  }
+  .metric-value small { font-size: 14px; font-weight: 500; color: var(--text-muted); margin-left: 4px; }
+  .metric-label {
+    font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin-top: 8px;
+  }
+  .metric-label b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Section ---------- */
+  section.block { padding: 64px 0; border-top: 1px solid var(--border); }
+  .section-head { margin-bottom: 26px; max-width: 820px; }
+  .section-num {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--accent); font-weight: 600;
+    background: var(--accent-soft); padding: 5px 12px; border-radius: 100px;
+    margin-bottom: 16px;
+  }
+  h2 {
+    font-size: clamp(26px, 3.4vw, 36px); font-weight: 700; letter-spacing: -0.022em;
+    margin-bottom: 14px; line-height: 1.2;
+  }
+  h3 {
+    font-size: 19px; font-weight: 700; letter-spacing: -0.012em;
+    margin-bottom: 10px; line-height: 1.3;
+  }
+  .section-sub { color: var(--text-muted); font-size: 16.5px; line-height: 1.65; }
+  .section-sub b { color: var(--text); font-weight: 600; }
+
+  .article-copy {
+    max-width: 780px;
+    font-size: 17px;
+    line-height: 1.82;
+    color: var(--text);
+  }
+  .article-copy p + p { margin-top: 16px; }
+  .article-copy b { font-weight: 600; color: var(--text); }
+  .article-copy em { color: var(--text-muted); font-style: normal; }
+  .reader-note {
+    margin-top: 28px;
+    padding: 18px 22px;
+    background: rgba(255, 255, 255, 0.62);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    color: var(--text-muted);
+    font-size: 14.5px;
+    line-height: 1.7;
+    max-width: 880px;
+  }
+  .reader-note b { color: var(--text); font-weight: 600; }
+  .visual-bridge {
+    margin: 30px 0 14px;
+    max-width: 880px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  /* ---------- Compare two-column ---------- */
+  .compare {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+  }
+  .compare-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 26px 28px;
+  }
+  .compare-card.left {
+    border-left: 4px solid var(--tone-2);
+  }
+  .compare-card.right {
+    border-left: 4px solid var(--accent);
+  }
+  .compare-card h4 {
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 10px;
+    font-weight: 600;
+  }
+  .compare-card .ttl {
+    font-size: 21px; font-weight: 700; letter-spacing: -0.012em;
+    margin-bottom: 14px; line-height: 1.25;
+  }
+  .compare-card.left .ttl { color: #1F3D49; }
+  .compare-card.right .ttl { color: var(--accent-deep); }
+  .compare-card ul {
+    list-style: none; padding: 0; margin-top: 6px;
+  }
+  .compare-card li {
+    position: relative;
+    padding-left: 20px;
+    font-size: 14.5px; line-height: 1.7;
+    color: var(--text);
+    margin-bottom: 8px;
+  }
+  .compare-card li::before {
+    content: '';
+    position: absolute; left: 0; top: 11px;
+    width: 8px; height: 1.5px;
+    background: var(--text-muted);
+  }
+  .compare-card li b { font-weight: 600; }
+
+  /* ---------- Context anatomy diagram ---------- */
+  .anatomy {
+    margin-top: 36px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px 36px;
+    box-shadow: var(--shadow-md);
+  }
+  .anatomy h4 {
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 18px;
+    font-weight: 600;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .anatomy h4::after {
+    content: ''; flex: 1; height: 1px; background: var(--border);
+  }
+  .anatomy-window {
+    background: var(--bg);
+    border: 1.5px dashed var(--border-strong);
+    border-radius: var(--radius-lg);
+    padding: 18px 18px 12px;
+    position: relative;
+  }
+  .anatomy-window::before {
+    content: 'context window · finite token budget';
+    position: absolute;
+    top: -10px; left: 18px;
+    background: var(--bg-surface);
+    padding: 0 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    font-weight: 600;
+  }
+  .anatomy-row {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 10px;
+  }
+  .anatomy-pill {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 12px;
+    text-align: center;
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .anatomy-pill:hover { border-color: var(--accent); transform: translateY(-1px); }
+  .anatomy-pill .ico {
+    font-size: 22px;
+    margin-bottom: 8px;
+    display: block;
+  }
+  .anatomy-pill b {
+    display: block;
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 4px;
+    letter-spacing: -0.005em;
+  }
+  .anatomy-pill span {
+    font-size: 11.5px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+  .anatomy-cycle {
+    margin-top: 18px;
+    padding: 14px 18px;
+    background: var(--accent-soft);
+    border-radius: var(--radius);
+    font-size: 13.5px;
+    color: var(--accent-deep);
+    line-height: 1.6;
+    text-align: center;
+    font-weight: 500;
+  }
+  .anatomy-cycle b { font-weight: 700; }
+
+  /* ---------- Attention budget visual ---------- */
+  .attention-grid {
+    margin-top: 32px;
+    display: grid;
+    grid-template-columns: 1.05fr 1fr;
+    gap: 18px;
+  }
+  .attention-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 26px 28px;
+  }
+  .attention-card h4 {
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 14px;
+    font-weight: 600;
+  }
+  .attention-card .ttl {
+    font-size: 18px; font-weight: 700; line-height: 1.3;
+    margin-bottom: 12px;
+  }
+  .attention-card p {
+    font-size: 14.5px; color: var(--text-muted); line-height: 1.65;
+  }
+  .attention-card p b { color: var(--text); font-weight: 600; }
+  .attention-svg-box {
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 16px;
+    margin-top: 14px;
+  }
+  .attention-svg-box svg {
+    display: block;
+    width: 100%;
+    height: auto;
+  }
+
+  /* ---------- Three principles cards ---------- */
+  .principles {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  .principle {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 26px 26px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .principle .tag {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    color: var(--accent); letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .principle .tag::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+  }
+  .principle h4 {
+    font-size: 18px; font-weight: 700; letter-spacing: -0.012em; line-height: 1.3;
+  }
+  .principle .lead {
+    font-size: 14.5px; line-height: 1.7; color: var(--text);
+  }
+  .principle .lead b { font-weight: 600; }
+  .principle .lead em { color: var(--text-muted); font-style: normal; }
+  .principle .badpair {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13px;
+    line-height: 1.6;
+    color: var(--text-muted);
+  }
+  .principle .badpair .lab {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    color: var(--bad);
+    background: var(--bad-soft);
+    padding: 1.5px 7px; border-radius: 100px;
+    margin-right: 6px; letter-spacing: 0.06em;
+    vertical-align: 1px;
+  }
+  .principle .badpair .lab.good {
+    color: var(--good); background: var(--good-soft);
+  }
+  .principle .badpair b { color: var(--text); font-weight: 600; }
+  .principle .badpair + .badpair { margin-top: 6px; }
+
+  /* ---------- Goldilocks spectrum ---------- */
+  .gold {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 30px 32px 28px;
+    box-shadow: var(--shadow-md);
+  }
+  .gold h4 {
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 22px;
+    font-weight: 600;
+  }
+  .gold-bar {
+    position: relative;
+    height: 14px;
+    background: linear-gradient(90deg, var(--bad-soft) 0%, var(--good-soft) 50%, var(--bad-soft) 100%);
+    border-radius: 100px;
+    border: 1px solid var(--border-strong);
+    margin: 8px 0 30px;
+  }
+  .gold-bar .marker {
+    position: absolute;
+    top: -4px;
+    width: 22px; height: 22px;
+    border-radius: 50%;
+    background: var(--bg-surface);
+    border: 2px solid;
+    transform: translateX(-50%);
+    display: grid; place-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+  }
+  .gold-bar .marker.bad { left: 12%; border-color: var(--bad); color: var(--bad); }
+  .gold-bar .marker.ok { left: 50%; border-color: var(--good); color: var(--good); }
+  .gold-bar .marker.bad-r { left: 88%; border-color: var(--bad); color: var(--bad); }
+  .gold-bar .label {
+    position: absolute;
+    top: 30px;
+    transform: translateX(-50%);
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text-muted);
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+  .gold-bar .label.l1 { left: 12%; }
+  .gold-bar .label.l2 { left: 50%; color: var(--good); }
+  .gold-bar .label.l3 { left: 88%; }
+  .gold-cols {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 14px;
+    margin-top: 4px;
+  }
+  .gold-col {
+    padding: 16px 16px 14px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .gold-col.middle {
+    background: var(--good-soft);
+    border-color: var(--good);
+  }
+  .gold-col h5 {
+    font-size: 13.5px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .gold-col.middle h5 { color: #2B4A24; }
+  .gold-col.side h5 { color: var(--bad); }
+  .gold-col p {
+    font-size: 13px; line-height: 1.6; color: var(--text);
+  }
+  .gold-col.middle p { color: #2B4A24; }
+
+  /* ---------- Retrieval strategy three-column ---------- */
+  .strategies {
+    margin-top: 32px;
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    gap: 16px;
+  }
+  .strat {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 24px 22px;
+    position: relative;
+    overflow: hidden;
+  }
+  .strat::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .strat.s1::before { background: var(--tone-2); }
+  .strat.s2::before { background: var(--accent); }
+  .strat.s3::before { background: var(--tone-1); }
+  .strat .stratnum {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    margin-bottom: 10px;
+  }
+  .strat.s1 .stratnum { color: #1F3D49; }
+  .strat.s2 .stratnum { color: var(--accent-deep); }
+  .strat.s3 .stratnum { color: #6B5008; }
+  .strat h4 {
+    font-size: 17.5px; font-weight: 700; letter-spacing: -0.012em;
+    line-height: 1.3; margin-bottom: 12px;
+  }
+  .strat p {
+    font-size: 14px; line-height: 1.7; color: var(--text);
+  }
+  .strat p + p { margin-top: 8px; }
+  .strat p b { font-weight: 600; }
+  .strat p em { color: var(--text-muted); font-style: normal; }
+  .strat .when {
+    margin-top: 14px;
+    padding: 10px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 12.5px; line-height: 1.55;
+    color: var(--text-muted);
+  }
+  .strat .when b {
+    display: block;
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 4px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  /* ---------- JIT flow diagram ---------- */
+  .jit-flow {
+    margin-top: 36px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 30px 32px 32px;
+    box-shadow: var(--shadow-md);
+  }
+  .jit-flow h4 {
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    font-weight: 600;
+  }
+  .jit-flow .lead {
+    font-size: 14.5px;
+    color: var(--text-muted);
+    line-height: 1.65;
+    margin-bottom: 20px;
+  }
+  .jit-flow .lead b { color: var(--text); font-weight: 600; }
+  .jit-stages {
+    display: grid;
+    grid-template-columns: 1fr 30px 1fr 30px 1fr;
+    align-items: stretch;
+    gap: 8px;
+  }
+  .jit-stage {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 16px 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .jit-stage .step {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 700;
+    letter-spacing: 0.06em;
+  }
+  .jit-stage h5 {
+    font-size: 14.5px; font-weight: 700;
+    line-height: 1.35;
+  }
+  .jit-stage p {
+    font-size: 13px; line-height: 1.6; color: var(--text-muted);
+  }
+  .jit-stage .ex {
+    margin-top: 4px;
+    padding: 8px 10px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    color: var(--text);
+    line-height: 1.55;
+  }
+  .jit-arrow {
+    align-self: center;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px;
+    font-weight: 700;
+    text-align: center;
+  }
+  .jit-loopback {
+    margin-top: 18px;
+    padding: 14px 18px;
+    background: var(--accent-soft);
+    border-radius: var(--radius);
+    color: var(--accent-deep);
+    font-size: 14px;
+    line-height: 1.6;
+    text-align: center;
+  }
+  .jit-loopback b { font-weight: 700; }
+
+  /* ---------- Long-horizon tabs ---------- */
+  .lh-tabs {
+    margin-top: 32px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 28px 32px 32px;
+    box-shadow: var(--shadow-md);
+  }
+  .lh-tabs-bar {
+    display: flex; gap: 4px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    padding: 4px;
+    border-radius: 100px;
+    margin-bottom: 26px;
+    width: fit-content;
+    flex-wrap: wrap;
+  }
+  .lh-tab-btn {
+    padding: 9px 18px;
+    border: none;
+    background: transparent;
+    cursor: pointer;
+    border-radius: 100px;
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-family: inherit;
+    transition: all 0.15s;
+    letter-spacing: -0.005em;
+  }
+  .lh-tab-btn:hover { color: var(--text); }
+  .lh-tab-btn.active {
+    background: var(--bg-dark);
+    color: var(--text-invert);
+  }
+  .lh-tab-btn .badge {
+    display: inline-block;
+    margin-left: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    color: var(--text-soft);
+    font-weight: 600;
+  }
+  .lh-tab-btn.active .badge { color: #C8C0B3; }
+
+  .lh-panel { display: none; }
+  .lh-panel.active { display: grid; grid-template-columns: 1.1fr 1fr; gap: 24px; align-items: start; }
+
+  .lh-text h4 {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.018em;
+    line-height: 1.25; margin-bottom: 12px;
+  }
+  .lh-text .summary {
+    font-size: 15px; color: var(--text); line-height: 1.7;
+    margin-bottom: 14px;
+  }
+  .lh-text .summary b { font-weight: 600; }
+  .lh-text .case {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    font-size: 13.5px;
+    line-height: 1.65;
+    color: var(--text-muted);
+  }
+  .lh-text .case b { color: var(--text); font-weight: 600; }
+  .lh-text .case .who {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 4px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+
+  .lh-diag {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px 22px 20px;
+  }
+  .lh-diag svg {
+    width: 100%;
+    height: auto;
+    display: block;
+  }
+  .lh-diag .caption {
+    margin-top: 10px;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.55;
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ---------- Decision matrix ---------- */
+  .matrix {
+    margin-top: 36px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 28px 32px 32px;
+    box-shadow: var(--shadow-md);
+    overflow-x: auto;
+  }
+  .matrix h4 {
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 18px;
+    font-weight: 600;
+  }
+  .matrix table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .matrix th {
+    text-align: left;
+    padding: 12px 14px;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border-strong);
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 12.5px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .matrix th:first-child { border-radius: 10px 0 0 0; }
+  .matrix th:last-child { border-radius: 0 10px 0 0; }
+  .matrix td {
+    padding: 14px 14px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+    line-height: 1.6;
+  }
+  .matrix tr:last-child td { border-bottom: none; }
+  .matrix .strat-name {
+    font-weight: 700;
+    color: var(--text);
+    font-size: 14.5px;
+  }
+  .matrix .strat-name small {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    margin-top: 3px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+  }
+
+  /* ---------- Closing quote ---------- */
+  .closing-quote {
+    margin-top: 36px;
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    border-radius: var(--radius-xl);
+    padding: 36px 40px;
+    box-shadow: var(--shadow-lg);
+    position: relative;
+  }
+  .closing-quote::before {
+    content: '"';
+    position: absolute;
+    top: 8px; left: 22px;
+    font-size: 88px;
+    color: var(--accent);
+    font-family: Georgia, serif;
+    line-height: 1;
+    opacity: 0.5;
+  }
+  .closing-quote .qtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+    margin-left: 60px;
+  }
+  .closing-quote p {
+    font-size: 17px;
+    line-height: 1.7;
+    margin-left: 60px;
+    margin-bottom: 12px;
+  }
+  .closing-quote p:last-child {
+    color: #C8C0B3;
+    font-size: 14px;
+    margin-top: 8px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .closing-quote b { color: #F2A07A; font-weight: 600; }
+
+  /* ---------- Footer ---------- */
+  .site-footer {
+    margin-top: 24px;
+    background: var(--bg-soft);
+    border-top: 1px solid var(--border-strong);
+    padding: 48px 0 36px;
+    color: var(--text-muted);
+    font-size: 13.5px;
+    line-height: 1.7;
+  }
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 1.4fr 1fr;
+    gap: 36px;
+    margin-bottom: 28px;
+  }
+  .site-footer h4 {
+    font-size: 11px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--text);
+    margin-bottom: 14px;
+    font-weight: 700;
+  }
+  .footer-source {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    padding: 18px 22px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    flex-wrap: wrap;
+  }
+  .footer-source-meta strong {
+    color: var(--text);
+    font-size: 14.5px;
+    font-weight: 700;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .footer-source-meta div {
+    font-size: 12.5px;
+  }
+  .footer-source a {
+    display: inline-flex; align-items: center; gap: 6px;
+    color: var(--accent);
+    font-weight: 600;
+    font-size: 13px;
+  }
+  .footer-source a:hover { color: var(--accent-hover); }
+  .footer-list {
+    list-style: none;
+    padding: 0;
+  }
+  .footer-list li {
+    padding: 4px 0;
+    font-size: 13.5px;
+  }
+  .footer-list li b {
+    color: var(--text);
+    font-weight: 600;
+    margin-right: 6px;
+  }
+  .footer-bottom {
+    margin-top: 14px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border-strong);
+    font-size: 12.5px;
+    color: var(--text-soft);
+    display: flex;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9em;
+    background: var(--bg-soft);
+    padding: 1.5px 6px;
+    border-radius: 5px;
+    color: var(--accent-deep);
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 880px) {
+    .topnav { display: none; }
+    .container { padding: 0 18px; }
+    .topbar-inner { padding: 12px 18px; }
+    .hero { padding: 48px 0 32px; }
+    .tldr { padding: 26px 24px; }
+    .tldr-text { font-size: 16.5px; }
+    .metrics-row { grid-template-columns: 1fr; }
+    .compare { grid-template-columns: 1fr; }
+    .anatomy-row { grid-template-columns: 1fr 1fr; }
+    .attention-grid { grid-template-columns: 1fr; }
+    .principles { grid-template-columns: 1fr; }
+    .gold-cols { grid-template-columns: 1fr; }
+    .strategies { grid-template-columns: 1fr; }
+    .jit-stages { grid-template-columns: 1fr; }
+    .jit-arrow { transform: rotate(90deg); padding: 4px 0; }
+    .lh-panel.active { grid-template-columns: 1fr; }
+    .footer-grid { grid-template-columns: 1fr; }
+    .closing-quote { padding: 26px 24px; }
+    .closing-quote .qtitle, .closing-quote p { margin-left: 0; }
+    .closing-quote::before { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ---------- Top Bar ---------- -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-logo">CE</div>
+      <div class="brand-text">
+        Context Engineering
+        <small>· Anthropic · 2025-09-29</small>
+      </div>
+    </div>
+    <nav class="topnav">
+      <a href="#shift">范式转变</a>
+      <a href="#scarcity">注意力预算</a>
+      <a href="#anatomy">上下文解剖</a>
+      <a href="#retrieval">检索策略</a>
+      <a href="#longhorizon">长任务</a>
+      <a href="#conclusion">结语</a>
+    </nav>
+    <a class="source-link" href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents" target="_blank" rel="noopener">
+      原文
+      <svg viewBox="0 0 16 16"><path d="M3 13L13 3M13 3H6M13 3V10"/></svg>
+    </a>
+  </div>
+</header>
+
+<!-- ---------- Hero ---------- -->
+<section class="hero">
+  <div class="container">
+    <div class="eyebrow"><span class="dot"></span>ENGINEERING AT ANTHROPIC · 视觉化精读</div>
+    <h1>Context Engineering：把上下文当作稀缺资源来管</h1>
+    <p class="hero-sub">
+      Prompt engineering 关心「写什么」，context engineering 关心「整个回合里 LLM 的眼前应该装什么」。
+      当 agent 在循环里跑很久，token 会越积越多 —— 不是塞越多越好，而是要持续筛掉、精炼、按需取用。
+    </p>
+
+    <div class="hero-meta">
+      <span><b>Anthropic Applied AI 团队</b></span>
+      <span>·</span>
+      <span>2025 年 9 月 29 日</span>
+      <span>·</span>
+      <span>原文约 2,500 词 · 阅读约 12 分钟</span>
+    </div>
+
+    <!-- TL;DR -->
+    <div class="tldr">
+      <div class="tldr-title">TL;DR · 一句话核心</div>
+      <p class="tldr-text">
+        好 context engineering = 在 LLM 有限的<b>注意力预算</b>里，找到<b>最小的、信号最高</b>的那组 token，
+        让模型最有可能输出你想要的行为。
+      </p>
+      <p class="tldr-text">
+        围绕这个目标，Anthropic 给出三层手段：精炼 system prompt / tools / examples、用 just-in-time 检索按需加载，
+        以及在长任务里用 compaction、note-taking、sub-agent 三种方式跨越 context 窗口的物理上限。
+      </p>
+    </div>
+
+    <!-- Stance -->
+    <div class="stance">
+      <b>读者要 get 到的关键转变：</b>从「写一份完美的 prompt」到「把每一回合送进模型的整体 context 当成一个产品来设计」。
+      模型再聪明，注意力预算依然有限；context 多 ≠ context 好。
+      <small>— this site · 中文精读·非官方解读</small>
+    </div>
+
+    <!-- Metrics -->
+    <div class="metrics-row">
+      <div class="metric">
+        <div class="metric-value">n<small>²</small></div>
+        <div class="metric-label">Transformer 里 token 之间的<b>两两注意力关系</b>。context 越长，每个 token 摊到的"专注力"越薄。</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">3<small>种</small></div>
+        <div class="metric-label">长任务跨越 context 窗口的策略：<b>compaction、note-taking、sub-agent</b>。</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">1<small>条</small></div>
+        <div class="metric-label">跨所有手段的指导原则：<b>do the simplest thing that works</b>。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 1: Paradigm shift ---------- -->
+<section class="block" id="shift">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">01 · 范式转变</div>
+      <h2>从 prompt engineering 到 context engineering：一次性写好 → 每一回合都重新决定</h2>
+      <p class="section-sub">
+        早期用 LLM 多是单回合的分类或生成任务，所以重心在「<b>写一条好 prompt</b>」。
+        但当 agent 开始跨多个回合、多个工具调用、长时间连续工作，挑战就变了 ——
+        要管理的不只是 system prompt，而是「<b>整个时刻 LLM 眼前装着的东西</b>」。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        Anthropic 的定义很直接：<b>context engineering = 在推理过程中持续策划那组让 LLM 看到的 token</b>，
+        包括 system instruction、工具定义、MCP 数据、外部检索内容、过往消息历史 —— 所有可能进入 context window 的东西。
+      </p>
+      <p>
+        Prompt engineering 是<em>离散</em>的：写一次，调一调，定下来。
+        Context engineering 是<em>循环</em>的：agent 每跑一步都会产生新数据，
+        每一回合都要重新回答一个问题 ——「下一回合到底应该让模型看到哪些东西？」
+      </p>
+    </div>
+
+    <!-- Compare -->
+    <div class="compare">
+      <div class="compare-card left">
+        <h4>· 之前 ·</h4>
+        <div class="ttl">Prompt Engineering</div>
+        <ul>
+          <li><b>关注什么</b>：用什么词、怎么组织 system prompt</li>
+          <li><b>动作形式</b>：写一次 → 调几次 → 定下来</li>
+          <li><b>典型场景</b>：单回合分类、单次生成、chat 回复</li>
+          <li><b>成败标准</b>：prompt 本身是否够清晰、够具体</li>
+        </ul>
+      </div>
+      <div class="compare-card right">
+        <h4>· 现在 ·</h4>
+        <div class="ttl">Context Engineering</div>
+        <ul>
+          <li><b>关注什么</b>：整段 context 是不是该有的有、不该有的没有</li>
+          <li><b>动作形式</b>：每一回合都重新筛选、压缩、按需加载</li>
+          <li><b>典型场景</b>：跨多回合、多工具调用的 agent</li>
+          <li><b>成败标准</b>：能不能在有限 token 预算里维持目标对齐</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Anatomy: what is in a context -->
+    <div class="anatomy" id="anatomyBox">
+      <h4>· context window 里都装了什么</h4>
+      <div class="anatomy-window">
+        <div class="anatomy-row">
+          <div class="anatomy-pill">
+            <span class="ico">⚙️</span>
+            <b>System Prompt</b>
+            <span>角色定位 · 输出规范</span>
+          </div>
+          <div class="anatomy-pill">
+            <span class="ico">🛠️</span>
+            <b>Tools</b>
+            <span>工具签名 · 调用契约</span>
+          </div>
+          <div class="anatomy-pill">
+            <span class="ico">🔌</span>
+            <b>MCP / 外部数据</b>
+            <span>资源注入 · 实时拉取</span>
+          </div>
+          <div class="anatomy-pill">
+            <span class="ico">📚</span>
+            <b>Examples</b>
+            <span>少量金句样例</span>
+          </div>
+          <div class="anatomy-pill">
+            <span class="ico">💬</span>
+            <b>Message History</b>
+            <span>用户消息 · 工具结果</span>
+          </div>
+        </div>
+        <div class="anatomy-cycle">
+          <b>每跑完一步</b> → 产生新消息 / 工具结果 → <b>下一回合再决定</b>哪些留、哪些删、哪些压缩
+        </div>
+      </div>
+    </div>
+
+    <div class="reader-note">
+      <b>停一下：</b>这张图就是 context engineering 看世界的方式。
+      所有这些组件加起来要塞进同一个 context window 里，每一回合的 agent 都要重新决定一次。
+      接下来你会看到，为什么这个「重新决定」不是可选项、而是必须做的事。
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 2: Why context is scarce ---------- -->
+<section class="block" id="scarcity">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">02 · 为什么 context 是稀缺资源</div>
+      <h2>「注意力预算」不是比喻，而是 transformer 架构的硬约束</h2>
+      <p class="section-sub">
+        即使模型支持几十万、上百万 token 的窗口，<b>context rot</b> 依然存在 ——
+        token 越多，模型在长程依赖上的精度就越软。这不是某个模型的毛病，是整个家族都有的现象。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        像人一样，LLM 也有「<b>注意力预算</b>」。每塞进一个 token，就消耗一点这个预算 ——
+        于是模型在长 context 上不会突然崩，而是<em>性能渐渐变软</em>：召回不再准，长程推理不再稳。
+      </p>
+      <p>
+        根本原因来自 transformer 架构：每个 token 都要和其它所有 token 互相 attend。
+        于是 n 个 token 就有 <b>n² 对关系</b>。context 一长，模型就要把固定容量的注意力摊薄到更多对关系上 ——
+        加上训练数据中长序列本来就少，模型对「跨 context 的依赖」积累的经验就更少。
+      </p>
+      <p>
+        位置编码插值（position encoding interpolation）这类技巧能让模型适配更长窗口，
+        但代价是<em>位置感稍微变模糊</em>。所以「长 context 模型」不是免费午餐，而是一条<b>性能渐变曲线</b>而非悬崖。
+      </p>
+    </div>
+
+    <div class="visual-bridge">illustration · 一张图说清楚"为什么注意力被摊薄"</div>
+
+    <div class="attention-grid">
+      <!-- n^2 visual -->
+      <div class="attention-card">
+        <h4>· n² 注意力关系</h4>
+        <div class="ttl">每加一个 token，都让所有已有 token 多一份"分心"</div>
+        <p>
+          下面两张小图：左边是 4 个 token 之间的全连接（4×4），右边是 8 个 token（8×8）。
+          token 数量翻一倍，关系数量翻四倍 —— <b>注意力是按平方变稀</b>的。
+        </p>
+        <div class="attention-svg-box">
+          <svg viewBox="0 0 460 180" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <style>
+                .nd { fill: #FBF6EA; stroke: #C04E2D; stroke-width: 1.5; }
+                .ln { stroke: #C04E2D; stroke-width: 0.7; opacity: 0.35; fill: none; }
+                .ln2 { stroke: #6B6660; stroke-width: 0.5; opacity: 0.32; fill: none; }
+                .lbl { font-family: 'JetBrains Mono', monospace; font-size: 11px; fill: #6B6660; }
+                .ttl { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; fill: #1A1816; font-weight: 700; }
+              </style>
+            </defs>
+
+            <!-- Left: n=4 -->
+            <g transform="translate(50, 90)">
+              <text class="ttl" x="0" y="-65" text-anchor="middle">n = 4 · 6 对关系</text>
+              <!-- circular layout -->
+              <line class="ln" x1="0" y1="-40" x2="40" y2="0"/>
+              <line class="ln" x1="0" y1="-40" x2="0" y2="40"/>
+              <line class="ln" x1="0" y1="-40" x2="-40" y2="0"/>
+              <line class="ln" x1="40" y1="0" x2="0" y2="40"/>
+              <line class="ln" x1="40" y1="0" x2="-40" y2="0"/>
+              <line class="ln" x1="0" y1="40" x2="-40" y2="0"/>
+              <circle class="nd" cx="0" cy="-40" r="9"/>
+              <circle class="nd" cx="40" cy="0" r="9"/>
+              <circle class="nd" cx="0" cy="40" r="9"/>
+              <circle class="nd" cx="-40" cy="0" r="9"/>
+              <text class="lbl" x="0" y="74" text-anchor="middle">每个 token 都看其它 3 个</text>
+            </g>
+
+            <!-- Right: n=8 -->
+            <g transform="translate(310, 90)">
+              <text class="ttl" x="0" y="-65" text-anchor="middle">n = 8 · 28 对关系</text>
+              <!-- 8 nodes around circle, all-pairs -->
+              <g id="g8">
+                <!-- generate connections via static markup -->
+                <!-- nodes at angles 0..7 * 45 deg -->
+              </g>
+              <!-- approximate dense web -->
+              <g class="ln2">
+                <!-- compute simple all-pairs lines using known coordinates radius=48 -->
+                <!-- positions:
+                  0:  (48,0)
+                  1:  (33.94,-33.94)
+                  2:  (0,-48)
+                  3:  (-33.94,-33.94)
+                  4:  (-48,0)
+                  5:  (-33.94,33.94)
+                  6:  (0,48)
+                  7:  (33.94,33.94)
+                -->
+                <line x1="48" y1="0" x2="33.94" y2="-33.94"/>
+                <line x1="48" y1="0" x2="0" y2="-48"/>
+                <line x1="48" y1="0" x2="-33.94" y2="-33.94"/>
+                <line x1="48" y1="0" x2="-48" y2="0"/>
+                <line x1="48" y1="0" x2="-33.94" y2="33.94"/>
+                <line x1="48" y1="0" x2="0" y2="48"/>
+                <line x1="48" y1="0" x2="33.94" y2="33.94"/>
+                <line x1="33.94" y1="-33.94" x2="0" y2="-48"/>
+                <line x1="33.94" y1="-33.94" x2="-33.94" y2="-33.94"/>
+                <line x1="33.94" y1="-33.94" x2="-48" y2="0"/>
+                <line x1="33.94" y1="-33.94" x2="-33.94" y2="33.94"/>
+                <line x1="33.94" y1="-33.94" x2="0" y2="48"/>
+                <line x1="33.94" y1="-33.94" x2="33.94" y2="33.94"/>
+                <line x1="0" y1="-48" x2="-33.94" y2="-33.94"/>
+                <line x1="0" y1="-48" x2="-48" y2="0"/>
+                <line x1="0" y1="-48" x2="-33.94" y2="33.94"/>
+                <line x1="0" y1="-48" x2="0" y2="48"/>
+                <line x1="0" y1="-48" x2="33.94" y2="33.94"/>
+                <line x1="-33.94" y1="-33.94" x2="-48" y2="0"/>
+                <line x1="-33.94" y1="-33.94" x2="-33.94" y2="33.94"/>
+                <line x1="-33.94" y1="-33.94" x2="0" y2="48"/>
+                <line x1="-33.94" y1="-33.94" x2="33.94" y2="33.94"/>
+                <line x1="-48" y1="0" x2="-33.94" y2="33.94"/>
+                <line x1="-48" y1="0" x2="0" y2="48"/>
+                <line x1="-48" y1="0" x2="33.94" y2="33.94"/>
+                <line x1="-33.94" y1="33.94" x2="0" y2="48"/>
+                <line x1="-33.94" y1="33.94" x2="33.94" y2="33.94"/>
+                <line x1="0" y1="48" x2="33.94" y2="33.94"/>
+              </g>
+              <circle class="nd" cx="48" cy="0" r="6"/>
+              <circle class="nd" cx="33.94" cy="-33.94" r="6"/>
+              <circle class="nd" cx="0" cy="-48" r="6"/>
+              <circle class="nd" cx="-33.94" cy="-33.94" r="6"/>
+              <circle class="nd" cx="-48" cy="0" r="6"/>
+              <circle class="nd" cx="-33.94" cy="33.94" r="6"/>
+              <circle class="nd" cx="0" cy="48" r="6"/>
+              <circle class="nd" cx="33.94" cy="33.94" r="6"/>
+              <text class="lbl" x="0" y="74" text-anchor="middle">每个 token 都看其它 7 个</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+
+      <!-- Context rot curve -->
+      <div class="attention-card">
+        <h4>· context rot 曲线</h4>
+        <div class="ttl">召回率不会突然崩，而是慢慢变软</div>
+        <p>
+          needle-in-a-haystack 类基准发现：随着 context 变长，模型从其中精确检索信息的能力<b>逐步下滑</b>。
+          不同模型曲线斜率不同，但<em>都是下滑的</em>。
+        </p>
+        <div class="attention-svg-box">
+          <svg viewBox="0 0 460 180" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <style>
+                .ax { stroke: #6B6660; stroke-width: 1; fill: none; }
+                .gd { stroke: #E8DCC7; stroke-width: 0.6; fill: none; }
+                .crv { stroke: #C04E2D; stroke-width: 2.2; fill: none; }
+                .crv2 { stroke: #2E5A6B; stroke-width: 2; fill: none; stroke-dasharray: 4 3; }
+                .ar { fill: #C04E2D; opacity: 0.08; }
+                .lbl2 { font-family: 'JetBrains Mono', monospace; font-size: 10.5px; fill: #6B6660; }
+                .lbl3 { font-family: 'JetBrains Mono', monospace; font-size: 10px; fill: #C04E2D; font-weight: 700; }
+                .lbl4 { font-family: 'JetBrains Mono', monospace; font-size: 10px; fill: #2E5A6B; font-weight: 700; }
+              </style>
+            </defs>
+
+            <!-- gridlines -->
+            <line class="gd" x1="50" y1="30" x2="430" y2="30"/>
+            <line class="gd" x1="50" y1="70" x2="430" y2="70"/>
+            <line class="gd" x1="50" y1="110" x2="430" y2="110"/>
+
+            <!-- axes -->
+            <line class="ax" x1="50" y1="30" x2="50" y2="150"/>
+            <line class="ax" x1="50" y1="150" x2="430" y2="150"/>
+
+            <!-- curve area (steeper) -->
+            <path class="ar" d="M50,40 C150,50 250,90 430,140 L430,150 L50,150 Z"/>
+
+            <!-- main curve - steep model -->
+            <path class="crv" d="M50,40 C150,50 250,90 430,140"/>
+            <!-- gentler model curve -->
+            <path class="crv2" d="M50,46 C150,56 280,80 430,118"/>
+
+            <!-- y axis labels -->
+            <text class="lbl2" x="44" y="34" text-anchor="end">100%</text>
+            <text class="lbl2" x="44" y="74" text-anchor="end">~70%</text>
+            <text class="lbl2" x="44" y="114" text-anchor="end">~40%</text>
+            <text class="lbl2" x="44" y="154" text-anchor="end">召回</text>
+
+            <!-- x axis labels -->
+            <text class="lbl2" x="50" y="166" text-anchor="middle">短</text>
+            <text class="lbl2" x="240" y="166" text-anchor="middle">中等</text>
+            <text class="lbl2" x="430" y="166" text-anchor="middle">长 →</text>
+            <text class="lbl2" x="240" y="180" text-anchor="middle">context length</text>
+
+            <!-- curve labels -->
+            <text class="lbl3" x="380" y="135">陡的模型</text>
+            <text class="lbl4" x="380" y="105">缓的模型</text>
+          </svg>
+        </div>
+      </div>
+    </div>
+
+    <div class="reader-note">
+      <b>所以 context 不是越多越好。</b>每一个进入 context 的 token，都要"对得起"它消耗的注意力预算。
+      下一节会把这条原则落到三个具体组件上：system prompt、tools、examples。
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 3: Anatomy of effective context ---------- -->
+<section class="block" id="anatomy">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">03 · 有效上下文的解剖</div>
+      <h2>找到「最小、信号最高」的那组 token —— 三个组件，一条共同原则</h2>
+      <p class="section-sub">
+        Anthropic 把指导原则一句话讲清楚：<b>找出最小的、信号最高的 token 集合，最大化你想要的行为出现的概率</b>。
+        听起来像废话，但落到 system prompt、tools、examples 三件事上，每件都有具体可操作的标准 —— 也都有典型反例。
+      </p>
+    </div>
+
+    <div class="principles">
+      <!-- System Prompt -->
+      <div class="principle">
+        <div class="tag">component 01</div>
+        <h4>System Prompt：找到「刚刚好」的高度</h4>
+        <p class="lead">
+          用<b>清晰、直接的语言</b>，把行为讲到一个 <em>Goldilocks zone</em> ——
+          既不是把所有 if-else 硬编码成规则，也不是只甩高层口号。
+        </p>
+        <div class="badpair">
+          <span class="lab">反例 A</span>
+          <b>太具体</b>：把每种 case 写成 if-else 规则，模型脆、维护贵
+        </div>
+        <div class="badpair">
+          <span class="lab">反例 B</span>
+          <b>太抽象</b>：只给「请专业地回答」之类口号，模型猜不到你想要啥
+        </div>
+        <div class="badpair">
+          <span class="lab good">推荐</span>
+          <b>用 XML / Markdown 分块</b>（background / instructions / tool guidance / output spec）
+        </div>
+      </div>
+
+      <!-- Tools -->
+      <div class="principle">
+        <div class="tag">component 02</div>
+        <h4>Tools：自洽 · 容错 · 用途无歧义</h4>
+        <p class="lead">
+          工具是 agent 跟世界的「<b>契约</b>」。Tools 要 token 高效，
+          也要让 agent 在「该用哪个工具」时不犹豫。
+        </p>
+        <div class="badpair">
+          <span class="lab">最常见错</span>
+          <b>tool set 膨胀</b>：功能重叠、决策点模糊 ——「人都不知道选哪个」时，agent 也别想做对
+        </div>
+        <div class="badpair">
+          <span class="lab">底线</span>
+          tool 要像好代码：<b>self-contained · robust to error · 用途清晰</b>
+        </div>
+        <div class="badpair">
+          <span class="lab good">推荐</span>
+          <b>给一组 minimal viable tools</b>，参数描述要 unambiguous，配合模型的强项
+        </div>
+      </div>
+
+      <!-- Examples -->
+      <div class="principle">
+        <div class="tag">component 03</div>
+        <h4>Examples：少而精的「一图胜千言」</h4>
+        <p class="lead">
+          Few-shot 仍然强烈推荐，但<em>不是</em>把所有边界情况列成清单。
+          examples 是给 LLM 的「图画」，<b>多样、典型、能 portray 期望行为</b>就够。
+        </p>
+        <div class="badpair">
+          <span class="lab">反例</span>
+          <b>laundry-list 反模式</b>：把每条 edge case 写成 if-else 塞进 prompt，又长又乱
+        </div>
+        <div class="badpair">
+          <span class="lab good">推荐</span>
+          <b>挑一组 canonical examples</b>，覆盖典型场景而不是穷举规则
+        </div>
+        <div class="badpair">
+          <span class="lab good">起点</span>
+          先用<b>最小 prompt + 最强模型</b>跑，看哪些失败模式 → 针对性补例子
+        </div>
+      </div>
+    </div>
+
+    <div class="visual-bridge">spectrum · system prompt 的「右高度」</div>
+
+    <div class="gold">
+      <h4>· system prompt 的 Goldilocks 谱系</h4>
+      <div class="gold-bar">
+        <div class="marker bad">×</div>
+        <div class="marker ok">✓</div>
+        <div class="marker bad-r">×</div>
+        <div class="label l1">太具体</div>
+        <div class="label l2">刚刚好</div>
+        <div class="label l3">太抽象</div>
+      </div>
+      <div class="gold-cols">
+        <div class="gold-col side">
+          <h5>左端 · 脆性 if-else</h5>
+          <p>把每种情况都硬编码成规则。表面看可控，<b>实际上极易失效</b>，每个新边界条件都得加一条规则，最终维护成本爆炸。</p>
+        </div>
+        <div class="gold-col middle">
+          <h5>中间 · 刚刚好</h5>
+          <p>具体到能<b>有效引导行为</b>，灵活到允许模型用<b>启发式自己决策</b>。组织成 background / instructions / output 等清晰段落。</p>
+        </div>
+        <div class="gold-col side">
+          <h5>右端 · 空泛口号</h5>
+          <p>只甩「请专业地、按最佳实践回答」这种话。<b>没有提供具体信号</b>，错把"模型应该懂"当成了真的懂。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="reader-note">
+      <b>注意一个细节：</b>「最小」不等于「短」。
+      你仍然需要把行为完整说清楚，只是别加冗余的、对结果没贡献的 token。
+      最佳起点：<b>最强模型 + 最小 prompt</b>，跑出失败模式，再针对性地加例子和指令。
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 4: Retrieval strategies ---------- -->
+<section class="block" id="retrieval">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">04 · 上下文检索策略</div>
+      <h2>不要把所有数据预先塞进来 —— 让 agent 自己去拿</h2>
+      <p class="section-sub">
+        过去主流是<b>预计算的 embedding 检索</b>：先把可能用到的文本 chunk 化、向量化、丢进 context。
+        但越来越多团队转向 <b>just-in-time</b>：只放轻量的「文件名 / 路径 / 链接 / 查询」，需要时再让 agent 用工具去取。
+        这对应了人类的认知习惯 —— 你不会背下整本字典，你会去查。
+      </p>
+    </div>
+
+    <div class="strategies">
+      <div class="strat s1">
+        <div class="stratnum">strategy 01</div>
+        <h4>Pre-computed Retrieval</h4>
+        <p>
+          推理之前先把可能相关的内容 embed、检索、塞进 context。
+          <b>速度快</b>，但容易塞进无关或过期内容，且对索引质量极度敏感。
+        </p>
+        <div class="when">
+          <b>适合</b>
+          内容相对静态、问题模式可预测（例如 RAG over 文档库 / FAQ）
+        </div>
+      </div>
+      <div class="strat s2">
+        <div class="stratnum">strategy 02</div>
+        <h4>Just-in-time（按需加载）</h4>
+        <p>
+          只在 context 里放<b>轻量标识符</b>：文件路径、查询语句、URL。
+          运行时让 agent 用工具<b>动态加载</b>具体内容，看完就放下。
+          Claude Code 用这种方式分析大型数据库 —— 写 query → 存结果 → 用 head/tail 做局部分析。
+        </p>
+        <div class="when">
+          <b>额外好处</b>
+          路径 / 命名 / 时间戳本身就是元数据，<em>file 在 tests/ 还是 src/core_logic/ 暗示完全不同的用途</em>
+        </div>
+      </div>
+      <div class="strat s3">
+        <div class="stratnum">strategy 03</div>
+        <h4>Hybrid（混合）</h4>
+        <p>
+          预先放一部分高频关键资料保证速度，再把其余交给 agent 自主探索。
+          Claude Code 就是这么做：<b>CLAUDE.md 一上来就在 context 里</b>，glob/grep 等原语用于 just-in-time 找文件。
+        </p>
+        <div class="when">
+          <b>适合</b>
+          内容动态性中等、有明显「常用 vs 偶用」边界（法律 / 金融 / 大代码库）
+        </div>
+      </div>
+    </div>
+
+    <div class="visual-bridge">flow · just-in-time 三步：保留指针 → 工具调用 → 结构化产出</div>
+
+    <div class="jit-flow">
+      <h4>· just-in-time 是怎么跑起来的</h4>
+      <p class="lead">
+        关键在于：<b>不预先加载完整对象</b>，只保留指针 + 元数据 + 一组好工具，
+        让 agent 像人翻文件夹一样<b>渐进披露</b>地拼出理解。
+      </p>
+      <div class="jit-stages">
+        <div class="jit-stage">
+          <div class="step">STEP 1 · 保留指针</div>
+          <h5>Context 里只放轻量标识符</h5>
+          <p>文件路径 / 查询 ID / URL / cache key —— 体积小，但带着语义。</p>
+          <div class="ex">src/core_logic/router.py · q_2024_users · s3://reports/q3.csv</div>
+        </div>
+        <div class="jit-arrow">→</div>
+        <div class="jit-stage">
+          <div class="step">STEP 2 · 工具调用</div>
+          <h5>需要时才动态加载</h5>
+          <p>用 read / grep / head / tail / SQL 等工具按需取一个切片，看完即弃。</p>
+          <div class="ex">grep "def route" router.py · head -n 20 q3.csv</div>
+        </div>
+        <div class="jit-arrow">→</div>
+        <div class="jit-stage">
+          <div class="step">STEP 3 · 渐进披露</div>
+          <h5>每一步又给下一步指引</h5>
+          <p>file 大小暗示复杂度、命名暗示用途、时间戳暗示新旧 —— 像人一样层层探索。</p>
+          <div class="ex">→ 决定下一个该读哪个文件 / 跑哪条 query</div>
+        </div>
+      </div>
+      <div class="jit-loopback">
+        <b>权衡</b>：runtime exploration 比预计算慢；如果工具设计不好，agent 会乱用工具、追死路、错失关键信息。
+        所以<b>工具和启发式</b>要被认真设计 —— 这是 just-in-time 唯一不便宜的地方。
+      </div>
+    </div>
+
+    <div class="article-copy" style="margin-top: 32px;">
+      <p>
+        Anthropic 的判断是：<b>随着模型越来越聪明，context 设计会越来越「让模型自己拿」</b>，
+        人类预先策划的部分会越来越少。但在那之前，「<i>do the simplest thing that works</i>」依然是最稳妥的建议。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 5: Long-horizon ---------- -->
+<section class="block" id="longhorizon">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">05 · 长任务的三种破局</div>
+      <h2>当任务跨越数小时、跨越 context 窗口，靠什么维持连贯？</h2>
+      <p class="section-sub">
+        长任务（大代码库迁移、多小时研究、长程 agent 训练）会让 token 数远超 context 窗口。
+        等更大的窗口能解决吗？大概率不能 —— 即使窗口再大，<b>context pollution</b> 和「越长越软」的问题依然存在。
+        Anthropic 给出三种实战策略，配套相应的适用场景。
+      </p>
+    </div>
+
+    <div class="lh-tabs" id="lhTabs">
+      <div class="lh-tabs-bar">
+        <button class="lh-tab-btn active" data-tab="comp">压缩 Compaction <span class="badge">conversation</span></button>
+        <button class="lh-tab-btn" data-tab="note">笔记 Note-taking <span class="badge">milestones</span></button>
+        <button class="lh-tab-btn" data-tab="sub">子代理 Sub-agents <span class="badge">parallel</span></button>
+      </div>
+
+      <!-- Panel 1: Compaction -->
+      <div class="lh-panel active" data-panel="comp">
+        <div class="lh-text">
+          <h4>Compaction · 把对话浓缩成摘要，重启一个 context</h4>
+          <div class="summary">
+            当对话快撑爆 context 时，<b>把消息历史交给模型自己总结</b>，再用这份摘要重启一个新 context。
+            Claude Code 的实现：<b>保留架构决策、未解决 bug、关键实现细节</b>，丢掉冗余的工具输出 —— 然后把<b>最近读过的 5 个文件</b>也带着，继续走。
+          </div>
+          <div class="case">
+            <span class="who">claude code 的实践</span>
+            压缩的艺术在于<b>留什么 vs 丢什么</b>：太狠会丢掉「当时不重要、后来才显出关键」的细节。
+            建议先把<b>召回率</b>调到最大，再迭代精度，逐步剪掉冗余。
+            最轻量、安全的一种压缩：<b>清掉过往 tool 调用的 raw 输出</b> —— 已经在消息历史里看过的工具结果，没必要再看一遍。
+          </div>
+        </div>
+        <div class="lh-diag">
+          <svg viewBox="0 0 360 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <style>
+                .box { fill: #FBF6EA; stroke: #D4C4A6; stroke-width: 1.2; }
+                .box-old { fill: #EFE3CB; stroke: #B8860B; stroke-width: 1.2; }
+                .box-new { fill: #F4DCD0; stroke: #C04E2D; stroke-width: 1.5; }
+                .lab5 { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; fill: #6B6660; }
+                .lab6 { font-family: 'Inter', sans-serif; font-size: 10.5px; fill: #1A1816; font-weight: 600; }
+                .ar1 { stroke: #C04E2D; stroke-width: 1.4; fill: none; marker-end: url(#mh1); }
+              </style>
+              <marker id="mh1" markerWidth="9" markerHeight="9" refX="6" refY="4.5" orient="auto">
+                <path d="M0,0 L6,4.5 L0,9 Z" fill="#C04E2D"/>
+              </marker>
+            </defs>
+
+            <text class="lab5" x="20" y="18">old context (full)</text>
+            <rect class="box-old" x="20" y="26" width="120" height="14" rx="3"/>
+            <rect class="box-old" x="20" y="44" width="120" height="14" rx="3"/>
+            <rect class="box-old" x="20" y="62" width="120" height="14" rx="3"/>
+            <rect class="box-old" x="20" y="80" width="120" height="14" rx="3"/>
+            <rect class="box-old" x="20" y="98" width="120" height="14" rx="3"/>
+            <rect class="box-old" x="20" y="116" width="120" height="14" rx="3"/>
+            <rect class="box-old" x="20" y="134" width="120" height="14" rx="3"/>
+            <text class="lab5" x="20" y="166">→ 即将撑爆</text>
+
+            <path class="ar1" d="M150 88 C190 88 190 100 220 100"/>
+            <text class="lab6" x="185" y="78" text-anchor="middle">压缩</text>
+            <text class="lab5" x="185" y="118" text-anchor="middle">summarize</text>
+
+            <text class="lab5" x="220" y="18">new context (compact)</text>
+            <rect class="box-new" x="220" y="26" width="120" height="36" rx="4"/>
+            <text class="lab6" x="280" y="48" text-anchor="middle">摘要 · 关键决策</text>
+
+            <rect class="box" x="220" y="74" width="120" height="14" rx="3"/>
+            <text class="lab5" x="280" y="84" text-anchor="middle">最近 5 个文件</text>
+            <rect class="box" x="220" y="92" width="120" height="14" rx="3"/>
+            <text class="lab5" x="280" y="102" text-anchor="middle">未解决 bug</text>
+            <rect class="box" x="220" y="110" width="120" height="14" rx="3"/>
+            <text class="lab5" x="280" y="120" text-anchor="middle">…继续工作</text>
+            <text class="lab5" x="220" y="166">→ 继续 · 用户无感</text>
+          </svg>
+          <div class="caption">压缩 = 高保真摘要 + 重要工件，重启 context</div>
+        </div>
+      </div>
+
+      <!-- Panel 2: Note-taking -->
+      <div class="lh-panel" data-panel="note">
+        <div class="lh-text">
+          <h4>Structured Note-taking · 写到 context 之外，需要时再读回</h4>
+          <div class="summary">
+            agent 自己<b>定期把笔记写到外部文件</b>（NOTES.md / to-do list / memory tool），
+            这些笔记在<b>需要时被读回 context</b>。开销极小，但能让 agent 跨几十个工具调用都不丢线索。
+          </div>
+          <div class="case">
+            <span class="who">claude plays pokémon</span>
+            没人告诉它"该怎么记笔记"，agent 自己学会了：维护探索过的区域地图、记下解锁过的成就、
+            写战斗策略笔记 ——「<b>过去 1,234 步我在 1 号路训练 Pikachu，已经升 8 级，目标 10 级</b>」。
+            <br><br>
+            <b>context reset 之后</b>，它读自己的笔记继续多小时的训练 / 副本探索。
+            这种跨 summarization 的连贯性，纯靠 context 是做不到的。
+            <br><br>
+            <em>Sonnet 4.5 公测的 memory tool 把这件事做成了正式能力 —— 一个文件式的外部存储，agent 可以在多 session 之间累积知识库。</em>
+          </div>
+        </div>
+        <div class="lh-diag">
+          <svg viewBox="0 0 360 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <style>
+                .ctx { fill: #FBF6EA; stroke: #D4C4A6; stroke-width: 1.2; }
+                .mem { fill: #F4DCD0; stroke: #C04E2D; stroke-width: 1.5; }
+                .lb { font-family: 'JetBrains Mono', monospace; font-size: 9.5px; fill: #6B6660; }
+                .lb2 { font-family: 'Inter', sans-serif; font-size: 11px; fill: #1A1816; font-weight: 600; }
+                .ar2 { stroke: #C04E2D; stroke-width: 1.4; fill: none; marker-end: url(#mh2); }
+              </style>
+              <marker id="mh2" markerWidth="9" markerHeight="9" refX="6" refY="4.5" orient="auto">
+                <path d="M0,0 L6,4.5 L0,9 Z" fill="#C04E2D"/>
+              </marker>
+            </defs>
+
+            <!-- Context window -->
+            <rect class="ctx" x="30" y="30" width="180" height="130" rx="8"/>
+            <text class="lb" x="120" y="48" text-anchor="middle">context window · 工作中</text>
+            <rect fill="#EFE3CB" stroke="#D4C4A6" stroke-width="0.8" x="46" y="58" width="148" height="10" rx="2"/>
+            <rect fill="#EFE3CB" stroke="#D4C4A6" stroke-width="0.8" x="46" y="72" width="148" height="10" rx="2"/>
+            <rect fill="#EFE3CB" stroke="#D4C4A6" stroke-width="0.8" x="46" y="86" width="148" height="10" rx="2"/>
+            <rect fill="#EFE3CB" stroke="#D4C4A6" stroke-width="0.8" x="46" y="100" width="148" height="10" rx="2"/>
+            <text class="lb" x="120" y="130" text-anchor="middle">— context reset —</text>
+            <rect fill="#F4DCD0" stroke="#C04E2D" stroke-width="0.8" x="46" y="140" width="148" height="10" rx="2"/>
+
+            <!-- Memory file outside -->
+            <rect class="mem" x="240" y="50" width="100" height="100" rx="6"/>
+            <text class="lb2" x="290" y="70" text-anchor="middle">NOTES.md</text>
+            <text class="lb" x="290" y="86" text-anchor="middle">已访问区域</text>
+            <text class="lb" x="290" y="100" text-anchor="middle">未完成 to-do</text>
+            <text class="lb" x="290" y="114" text-anchor="middle">关键策略</text>
+            <text class="lb" x="290" y="128" text-anchor="middle">进度计数器</text>
+
+            <path class="ar2" d="M210 78 C230 78 230 88 240 88"/>
+            <text class="lb" x="225" y="72">写</text>
+
+            <path class="ar2" d="M240 130 C220 130 220 144 210 144"/>
+            <text class="lb" x="225" y="155">读回</text>
+          </svg>
+          <div class="caption">外部 memory 文件作为 agent 的"记事本"</div>
+        </div>
+      </div>
+
+      <!-- Panel 3: Sub-agents -->
+      <div class="lh-panel" data-panel="sub">
+        <div class="lh-text">
+          <h4>Sub-agent Architectures · 主代理协调，子代理深挖</h4>
+          <div class="summary">
+            主代理只维护<b>高层计划</b>；具体的脏活由<b>专精的子代理</b>带着干净 context window 去做。
+            子代理可能消耗几万 token 探索，但只把<b>1-2k token 的浓缩结论</b>返回给主代理 —— 实现 concerns 的清晰隔离。
+          </div>
+          <div class="case">
+            <span class="who">multi-agent research system</span>
+            主代理拿到的是「我已经搜了 X 篇文献，关键发现是 Y」这样的浓缩结论；
+            <b>每个子代理的 raw 搜索过程对主代理不可见</b>。
+            这种结构在复杂研究类任务上比单 agent 有<b>明显</b>提升。
+            <br><br>
+            <em>代价：协调成本 + 子代理之间难以共享上下文。所以不适合需要密集回返讨论的任务。</em>
+          </div>
+        </div>
+        <div class="lh-diag">
+          <svg viewBox="0 0 360 200" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <style>
+                .lead { fill: #1A1816; stroke: #1A1816; stroke-width: 1.2; }
+                .lead-fill { fill: #1A1816; }
+                .sub { fill: #F4DCD0; stroke: #C04E2D; stroke-width: 1.2; }
+                .lb3 { font-family: 'JetBrains Mono', monospace; font-size: 10px; fill: #6B6660; }
+                .lb4 { font-family: 'Inter', sans-serif; font-size: 11px; fill: #F5F1E8; font-weight: 700; }
+                .lb5 { font-family: 'Inter', sans-serif; font-size: 10.5px; fill: #1A1816; font-weight: 600; }
+                .ar3 { stroke: #C04E2D; stroke-width: 1.3; fill: none; }
+                .ar3b { stroke: #C04E2D; stroke-width: 1.3; fill: none; stroke-dasharray: 3 3; }
+              </style>
+            </defs>
+
+            <!-- Lead agent at top -->
+            <rect class="lead-fill" x="125" y="20" width="110" height="38" rx="6"/>
+            <text class="lb4" x="180" y="36" text-anchor="middle">Lead Agent</text>
+            <text class="lb4" x="180" y="50" text-anchor="middle" style="font-weight:500;font-size:10px;">高层计划 · 整合</text>
+
+            <!-- 3 sub-agents at bottom -->
+            <rect class="sub" x="20" y="120" width="90" height="48" rx="6"/>
+            <text class="lb5" x="65" y="138" text-anchor="middle">Sub-agent A</text>
+            <text class="lb3" x="65" y="152" text-anchor="middle">深度搜索</text>
+            <text class="lb3" x="65" y="164" text-anchor="middle">~30k token</text>
+
+            <rect class="sub" x="135" y="120" width="90" height="48" rx="6"/>
+            <text class="lb5" x="180" y="138" text-anchor="middle">Sub-agent B</text>
+            <text class="lb3" x="180" y="152" text-anchor="middle">数据分析</text>
+            <text class="lb3" x="180" y="164" text-anchor="middle">~25k token</text>
+
+            <rect class="sub" x="250" y="120" width="90" height="48" rx="6"/>
+            <text class="lb5" x="295" y="138" text-anchor="middle">Sub-agent C</text>
+            <text class="lb3" x="295" y="152" text-anchor="middle">代码读取</text>
+            <text class="lb3" x="295" y="164" text-anchor="middle">~20k token</text>
+
+            <!-- arrows: down (delegate) and up (return) -->
+            <path class="ar3" d="M155 60 L65 116"/>
+            <path class="ar3" d="M180 60 L180 116"/>
+            <path class="ar3" d="M205 60 L295 116"/>
+
+            <text class="lb3" x="100" y="98" text-anchor="middle">↓ 委派</text>
+            <text class="lb3" x="260" y="98" text-anchor="middle">↑ 浓缩 1-2k</text>
+          </svg>
+          <div class="caption">主代理只看浓缩结论，子代理隔离深度上下文</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Decision matrix -->
+    <div class="visual-bridge">decision matrix · 三策略各自适合什么</div>
+
+    <div class="matrix">
+      <h4>· 三种长任务策略 · 适用场景对比</h4>
+      <table>
+        <thead>
+          <tr>
+            <th>策略</th>
+            <th>核心动作</th>
+            <th>最适合的任务</th>
+            <th>失败模式</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><div class="strat-name">Compaction<small>对话压缩</small></div></td>
+            <td>把消息历史摘要后<b>重启 context</b>，保留架构决策与最近文件</td>
+            <td>需要<b>大量回返讨论</b>的对话流（连续多轮 chat、需要保留上下文连续感的工作）</td>
+            <td>压缩太狠会丢掉「当时不显要、后来才关键」的细节</td>
+          </tr>
+          <tr>
+            <td><div class="strat-name">Note-taking<small>结构化笔记</small></div></td>
+            <td>定期写笔记到 context 外的文件 / memory tool，再读回</td>
+            <td><b>有清晰里程碑</b>的迭代式开发；跨 session 的训练 / 探索类任务</td>
+            <td>笔记结构差时检索不到；过期信息没及时更新</td>
+          </tr>
+          <tr>
+            <td><div class="strat-name">Sub-agents<small>子代理架构</small></div></td>
+            <td>主代理协调 + 子代理带<b>干净 context</b>深挖，只回传浓缩结论</td>
+            <td><b>复杂研究 / 分析</b>类任务，可并行探索且子任务相对独立</td>
+            <td>子代理之间难共享上下文；不适合需要密集互通的任务</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="reader-note">
+      <b>读完这一节请记住：</b>这三件事不是互斥的，可以叠着用 ——
+      在一个长程 agent 里同时有 compaction（防对话爆窗）、note-taking（跨 session 持久化）、sub-agent（并行调研）。
+      选择不是 either/or，而是<b>按子任务挑工具</b>。
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 6: Conclusion ---------- -->
+<section class="block" id="conclusion">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">06 · 结语</div>
+      <h2>当模型越来越聪明，工程师要做的事会变 —— 但「context 是稀缺资源」的事实不会变</h2>
+      <p class="section-sub">
+        Anthropic 把这篇文章定位成<b>构建可靠 agent 的心智模型</b>，而不是某种新框架。
+        所有具体技巧都会随模型迭代而进化，但底层判断不会：每一回合送进模型的 token 都不是免费的。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        Context engineering 代表了一种<b>根本性的视角转换</b>：
+        从「精心写一条 prompt」转到「<b>持续策划进入模型注意力的每一个 token</b>」。
+        无论你在做长任务的 compaction、token-efficient tool 设计，还是 just-in-time 的环境探索 ——
+        指导原则都是同一个。
+      </p>
+      <p>
+        随着模型变强，<em>需要的人工策划会变少</em>，agent 的自主性会变高 ——
+        但即使能力再扩张，把 context 当成「<b>珍贵且有限的资源</b>」这一基本姿态依然是核心。
+      </p>
+    </div>
+
+    <div class="closing-quote">
+      <div class="qtitle">guiding principle</div>
+      <p>
+        不管你在用 compaction 跨越窗口、用 token-efficient tool 优化效率，
+        还是让 agent just-in-time 去探索环境 —— <b>核心永远是同一句话</b>：
+      </p>
+      <p>
+        <b>找到最小的、信号最高的那组 token，最大化你想要的行为出现的概率。</b>
+      </p>
+      <p>— Anthropic Applied AI · Prithvi Rajasekaran 等</p>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Footer ---------- -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <h4>原文</h4>
+        <div class="footer-source">
+          <div class="footer-source-meta">
+            <strong>Effective context engineering for AI agents</strong>
+            <div>Anthropic Engineering · Applied AI Team · 2025 年 9 月 29 日</div>
+          </div>
+          <a href="https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents" target="_blank" rel="noopener">
+            阅读原文
+            <svg viewBox="0 0 16 16" width="12" height="12" stroke="currentColor" fill="none" stroke-width="2"><path d="M3 13L13 3M13 3H6M13 3V10"/></svg>
+          </a>
+        </div>
+      </div>
+      <div>
+        <h4>本文相关延伸</h4>
+        <ul class="footer-list">
+          <li><b>·</b> <a href="https://www.anthropic.com/engineering/writing-tools-for-agents" target="_blank" rel="noopener">Writing tools for AI agents</a></li>
+          <li><b>·</b> <a href="https://www.anthropic.com/engineering/built-multi-agent-research-system" target="_blank" rel="noopener">How we built our multi-agent research system</a></li>
+          <li><b>·</b> <a href="https://www.anthropic.com/engineering/building-effective-agents" target="_blank" rel="noopener">Building effective AI agents</a></li>
+          <li><b>·</b> <a href="https://docs.anthropic.com/en/docs/build-with-claude/prompt-engineering/overview" target="_blank" rel="noopener">Prompt engineering 文档</a></li>
+        </ul>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>视觉化精读 · 中文译解 · 内容版权归 Anthropic 所有</span>
+      <span>Built with Inter · JetBrains Mono · Noto Sans SC</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+  (function () {
+    const tabsRoot = document.getElementById('lhTabs');
+    if (!tabsRoot) return;
+    const buttons = tabsRoot.querySelectorAll('.lh-tab-btn');
+    const panels = tabsRoot.querySelectorAll('.lh-panel');
+
+    buttons.forEach(function (btn) {
+      btn.addEventListener('click', function () {
+        const target = btn.getAttribute('data-tab');
+        buttons.forEach(function (b) { b.classList.remove('active'); });
+        panels.forEach(function (p) { p.classList.remove('active'); });
+        btn.classList.add('active');
+        const panel = tabsRoot.querySelector('.lh-panel[data-panel="' + target + '"]');
+        if (panel) panel.classList.add('active');
+      });
+    });
+  })();
+</script>
+
+</body>
+</html>
