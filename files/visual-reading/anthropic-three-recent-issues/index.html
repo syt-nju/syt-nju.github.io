@@ -1,0 +1,1651 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>三个重叠的基础设施 Bug · Claude 质量下降事故复盘</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #FBF6EA;
+    --bg-surface: #FFFFFF;
+    --bg-soft: #F4EAD7;
+    --bg-softer: #EFE3CB;
+    --bg-dark: #1A1816;
+    --bg-dark-2: #252220;
+    --text: #1A1816;
+    --text-muted: #6B6660;
+    --text-soft: #8C857B;
+    --text-invert: #F5F1E8;
+    --accent: #C04E2D;
+    --accent-hover: #A8401F;
+    --accent-soft: #F4DCD0;
+    --accent-deep: #7A2E16;
+    --tone-1: #B8860B;
+    --tone-1-soft: #F4E8C7;
+    --tone-2: #2E5A6B;
+    --tone-2-soft: #DDE8ED;
+    --tone-3: #6E4A2C;
+    --tone-3-soft: #EFE0CE;
+    --good: #4A6B3E;
+    --good-soft: #E2EBD8;
+    --bad: #B23A2A;
+    --bad-soft: #F4D9D2;
+    --border: #E8DCC7;
+    --border-strong: #D4C4A6;
+    --border-dark: #3A3633;
+    --shadow-sm: 0 1px 2px rgba(26, 24, 22, 0.04);
+    --shadow-md: 0 4px 14px rgba(26, 24, 22, 0.06);
+    --shadow-lg: 0 16px 40px rgba(26, 24, 22, 0.10);
+    --radius: 10px;
+    --radius-lg: 16px;
+    --radius-xl: 22px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-hover); }
+
+  .container { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- Top Bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(251, 246, 234, 0.85);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px; max-width: 1180px; margin: 0 auto;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    font-weight: 700; font-size: 14.5px; letter-spacing: -0.005em;
+  }
+  .brand-logo {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: var(--bg-dark);
+    display: grid; place-items: center; color: var(--accent);
+    font-size: 14px; font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .brand-text { color: var(--text); }
+  .brand-text small { color: var(--text-muted); font-weight: 500; font-size: 12px; margin-left: 8px; }
+  .topnav { display: flex; gap: 4px; align-items: center; }
+  .topnav a {
+    padding: 7px 9px; border-radius: 8px;
+    color: var(--text-muted); font-size: 12.5px; font-weight: 500;
+    transition: color 0.15s, background 0.15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--accent-soft); }
+  .source-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; color: var(--text-muted); text-decoration: none;
+    padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border);
+    transition: all 0.15s; font-weight: 500;
+  }
+  .source-link:hover { border-color: var(--accent); color: var(--accent); }
+  .source-link svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 72px 0 44px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--accent); text-transform: uppercase;
+    background: var(--accent-soft); padding: 6px 14px; border-radius: 100px;
+    margin-bottom: 22px; font-family: 'JetBrains Mono', monospace;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  h1 {
+    font-size: clamp(34px, 5.2vw, 54px); line-height: 1.1; letter-spacing: -0.025em;
+    font-weight: 800; margin-bottom: 22px; max-width: 920px;
+  }
+  .hero-sub {
+    font-size: 19px; color: var(--text-muted); max-width: 760px; line-height: 1.6;
+    font-weight: 400;
+  }
+  .hero-meta {
+    display: flex; gap: 22px; margin-top: 28px; font-size: 13px; color: var(--text-muted);
+    flex-wrap: wrap; align-items: center;
+  }
+  .hero-meta span { display: inline-flex; align-items: center; gap: 7px; }
+  .hero-meta svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .hero-meta b { color: var(--text); font-weight: 600; }
+
+  /* TL;DR card */
+  .tldr {
+    margin-top: 48px; background: var(--bg-dark); color: var(--text-invert);
+    border-radius: var(--radius-xl); padding: 36px 40px;
+    box-shadow: var(--shadow-lg); position: relative; overflow: hidden;
+  }
+  .tldr::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent);
+  }
+  .tldr-title {
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 18px; font-family: 'JetBrains Mono', monospace;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .tldr-title::after {
+    content: ''; flex: 1; height: 1px; background: rgba(192, 78, 45, 0.2);
+  }
+  .tldr-text {
+    font-size: 19px; line-height: 1.65; color: var(--text-invert); font-weight: 400;
+  }
+  .tldr-text b { color: #F2A07A; font-weight: 600; }
+  .tldr-text + .tldr-text { margin-top: 14px; font-size: 16px; color: #C8C0B3; }
+
+  /* Stance pull-quote */
+  .stance {
+    margin-top: 26px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius-lg);
+    padding: 22px 26px;
+    font-size: 16.5px; line-height: 1.7;
+    color: var(--text);
+    box-shadow: var(--shadow-sm);
+  }
+  .stance b { font-weight: 700; }
+  .stance small {
+    display: block; margin-top: 8px;
+    font-size: 12px; color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em;
+  }
+
+  /* ---------- Metric strip ---------- */
+  .metrics-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-top: 28px;
+  }
+  .metric {
+    background: var(--bg-surface); border-radius: 14px; padding: 22px 22px;
+    border: 1px solid var(--border);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .metric-value {
+    font-size: 30px; font-weight: 800; letter-spacing: -0.02em;
+    color: var(--accent); line-height: 1; font-family: 'JetBrains Mono', monospace;
+  }
+  .metric-value small { font-size: 14px; font-weight: 500; color: var(--text-muted); margin-left: 4px; }
+  .metric-label {
+    font-size: 12.5px; color: var(--text-muted); line-height: 1.5; margin-top: 8px;
+  }
+  .metric-label b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Section ---------- */
+  section.block { padding: 64px 0; border-top: 1px solid var(--border); }
+  .section-head { margin-bottom: 26px; max-width: 800px; }
+  .section-num {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--accent); font-weight: 600;
+    background: var(--accent-soft); padding: 5px 12px; border-radius: 100px;
+    margin-bottom: 16px;
+  }
+  h2 {
+    font-size: clamp(26px, 3.4vw, 36px); font-weight: 700; letter-spacing: -0.022em;
+    margin-bottom: 14px; line-height: 1.18;
+  }
+  h3 {
+    font-size: 19px; font-weight: 700; letter-spacing: -0.012em;
+    margin-bottom: 10px; line-height: 1.3;
+  }
+  .section-sub { color: var(--text-muted); font-size: 16.5px; line-height: 1.65; }
+  .section-sub b { color: var(--text); font-weight: 600; }
+
+  .article-copy {
+    max-width: 780px;
+    font-size: 17px;
+    line-height: 1.82;
+    color: var(--text);
+  }
+  .article-copy p + p { margin-top: 16px; }
+  .article-copy b { font-weight: 600; color: var(--text); }
+  .article-copy em { color: var(--text-muted); font-style: normal; }
+  .reader-note {
+    margin-top: 24px;
+    padding: 18px 22px;
+    background: rgba(255, 255, 255, 0.62);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    color: var(--text-muted);
+    font-size: 14.5px;
+    line-height: 1.7;
+  }
+  .reader-note b { color: var(--text); font-weight: 600; }
+  .visual-bridge {
+    margin: 30px 0 14px;
+    max-width: 780px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  /* ---------- Serving architecture overview ---------- */
+  .serving-grid {
+    margin-top: 28px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .serving-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 26px;
+  }
+  .serving-card h4 {
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 12px;
+    font-weight: 600;
+  }
+  .serving-card .row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin-top: 6px;
+  }
+  .serving-pill {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: center;
+    font-size: 13px;
+  }
+  .serving-pill b {
+    display: block;
+    font-size: 14.5px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .serving-pill span {
+    color: var(--text-muted);
+    font-size: 12px;
+  }
+  .serving-card p {
+    color: var(--text-muted);
+    font-size: 14.5px;
+    line-height: 1.65;
+    margin-top: 12px;
+  }
+  .serving-card p b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Timeline ---------- */
+  .timeline {
+    margin-top: 36px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px 36px 38px;
+    box-shadow: var(--shadow-md);
+  }
+  .timeline-legend {
+    display: flex; flex-wrap: wrap; gap: 16px;
+    margin-bottom: 22px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--text-muted);
+  }
+  .timeline-legend .item { display: inline-flex; align-items: center; gap: 8px; }
+  .timeline-legend .swatch {
+    width: 14px; height: 14px; border-radius: 4px;
+    border: 1px solid var(--border-strong);
+  }
+  .swatch.b1 { background: var(--accent-soft); border-color: var(--accent); }
+  .swatch.b2 { background: var(--tone-1-soft); border-color: var(--tone-1); }
+  .swatch.b3 { background: var(--tone-2-soft); border-color: var(--tone-2); }
+
+  .tl-axis {
+    position: relative;
+    padding-top: 8px;
+  }
+  .tl-axis-line {
+    position: relative;
+    height: 2px;
+    background: var(--border-strong);
+    margin: 6px 0 0;
+  }
+  .tl-tick {
+    position: absolute;
+    transform: translateX(-50%);
+    top: 0;
+  }
+  .tl-tick .pt {
+    width: 10px; height: 10px; border-radius: 50%;
+    background: var(--bg-surface);
+    border: 2px solid var(--text);
+    margin: -4px auto 0;
+  }
+  .tl-tick .lbl {
+    position: absolute;
+    top: 14px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .tl-bars {
+    position: relative;
+    margin-top: 50px;
+    display: grid;
+    gap: 12px;
+  }
+  .tl-bar-row {
+    position: relative;
+    height: 44px;
+  }
+  .tl-bar-track {
+    position: absolute;
+    inset: 0;
+    background: var(--bg);
+    border: 1px dashed var(--border);
+    border-radius: 8px;
+  }
+  .tl-bar {
+    position: absolute;
+    top: 6px; bottom: 6px;
+    border-radius: 8px;
+    display: flex; align-items: center;
+    padding: 0 12px;
+    font-size: 12.5px; font-weight: 600;
+    color: var(--text);
+    border: 1px solid;
+    cursor: default;
+  }
+  .tl-bar.b1 { background: var(--accent-soft); border-color: var(--accent); color: var(--accent-deep); }
+  .tl-bar.b2 { background: var(--tone-1-soft); border-color: var(--tone-1); color: #6B5008; }
+  .tl-bar.b3 { background: var(--tone-2-soft); border-color: var(--tone-2); color: #1F3D49; }
+  .tl-bar .resolved {
+    margin-left: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    opacity: 0.75;
+  }
+  .tl-marker {
+    position: absolute;
+    top: -56px; bottom: -8px;
+    width: 2px;
+    background: var(--accent);
+    opacity: 0.6;
+  }
+  .tl-marker .tag {
+    position: absolute;
+    top: -20px;
+    left: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 2px 8px;
+    border-radius: 100px;
+    white-space: nowrap;
+  }
+  .tl-note {
+    margin-top: 26px;
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.65;
+  }
+  .tl-note b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Bug cards ---------- */
+  .bugs-grid {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .bug-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .bug-card.open { box-shadow: var(--shadow-md); }
+  .bug-card .head {
+    display: grid;
+    grid-template-columns: auto 1fr auto;
+    align-items: center;
+    gap: 18px;
+    padding: 20px 26px;
+    cursor: pointer;
+    user-select: none;
+  }
+  .bug-card .num {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: grid; place-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700; font-size: 15px;
+  }
+  .bug-card.b1 .num { background: var(--accent-soft); color: var(--accent-deep); }
+  .bug-card.b2 .num { background: var(--tone-1-soft); color: #6B5008; }
+  .bug-card.b3 .num { background: var(--tone-2-soft); color: #1F3D49; }
+  .bug-card .title {
+    font-size: 18px; font-weight: 700; letter-spacing: -0.012em;
+    line-height: 1.3;
+  }
+  .bug-card .title small {
+    display: block;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 500;
+    margin-top: 4px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .bug-card .toggle {
+    width: 30px; height: 30px;
+    border-radius: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    display: grid; place-items: center;
+    font-size: 18px; font-weight: 700;
+    color: var(--text-muted);
+    transition: transform 0.2s;
+  }
+  .bug-card.open .toggle { transform: rotate(45deg); color: var(--accent); border-color: var(--accent); }
+  .bug-card .body {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease, padding 0.4s ease;
+    padding: 0 26px;
+  }
+  .bug-card.open .body {
+    max-height: 1400px;
+    padding: 4px 26px 26px;
+  }
+  .bug-card .body p {
+    color: var(--text);
+    font-size: 15.5px;
+    line-height: 1.7;
+  }
+  .bug-card .body p + p { margin-top: 12px; }
+  .bug-card .body b { font-weight: 600; }
+  .bug-card .body em { color: var(--text-muted); font-style: normal; }
+
+  .impact-row {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    margin: 16px 0 16px;
+    padding: 16px;
+    background: var(--bg);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+  .impact-cell {
+    text-align: center;
+  }
+  .impact-cell .v {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 20px; font-weight: 700;
+    color: var(--text);
+    line-height: 1;
+  }
+  .impact-cell .l {
+    margin-top: 6px;
+    font-size: 11.5px;
+    color: var(--text-muted);
+    line-height: 1.4;
+  }
+
+  .resolution {
+    margin-top: 14px;
+    padding: 14px 18px;
+    background: var(--good-soft);
+    border-radius: var(--radius);
+    border-left: 3px solid var(--good);
+    color: #2B4A24;
+    font-size: 14.5px;
+    line-height: 1.6;
+  }
+  .resolution b { font-weight: 700; }
+  .resolution .label {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--good);
+    margin-right: 8px;
+    letter-spacing: 0.08em;
+  }
+
+  .bug-example {
+    margin-top: 14px;
+    padding: 14px 18px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+  .bug-example .lang {
+    display: inline-block;
+    font-size: 10.5px;
+    font-weight: 700;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 2px 8px;
+    border-radius: 100px;
+    margin-right: 8px;
+    letter-spacing: 0.06em;
+  }
+  .bug-example b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Glossary card (term explainer) ---------- */
+  .glossary {
+    margin-top: 28px;
+    background: var(--bg-soft);
+    border: 1px solid var(--border-strong);
+    border-left: 4px solid var(--accent);
+    border-radius: var(--radius-lg);
+    padding: 24px 28px;
+    max-width: 880px;
+  }
+  .glossary-tag {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .glossary-tag::before {
+    content: ''; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--accent);
+  }
+  .glossary-def {
+    font-size: 15.5px; line-height: 1.72; color: var(--text);
+  }
+  .glossary-def b { font-weight: 700; }
+  .glossary-def + .glossary-def { margin-top: 12px; }
+  .glossary-grid {
+    margin: 16px 0 14px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 12px;
+    align-items: stretch;
+  }
+  .glossary-cell {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13.5px;
+    line-height: 1.5;
+    color: var(--text-muted);
+  }
+  .glossary-cell b {
+    display: block;
+    color: var(--text); font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13px;
+    margin-bottom: 4px;
+  }
+  .glossary-cell.left { text-align: right; }
+  .glossary-cell.right { text-align: left; }
+  .glossary-vs {
+    display: grid; place-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700; font-size: 16px;
+    color: var(--accent);
+    width: 40px;
+  }
+  .glossary-why {
+    margin-top: 10px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border-strong);
+    font-size: 14.5px;
+    line-height: 1.7;
+    color: var(--text-muted);
+  }
+  .glossary-why b { color: var(--text); font-weight: 600; }
+
+  /* ---------- XLA story (vertical step diagram) ---------- */
+  .xla-stage {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 30px 32px 36px;
+    box-shadow: var(--shadow-md);
+  }
+  .xla-steps {
+    display: grid;
+    gap: 14px;
+    position: relative;
+  }
+  .xla-step {
+    display: grid;
+    grid-template-columns: 92px 1fr;
+    gap: 16px;
+    align-items: stretch;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+    position: relative;
+  }
+  .xla-step::after {
+    content: '';
+    position: absolute;
+    left: 53px;
+    top: 100%;
+    width: 2px;
+    height: 14px;
+    background: var(--border-strong);
+    border-radius: 2px;
+  }
+  .xla-step:last-child::after { display: none; }
+  .xla-step .when {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    text-align: right;
+    padding-top: 2px;
+    border-right: 2px solid var(--border-strong);
+    padding-right: 16px;
+  }
+  .xla-step .when b {
+    display: block;
+    font-size: 13px;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .xla-step .when em {
+    color: var(--text-soft);
+    font-style: normal;
+  }
+  .xla-step h4 {
+    font-size: 15.5px;
+    font-weight: 700;
+    margin-bottom: 6px;
+    letter-spacing: -0.01em;
+  }
+  .xla-step p {
+    font-size: 14.5px;
+    color: var(--text-muted);
+    line-height: 1.65;
+  }
+  .xla-step p + p { margin-top: 8px; }
+  .xla-step p b { color: var(--text); font-weight: 600; }
+  .xla-step.pivot {
+    background: var(--accent-soft);
+    border-color: var(--accent);
+  }
+  .xla-step.pivot .when b { color: var(--accent-deep); }
+  .xla-step.pivot h4 { color: var(--accent-deep); }
+  .xla-step.pivot p { color: #5C2913; }
+  .xla-step.fix {
+    background: var(--good-soft);
+    border-color: var(--good);
+  }
+  .xla-step.fix .when b { color: var(--good); }
+  .xla-step.fix h4 { color: #2B4A24; }
+  .xla-step.fix p { color: #3A5C2E; }
+
+  /* Precision before/after */
+  .precision-pair {
+    margin-top: 22px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  .precision-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+  }
+  .precision-card.bad { border-color: var(--bad); background: var(--bad-soft); }
+  .precision-card.good { border-color: var(--good); background: var(--good-soft); }
+  .precision-card h5 {
+    font-size: 12px;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 10px;
+    font-weight: 700;
+  }
+  .precision-card.bad h5 { color: var(--bad); }
+  .precision-card.good h5 { color: var(--good); }
+  .precision-card .formula {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13.5px;
+    font-weight: 600;
+    margin-bottom: 10px;
+    line-height: 1.55;
+  }
+  .precision-card p {
+    font-size: 13.5px;
+    color: var(--text-muted);
+    line-height: 1.65;
+  }
+  .precision-card.bad p { color: #6B2014; }
+  .precision-card.good p { color: #2B4A24; }
+  .precision-card p b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Detection difficulties ---------- */
+  .detect-grid {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .detect-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 24px;
+  }
+  .detect-card .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+  }
+  .detect-card h4 {
+    font-size: 16.5px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+  }
+  .detect-card p {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.65;
+  }
+  .detect-card p b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Changes (improvements) ---------- */
+  .changes-grid {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .change-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 26px 26px 24px;
+    position: relative;
+  }
+  .change-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 38px; height: 4px;
+    background: var(--accent);
+    border-radius: 0 0 4px 0;
+  }
+  .change-card .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    margin-bottom: 12px;
+  }
+  .change-card h4 {
+    font-size: 17px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    line-height: 1.35;
+    letter-spacing: -0.01em;
+  }
+  .change-card p {
+    font-size: 14.5px;
+    color: var(--text-muted);
+    line-height: 1.7;
+  }
+  .change-card p b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Closing quote ---------- */
+  .closing-quote {
+    margin-top: 28px;
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    border-radius: var(--radius-xl);
+    padding: 38px 42px;
+    box-shadow: var(--shadow-lg);
+    position: relative;
+    overflow: hidden;
+  }
+  .closing-quote::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent);
+  }
+  .closing-quote .qtitle {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .closing-quote p {
+    font-size: 18px;
+    line-height: 1.7;
+    color: var(--text-invert);
+    font-weight: 400;
+  }
+  .closing-quote p + p {
+    margin-top: 14px;
+    font-size: 15px;
+    color: #C8C0B3;
+  }
+  .closing-quote b { color: #F2A07A; font-weight: 600; }
+
+  /* ---------- Footer ---------- */
+  .site-footer {
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    padding: 56px 0 36px;
+    margin-top: 64px;
+  }
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 1.2fr 1fr;
+    gap: 36px;
+  }
+  .site-footer h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+  .footer-source {
+    background: var(--bg-dark-2);
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius-lg);
+    padding: 20px 22px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 18px;
+  }
+  .footer-source-meta strong {
+    display: block;
+    color: var(--text-invert);
+    font-weight: 600;
+    font-size: 14.5px;
+    margin-bottom: 4px;
+  }
+  .footer-source-meta div {
+    font-size: 12.5px;
+    color: #B3AB9F;
+  }
+  .footer-source a {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    color: #F2A07A;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 14px;
+    border-radius: 100px;
+    border: 1px solid #6E3C26;
+    transition: all 0.15s;
+    white-space: nowrap;
+  }
+  .footer-source a:hover {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+  }
+  .site-footer .about p {
+    color: #C8C0B3;
+    font-size: 13.5px;
+    line-height: 1.7;
+  }
+  .site-footer .about p b { color: var(--text-invert); }
+  .footer-bottom {
+    margin-top: 36px;
+    padding-top: 22px;
+    border-top: 1px solid var(--border-dark);
+    display: flex;
+    justify-content: space-between;
+    color: #8C857B;
+    font-size: 12px;
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 880px) {
+    .container { padding: 0 20px; }
+    .topnav { display: none; }
+    .hero { padding: 48px 0 32px; }
+    .tldr { padding: 26px 24px; }
+    .stance { padding: 18px 20px; }
+    .metrics-row { grid-template-columns: repeat(2, 1fr); }
+    .serving-grid { grid-template-columns: 1fr; }
+    .serving-card .row { grid-template-columns: repeat(2, 1fr); }
+    .timeline { padding: 22px 18px 26px; }
+    .tl-tick .lbl { font-size: 10px; }
+    .tl-bar { font-size: 11.5px; padding: 0 8px; }
+    .precision-pair { grid-template-columns: 1fr; }
+    .detect-grid, .changes-grid { grid-template-columns: 1fr; }
+    .xla-step { grid-template-columns: 72px 1fr; gap: 12px; padding: 14px 14px; }
+    .xla-step::after { left: 42px; }
+    .xla-step .when { padding-right: 12px; }
+    .footer-grid { grid-template-columns: 1fr; gap: 28px; }
+    .footer-source { flex-direction: column; align-items: flex-start; }
+    .closing-quote { padding: 26px 22px; }
+    .closing-quote p { font-size: 16px; }
+    .impact-row { grid-template-columns: 1fr; }
+    .glossary { padding: 18px 20px; }
+    .glossary-grid { grid-template-columns: 1fr; }
+    .glossary-cell.left, .glossary-cell.right { text-align: left; }
+    .glossary-vs { transform: rotate(90deg); width: auto; height: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ---------- Top Bar ---------- -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-logo">A</div>
+      <div class="brand-text">三个重叠的基础设施 Bug<small>Anthropic Postmortem · 可视化阅读</small></div>
+    </div>
+    <nav class="topnav">
+      <a href="#background">背景</a>
+      <a href="#timeline">时间线</a>
+      <a href="#bugs">三个 Bug</a>
+      <a href="#xla">XLA 深度</a>
+      <a href="#detect">为何难发现</a>
+      <a href="#changes">改进</a>
+    </nav>
+    <a class="source-link" href="https://www.anthropic.com/engineering/a-postmortem-of-three-recent-issues" target="_blank" rel="noopener">
+      原文
+      <svg viewBox="0 0 16 16"><path d="M3 13L13 3M13 3H6M13 3V10"/></svg>
+    </a>
+  </div>
+</div>
+
+<!-- ---------- Hero ---------- -->
+<header class="hero">
+  <div class="container">
+    <div class="eyebrow"><span class="dot"></span>Anthropic Engineering · 2025-09-17</div>
+    <h1>三个重叠的基础设施 Bug，怎么把 Claude 的回答质量拖下去的</h1>
+    <p class="hero-sub">
+      8 月初到 9 月初，用户开始零星报告 Claude 的回答变差了。Anthropic 一开始把这些反馈当成了正常的噪声，
+      到 8 月底才开始系统调查 ——<b>查到了三个独立、但时间叠加在一起的基础设施 Bug</b>。
+      这篇是他们公开的事故复盘。
+    </p>
+
+    <div class="hero-meta">
+      <span><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5"/><path d="M8 4.5V8L10 10"/></svg>10–14 分钟阅读</span>
+      <span><svg viewBox="0 0 16 16"><path d="M2 4h12v9H2zM2 7h12"/></svg>2025 年 8 月 5 日 – 9 月 18 日</span>
+      <span><svg viewBox="0 0 16 16"><path d="M3 13l4-4 3 3 4-7"/></svg>三个并发 Bug · <b>跨 TPU / GPU / Trainium</b></span>
+    </div>
+
+    <div class="tldr">
+      <div class="tldr-title">TL;DR</div>
+      <p class="tldr-text">
+        三个 bug 同时发生，让诊断变得格外棘手：<b>短上下文请求被路由到 1M 上下文服务器</b>、
+        <b>TPU 上的运行时优化让模型偶尔吐出泰文/中文乱码</b>、<b>XLA 编译器在近似 top-k 上选错 token</b>。
+        没有任何一个 bug 是"故意降级"。
+      </p>
+      <p class="tldr-text">
+        一句关键澄清：<b>Anthropic 从不因为流量、时段或服务器负载主动降低模型质量</b>。
+        用户感受到的下降，全部来自基础设施层面的真实 bug。
+      </p>
+    </div>
+
+    <div class="stance">
+      <b>「我们直说一句：我们从不因需求、时段或服务器负载来降低模型质量。用户报告的问题完全是基础设施 Bug 造成的。」</b>
+      <small>— Anthropic Engineering</small>
+    </div>
+
+    <div class="metrics-row">
+      <div class="metric">
+        <div class="metric-value">0.8% <small>→ 16%</small></div>
+        <div class="metric-label">Sonnet 4 受影响请求比例（8/5 引入 → 8/31 峰值），<b>路由错误叠加 8/29 负载均衡变更</b>后扩大</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">~30%</div>
+        <div class="metric-label">期间 <b>Claude Code 用户至少有一条消息</b>被路由到错误服务器</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">3</div>
+        <div class="metric-label">独立但时间重叠的 bug，<b>各平台症状不同</b>，让早期信号互相掩盖</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">~6 周</div>
+        <div class="metric-label">从最早 bug 引入（8/5）到最后一处回滚完成（9/18），<b>跨 TPU / GPU / Trainium</b> 全部修复</div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ---------- Section 1: How they serve Claude ---------- -->
+<section class="block" id="background">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">01 · 部署架构</div>
+      <h2>Claude 同时跑在三种硬件、三个云上 —— 任何改动都要在所有平台等效</h2>
+      <p class="section-sub">
+        Anthropic 通过一方 API、Amazon Bedrock 和 Google Cloud Vertex AI 给数百万用户服务 Claude。
+        模型同时运行在 <b>AWS Trainium、NVIDIA GPU 和 Google TPU</b> 上 ——
+        这种多平台部署带来了容量和地理覆盖，也让任何基础设施改动的验证成本变得很高。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        每种硬件性格不同，需要各自的优化路径。但 Anthropic 给自己设的硬约束是：
+        <b>不论请求落到哪个平台，用户得到的回答质量应该是一致的。</b>
+        这意味着任何一个底层修改，都要在所有平台和配置下重新验证一遍。
+      </p>
+      <p>
+        这次事故里几乎所有的麻烦都源自这个等效约束：bug 在不同硬件上以不同形式露出来 ——
+        TPU 路径上是输出乱码和编译器选错 token，第三方平台上是路由错误 ——
+        症状的多样性反而模糊了"这是同一类问题"的信号。
+      </p>
+    </div>
+
+    <div class="serving-grid">
+      <div class="serving-card">
+        <h4>· 部署平台</h4>
+        <div class="row">
+          <div class="serving-pill"><b>第一方 API</b><span>console / claude.ai</span></div>
+          <div class="serving-pill"><b>AWS Bedrock</b><span>第三方</span></div>
+          <div class="serving-pill"><b>Vertex AI</b><span>第三方</span></div>
+        </div>
+        <p>
+          多平台部署提供地理覆盖与冗余，<b>但每次基础设施改动都要在所有平台上等效验证</b>。
+        </p>
+      </div>
+      <div class="serving-card">
+        <h4>· 推理硬件</h4>
+        <div class="row">
+          <div class="serving-pill"><b>AWS Trainium</b><span>专用 ASIC</span></div>
+          <div class="serving-pill"><b>NVIDIA GPU</b><span>通用</span></div>
+          <div class="serving-pill"><b>Google TPU</b><span>XLA 编译</span></div>
+        </div>
+        <p>
+          这次事故中，<b>TPU 路径暴露了两个独立问题</b>（输出乱码 + XLA top-k）；
+          路由 bug 则跨所有平台。
+        </p>
+      </div>
+    </div>
+
+    <div class="reader-note">
+      <b>读者要 get 到的关键点：</b>多平台等效是一个"承诺"，不是一个免费午餐。
+      所有要给用户更好体验的优化，都得回答一个问题：<i>它在所有平台上是否都还等效？</i>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 2: Timeline ---------- -->
+<section class="block" id="timeline">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">02 · 事故时间线</div>
+      <h2>三个 Bug 重叠 + 一次"例行"负载均衡变更，把症状从噪声放大到无法忽视</h2>
+      <p class="section-sub">
+        第一个 bug 在 8 月 5 日就引入了，但只影响 Sonnet 4 的 0.8% 请求 —— 噪声水平。
+        8 月 25 / 26 日又叠加了两个 bug。<b>真正让事故被注意到的，是 8 月 29 日的一次负载均衡变更</b>，
+        它意外把更多短上下文请求路由到了为 1M 上下文配置的服务器，让一切症状被放大。
+      </p>
+    </div>
+
+    <div class="timeline">
+      <div class="timeline-legend">
+        <div class="item"><div class="swatch b1"></div>Bug 1 · 上下文窗口路由错误</div>
+        <div class="item"><div class="swatch b2"></div>Bug 2 · TPU 输出乱码</div>
+        <div class="item"><div class="swatch b3"></div>Bug 3 · XLA 近似 Top-K 误编译</div>
+      </div>
+
+      <div class="tl-axis">
+        <div class="tl-axis-line"></div>
+        <div class="tl-tick" style="left:0%"><div class="pt"></div><div class="lbl">8/5</div></div>
+        <div class="tl-tick" style="left:45.5%"><div class="pt"></div><div class="lbl">8/25</div></div>
+        <div class="tl-tick" style="left:54.5%"><div class="pt"></div><div class="lbl">8/29</div></div>
+        <div class="tl-tick" style="left:59.1%"><div class="pt"></div><div class="lbl">8/31</div></div>
+        <div class="tl-tick" style="left:63.6%"><div class="pt"></div><div class="lbl">9/2</div></div>
+        <div class="tl-tick" style="left:68.2%"><div class="pt"></div><div class="lbl">9/4</div></div>
+        <div class="tl-tick" style="left:86.4%"><div class="pt"></div><div class="lbl">9/12</div></div>
+        <div class="tl-tick" style="left:100%"><div class="pt"></div><div class="lbl">9/18</div></div>
+      </div>
+
+      <div class="tl-bars">
+        <div class="tl-bar-row">
+          <div class="tl-bar-track"></div>
+          <div class="tl-bar b1" style="left:0%; right:0%;">
+            Bug 1 · 路由错误（0.8% → 16% 峰值）
+            <span class="resolved">9/4 修 · 9/18 完成全平台</span>
+          </div>
+          <div class="tl-marker" style="left:54.5%;"><div class="tag">8/29 负载均衡变更</div></div>
+        </div>
+        <div class="tl-bar-row">
+          <div class="tl-bar-track"></div>
+          <div class="tl-bar b2" style="left:45.5%; right:36.4%;">
+            Bug 2 · 输出乱码（仅一方 API · TPU）
+            <span class="resolved">9/2 回滚</span>
+          </div>
+        </div>
+        <div class="tl-bar-row">
+          <div class="tl-bar-track"></div>
+          <div class="tl-bar b3" style="left:45.5%; right:13.6%;">
+            Bug 3 · XLA Top-K 误编译（Haiku 3.5 / Opus 3 / 可能 Sonnet 4）
+            <span class="resolved">9/4 / 9/12 分批回滚</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="tl-note">
+        <b>关键放大节点</b>：8/29 的负载均衡变更让原本 0.8% 的路由错误扩散到 16%。
+        当负面反馈集中爆发时，团队没有立刻把它和这个"看起来很标准"的变更联系起来 ——
+        这是后来"为什么没早发现"那一节的核心教训。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 3: Three bugs ---------- -->
+<section class="block" id="bugs">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">03 · 三个 Bug 详解</div>
+      <h2>每个 bug 都在不同的层面、不同的平台上以不同症状露出来</h2>
+      <p class="section-sub">
+        三张并列卡片，从「请求送到哪台机」、「token 怎么算」、「token 怎么排序」三个层面分别展开。
+        点开每张卡片可以看影响范围、根因、表现样例和修复方式。
+      </p>
+    </div>
+
+    <div class="visual-bridge">click to expand · 每个 bug 一张</div>
+
+    <div class="bugs-grid" id="bugsGrid">
+
+      <!-- Bug 1 -->
+      <div class="bug-card b1">
+        <div class="head">
+          <div class="num">01</div>
+          <div class="title">
+            上下文窗口路由错误
+            <small>request routing · 跨所有平台</small>
+          </div>
+          <div class="toggle">+</div>
+        </div>
+        <div class="body">
+          <p>
+            8 月 5 日，部分 Sonnet 4 请求被错误地路由到了为<b>即将上线的 1M token 上下文窗口</b>配置的服务器上。
+            最初只影响约 0.8% 的请求 —— 在噪声里几乎看不出。
+          </p>
+          <p>
+            8 月 29 日的一次"例行"负载均衡变更，无意中把更多<em>短上下文</em>请求也送到了 1M 上下文服务器。
+            到 <b>8 月 31 日的最差时段，16% 的 Sonnet 4 请求被影响</b>。
+          </p>
+          <p>
+            放大效应来自<b>路由是「黏滞」的</b>：一旦某次请求落在错误的服务器，它的后续 follow-up 通常也会粘在同一台服务器上 ——
+            少数用户因此被反复打到错误路径。
+          </p>
+
+          <div class="impact-row">
+            <div class="impact-cell"><div class="v">~30%</div><div class="l">Claude Code 用户期间至少 1 次被错路由</div></div>
+            <div class="impact-cell"><div class="v">0.18%</div><div class="l">AWS Bedrock 上 Sonnet 4 错路由峰值（8/12 起）</div></div>
+            <div class="impact-cell"><div class="v">0.0004%</div><div class="l">Vertex AI 上的影响（8/27 – 9/16）</div></div>
+          </div>
+
+          <div class="resolution">
+            <span class="label">RESOLUTION</span>
+            修复路由逻辑，把短/长上下文请求分别送到正确的服务器池。
+            <b>9 月 4 日</b>开始部署，9/16 完成一方平台与 Vertex AI，<b>9/18 完成 AWS Bedrock</b>。
+          </div>
+        </div>
+      </div>
+
+      <!-- Bug 2 -->
+      <div class="bug-card b2">
+        <div class="head">
+          <div class="num">02</div>
+          <div class="title">
+            TPU 输出乱码
+            <small>token 生成 · 仅一方 API · TPU 路径</small>
+          </div>
+          <div class="toggle">+</div>
+        </div>
+        <div class="body">
+          <p>
+            8 月 25 日，Anthropic 在 Claude API 的 TPU 服务器上部署了一次<b>错误配置</b>。
+            一个为<em>运行时性能</em>引入的优化，导致 token 生成阶段偶尔给本不该出现的 token 分配了高概率 ——
+            比如英文 prompt 的回答中间冒出泰文或中文，或者代码里出现明显的语法错误。
+          </p>
+
+          <div class="bug-example">
+            <span class="lang">EXAMPLE</span>
+            英文问题 → 回答中间忽然出现「<b>สวัสดี</b>」（泰文「你好」），或者代码块里冒出毫无来由的中文字符。
+          </div>
+
+          <p>
+            影响窗口：<b>Opus 4.1 / Opus 4 是 8/25 – 8/28；Sonnet 4 是 8/25 – 9/2</b>。
+            第三方平台（Bedrock / Vertex AI）<em>不受影响</em>，因为它们走的不是这条 TPU 路径。
+          </p>
+
+          <div class="resolution">
+            <span class="label">RESOLUTION</span>
+            <b>9 月 2 日</b>定位到问题并回滚。事后给部署流程加了一项 <b>「输出中是否出现非预期字符」的检测</b>。
+          </div>
+        </div>
+      </div>
+
+      <!-- Bug 3 -->
+      <div class="bug-card b3">
+        <div class="head">
+          <div class="num">03</div>
+          <div class="title">
+            XLA:TPU 近似 Top-K 误编译
+            <small>采样选 token · 编译器深层 bug</small>
+          </div>
+          <div class="toggle">+</div>
+        </div>
+        <div class="body">
+          <p>
+            8 月 25 日，Anthropic 部署了一份新代码来<b>改进文本生成中如何选 token</b> ——
+            意图是修一个 12 月就发现的混合精度问题，结果<em>意外触发了 XLA:TPU 编译器里一个潜伏 bug</em>。
+          </p>
+          <p>
+            <b>已确认</b>影响 Claude Haiku 3.5 的请求；<b>怀疑</b>也影响了一方 API 上的 Sonnet 4 子集和 Opus 3。
+            Bedrock / Vertex AI 不受影响。
+          </p>
+          <p>
+            <em>这个 bug 是整篇 postmortem 里最技术、也最值得展开的部分。下一节有完整故事 —— 从一年前的 workaround，到表层修复反而暴露出更深的问题。</em>
+          </p>
+
+          <div class="resolution">
+            <span class="label">RESOLUTION</span>
+            <b>9/4 回滚 Haiku 3.5</b>；后续看到 Opus 3 上类似症状，<b>9/12 回滚 Opus 3</b>；Sonnet 4 虽然反复无法重现，但<b>出于稳健也回滚</b>。
+            正在与 XLA:TPU 团队修编译器；同时把<b>近似 top-k 切换为更精确的 exact top-k</b>。
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 4: XLA Story (deep dive) ---------- -->
+<section class="block" id="xla">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">04 · XLA Top-K 深度复盘</div>
+      <h2>一个 12 月的 workaround，"修好"了一个其实是<em>预期行为</em>的现象 —— 也顺手把更深的 bug 给盖住了</h2>
+      <p class="section-sub">
+        这是整起事故里最有教育意义的一段。它讲的是一个看起来"修好了"的问题，
+        其实只是一个<b>编译器优化的预期行为</b>；而原本被它<em>意外掩盖</em>的真正 bug，
+        在表层修复之后才浮上来。
+      </p>
+    </div>
+
+    <!-- Glossary: what is XLA -->
+    <div class="glossary">
+      <div class="glossary-tag">名词解释 · XLA</div>
+      <p class="glossary-def">
+        <b>XLA = Accelerated Linear Algebra</b>，Google 出的 ML 编译器。
+        它把 JAX / TensorFlow 写的高层数学（比如 <code>softmax(x @ w + b)</code>）
+        翻译成 <b>TPU / GPU 的底层指令</b>，并在中间做<b>整图融合优化</b>（把多个相邻算子合成一个 kernel，省掉显存来回搬运）。
+        TPU 上几乎所有 ML 代码都要经过它 —— 这个事故里被点名的「XLA:TPU」就是它的 TPU 后端。
+      </p>
+
+      <div class="glossary-grid">
+        <div class="glossary-cell left">
+          <b>CUDA C++ / Triton</b>
+          让你<b style="display:inline;font-family:inherit;font-size:inherit;color:inherit;">手写 kernel</b>，由你自己决定怎么用 GPU。
+        </div>
+        <div class="glossary-vs">≠</div>
+        <div class="glossary-cell right">
+          <b>XLA 编译器</b>
+          替你做优化，但你不能往里塞自己写的 kernel。
+        </div>
+      </div>
+
+      <p class="glossary-def" style="font-size:14.5px;color:var(--text-muted);">
+        所以 XLA <b>不等于 CUDA</b>，而是更像「ML 版 GCC + cuDNN」。
+        在 NVIDIA GPU 上，专家可以绕开框架直接写 CUDA / Triton kernel（FlashAttention 就是这么写的）；
+        <b>但 TPU 上没有这个逃生出口 —— XLA 是唯一一条路</b>。
+      </p>
+
+      <div class="glossary-why">
+        <b>为什么这件事跟事故强相关：</b>这次 Bug 3 不是模型代码写错了，
+        而是<b>编译器把 Anthropic 的高层代码编译错了</b>。在 TPU 上 Anthropic 没法手写 kernel 顶替，
+        只能（1）等 XLA 团队修编译器、（2）找绕路写法、或（3）把 approximate top-k 换成 exact top-k ——
+        最后这次三种都做了。
+      </div>
+    </div>
+
+    <div class="article-copy" style="margin-top:32px;">
+      <p>
+        理解了 XLA 这一层之后，接下来的故事就清晰了。Claude 生成文本时，对每个候选 token 算一个概率，再按这个分布随机采样。
+        我们用 <b>top-p sampling</b> 来避免胡言乱语 —— 只考虑累计概率达到阈值（通常 0.99 或 0.999）的那些 token。
+      </p>
+      <p>
+        在 TPU 上，模型是<b>跨多颗 chip 切分</b>的，概率计算分布在不同位置。要给这些概率排序，
+        chip 之间必须协调数据 —— 这是一个<em>分布式排序</em>问题，比单机上写一行 sort 复杂得多。
+      </p>
+    </div>
+
+    <div class="visual-bridge">timeline · 一年的故事 · december workaround → august rewrite → xla bug 浮现</div>
+
+    <div class="xla-stage">
+      <div class="xla-steps">
+        <!-- Step 1 -->
+        <div class="xla-step">
+          <div class="when"><b>2024-12</b><em>workaround</em></div>
+          <div>
+            <h4>发现一个奇怪现象：temperature=0 时，最高概率 token 偶尔被丢掉</h4>
+            <p>
+              团队在 TPU 实现里观察到 <b>温度为 0 时</b>偶尔会丢掉概率最高的 token。
+              当时打了一个 patch 来 work around 这种情况 ——
+              但<b>没有真正搞清楚它为什么发生</b>。
+            </p>
+          </div>
+        </div>
+        <!-- Step 2 -->
+        <div class="xla-step">
+          <div class="when"><b>背景</b><em>mixed precision</em></div>
+          <div>
+            <h4>真正的根因是混合精度，不是"bug"</h4>
+            <p>
+              模型用 <b>bf16（16 位浮点）</b>算下一 token 概率。但 TPU 的向量处理器是 <b>fp32 原生的</b>，
+              所以 XLA 编译器会自动把一部分操作提升到 fp32 来跑得更快 —— 这个优化由
+              <code>xla_allow_excess_precision</code> 标志控制，<em>默认开启</em>。
+            </p>
+            <p>
+              这导致<b>同一组本应一致的概率，在不同精度下被算了出来</b>，于是它们对"谁是最高概率"的判断不一致 ——
+              最高概率 token 偶尔从候选里整个消失。
+            </p>
+          </div>
+        </div>
+        <!-- Step 3 - pivot -->
+        <div class="xla-step pivot">
+          <div class="when"><b>2025-08-11</b><em>minimal repro</em></div>
+          <div>
+            <h4>做出最小复现，<b>确认这就是标志的预期行为</b>，不是 bug</h4>
+            <p>
+              通过最小复现，团队认定 12 月看到的现象其实<b>不是编译器 bug</b>，
+              而是 <code>xla_allow_excess_precision</code> 默认开启情况下的预期行为。
+            </p>
+          </div>
+        </div>
+        <!-- Step 4 -->
+        <div class="xla-step">
+          <div class="when"><b>2025-08-26</b><em>rewrite</em></div>
+          <div>
+            <h4>重写采样代码，统一精度，<b>顺手移除了 12 月的 workaround</b></h4>
+            <p>
+              既然根因是混合精度，团队重写了采样代码、把精度问题修对，
+              并<b>移除了那个原以为多余的 workaround</b>。
+              ——表面上一切看起来更干净了。
+            </p>
+          </div>
+        </div>
+        <!-- Step 5 - pivot -->
+        <div class="xla-step pivot">
+          <div class="when"><b>修完之后</b><em>底下露出来了</em></div>
+          <div>
+            <h4>workaround 一直在<b>意外掩盖</b>一个更深的 bug：approximate top-k 偶尔返回完全错的结果</h4>
+            <p>
+              <b>近似 top-k</b>是 XLA:TPU 上的一个性能优化，能更快地找出最高概率的几个 token。
+              它的设计假设是「在最低概率的 token 上接受一点不准确」，正常情况下不影响质量 ——
+              <em>除非它把最高概率 token 给丢了</em>。
+            </p>
+            <p>
+              移除 12 月的 workaround 后，这个 approximate top-k 在<b>某些 batch size 和模型配置</b>下会返回完全错的结果，
+              而 12 月的 workaround 之前一直误打误撞地把它盖住了。
+            </p>
+            <p>
+              更糟的是，bug 的行为<b>极度不稳定</b>：依赖前后跑了什么操作、依赖是否打开了调试工具，
+              同一个 prompt 一次能跑对一次跑错。
+            </p>
+          </div>
+        </div>
+        <!-- Step 6 - fix -->
+        <div class="xla-step fix">
+          <div class="when"><b>2025-09</b><em>resolution</em></div>
+          <div>
+            <h4>切回 exact top-k，把更多操作锁死在 fp32</h4>
+            <p>
+              调研中团队发现：<b>exact top-k 在今天的 TPU 上已经没有当年那么大的性能代价了</b>。
+              于是切换 approximate → exact top-k，并把若干额外操作标准化为 fp32 精度。
+              <b>「模型质量是非 negotiable 的，效率上的微小代价可以接受。」</b>
+            </p>
+            <p>
+              同时和 XLA:TPU 编译器团队推进底层 bug 的修复 —— 这条线在写文章时仍在进行。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="precision-pair">
+        <div class="precision-card bad">
+          <h5>Before · 被 workaround 盖住的版本</h5>
+          <div class="formula">probs(bf16) → top-k(approximate) ↯</div>
+          <p>
+            概率在不同精度下不一致 → 12 月加了 workaround 让"最高 token 偶尔丢"看不见 →
+            <b>workaround 同时也在意外掩盖近似 top-k 在某些 batch 下的失灵</b>。
+          </p>
+        </div>
+        <div class="precision-card good">
+          <h5>After · 9 月的修复版本</h5>
+          <div class="formula">probs(bf16) → fp32 sort → top-k(exact)</div>
+          <p>
+            统一精度、改用 exact top-k。
+            <b>性能代价小、质量稳</b>，并把对 approximate top-k 的隐含信任改成显式选择。
+          </p>
+        </div>
+      </div>
+    </div>
+
+    <div class="reader-note" style="margin-top:24px;">
+      <b>这一段的真正教训不是「XLA 编译器有 bug」</b>，而是：
+      你以为 workaround 在修一个 bug，<i>它可能只是在掩盖另一个 bug</i>。
+      在没有真正搞清楚根因之前移除 workaround，往往会让被它掩盖的更深问题第一次露出来。
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 5: Why detection was hard ---------- -->
+<section class="block" id="detect">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">05 · 为什么早期检测这么慢</div>
+      <h2>评估钝化、隐私边界、症状混杂 —— 三股力量同时作用</h2>
+      <p class="section-sub">
+        Anthropic 的发布流程里有 benchmark、安全评估、性能监控、Spot Check、Canary 灰度。但在这次事故里，
+        这些手段集体失灵 —— 不是任何一道关卡彻底失效，而是它们<b>都不够灵敏，捕捉不到"用户真正感受到的下降"</b>。
+      </p>
+    </div>
+
+    <div class="detect-grid">
+      <div class="detect-card">
+        <div class="num">D1 · 评估太钝</div>
+        <h4>Eval 抓不到用户描述的那种"质量变差"</h4>
+        <p>
+          Claude 经常能从一次孤立的错误里<b>恢复回正常水平</b> ——
+          这让标准 benchmark 看上去「分数还行」，但用户在真实多轮对话里能感觉到不对。
+          这种钝化让团队对早期信号一直"半信半疑"。
+        </p>
+      </div>
+      <div class="detect-card">
+        <div class="num">D2 · 隐私边界</div>
+        <h4>工程师看不到引发问题的真实交互</h4>
+        <p>
+          Anthropic 的内部隐私和安全控制<b>限制工程师在何时何地查看用户与 Claude 的交互</b> ——
+          特别是当这些交互<em>没有作为反馈主动报上来</em>时。
+          这保护了隐私，但也让"找到能复现 bug 的样本"变得困难。
+        </p>
+      </div>
+      <div class="detect-card">
+        <div class="num">D3 · 症状混杂</div>
+        <h4>三个 bug 在不同平台、不同模型上以不同比例发作</h4>
+        <p>
+          每个 bug 表现都不一样，加上不同平台不同发生率 ——
+          整体看上去像是"<b>随机的、零星的质量下降</b>"，而不是某个具体改动出的问题。
+          反馈拼不出一个明确的原因。
+        </p>
+      </div>
+    </div>
+
+    <div class="article-copy" style="margin-top:30px;">
+      <p>
+        更深一层，团队过度依赖了"嘈杂的评估"。8 月 29 日负面反馈集中爆发那天，
+        他们当然注意到了，但<b>没有把它和当天那次「看起来很标准」的负载均衡变更联系起来</b> ——
+        这个变更在自己的指标看板上完全没出问题。
+      </p>
+      <p>
+        Anthropic 把这归结为「<i>缺少把社区反馈和具体内部变更对齐起来的机制</i>」。
+        换句话说，问题不是没人在看，而是没人能把外部信号和内部时间线对上。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 6: Changes ---------- -->
+<section class="block" id="changes">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">06 · 改进措施</div>
+      <h2>更敏感的评估、跑在真生产上的评估、能在隐私下做的 debug 工具</h2>
+      <p class="section-sub">
+        Anthropic 给出了三条具体改动方向。每一条都对应上一节的一个失灵点。
+      </p>
+    </div>
+
+    <div class="changes-grid">
+      <div class="change-card">
+        <div class="num">CHANGE 01</div>
+        <h4>更敏感的评估</h4>
+        <p>
+          已经做出能更可靠区分「实现正常 / 实现损坏」的新评估。
+          <b>会持续完善这些评估</b>来更紧密地盯模型质量 ——
+          补的就是「Claude 能从单次失败恢复，所以总体分数还行」这个盲区。
+        </p>
+      </div>
+      <div class="change-card">
+        <div class="num">CHANGE 02</div>
+        <h4>把质量评估搬到真生产环境</h4>
+        <p>
+          以前是在专门系统上跑。现在<b>会在真实生产系统上持续跑</b> ——
+          确保像「上下文窗口 + 负载均衡」这类组合错误能在<em>用户感知前</em>被指标抓住。
+        </p>
+      </div>
+      <div class="change-card">
+        <div class="num">CHANGE 03</div>
+        <h4>更快的、不牺牲隐私的 debug 工具</h4>
+        <p>
+          会开发新的基础设施和工具，<b>在不破坏用户隐私的前提下处理社区反馈</b>。
+          这次事故中临时打造的一些工具，未来事故里可以直接用来缩短定位时间。
+        </p>
+      </div>
+    </div>
+
+    <div class="closing-quote">
+      <div class="qtitle">closing thought</div>
+      <p>
+        评估和监控很重要，但<b>这场事故说明：在 Claude 表现不如平时时，我们也需要来自用户的<em style="font-style:italic">持续</em>信号</b>。
+        你们对具体变化的描述、不正常行为的样例、不同使用场景中观察到的模式 ——
+        都是我们这次定位问题的关键拼图。
+      </p>
+      <p>
+        在 Claude Code 里用 <b>/bug</b> 命令，或在 Claude 应用里点「踩」，都能直接把反馈送回给我们。
+        如果你做出了好玩的、能补充我们内部测试的评估方法，欢迎写信到 feedback@anthropic.com。
+      </p>
+      <p>— Anthropic Engineering · Sam McAllister 等</p>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Footer ---------- -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <h4>原文</h4>
+        <div class="footer-source">
+          <div class="footer-source-meta">
+            <strong>A postmortem of three recent issues</strong>
+            <div>Anthropic Engineering · 2025 年 9 月 17 日</div>
+          </div>
+          <a href="https://www.anthropic.com/engineering/a-postmortem-of-three-recent-issues" target="_blank" rel="noopener">
+            阅读原文
+            <svg viewBox="0 0 16 16" width="12" height="12" stroke="currentColor" fill="none" stroke-width="2"><path d="M3 13L13 3M13 3H6M13 3V10"/></svg>
+          </a>
+        </div>
+      </div>
+      <div class="about">
+        <h4>关于本页</h4>
+        <p>
+          一份配合阅读用的可视化，呈现原文的整体脉络：
+          <i>多平台部署 → 三 bug 时间叠加 → 各自展开 → XLA 一年期故事 → 评估盲区 → 改进措施</i>。
+          所有数字、时间、引用均来自原文。
+        </p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2025 · 可视化阅读 · 仅供学习</span>
+      <span style="font-family:'JetBrains Mono',monospace;">a-postmortem-of-three-recent-issues</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var cards = document.querySelectorAll('#bugsGrid .bug-card');
+  cards.forEach(function (card) {
+    var head = card.querySelector('.head');
+    head.addEventListener('click', function () {
+      card.classList.toggle('open');
+    });
+  });
+})();
+</script>
+
+</body>
+</html>

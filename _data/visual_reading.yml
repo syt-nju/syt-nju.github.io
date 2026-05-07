@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: anthropic-three-recent-issues
+    title: "三个 bug 同时撞在一起 · Anthropic 的 Claude 质量下降复盘"
+    date: 2026-05-07
+    source_type: blog
+    source_url: "https://www.anthropic.com/engineering/a-postmortem-of-three-recent-issues"
   - slug: anthropic-harness-design
     title: "Anthropic 怎么设计长程编码 Harness"
     date: 2026-05-06
