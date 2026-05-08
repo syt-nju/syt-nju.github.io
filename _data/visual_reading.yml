@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: hermes-agent-memory
+    title: "Hermes Agent 的记忆机制 · 双层结构与冻结快照"
+    date: 2026-05-08
+    source_type: blog
+    source_url: "https://github.com/NousResearch/hermes-agent"
   - slug: anthropic-skills
     title: "Anthropic Skills"
     date: 2026-05-08
