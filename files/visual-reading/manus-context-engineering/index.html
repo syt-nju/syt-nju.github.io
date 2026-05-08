@@ -1,0 +1,1715 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Manus 的上下文工程实战 · 可视化阅读</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #FBF6EA;
+    --bg-surface: #FFFFFF;
+    --bg-soft: #F5ECD8;
+    --bg-dark: #1A1816;
+    --bg-dark-2: #252220;
+    --text: #1A1816;
+    --text-muted: #6B6660;
+    --text-soft: #8C857B;
+    --text-invert: #F5F1E8;
+    --accent: #B86A3B;
+    --accent-hover: #9C5527;
+    --accent-soft: #F2DDC8;
+    --accent-deep: #6E3818;
+    --good-tone: #4F6B3A;
+    --good-soft: #E2EAD3;
+    --warn-tone: #B8860B;
+    --warn-soft: #F4E8C7;
+    --danger-tone: #A54737;
+    --danger-soft: #F0D6CE;
+    --border: #E8DCC7;
+    --border-strong: #D4C4A6;
+    --border-dark: #3A3633;
+    --shadow-sm: 0 1px 2px rgba(26, 24, 22, 0.04);
+    --shadow-md: 0 4px 14px rgba(26, 24, 22, 0.06);
+    --shadow-lg: 0 16px 40px rgba(26, 24, 22, 0.10);
+    --radius: 10px;
+    --radius-lg: 16px;
+    --radius-xl: 22px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-hover); }
+
+  .container { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- Top Bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(251, 246, 234, 0.85);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px; max-width: 1180px; margin: 0 auto; gap: 12px;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    font-weight: 700; font-size: 14.5px; letter-spacing: -0.005em;
+  }
+  .brand-logo {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: var(--bg-dark);
+    display: grid; place-items: center; color: var(--accent); font-size: 16px; font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .brand-text { color: var(--text); }
+  .brand-text small { color: var(--text-muted); font-weight: 500; font-size: 12px; margin-left: 8px; }
+  .topnav { display: flex; gap: 2px; align-items: center; flex-wrap: wrap; }
+  .topnav a {
+    padding: 7px 9px; border-radius: 8px;
+    color: var(--text-muted); font-size: 12.5px; font-weight: 500;
+    transition: color 0.15s, background 0.15s;
+    white-space: nowrap;
+  }
+  .topnav a:hover { color: var(--text); background: var(--accent-soft); }
+  .source-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; color: var(--text-muted); text-decoration: none;
+    padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border);
+    transition: all 0.15s; font-weight: 500; flex-shrink: 0;
+  }
+  .source-link:hover { border-color: var(--accent); color: var(--accent); }
+  .source-link svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 72px 0 44px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--accent); text-transform: uppercase;
+    background: var(--accent-soft); padding: 6px 14px; border-radius: 100px;
+    margin-bottom: 22px; font-family: 'JetBrains Mono', monospace;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  h1 {
+    font-size: clamp(34px, 5.2vw, 54px); line-height: 1.1; letter-spacing: -0.025em;
+    font-weight: 800; margin-bottom: 22px; max-width: 880px;
+  }
+  .hero-sub {
+    font-size: 19px; color: var(--text-muted); max-width: 760px; line-height: 1.6;
+    font-weight: 400;
+  }
+  .hero-meta {
+    display: flex; gap: 22px; margin-top: 28px; font-size: 13px; color: var(--text-muted);
+    flex-wrap: wrap; align-items: center;
+  }
+  .hero-meta span { display: inline-flex; align-items: center; gap: 7px; }
+  .hero-meta svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .hero-meta b { color: var(--text); font-weight: 600; }
+
+  /* TL;DR card */
+  .tldr {
+    margin-top: 48px; background: var(--bg-dark); color: var(--text-invert);
+    border-radius: var(--radius-xl); padding: 36px 40px;
+    box-shadow: var(--shadow-lg); position: relative; overflow: hidden;
+  }
+  .tldr::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent);
+  }
+  .tldr-title {
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 18px; font-family: 'JetBrains Mono', monospace;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .tldr-title::after {
+    content: ''; flex: 1; height: 1px; background: rgba(184, 106, 59, 0.25);
+  }
+  .tldr-text {
+    font-size: 19px; line-height: 1.65; color: var(--text-invert); font-weight: 400;
+  }
+  .tldr-text b { color: #E8AE7E; font-weight: 600; }
+  .tldr-text + .tldr-text { margin-top: 14px; font-size: 16px; color: #C8C0B3; }
+
+  /* ---------- Metric strip ---------- */
+  .metrics-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-top: 22px;
+  }
+  .metric {
+    background: var(--bg-dark-2); border-radius: 14px; padding: 22px 22px;
+    border: 1px solid var(--border-dark);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .metric-value {
+    font-size: 30px; font-weight: 800; letter-spacing: -0.02em;
+    color: #E8AE7E; line-height: 1; font-family: 'JetBrains Mono', monospace;
+  }
+  .metric-value small { font-size: 14px; font-weight: 500; color: #8C857B; margin-left: 4px; }
+  .metric-label {
+    font-size: 12px; color: #B3AB9F; line-height: 1.45; margin-top: 6px;
+  }
+  .reader-note {
+    margin-top: 24px;
+    padding: 18px 22px;
+    background: rgba(255, 255, 255, 0.62);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    color: var(--text-muted);
+    font-size: 14.5px;
+    line-height: 1.7;
+  }
+  .reader-note b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Section ---------- */
+  section.block { padding: 64px 0; border-top: 1px solid var(--border); }
+  .section-head { margin-bottom: 26px; max-width: 760px; }
+  .section-num {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--accent); font-weight: 600;
+    background: var(--accent-soft); padding: 5px 12px; border-radius: 100px;
+    margin-bottom: 16px;
+  }
+  h2 {
+    font-size: clamp(26px, 3.4vw, 36px); font-weight: 700; letter-spacing: -0.022em;
+    margin-bottom: 14px; line-height: 1.18;
+  }
+  h3 {
+    font-size: 19px; font-weight: 700; letter-spacing: -0.012em;
+    margin-bottom: 10px; line-height: 1.3;
+  }
+  .section-sub { color: var(--text-muted); font-size: 16.5px; line-height: 1.65; }
+  .section-sub b { color: var(--text); font-weight: 600; }
+  .article-copy {
+    max-width: 760px;
+    font-size: 17px;
+    line-height: 1.82;
+    color: var(--text);
+  }
+  .article-copy p + p { margin-top: 16px; }
+  .article-copy b { font-weight: 600; color: var(--text); }
+  .article-copy em { color: var(--text-muted); font-style: normal; }
+  .visual-bridge {
+    margin: 30px 0 14px;
+    max-width: 760px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  /* ---------- Quote / pull ---------- */
+  .pullquote {
+    margin: 28px 0;
+    padding: 24px 28px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: var(--radius-lg);
+    font-size: 17px;
+    line-height: 1.7;
+    color: var(--text);
+    max-width: 820px;
+  }
+  .pullquote .label {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  .pullquote em { font-style: italic; color: var(--text-muted); }
+
+  /* ---------- Section 01: SGD intro ---------- */
+  .sgd-panel {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px 34px;
+    box-shadow: var(--shadow-md);
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+  }
+  .sgd-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+  }
+  .sgd-card.dark {
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    border-color: var(--bg-dark);
+  }
+  .sgd-card .kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 12px;
+  }
+  .sgd-card.dark .kicker { color: #E8AE7E; }
+  .sgd-card h3 {
+    font-size: 20px;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
+    font-weight: 800;
+    margin-bottom: 10px;
+  }
+  .sgd-card.dark h3 { color: var(--text-invert); }
+  .sgd-card p {
+    color: var(--text-muted);
+    font-size: 14.5px;
+    line-height: 1.7;
+  }
+  .sgd-card.dark p { color: #C8C0B3; }
+  .sgd-card b { color: var(--text); font-weight: 600; }
+  .sgd-card.dark b { color: #E8AE7E; }
+  .sgd-arrow {
+    margin: 14px 0 0;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent);
+    letter-spacing: 0.04em;
+  }
+
+  /* ---------- Section 02: KV-cache ratio + cost bars ---------- */
+  .kv-stage {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+  }
+  .kv-stage h3 { margin-bottom: 6px; }
+  .kv-stage .hint {
+    color: var(--text-muted); font-size: 14px; margin-bottom: 22px;
+  }
+  .kv-ratio {
+    display: grid;
+    grid-template-columns: 90px minmax(0, 1fr) auto;
+    gap: 14px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .kv-ratio-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--text-muted);
+    text-align: right;
+  }
+  .kv-bar {
+    height: 30px;
+    border-radius: 8px;
+    background: var(--bg-soft);
+    position: relative;
+    overflow: hidden;
+  }
+  .kv-bar .fill {
+    height: 100%;
+    background: var(--accent);
+    min-width: 6px;
+    border-radius: 8px;
+  }
+  .kv-bar .fill.muted {
+    background: var(--text-soft);
+  }
+  .kv-ratio-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    white-space: nowrap;
+  }
+  .kv-ratio-tag b { color: var(--text); font-weight: 600; }
+  .kv-takeaway {
+    margin-top: 18px; padding: 16px 20px; background: var(--bg-soft);
+    border-radius: var(--radius); border-left: 3px solid var(--accent);
+    font-size: 14.5px; color: var(--text); line-height: 1.6;
+  }
+  .kv-takeaway b { color: var(--accent); }
+
+  .kv-cost-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 16px;
+    margin-top: 26px;
+  }
+  .kv-cost {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+    background: var(--bg);
+  }
+  .kv-cost .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+    letter-spacing: 0.06em;
+  }
+  .kv-cost .price {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    color: var(--text);
+  }
+  .kv-cost .price small { font-size: 13px; font-weight: 500; color: var(--text-muted); margin-left: 4px; }
+  .kv-cost.cached { border-color: var(--good-tone); background: var(--good-soft); }
+  .kv-cost.cached .price { color: var(--good-tone); }
+  .kv-cost.uncached { border-color: var(--danger-tone); background: var(--danger-soft); }
+  .kv-cost.uncached .price { color: var(--danger-tone); }
+  .kv-cost .note { font-size: 12.5px; color: var(--text-muted); margin-top: 6px; line-height: 1.5; }
+
+  /* Practice cards */
+  .practice-grid {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+  }
+  .practice-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px 22px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .practice-card .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+  }
+  .practice-card h4 {
+    font-size: 16px;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+    line-height: 1.3;
+  }
+  .practice-card p {
+    font-size: 13.5px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+  .practice-card .demo {
+    margin-top: auto;
+    padding: 12px 14px;
+    background: var(--bg);
+    border: 1px dashed var(--border-strong);
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  .practice-card .demo .bad { color: var(--danger-tone); text-decoration: line-through; opacity: 0.85; }
+  .practice-card .demo .good { color: var(--good-tone); }
+  .practice-card .demo .good::before { content: '✓ '; }
+  .practice-card .demo .bad::before { content: '✗ '; text-decoration: none; display: inline; }
+
+  /* ---------- Section 03: state machine + 3 modes ---------- */
+  .mask-stage {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+  }
+  .mask-stage h3 { margin-bottom: 18px; }
+  .mode-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+    margin-top: 8px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--bg);
+    font-size: 14px;
+  }
+  .mode-table th, .mode-table td {
+    text-align: left;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: top;
+  }
+  .mode-table tr:last-child td { border-bottom: none; }
+  .mode-table th {
+    background: var(--bg-soft);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .mode-table td b { color: var(--text); font-weight: 600; }
+  .mode-table td code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    background: var(--bg-soft);
+    padding: 2px 8px;
+    border-radius: 6px;
+    color: var(--accent-deep);
+  }
+  .mode-table tr.row-auto td:first-child { color: var(--text-soft); font-weight: 600; }
+  .mode-table tr.row-required td:first-child { color: var(--warn-tone); font-weight: 600; }
+  .mode-table tr.row-specified td:first-child { color: var(--accent); font-weight: 600; }
+
+  .prefix-demo {
+    margin-top: 22px;
+    padding: 22px 24px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+  .prefix-demo .lbl {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+    margin-bottom: 12px;
+  }
+  .prefix-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+  .prefix-row:last-child { margin-bottom: 0; }
+  .prefix-row .group {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+    background: var(--bg-surface);
+    color: var(--text-muted);
+  }
+  .prefix-row .group.shell { border-color: var(--good-tone); background: var(--good-soft); color: var(--good-tone); }
+  .prefix-row .group.browser { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  .prefix-row .group.file { border-color: var(--warn-tone); background: var(--warn-soft); color: var(--warn-tone); }
+  .prefix-row .group.masked {
+    text-decoration: line-through;
+    opacity: 0.55;
+    background: var(--bg-soft);
+    color: var(--text-soft);
+    border-color: var(--border);
+  }
+  .prefix-explain {
+    margin-top: 14px;
+    font-size: 13.5px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+  .prefix-explain b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Section 04: file system as context ---------- */
+  .fs-stage {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+  }
+  .fs-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+  }
+  .fs-col {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .fs-col h4 {
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+  }
+  .fs-col .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 4px 10px;
+    border-radius: 100px;
+    background: var(--bg-soft);
+    color: var(--text-muted);
+    align-self: flex-start;
+  }
+  .fs-col.context .badge { background: var(--danger-soft); color: var(--danger-tone); }
+  .fs-col.fs .badge { background: var(--good-soft); color: var(--good-tone); }
+  .fs-bullets {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: grid;
+    gap: 8px;
+  }
+  .fs-bullets li {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.55;
+    padding-left: 22px;
+    position: relative;
+  }
+  .fs-bullets li::before {
+    content: '·';
+    position: absolute;
+    left: 8px;
+    top: -2px;
+    color: var(--accent);
+    font-size: 22px;
+    font-weight: 800;
+  }
+  .fs-bullets li b { color: var(--text); font-weight: 600; }
+  .fs-flow {
+    margin-top: 22px;
+    padding: 20px 24px;
+    background: var(--bg);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius-lg);
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr;
+    gap: 14px;
+    align-items: stretch;
+  }
+  .fs-flow .step {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 16px;
+    font-size: 13px;
+    line-height: 1.55;
+  }
+  .fs-flow .step b { font-weight: 600; color: var(--text); }
+  .fs-flow .step code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--accent-deep);
+  }
+  .fs-flow .arrow {
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    align-self: center;
+    font-size: 18px;
+  }
+
+  /* ---------- Section 05: recitation timeline ---------- */
+  .recite-stage {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+  }
+  .recite-track {
+    position: relative;
+    padding: 24px 18px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+  }
+  .recite-axis {
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-soft);
+    margin-bottom: 14px;
+    letter-spacing: 0.04em;
+  }
+  .recite-bar {
+    height: 64px;
+    border-radius: 10px;
+    background: linear-gradient(90deg, var(--bg-soft) 0%, var(--bg-soft) 100%);
+    position: relative;
+    border: 1px solid var(--border);
+    overflow: hidden;
+  }
+  .recite-step {
+    position: absolute;
+    top: 8px;
+    bottom: 8px;
+    width: 36px;
+    border-radius: 6px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
+    display: grid;
+    place-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px;
+    color: var(--text-muted);
+  }
+  .recite-step.todo {
+    background: var(--accent);
+    color: white;
+    border-color: var(--accent);
+    font-weight: 700;
+  }
+  .recite-step.todo::after {
+    content: '';
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+    border-bottom: 6px solid var(--accent);
+  }
+  .recite-attention {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 14px;
+    background: linear-gradient(90deg,
+      rgba(184, 106, 59, 0.05) 0%,
+      rgba(184, 106, 59, 0.10) 50%,
+      rgba(184, 106, 59, 0.55) 100%);
+  }
+  .recite-axis-bottom {
+    margin-top: 8px;
+    display: flex;
+    justify-content: space-between;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-soft);
+  }
+  .recite-axis-bottom span:last-child { color: var(--accent); font-weight: 600; }
+
+  .todo-mock {
+    margin-top: 22px;
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13.5px;
+    line-height: 1.85;
+  }
+  .todo-mock .file {
+    font-size: 11px;
+    color: #8C857B;
+    margin-bottom: 12px;
+    letter-spacing: 0.06em;
+  }
+  .todo-mock .row { display: flex; align-items: baseline; gap: 8px; }
+  .todo-mock .row.done { color: #8C857B; text-decoration: line-through; }
+  .todo-mock .row.next { color: #E8AE7E; }
+  .todo-mock .row .check { color: var(--good-tone); font-weight: 700; }
+  .todo-mock .row.done .check { color: var(--good-tone); }
+  .todo-mock .row.next .check { color: #E8AE7E; }
+
+  /* ---------- Section 06: keep errors compare ---------- */
+  .err-stage {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .err-col {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 26px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .err-col.hide { border-top: 3px solid var(--danger-tone); }
+  .err-col.keep { border-top: 3px solid var(--good-tone); }
+  .err-col h4 {
+    font-size: 18px;
+    font-weight: 700;
+    letter-spacing: -0.005em;
+  }
+  .err-col .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .err-col.hide .tag { color: var(--danger-tone); }
+  .err-col.keep .tag { color: var(--good-tone); }
+  .trace {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.6;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    color: var(--text-muted);
+  }
+  .trace .step { display: block; margin: 0; }
+  .trace .step.ok::before { content: '› '; color: var(--good-tone); }
+  .trace .step.fail { color: var(--danger-tone); }
+  .trace .step.fail::before { content: '✗ '; color: var(--danger-tone); font-weight: 700; }
+  .trace .step.skip { color: var(--text-soft); font-style: italic; }
+  .trace .step.skip::before { content: '… '; color: var(--text-soft); }
+  .trace .step.retry::before { content: '↻ '; color: var(--warn-tone); }
+  .err-col .takeaway {
+    margin-top: auto;
+    padding: 14px 16px;
+    background: var(--bg);
+    border-radius: 10px;
+    font-size: 13.5px;
+    line-height: 1.6;
+    color: var(--text);
+  }
+  .err-col.hide .takeaway { border-left: 2px solid var(--danger-tone); }
+  .err-col.keep .takeaway { border-left: 2px solid var(--good-tone); }
+  .err-col .takeaway b { font-weight: 600; }
+
+  /* ---------- Section 07: pattern rut ---------- */
+  .rut-stage {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+  }
+  .rut-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+  }
+  .rut-col {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+  }
+  .rut-col h4 {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .rut-col .sub {
+    font-size: 13px;
+    color: var(--text-muted);
+    margin-bottom: 16px;
+    line-height: 1.55;
+  }
+  .resume-list { display: grid; gap: 6px; }
+  .resume-list .item {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    color: var(--text-muted);
+    display: flex;
+    justify-content: space-between;
+    gap: 10px;
+  }
+  .resume-list .item .verdict { color: var(--text-soft); }
+  .rut-col.bad .resume-list .item {
+    border-color: var(--border);
+  }
+  .rut-col.bad .resume-list .item .verdict { color: var(--warn-tone); font-weight: 600; }
+  .rut-col.good .resume-list .item .verdict { color: var(--good-tone); font-weight: 600; }
+  .rut-col.good .resume-list .item.alt {
+    background: var(--good-soft);
+    border-color: var(--good-tone);
+    color: var(--good-tone);
+  }
+  .rut-col .footnote {
+    margin-top: 14px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height: 1.55;
+  }
+  .rut-col .footnote b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Conclusion ---------- */
+  .takeaways {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 18px;
+  }
+  .takeaway {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 26px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .takeaway-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+  }
+  .takeaway-title {
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.3;
+    letter-spacing: -0.005em;
+  }
+  .takeaway-body {
+    font-size: 14px;
+    color: var(--text-muted);
+    line-height: 1.65;
+  }
+  .takeaway-body b { color: var(--text); font-weight: 600; }
+  .quote-block {
+    margin-top: 36px;
+    padding: 32px 36px;
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-lg);
+    position: relative;
+    overflow: hidden;
+  }
+  .quote-block::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+  }
+  .quote-text {
+    font-size: 20px;
+    line-height: 1.55;
+    font-weight: 500;
+    letter-spacing: -0.005em;
+  }
+  .quote-text b { color: #E8AE7E; font-weight: 600; }
+  .quote-attr {
+    margin-top: 16px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: #8C857B;
+    letter-spacing: 0.05em;
+  }
+
+  /* ---------- Footer ---------- */
+  .site-footer {
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    padding: 56px 0 28px;
+    margin-top: 64px;
+  }
+  .footer-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 44px;
+  }
+  .site-footer h4 {
+    font-size: 13px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #E8AE7E;
+    margin-bottom: 16px;
+  }
+  .footer-source {
+    background: var(--bg-dark-2);
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius-lg);
+    padding: 18px 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .footer-source-meta strong { display: block; font-size: 14.5px; color: var(--text-invert); margin-bottom: 4px; }
+  .footer-source-meta div { font-size: 12.5px; color: #8C857B; }
+  .footer-source a {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: #E8AE7E;
+    font-size: 13px;
+    font-weight: 500;
+    padding: 8px 14px;
+    border: 1px solid #E8AE7E;
+    border-radius: 100px;
+    transition: all 0.15s;
+  }
+  .footer-source a:hover {
+    background: #E8AE7E;
+    color: var(--bg-dark);
+  }
+  .footer-bottom {
+    margin-top: 36px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-dark);
+    display: flex;
+    justify-content: space-between;
+    color: #8C857B;
+    font-size: 12px;
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 880px) {
+    .topnav { display: none; }
+    .container { padding: 0 20px; }
+    .topbar-inner { padding: 12px 20px; }
+    .hero { padding: 48px 0 32px; }
+    .tldr { padding: 28px 24px; }
+    .metrics-row { grid-template-columns: 1fr 1fr; }
+    .sgd-panel { grid-template-columns: 1fr; }
+    .kv-cost-row { grid-template-columns: 1fr; }
+    .practice-grid { grid-template-columns: 1fr; }
+    .fs-grid { grid-template-columns: 1fr; }
+    .fs-flow { grid-template-columns: 1fr; }
+    .fs-flow .arrow { transform: rotate(90deg); justify-self: center; }
+    .err-stage { grid-template-columns: 1fr; }
+    .rut-grid { grid-template-columns: 1fr; }
+    .takeaways { grid-template-columns: 1fr; }
+    .footer-grid { grid-template-columns: 1fr; gap: 32px; }
+    .kv-stage, .mask-stage, .fs-stage, .recite-stage, .rut-stage { padding: 22px; }
+    h1 { font-size: 32px; }
+    .quote-text { font-size: 18px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ---------- Top Bar ---------- -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-logo">M</div>
+      <div class="brand-text">
+        Manus 上下文工程 <small>可视化阅读</small>
+      </div>
+    </div>
+    <nav class="topnav">
+      <a href="#bet">起点</a>
+      <a href="#kv">KV-Cache</a>
+      <a href="#mask">屏蔽工具</a>
+      <a href="#fs">文件系统</a>
+      <a href="#recite">复述</a>
+      <a href="#errors">留下错误</a>
+      <a href="#fewshot">破除套路</a>
+      <a href="#takeaway">收尾</a>
+    </nav>
+    <a class="source-link" href="https://medium.com/@peakji/context-engineering-for-ai-agents-lessons-from-building-manus-71883f0a67f2" target="_blank" rel="noopener">
+      <svg viewBox="0 0 16 16"><path d="M3 13L13 3M13 3H6M13 3V10"/></svg>
+      阅读原文
+    </a>
+  </div>
+</div>
+
+<!-- ---------- Hero ---------- -->
+<section class="hero">
+  <div class="container">
+    <div class="eyebrow"><span class="dot"></span>Yichao &lsquo;Peak&rsquo; Ji · Manus 联合创始人 · 2025 年 7 月 18 日</div>
+    <h1>Manus 的上下文工程实战 · 6 条来自重写 4 次 Agent 框架的经验</h1>
+    <p class="hero-sub">
+      不训模型、押注上下文工程，并不是一句口号。Manus 把 Agent 框架重写了 4 次，
+      每一次都是因为发现了「上下文该怎么塑形」更好的答案。这篇文章是他们承认的局部最优。
+    </p>
+    <div class="hero-meta">
+      <span><svg viewBox="0 0 16 16"><circle cx="8" cy="6" r="3"/><path d="M2 14c1-3 3-4 6-4s5 1 6 4"/></svg> 作者：<b>Yichao &lsquo;Peak&rsquo; Ji</b>，Manus 联合创始人</span>
+      <span><svg viewBox="0 0 16 16"><rect x="2" y="3" width="12" height="11" rx="1"/><path d="M2 6h12M5 1v3M11 1v3"/></svg> 发布于 2025 年 7 月 18 日</span>
+      <span><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg> 约 10 分钟阅读</span>
+    </div>
+
+    <div class="tldr">
+      <div class="tldr-title">TL;DR · 核心想法</div>
+      <p class="tldr-text">
+        如果模型进步是涨潮，<b>那 Manus 想做船，不做海底的柱子</b>。
+        所以他们不训模型，而是反复打磨上下文。这条路走下来，沉淀出 6 条围绕<b>缓存命中、注意力分配、外部记忆、错误证据</b>的经验。
+      </p>
+      <p class="tldr-text">
+        这些经验都不优雅 —— 作者称这套手工调参为<b>「Stochastic Graduate Descent」</b>。
+        但每一条都对应一个真实失败：缓存被破坏、动作空间膨胀、上下文被截断、注意力跑偏、错误被擦掉、套路化输出。
+      </p>
+
+      <div class="metrics-row">
+        <div class="metric">
+          <div class="metric-value">100<small>:1</small></div>
+          <div class="metric-label">Manus 平均的 input / output token 比 —— 缓存价值是 chatbot 场景的几十倍</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">10<small>×</small></div>
+          <div class="metric-label">Claude Sonnet 上 cached vs uncached 输入 token 的价格差</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">~50</div>
+          <div class="metric-label">一个典型任务里 Manus 平均会调用的工具次数</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">4<small>次</small></div>
+          <div class="metric-label">Manus 重写 Agent 框架的次数 —— 每次都因为找到更好的上下文塑形方法</div>
+        </div>
+      </div>
+      <div class="reader-note">
+        <b>阅读方式建议：</b>第 1 节是动机，剩下的 6 节是 6 条相对独立的经验，可以按顺序读，也可以挑你正在踩的坑跳读。
+        每一条都对应一个具体失败模式 + 一个反直觉的解法。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 01: The bet ---------- -->
+<section class="block" id="bet">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">01 · 起点</div>
+      <h2>不训模型，押注上下文：从 BERT 时代学到的痛苦教训</h2>
+      <p class="section-sub">
+        作者上一家创业用过老路：从零训模型做 open IE 和语义搜索。GPT-3 一出，自家模型一夜失效。
+        这次创业一开始就要决定：还是训一个端到端 agentic 模型，还是赌前沿模型的 in-context learning？
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        这条选择题不是哲学问题，而是节奏问题。BERT 时代，每加一个新任务都要 fine-tune + 评估，几周一个迭代周期。
+        对一个 pre-PMF 的产品，<b>这种反馈循环是致命的</b> —— 等你训完，需求和模型都已经变了。
+      </p>
+      <p>
+        作者的判断是：与其和底层模型耦合，不如让产品和模型解耦。GPT-3 / Flan-T5 这一代模型的真正意义，
+        并不只是更强，而是开启了 <b>in-context learning</b> 这条新路 ——
+        从此可以靠塑造上下文，而不是改权重，去让模型完成新任务。
+      </p>
+    </div>
+
+    <div class="sgd-panel">
+      <div class="sgd-card">
+        <div class="kicker">Decision · 一开始就拍板</div>
+        <h3>把 Manus 做成船，不做海底的柱子</h3>
+        <p>
+          模型进步是涨潮。如果产品是 pillar 钉死在某个具体模型上，潮水来了反而被拍碎。
+          <b>船</b>能跟着潮水起 —— 底层模型变强，产品立刻一起变强，不用重训。
+        </p>
+        <div class="sgd-arrow">→ 选择 context engineering，而不是 train end-to-end</div>
+      </div>
+      <div class="sgd-card dark">
+        <div class="kicker">Reality · 真做起来不优雅</div>
+        <h3>「随机研究生下降」 —— Stochastic Graduate Descent</h3>
+        <p>
+          上下文工程是<b>实验科学</b>。Manus 的 agent 框架被重写了 <b>4 次</b>，每次都是因为发现了一个更好的塑形方法。
+          这套手工架构搜索 + Prompt 调试 + 经验性瞎猜的过程，团队戏称为 SGD。
+        </p>
+        <div class="sgd-arrow">→ 不优雅，但能在小时级出迭代，而不是周级</div>
+      </div>
+    </div>
+
+    <div class="pullquote">
+      <span class="label">Author&rsquo;s framing</span>
+      模型可能越来越快、越来越强、越来越便宜，<em>但再多原始能力也替代不了对记忆、环境与反馈的精心设计</em>。
+      上下文怎么塑形，最终决定了你的 Agent 跑多快、容错多强、能扩到多大。
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 02: KV-Cache ---------- -->
+<section class="block" id="kv">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">02 · 围绕 KV-Cache 设计</div>
+      <h2>KV-cache 命中率，是生产 Agent 最该盯的单一指标</h2>
+      <p class="section-sub">
+        Agent 的输入会随每一步增长，但每一步的输出（一个结构化函数调用）几乎不变长。
+        这让 prefill / decode 的比例严重失衡 —— 缓存命中率因此对延迟和成本影响巨大。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        典型 Agent 的循环是这样：用户输入 → 模型选动作 → 执行 → 把动作和 observation 追加到上下文 → 进入下一轮。
+        在 Manus 上，每一轮平均的 <b>输入 / 输出 token 比是 100:1</b>。这意味着 prefill 才是真正的成本中心，
+        而 prefill 阶段的 KV-cache 几乎是免费午餐 —— <b>只要你的前缀稳定</b>。
+      </p>
+      <p>
+        前缀稳定本身又对设计提出了非常具体的约束：不能在系统 Prompt 顶部放精确到秒的时间戳；
+        不能让 JSON 序列化产生不稳定的 key 顺序；不能修改之前的 action / observation。
+        这三件事单看都很小，合起来就是「每一处不稳定都会从那 token 开始作废所有缓存」。
+      </p>
+    </div>
+
+    <div class="kv-stage">
+      <h3>Manus 上的 prefill / decode 极度失衡</h3>
+      <div class="hint">同一个任务里：上下文每步都在变长，但每步的结构化函数调用输出几乎是常数。</div>
+
+      <div class="kv-ratio">
+        <div class="kv-ratio-label">INPUT</div>
+        <div class="kv-bar"><div class="fill" style="width: 100%;"></div></div>
+        <div class="kv-ratio-tag"><b>≈ 100</b> tokens / 步 · 持续增长</div>
+      </div>
+      <div class="kv-ratio">
+        <div class="kv-ratio-label">OUTPUT</div>
+        <div class="kv-bar"><div class="fill muted" style="width: 1%;"></div></div>
+        <div class="kv-ratio-tag"><b>1</b> 个结构化函数调用 · 几乎是常数</div>
+      </div>
+
+      <div class="kv-takeaway">
+        <b>读法：</b>chatbot 场景里 input/output 接近 1:1，缓存收益有限；Agent 是 100:1，缓存命中率几乎决定单位成本。
+      </div>
+
+      <div class="kv-cost-row">
+        <div class="kv-cost cached">
+          <div class="tag">CACHED INPUT</div>
+          <div class="price">$0.30<small>/MTok</small></div>
+          <div class="note">命中前缀缓存的输入 token —— Claude Sonnet 报价。</div>
+        </div>
+        <div class="kv-cost uncached">
+          <div class="tag">UNCACHED INPUT</div>
+          <div class="price">$3.00<small>/MTok</small></div>
+          <div class="note">未命中缓存的输入 token —— 同样的内容，价格 10×。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="visual-bridge">三条具体做法</div>
+
+    <div class="practice-grid">
+      <div class="practice-card">
+        <div class="num">PRACTICE 01</div>
+        <h4>保持 Prompt 前缀稳定</h4>
+        <p>由于 LLM 是自回归的，<b>哪怕前缀里差一个 token，从那一处往后所有缓存都会作废</b>。最常见的踩坑是把精确到秒的时间戳放在系统 Prompt 顶部。</p>
+        <div class="demo">
+          <div class="bad">Now: 2025-07-18 14:23:08</div>
+          <div class="good">Now: 2025-07-18 14:00:00</div>
+        </div>
+      </div>
+      <div class="practice-card">
+        <div class="num">PRACTICE 02</div>
+        <h4>上下文 append-only</h4>
+        <p>不要回去改之前的 action 或 observation；并且<b>序列化必须是确定性的</b>。很多语言/库的 JSON 序列化不保证 key 顺序，会悄悄破坏缓存。</p>
+        <div class="demo">
+          <div class="bad">{&quot;b&quot;: 2, &quot;a&quot;: 1}</div>
+          <div class="good">{&quot;a&quot;: 1, &quot;b&quot;: 2}（固定 key 顺序）</div>
+        </div>
+      </div>
+      <div class="practice-card">
+        <div class="num">PRACTICE 03</div>
+        <h4>必要时显式标记 cache 断点</h4>
+        <p>有些 API（如 Claude）<b>不会自动判断「和上次共享前缀」</b>，需要你手动放一个 marker：「从开头到这里的 KV，请帮我存起来」。底线是放在<b>系统 Prompt 末尾</b> —— 因为它最大、最稳定、被所有请求共享。放再往后会把易变内容混进缓存，命中率反而降；还要顾及 TTL（Claude 默认 5 min），别把断点放在很久才被命中一次的位置。</p>
+        <div class="demo">
+          <div class="good">[system prompt] ‖ &lt;cache_break&gt; ‖ [history…]</div>
+          <div class="bad">[system prompt] ‖ [history] ‖ &lt;break&gt; ‖ [user]</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 03: Mask, Don't Remove ---------- -->
+<section class="block" id="mask">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">03 · 屏蔽，而不是移除</div>
+      <h2>动作空间膨胀时，用状态机 + logits mask，不要动态加减工具</h2>
+      <p class="section-sub">
+        随着 Agent 能力变多，工具数量会爆炸，尤其是有了 MCP 之后，用户会不可避免地塞进几百个奇怪的工具。
+        直觉上想做「按需加载工具」，但 Manus 的实验给出了一个反直觉的结论。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        动态增删工具有两个致命问题：第一，<b>工具定义通常排在上下文最前面</b>，一改就让后续所有 action / observation 的 KV-cache 失效；
+        第二，之前的轨迹里如果引用了已经被移除的工具，<b>没有 constrained decoding 的话，模型会产生 schema 违例或幻觉调用</b>。
+      </p>
+      <p>
+        Manus 的解法不是改工具集，而是改「能不能调用」。一个 context-aware 的状态机管理工具可用性，
+        在 decode 阶段直接对 token logits 做掩码，逻辑上「这一步只允许选 browser_* 开头的工具」。
+        这样工具定义不动，缓存不破，模型也不会被「之前提到过现在没有」的工具搞晕。
+      </p>
+    </div>
+
+    <div class="mask-stage">
+      <h3>三种函数调用模式 · 用 response prefill 来约束</h3>
+      <table class="mode-table">
+        <thead>
+          <tr><th>模式</th><th>语义</th><th>实现方式（以 Hermes 格式为例）</th></tr>
+        </thead>
+        <tbody>
+          <tr class="row-auto">
+            <td>Auto</td>
+            <td>模型可以选择调用工具，也可以不调用</td>
+            <td>只 prefill 回复前缀：<code>&lt;|im_start|&gt;assistant</code></td>
+          </tr>
+          <tr class="row-required">
+            <td>Required</td>
+            <td>必须调用工具，但不限制是哪个</td>
+            <td>prefill 到 tool call token：<code>&lt;|im_start|&gt;assistant &lt;tool_call&gt;</code></td>
+          </tr>
+          <tr class="row-specified">
+            <td>Specified</td>
+            <td>必须从某个特定子集里选工具</td>
+            <td>prefill 到函数名前缀：<code>{&quot;name&quot;: &quot;browser_</code></td>
+          </tr>
+        </tbody>
+      </table>
+
+      <div class="prefix-demo">
+        <div class="lbl">命名规范让「子集屏蔽」零成本</div>
+        <div class="prefix-row">
+          <span class="group browser">browser_open</span>
+          <span class="group browser">browser_click</span>
+          <span class="group browser">browser_scroll</span>
+          <span class="group shell">shell_run</span>
+          <span class="group shell">shell_kill</span>
+          <span class="group file">file_read</span>
+          <span class="group file">file_write</span>
+        </div>
+        <div class="prefix-row">
+          <span class="group browser">browser_open</span>
+          <span class="group browser">browser_click</span>
+          <span class="group browser">browser_scroll</span>
+          <span class="group masked">shell_run</span>
+          <span class="group masked">shell_kill</span>
+          <span class="group masked">file_read</span>
+          <span class="group masked">file_write</span>
+        </div>
+        <div class="prefix-explain">
+          所有浏览器工具都以 <b>browser_</b> 开头，所有命令行工具都以 <b>shell_</b> 开头。
+          要让 Agent 这一步只能挑浏览器工具？只需 prefill 到 <code>{&quot;name&quot;: &quot;browser_</code>，
+          剩下的 token logits 自动被命名前缀框死，<b>不需要为此实现一套有状态的 logits processor</b>。
+        </div>
+      </div>
+    </div>
+
+    <div class="pullquote">
+      <span class="label">Why this matters</span>
+      用户提供新输入时，Manus 必须立即回复，而不是又去调工具。这种「这一步该不该调工具、能调哪些工具」的策略，
+      <em>用 logits mask 做远比修改工具列表更稳</em> —— 它不破坏缓存，也不会让模型看到自己调用过的、现在却不存在的工具。
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 04: File system as context ---------- -->
+<section class="block" id="fs">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">04 · 把文件系统当作上下文</div>
+      <h2>128K context 不够用，不是因为太短，而是「不可压缩」是错的前提</h2>
+      <p class="section-sub">
+        即使有 128K 窗口，长任务里也常常不够用，并且会暴露三个问题：观察值过大、超长 context 性能下降、即便缓存也仍要为 prefill 付费。
+        激进截断或压缩会丢信息 —— 你没法预测 10 步后哪条 observation 会变关键。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        Manus 的解法是把<b>文件系统当作终极上下文</b>：尺寸无限、天然持久、Agent 自己可以读写。
+        模型把文件系统当成<b>结构化的外部记忆</b> —— 不再纠结要不要把整篇网页留在窗口里，而是按需写下、按需读回。
+      </p>
+      <p>
+        关键约束是：<b>压缩必须可恢复</b>。网页正文可以从上下文里删掉，只要 URL 还在；文档内容可以省略，
+        只要沙箱里的路径还在。这种「外部存档 + 句柄保留」的策略，让上下文长度变小却不至于让信息真的消失。
+      </p>
+      <p>
+        作者顺手抛出一个想法：如果 SSM（State Space Model）能学会把长程状态外化到文件系统，
+        它的速度优势可能让它成为 <em>Neural Turing Machine 真正的继承者</em>。
+      </p>
+    </div>
+
+    <div class="fs-stage">
+      <div class="fs-grid">
+        <div class="fs-col context">
+          <span class="badge">CONTEXT WINDOW</span>
+          <h4>把所有东西塞进上下文</h4>
+          <ul class="fs-bullets">
+            <li>观察值动辄几万 token，<b>一两次网页/PDF 就能撑爆 128K</b></li>
+            <li>哪怕窗口够长，超过某个阈值后<b>模型表现会退化</b></li>
+            <li>Prefix cache 也救不了 prefill 的传输和计算成本</li>
+            <li>主动截断 = 不可逆地丢信息，无法预测哪条会变重要</li>
+          </ul>
+        </div>
+        <div class="fs-col fs">
+          <span class="badge">FILE SYSTEM AS MEMORY</span>
+          <h4>把上下文卸载到文件，留下句柄</h4>
+          <ul class="fs-bullets">
+            <li>容量<b>不限</b>、<b>持久</b>、Agent 自己 read/write</li>
+            <li>只在<b>需要的时候</b>把内容拉回上下文</li>
+            <li>压缩要求<b>可恢复</b>：删正文，留 URL / 文件路径</li>
+            <li>对长程任务等价于 <em>externalized memory</em></li>
+          </ul>
+        </div>
+      </div>
+
+      <div class="fs-flow">
+        <div class="step">
+          <b>Step 1 · 看到长内容</b><br />
+          抓取 <code>https://...</code> 网页 / 大 PDF，原始正文几万 token。
+        </div>
+        <div class="arrow">→</div>
+        <div class="step">
+          <b>Step 2 · 落地存档</b><br />
+          内容写到 <code>/sandbox/page-12.md</code>，正文从上下文中移除。
+        </div>
+        <div class="arrow">→</div>
+        <div class="step">
+          <b>Step 3 · 句柄留在上下文</b><br />
+          只保留 URL + 文件路径。多步以后还能 <b>read_file</b> 把它取回来。
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 05: Recitation ---------- -->
+<section class="block" id="recite">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">05 · 通过复述操纵注意力</div>
+      <h2>Manus 写 todo.md 不是装可爱 —— 是让目标一直挨着上下文末尾</h2>
+      <p class="section-sub">
+        一个典型 Manus 任务平均 <b>50 次工具调用</b>。这是一个很长的循环，长到模型容易忘记最初的目标，或在中间走偏。
+        最便宜的对抗手段是「在输出末尾不断复述目标」 —— 让全局 plan 一直待在最近的注意力跨度里。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        长上下文的两个老问题是 <em>lost-in-the-middle</em> 和目标漂移。
+        每写一遍 todo.md，等于把任务目标重新挪到 context 的最末端 —— 模型最近的注意力会更倾向最末尾的 token。
+        这是<b>用自然语言给自己加注意力偏置</b>，不需要改任何架构。
+      </p>
+      <p>
+        这件事的好处是几乎免费：todo.md 是一个 plain text 文件，写它的成本很低，但它会让模型的下一步选择天然<b>对齐到当前任务</b>。
+      </p>
+    </div>
+
+    <div class="recite-stage">
+      <h3>注意力分布与 todo.md 复述</h3>
+      <div class="recite-axis">
+        <span>开始</span>
+        <span>第 50 次工具调用 →</span>
+      </div>
+      <div class="recite-track">
+        <div class="recite-bar">
+          <div class="recite-step todo" style="left: 1%;">init</div>
+          <div class="recite-step" style="left: 9%;">act</div>
+          <div class="recite-step" style="left: 15%;">obs</div>
+          <div class="recite-step todo" style="left: 22%;">todo</div>
+          <div class="recite-step" style="left: 30%;">act</div>
+          <div class="recite-step" style="left: 38%;">obs</div>
+          <div class="recite-step todo" style="left: 47%;">todo</div>
+          <div class="recite-step" style="left: 55%;">act</div>
+          <div class="recite-step" style="left: 63%;">obs</div>
+          <div class="recite-step todo" style="left: 72%;">todo</div>
+          <div class="recite-step" style="left: 81%;">act</div>
+          <div class="recite-step" style="left: 89%;">obs</div>
+          <div class="recite-attention"></div>
+        </div>
+        <div class="recite-axis-bottom">
+          <span>注意力衰减区（lost-in-the-middle）</span>
+          <span>近期注意力高地</span>
+        </div>
+      </div>
+
+      <div class="todo-mock">
+        <div class="file">/sandbox/todo.md · v0.7</div>
+        <div class="row done"><span class="check">[x]</span><span>读取用户提供的 PDF 并抽取关键章节</span></div>
+        <div class="row done"><span class="check">[x]</span><span>把每章总结成 200 字</span></div>
+        <div class="row done"><span class="check">[x]</span><span>检索 3 篇相关的对比论文</span></div>
+        <div class="row next"><span class="check">[&gt;]</span><span>把对比表格写入 report.md（当前正在做）</span></div>
+        <div class="row"><span class="check">[ ]</span><span>调用 chart 工具画指标曲线</span></div>
+        <div class="row"><span class="check">[ ]</span><span>把 report.md 转成 PDF 交付</span></div>
+      </div>
+    </div>
+
+    <div class="pullquote">
+      <span class="label">Mechanism</span>
+      复述不是给人看的 —— 是给模型自己看的。<em>每写一遍，就把全局目标挤到最近的注意力跨度里，自然降低跑偏概率</em>。
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 06: Keep the wrong stuff in ---------- -->
+<section class="block" id="errors">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">06 · 错的东西也要留在上下文里</div>
+      <h2>擦掉失败 = 抹去证据。模型从此再也学不会避开同一个坑</h2>
+      <p class="section-sub">
+        Agent 会犯错。这不是 bug，是常态：模型会幻觉、环境会报错、外部工具会抽风。
+        最常见的本能是「把这次失败擦掉、重置状态、调高 temperature 再试一次」 —— 这看起来更安全，但代价是模型永远学不到东西。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        让失败留在 context 里，是 Manus 实测中最有效的简单做法之一。当模型看到一次<b>失败的 action 和它产生的 observation / stack trace</b>，
+        它会隐式更新自己的内部信念：「这条路走不通」。下一次 sample 类似动作的概率会自然下降。
+      </p>
+      <p>
+        作者的判断更进一步：<b>错误恢复</b>本身就是真正 agentic 行为的最好指示器之一。
+        但这件事在学术 benchmark 里几乎没怎么被衡量 —— 那些 benchmark 大多在「理想条件下能不能完成」上打转。
+      </p>
+    </div>
+
+    <div class="err-stage">
+      <div class="err-col hide">
+        <div class="tag">PATTERN A · 擦掉失败</div>
+        <h4>看起来更干净，但模型再也不会变好</h4>
+        <div class="trace">
+          <span class="step ok">attempt browser_click(button=&apos;export&apos;)</span>
+          <span class="step skip">[trace cleaned · retry with higher temp]</span>
+          <span class="step ok">attempt browser_click(button=&apos;export&apos;)</span>
+          <span class="step skip">[trace cleaned · retry with higher temp]</span>
+          <span class="step ok">attempt browser_click(button=&apos;export&apos;)</span>
+        </div>
+        <div class="takeaway">
+          没有失败证据，模型的先验不变。<b>同一类错误会在第 4、第 5、第 N 次重新发生</b>，
+          直到上下文耗尽或人工介入。
+        </div>
+      </div>
+
+      <div class="err-col keep">
+        <div class="tag">PATTERN B · 留下失败</div>
+        <h4>难看，但下次不会再走这条死路</h4>
+        <div class="trace">
+          <span class="step ok">attempt browser_click(button=&apos;export&apos;)</span>
+          <span class="step fail">ElementNotInteractable: button is hidden</span>
+          <span class="step retry">try browser_scroll(to=&apos;bottom&apos;)</span>
+          <span class="step ok">browser_click(button=&apos;export&apos;) · success</span>
+        </div>
+        <div class="takeaway">
+          模型看到 stack trace，<b>下一次类似情形会先想到 scroll 再 click</b>。
+          错误恢复本身就是 agentic 行为最重要的特征。
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 07: Don't get few-shotted ---------- -->
+<section class="block" id="fewshot">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">07 · 别给自己 few-shot 进套子里</div>
+      <h2>语言模型很会模仿。一旦上下文里有套路，它就会一直套下去</h2>
+      <p class="section-sub">
+        Few-shot 是个好工具，但在 Agent 系统里会反咬一口：上下文里全是相似的「动作 + 观察」对，模型会继续按那个模式走，
+        哪怕已经不再合适。批量重复任务（比如审 20 份简历）最容易暴露这个问题。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        模型不是在「思考下一步」 —— 它是在<b>延续上下文里的模式</b>。
+        如果你让它审 20 份简历，前面 5 份都用同一种格式输出，它会沿着这个节奏一直走，
+        即便后面那几份并不适合用同样的方法处理。结果是漂移、过度泛化，甚至幻觉。
+      </p>
+      <p>
+        Manus 的对策是<b>有意制造结构化的多样性</b>：不同的序列化模板、措辞替换、顺序或格式上的轻噪声。
+        这不是为了好看，而是为了打破节奏，让模型重新认真看当前这条 input，而不是惯性输出。
+      </p>
+    </div>
+
+    <div class="rut-stage">
+      <div class="rut-grid">
+        <div class="rut-col bad">
+          <h4>Few-shot 进了套路</h4>
+          <p class="sub">前 4 份简历都用同一句式做出 PASS / REJECT 判断 —— 第 5 份开始模型不再认真读，直接套句式。</p>
+          <div class="resume-list">
+            <div class="item"><span>resume_01.pdf — &laquo;Strong Python background&raquo;</span><span class="verdict">PASS</span></div>
+            <div class="item"><span>resume_02.pdf — &laquo;Strong Python background&raquo;</span><span class="verdict">PASS</span></div>
+            <div class="item"><span>resume_03.pdf — &laquo;Strong Python background&raquo;</span><span class="verdict">PASS</span></div>
+            <div class="item"><span>resume_04.pdf — &laquo;Strong Python background&raquo;</span><span class="verdict">PASS</span></div>
+            <div class="item"><span>resume_05.pdf — 没读，直接套</span><span class="verdict">PASS</span></div>
+          </div>
+          <div class="footnote"><b>症状：</b>判断逐渐失真，模型不再被 input 的个体差异驱动。</div>
+        </div>
+        <div class="rut-col good">
+          <h4>引入受控的多样性</h4>
+          <p class="sub">每份简历换一种总结模板、换一种表达，<b>同一件事用不同方式说</b>，让模式无法稳定形成。</p>
+          <div class="resume-list">
+            <div class="item alt"><span>r1 · 重点列举 Python 项目经验</span><span class="verdict">PASS</span></div>
+            <div class="item alt"><span>r2 · 用 bullet 列亮点 / 风险点</span><span class="verdict">REJECT</span></div>
+            <div class="item alt"><span>r3 · 一句话摘要 + 1 个问题</span><span class="verdict">PASS</span></div>
+            <div class="item alt"><span>r4 · 优劣势对照表格</span><span class="verdict">PASS</span></div>
+            <div class="item alt"><span>r5 · JSON 摘要字段</span><span class="verdict">REJECT</span></div>
+          </div>
+          <div class="footnote"><b>原则：</b>在动作和 observation 里引入少量结构化扰动，足以让模型重新关注个体输入。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="pullquote">
+      <span class="label">Heuristic</span>
+      <em>越是上下文统一，Agent 越是脆弱</em>。在重复决策场景里，「制造多样性」和「保持稳定 KV-cache 前缀」并不矛盾 ——
+      变化的是 action / observation，不变的是系统 Prompt 和工具定义。
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 08: Conclusion ---------- -->
+<section class="block" id="takeaway">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">08 · 收尾</div>
+      <h2>Agent 的未来，是一段段精心设计的上下文</h2>
+      <p class="section-sub">
+        这 6 条经验不是普世真理，而是 Manus 在反复重写、走死路、面向千万级真实用户测试中沉淀下来的局部最优。
+        你不一定要照搬 —— 但如果它们能让你少踩一个坑，这篇文章就值了。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        作者在末尾承认：上下文工程仍然是一门年轻的实验科学，没有定理。
+        但对一个生产中的 Agent 系统来说，<b>它已经是必修课</b>。
+      </p>
+      <p>
+        模型可能会更快、更强、更便宜，但能力本身替代不了「记忆、环境与反馈」的设计。
+        上下文怎么塑形，决定了你的 Agent <b>跑多快、容错多强、扩到多大</b>。
+      </p>
+    </div>
+
+    <div class="takeaways">
+      <div class="takeaway">
+        <div class="takeaway-num">01 · 围绕缓存命中</div>
+        <div class="takeaway-title">把 prefix 当成圣物，把 append-only 当成戒律</div>
+        <div class="takeaway-body">
+          时间戳、工具列表的微小变动都会击穿缓存，<b>10× 成本差距就在一个 token 之间</b>。
+          再加上 deterministic 序列化和必要的 cache 断点。
+        </div>
+      </div>
+      <div class="takeaway">
+        <div class="takeaway-num">02 · 形状不动，能力可调</div>
+        <div class="takeaway-title">用状态机 + logits mask 控制工具空间</div>
+        <div class="takeaway-body">
+          不要动态加减工具。让 <b>browser_*</b> / <b>shell_*</b> 这样的命名前缀做天然分组，
+          靠 prefill 在 decode 阶段切换可用集合。
+        </div>
+      </div>
+      <div class="takeaway">
+        <div class="takeaway-num">03 · 上下文不是窗口</div>
+        <div class="takeaway-title">文件系统才是真正的长期记忆</div>
+        <div class="takeaway-body">
+          压缩必须可恢复。把内容卸载到文件，<b>只在上下文里留 URL / 路径句柄</b>，需要时再读回。
+        </div>
+      </div>
+      <div class="takeaway">
+        <div class="takeaway-num">04 · 注意力要被引导</div>
+        <div class="takeaway-title">复述目标，用 todo.md 把目标推到末尾</div>
+        <div class="takeaway-body">
+          长循环里 <em>lost-in-the-middle</em> 必然发生。
+          每隔几步把任务计划重写一次，<b>用自然语言给自己加注意力偏置</b>。
+        </div>
+      </div>
+      <div class="takeaway">
+        <div class="takeaway-num">05 · 错误是数据</div>
+        <div class="takeaway-title">不要擦掉失败 trace，让它出现在下一次 prompt 里</div>
+        <div class="takeaway-body">
+          失败的 stack trace 会改变模型的内部先验。<b>错误恢复</b>是最能区分真假 Agent 的指标，
+          却在大多数 benchmark 里被回避。
+        </div>
+      </div>
+      <div class="takeaway">
+        <div class="takeaway-num">06 · 警惕模式</div>
+        <div class="takeaway-title">在 action / observation 里加入受控的多样性</div>
+        <div class="takeaway-body">
+          上下文越统一，Agent 越脆弱。<b>同一件事换种说法</b>，是最便宜的去套路化手段。
+        </div>
+      </div>
+    </div>
+
+    <div class="quote-block">
+      <div class="quote-text">
+        Agentic future will be built one context at a time. <b>Engineer them well.</b><br />
+        <span style="font-size:15px; color:#C8C0B3; font-weight:400;">
+          Agent 的未来会一段一段上下文地堆出来。把每一段都好好设计。
+        </span>
+      </div>
+      <div class="quote-attr">— Yichao &lsquo;Peak&rsquo; Ji · Manus 联合创始人</div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Footer ---------- -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <h4>原文</h4>
+        <div class="footer-source">
+          <div class="footer-source-meta">
+            <strong>Context Engineering for AI Agents: Lessons from Building Manus</strong>
+            <div>Yichao &lsquo;Peak&rsquo; Ji · Medium · 2025 年 7 月 18 日 · 约 10 分钟阅读</div>
+          </div>
+          <a href="https://medium.com/@peakji/context-engineering-for-ai-agents-lessons-from-building-manus-71883f0a67f2" target="_blank" rel="noopener">
+            阅读原文
+            <svg viewBox="0 0 16 16" width="12" height="12" stroke="currentColor" fill="none" stroke-width="2"><path d="M3 13L13 3M13 3H6M13 3V10"/></svg>
+          </a>
+        </div>
+      </div>
+      <div>
+        <h4>关于本页</h4>
+        <p style="font-size:13.5px;color:#C8C0B3;line-height:1.6;">
+          一份配合阅读用的可视化，把原文 6 条经验串成一条线索：
+          <i>缓存命中 → 工具屏蔽 → 文件系统 → 注意力复述 → 留下错误 → 破除套路</i>。
+          所有数字、机制描述均来自原文，配图为辅助理解的示意。
+        </p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 · 可视化阅读 · 仅供学习</span>
+      <span style="font-family:'JetBrains Mono',monospace;">manus-context-engineering</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

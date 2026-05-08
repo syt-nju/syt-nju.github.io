@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: manus-context-engineering
+    title: "Manus 上下文工程 · 重写 4 次 Agent 框架的 6 条经验"
+    date: 2026-05-08
+    source_type: blog
+    source_url: "https://medium.com/@peakji/context-engineering-for-ai-agents-lessons-from-building-manus-71883f0a67f2"
   - slug: anthropic-effective-context-engineering
     title: "Context Engineering by Anthropic"
     date: 2026-05-07
