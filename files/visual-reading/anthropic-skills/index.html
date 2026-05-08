@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Agent Skills · 给通用 Agent 装上专业知识 · 可视化阅读</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #FBF6EA;
+    --bg-surface: #FFFFFF;
+    --bg-soft: #F5ECD8;
+    --bg-dark: #1A1816;
+    --bg-dark-2: #252220;
+    --text: #1A1816;
+    --text-muted: #6B6660;
+    --text-soft: #8C857B;
+    --text-invert: #F5F1E8;
+    --accent: #C04E2D;
+    --accent-hover: #A8401F;
+    --accent-soft: #F4DCD0;
+    --accent-deep: #7A2E16;
+    --tone-l1: #B8860B;
+    --tone-l1-soft: #F4E8C7;
+    --tone-l2: #2E5A6B;
+    --tone-l2-soft: #D8E4EA;
+    --tone-l3: #5A4A8C;
+    --tone-l3-soft: #E2DDEE;
+    --border: #E8DCC7;
+    --border-strong: #D4C4A6;
+    --border-dark: #3A3633;
+    --shadow-sm: 0 1px 2px rgba(26, 24, 22, 0.04);
+    --shadow-md: 0 4px 14px rgba(26, 24, 22, 0.06);
+    --shadow-lg: 0 16px 40px rgba(26, 24, 22, 0.10);
+    --radius: 10px;
+    --radius-lg: 16px;
+    --radius-xl: 22px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-hover); }
+
+  .container { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- Top Bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(251, 246, 234, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px; max-width: 1180px; margin: 0 auto;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    font-weight: 700; font-size: 14.5px; letter-spacing: -0.005em;
+  }
+  .brand-logo {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: var(--bg-dark);
+    display: grid; place-items: center; color: var(--accent); font-size: 16px; font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .brand-text { color: var(--text); }
+  .brand-text small { color: var(--text-muted); font-weight: 500; font-size: 12px; margin-left: 8px; }
+  .topnav { display: flex; gap: 4px; align-items: center; }
+  .topnav a {
+    padding: 7px 9px; border-radius: 8px;
+    color: var(--text-muted); font-size: 12.5px; font-weight: 500;
+    transition: color 0.15s, background 0.15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--accent-soft); }
+  .source-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; color: var(--text-muted); text-decoration: none;
+    padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border);
+    transition: all 0.15s; font-weight: 500;
+  }
+  .source-link:hover { border-color: var(--accent); color: var(--accent); }
+  .source-link svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 72px 0 44px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--accent); text-transform: uppercase;
+    background: var(--accent-soft); padding: 6px 14px; border-radius: 100px;
+    margin-bottom: 22px; font-family: 'JetBrains Mono', monospace;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  h1 {
+    font-size: clamp(34px, 5.2vw, 54px); line-height: 1.1; letter-spacing: -0.025em;
+    font-weight: 800; margin-bottom: 22px; max-width: 880px;
+  }
+  .hero-sub {
+    font-size: 19px; color: var(--text-muted); max-width: 720px; line-height: 1.6;
+    font-weight: 400;
+  }
+  .hero-meta {
+    display: flex; gap: 22px; margin-top: 28px; font-size: 13px; color: var(--text-muted);
+    flex-wrap: wrap; align-items: center;
+  }
+  .hero-meta span { display: inline-flex; align-items: center; gap: 7px; }
+  .hero-meta svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .hero-meta b { color: var(--text); font-weight: 600; }
+
+  .tldr {
+    margin-top: 48px; background: var(--bg-dark); color: var(--text-invert);
+    border-radius: var(--radius-xl); padding: 36px 40px;
+    box-shadow: var(--shadow-lg); position: relative; overflow: hidden;
+  }
+  .tldr::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent);
+  }
+  .tldr-title {
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 18px; font-family: 'JetBrains Mono', monospace;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .tldr-title::after {
+    content: ''; flex: 1; height: 1px; background: rgba(192, 78, 45, 0.2);
+  }
+  .tldr-text {
+    font-size: 19px; line-height: 1.65; color: var(--text-invert); font-weight: 400;
+  }
+  .tldr-text b { color: #F2A07A; font-weight: 600; }
+  .tldr-text + .tldr-text { margin-top: 14px; font-size: 16px; color: #C8C0B3; }
+
+  /* ---------- Section ---------- */
+  section.block { padding: 64px 0; border-top: 1px solid var(--border); }
+  .section-head { margin-bottom: 26px; max-width: 760px; }
+  .section-num {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--accent); font-weight: 600;
+    background: var(--accent-soft); padding: 5px 12px; border-radius: 100px;
+    margin-bottom: 16px;
+  }
+  h2 {
+    font-size: clamp(26px, 3.4vw, 36px); font-weight: 700; letter-spacing: -0.022em;
+    margin-bottom: 14px; line-height: 1.18;
+  }
+  h3 {
+    font-size: 19px; font-weight: 700; letter-spacing: -0.012em;
+    margin-bottom: 10px; line-height: 1.3;
+  }
+  .section-sub { color: var(--text-muted); font-size: 16.5px; line-height: 1.65; }
+  .section-sub b { color: var(--text); font-weight: 600; }
+  .article-copy {
+    max-width: 760px;
+    font-size: 17px;
+    line-height: 1.82;
+    color: var(--text);
+  }
+  .article-copy p + p { margin-top: 16px; }
+  .article-copy b { font-weight: 600; color: var(--text); }
+  .article-copy em { color: var(--text-muted); font-style: normal; }
+  .reader-note {
+    margin-top: 24px;
+    padding: 18px 22px;
+    background: rgba(255, 255, 255, 0.62);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    color: var(--text-muted);
+    font-size: 14.5px;
+    line-height: 1.7;
+  }
+  .reader-note b { color: var(--text); font-weight: 600; }
+  .visual-bridge {
+    margin: 30px 0 14px;
+    max-width: 760px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  /* ---------- Why panel (problem statement) ---------- */
+  .why-panel {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 30px 34px;
+    box-shadow: var(--shadow-md);
+  }
+  .why-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: stretch;
+  }
+  .why-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+  }
+  .why-card.solid {
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    border-color: var(--bg-dark);
+  }
+  .why-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 10px;
+  }
+  .why-card.solid .why-kicker { color: #F2A07A; }
+  .why-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; letter-spacing: -0.01em; }
+  .why-card.solid .why-title { color: var(--text-invert); }
+  .why-body { color: var(--text-muted); font-size: 14.5px; line-height: 1.7; }
+  .why-card.solid .why-body { color: #C8C0B3; }
+  .why-body b { color: var(--text); font-weight: 600; }
+  .why-card.solid .why-body b { color: #F2A07A; }
+
+  /* ---------- Anatomy: file tree ---------- */
+  .anatomy {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px 36px;
+    box-shadow: var(--shadow-md);
+    display: grid;
+    grid-template-columns: 1fr 1.05fr;
+    gap: 30px;
+    align-items: start;
+  }
+  .anatomy-tree {
+    background: var(--bg-dark);
+    border-radius: var(--radius-lg);
+    padding: 22px 22px 22px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13.5px;
+    line-height: 1.85;
+    color: #C8C0B3;
+  }
+  .tree-line { display: flex; align-items: baseline; gap: 8px; }
+  .tree-line .glyph { color: #6B6660; min-width: 30px; }
+  .tree-line .name { color: #F2A07A; font-weight: 600; }
+  .tree-line .ext { color: #A8A097; font-weight: 500; }
+  .tree-line .note { color: #8C857B; font-size: 11.5px; margin-left: auto; }
+  .tree-line.dim .name { color: #8C857B; }
+  .tree-line.root .name { color: var(--text-invert); }
+
+  .anatomy-explain h3 { margin-bottom: 14px; }
+  .anatomy-explain p { font-size: 14.5px; color: var(--text-muted); line-height: 1.72; }
+  .anatomy-explain p + p { margin-top: 12px; }
+  .anatomy-explain b { color: var(--text); font-weight: 600; }
+  .frontmatter-block {
+    margin-top: 18px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 12px;
+    padding: 16px 18px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.8;
+    color: var(--text);
+    white-space: pre;
+    overflow-x: auto;
+  }
+  .frontmatter-block .key { color: var(--accent-deep); font-weight: 600; }
+  .frontmatter-block .val { color: var(--text); }
+  .frontmatter-block .cm { color: var(--text-soft); }
+
+  /* ---------- Three-level progressive disclosure ---------- */
+  .levels {
+    margin-top: 32px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .level-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 22px;
+    align-items: stretch;
+  }
+  .level-tag {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    padding: 18px 10px;
+    border-radius: var(--radius-lg);
+    font-family: 'JetBrains Mono', monospace;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+  }
+  .level-tag .lvl-num {
+    font-size: 28px;
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: -0.02em;
+  }
+  .level-tag .lvl-lbl {
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .level-row.lv1 .level-tag { background: var(--tone-l1-soft); border-color: rgba(184,134,11,0.35); }
+  .level-row.lv1 .level-tag .lvl-num { color: var(--tone-l1); }
+  .level-row.lv2 .level-tag { background: var(--tone-l2-soft); border-color: rgba(46,90,107,0.32); }
+  .level-row.lv2 .level-tag .lvl-num { color: var(--tone-l2); }
+  .level-row.lv3 .level-tag { background: var(--tone-l3-soft); border-color: rgba(90,74,140,0.32); }
+  .level-row.lv3 .level-tag .lvl-num { color: var(--tone-l3); }
+
+  .level-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px 26px;
+    display: grid;
+    grid-template-columns: 1.4fr auto 0.9fr;
+    gap: 22px;
+    align-items: center;
+  }
+  .level-card .lvl-title {
+    font-size: 18px; font-weight: 700; letter-spacing: -0.01em; margin-bottom: 6px;
+  }
+  .level-card .lvl-desc {
+    font-size: 14px; color: var(--text-muted); line-height: 1.7;
+  }
+  .level-card .lvl-desc b { color: var(--text); font-weight: 600; }
+  .level-card .lvl-trigger {
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+    color: var(--text-soft); display: flex; flex-direction: column; gap: 4px;
+    text-align: center; padding: 0 6px; min-width: 120px;
+  }
+  .level-card .lvl-trigger .arrow { color: var(--accent); font-size: 18px; line-height: 1; }
+  .level-card .lvl-trigger b { color: var(--text); font-weight: 600; }
+  .level-card .lvl-cost {
+    text-align: right;
+    font-family: 'JetBrains Mono', monospace;
+    line-height: 1.4;
+  }
+  .level-card .lvl-cost .num {
+    font-size: 22px; font-weight: 800; letter-spacing: -0.015em; color: var(--text);
+  }
+  .level-card .lvl-cost .num small { font-size: 12px; font-weight: 500; color: var(--text-muted); margin-left: 3px; }
+  .level-card .lvl-cost .lbl {
+    font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; margin-top: 4px;
+  }
+  .level-row.lv1 .lvl-cost .num { color: var(--tone-l1); }
+  .level-row.lv2 .lvl-cost .num { color: var(--tone-l2); }
+  .level-row.lv3 .lvl-cost .num { color: var(--tone-l3); }
+
+  .levels-footnote {
+    margin-top: 18px;
+    padding: 16px 22px;
+    background: var(--accent-soft);
+    border-radius: var(--radius-lg);
+    border-left: 3px solid var(--accent);
+    color: var(--accent-deep);
+    font-size: 14px;
+    line-height: 1.7;
+  }
+  .levels-footnote b { font-weight: 700; }
+
+  /* ---------- Interactive context window walkthrough ---------- */
+  .walkthrough {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 30px 32px;
+    box-shadow: var(--shadow-md);
+  }
+  .wt-controls {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 22px;
+    flex-wrap: wrap;
+  }
+  .wt-step {
+    flex: 1; min-width: 180px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    border: 1px solid var(--border);
+    background: var(--bg);
+    cursor: pointer;
+    text-align: left;
+    transition: all 0.18s;
+    font-family: inherit;
+  }
+  .wt-step:hover { border-color: var(--border-strong); }
+  .wt-step.active {
+    background: var(--bg-dark);
+    border-color: var(--bg-dark);
+    color: var(--text-invert);
+    box-shadow: var(--shadow-md);
+  }
+  .wt-step .step-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.08em;
+    color: var(--accent); text-transform: uppercase; display: block; margin-bottom: 4px;
+  }
+  .wt-step.active .step-num { color: #F2A07A; }
+  .wt-step .step-label {
+    font-size: 14px; font-weight: 600; line-height: 1.4;
+  }
+  .wt-stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+    align-items: stretch;
+  }
+  .wt-narration {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 26px;
+  }
+  .wt-narration .narr-kicker {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent);
+    margin-bottom: 10px;
+  }
+  .wt-narration h4 { font-size: 18px; font-weight: 700; margin-bottom: 10px; line-height: 1.3; letter-spacing: -0.01em; }
+  .wt-narration p { font-size: 14px; line-height: 1.72; color: var(--text-muted); }
+  .wt-narration p + p { margin-top: 10px; }
+  .wt-narration b { color: var(--text); font-weight: 600; }
+  .wt-action {
+    margin-top: 14px; padding: 12px 14px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    color: var(--accent-deep);
+    line-height: 1.5;
+  }
+  .wt-action .arrow { color: var(--accent); font-weight: 700; margin-right: 4px; }
+
+  .wt-window {
+    background: var(--bg-dark);
+    border-radius: var(--radius-lg);
+    padding: 22px 22px 24px;
+    color: var(--text-invert);
+    display: flex; flex-direction: column;
+  }
+  .wt-window-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 14px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border-dark);
+  }
+  .wt-window-head .ttl {
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+    font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: #F2A07A;
+  }
+  .wt-window-head .tokens {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: #C8C0B3;
+  }
+  .wt-window-head .tokens b { color: #F2A07A; font-weight: 600; }
+  .ctx-stack {
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .ctx-block {
+    border-radius: 8px;
+    padding: 11px 14px;
+    background: var(--bg-dark-2);
+    border: 1px solid var(--border-dark);
+    font-size: 13px;
+    color: #C8C0B3;
+    line-height: 1.5;
+    transition: all 0.25s;
+  }
+  .ctx-block .ctx-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #8C857B;
+    display: block;
+    margin-bottom: 4px;
+  }
+  .ctx-block .ctx-body { color: #E0D8C8; font-size: 13px; }
+  .ctx-block .ctx-body code {
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: #F2A07A;
+    background: rgba(192, 78, 45, 0.12);
+    padding: 1px 6px; border-radius: 4px;
+  }
+  .ctx-block.system .ctx-tag { color: #B8860B; }
+  .ctx-block.metadata { background: rgba(184,134,11,0.10); border-color: rgba(184,134,11,0.32); }
+  .ctx-block.metadata .ctx-tag { color: #D4A841; }
+  .ctx-block.user .ctx-tag { color: #6BA4BB; }
+  .ctx-block.skill-md { background: rgba(46,90,107,0.18); border-color: rgba(107,164,187,0.42); }
+  .ctx-block.skill-md .ctx-tag { color: #6BA4BB; }
+  .ctx-block.bundled { background: rgba(90,74,140,0.20); border-color: rgba(140,120,190,0.42); }
+  .ctx-block.bundled .ctx-tag { color: #B0A0D8; }
+  .ctx-block.assistant .ctx-tag { color: #F2A07A; }
+  .ctx-block.assistant {
+    background: rgba(192,78,45,0.18); border-color: rgba(192,78,45,0.40);
+  }
+  .ctx-block.fresh {
+    animation: fadeIn 0.4s ease-out;
+  }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  /* ---------- Code execution panel ---------- */
+  .code-exec {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 30px 34px;
+    box-shadow: var(--shadow-md);
+  }
+  .code-vs {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 22px;
+    align-items: stretch;
+    margin-top: 8px;
+  }
+  .code-pane {
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+    border: 1px solid var(--border);
+  }
+  .code-pane.bad { background: var(--bg); }
+  .code-pane.good {
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    border-color: var(--bg-dark);
+  }
+  .code-pane h4 {
+    font-size: 15px; font-weight: 700;
+    letter-spacing: -0.005em; margin-bottom: 8px;
+  }
+  .code-pane.good h4 { color: var(--text-invert); }
+  .code-pane .pane-kicker {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 6px;
+  }
+  .code-pane.bad .pane-kicker { color: var(--text-muted); }
+  .code-pane.good .pane-kicker { color: #F2A07A; }
+  .code-pane p { font-size: 13.5px; line-height: 1.7; color: var(--text-muted); }
+  .code-pane.good p { color: #C8C0B3; }
+  .code-pane p + p { margin-top: 8px; }
+  .code-pane b { color: var(--text); font-weight: 600; }
+  .code-pane.good b { color: #F2A07A; }
+  .code-vs-arrow {
+    display: grid; place-items: center;
+    color: var(--accent); font-weight: 700;
+    font-family: 'JetBrains Mono', monospace; font-size: 22px;
+  }
+  .code-snippet {
+    margin-top: 12px;
+    background: var(--bg-dark-2);
+    border: 1px solid var(--border-dark);
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    line-height: 1.65;
+    color: #E0D8C8;
+    overflow-x: auto;
+    white-space: pre;
+  }
+  .code-snippet .kw { color: #C97FBA; }
+  .code-snippet .fn { color: #F2A07A; }
+  .code-snippet .str { color: #B6D7A8; }
+  .code-snippet .cm { color: #6B6660; }
+
+  /* ---------- Best practices cards ---------- */
+  .practice-grid {
+    margin-top: 30px;
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+  }
+  .practice {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+    cursor: pointer;
+    transition: border-color 0.18s, box-shadow 0.18s;
+  }
+  .practice:hover { border-color: var(--border-strong); box-shadow: var(--shadow-sm); }
+  .practice.open { border-color: var(--accent); box-shadow: var(--shadow-md); }
+  .practice-head {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 12px;
+  }
+  .practice-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent);
+  }
+  .practice-toggle {
+    font-family: 'JetBrains Mono', monospace; font-size: 14px; color: var(--text-muted);
+    transition: transform 0.2s;
+  }
+  .practice.open .practice-toggle { transform: rotate(45deg); color: var(--accent); }
+  .practice-title {
+    font-size: 17px; font-weight: 700; letter-spacing: -0.01em;
+    margin-top: 6px; line-height: 1.35;
+  }
+  .practice-summary {
+    font-size: 13.5px; color: var(--text-muted); margin-top: 6px; line-height: 1.6;
+  }
+  .practice-detail {
+    max-height: 0; overflow: hidden; transition: max-height 0.3s ease, margin-top 0.3s ease;
+    margin-top: 0;
+  }
+  .practice.open .practice-detail {
+    max-height: 360px; margin-top: 14px;
+  }
+  .practice-detail-inner {
+    padding: 14px 16px;
+    background: var(--bg);
+    border-radius: 10px;
+    border-left: 3px solid var(--accent);
+    font-size: 13.5px;
+    line-height: 1.72;
+    color: var(--text-muted);
+  }
+  .practice-detail-inner b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Security + Future ---------- */
+  .security-row {
+    margin-top: 26px;
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 22px;
+  }
+  .security-card,
+  .future-card {
+    border-radius: var(--radius-xl);
+    padding: 28px 30px;
+    box-shadow: var(--shadow-md);
+  }
+  .security-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--accent);
+  }
+  .future-card {
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    border: 1px solid var(--bg-dark);
+  }
+  .security-card h3, .future-card h3 {
+    font-size: 18px; margin-bottom: 12px;
+  }
+  .future-card h3 { color: var(--text-invert); }
+  .security-card .body, .future-card .body {
+    font-size: 14.5px; line-height: 1.72; color: var(--text-muted);
+  }
+  .future-card .body { color: #C8C0B3; }
+  .security-card .body b { color: var(--text); font-weight: 600; }
+  .future-card .body b { color: #F2A07A; font-weight: 600; }
+  .future-card ul, .security-card ul {
+    list-style: none; padding: 0; margin-top: 14px;
+    display: grid; gap: 10px;
+  }
+  .security-card li, .future-card li {
+    padding-left: 24px; position: relative; font-size: 14px; line-height: 1.65;
+  }
+  .security-card li::before {
+    content: ''; width: 8px; height: 8px; background: var(--accent);
+    border-radius: 2px; position: absolute; left: 4px; top: 8px;
+  }
+  .future-card li::before {
+    content: ''; width: 8px; height: 8px; background: #F2A07A;
+    border-radius: 2px; position: absolute; left: 4px; top: 8px;
+  }
+  .future-card li { color: #E0D8C8; }
+  .security-card li { color: var(--text); }
+
+  /* ---------- Footer ---------- */
+  .site-footer {
+    background: var(--bg-dark); color: var(--text-invert);
+    padding: 56px 0 30px; margin-top: 64px;
+  }
+  .footer-grid {
+    display: grid; grid-template-columns: 1.2fr 1fr; gap: 40px;
+    padding-bottom: 30px; border-bottom: 1px solid var(--border-dark);
+  }
+  .site-footer h4 {
+    font-size: 12px; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: #F2A07A; margin-bottom: 14px; font-family: 'JetBrains Mono', monospace;
+  }
+  .footer-source {
+    background: var(--bg-dark-2); border: 1px solid var(--border-dark);
+    border-radius: 14px; padding: 18px 22px;
+    display: flex; justify-content: space-between; align-items: center; gap: 18px;
+    flex-wrap: wrap;
+  }
+  .footer-source-meta strong {
+    display: block; color: var(--text-invert); font-size: 15px; margin-bottom: 4px;
+  }
+  .footer-source-meta div {
+    color: #C8C0B3; font-size: 13px;
+  }
+  .footer-source a {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: var(--accent); color: white;
+    padding: 9px 16px; border-radius: 8px;
+    font-size: 13px; font-weight: 600;
+    transition: background 0.15s;
+  }
+  .footer-source a:hover { background: var(--accent-hover); color: white; }
+  .footer-bottom {
+    display: flex; justify-content: space-between; padding-top: 22px;
+    color: #8C857B; font-size: 12px;
+    flex-wrap: wrap; gap: 10px;
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 880px) {
+    .container { padding: 0 18px; }
+    .topbar-inner { padding: 12px 16px; }
+    .topnav { display: none; }
+    .hero { padding: 48px 0 28px; }
+    .tldr { padding: 26px 24px; }
+    .why-grid,
+    .anatomy,
+    .wt-stage,
+    .code-vs,
+    .practice-grid,
+    .security-row,
+    .level-card,
+    .footer-grid {
+      grid-template-columns: 1fr !important;
+      gap: 14px;
+    }
+    .level-row { grid-template-columns: 1fr; }
+    .level-tag { flex-direction: row; padding: 12px 18px; justify-content: flex-start; gap: 14px; }
+    .level-tag .lvl-num { font-size: 22px; }
+    .code-vs-arrow { transform: rotate(90deg); padding: 6px 0; }
+    .level-card .lvl-cost { text-align: left; }
+    .anatomy { padding: 22px; }
+    .walkthrough { padding: 22px 18px; }
+    .wt-window-head { flex-direction: column; align-items: flex-start; gap: 6px; }
+    .wt-step { min-width: 0; }
+    section.block { padding: 44px 0; }
+    .footer-source { flex-direction: column; align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ---------- Top bar ---------- -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-logo">A</div>
+      <div class="brand-text">Agent Skills<small>· Anthropic Engineering</small></div>
+    </div>
+    <nav class="topnav">
+      <a href="#why">为什么需要</a>
+      <a href="#anatomy">长什么样</a>
+      <a href="#levels">渐进式披露</a>
+      <a href="#walkthrough">PDF 实例</a>
+      <a href="#code">代码执行</a>
+      <a href="#practice">怎么写</a>
+    </nav>
+    <a class="source-link" href="https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills" target="_blank" rel="noopener">
+      原文
+      <svg viewBox="0 0 16 16"><path d="M3 13L13 3M13 3H6M13 3V10"/></svg>
+    </a>
+  </div>
+</div>
+
+<!-- ---------- Hero ---------- -->
+<header class="hero">
+  <div class="container">
+    <div class="eyebrow"><span class="dot"></span>Engineering at Anthropic · 2025-10-16</div>
+    <h1>给通用 Agent 装上专业知识 · Agent Skills</h1>
+    <p class="hero-sub">
+      模型越来越强，但真实工作还需要程序性知识和组织上下文。Anthropic 用一种极简的格式回答这个问题：
+      一个文件夹、一份 <code style="font-family:'JetBrains Mono',monospace;background:var(--accent-soft);padding:1px 6px;border-radius:4px;color:var(--accent-deep);">SKILL.md</code>、加上按需加载的脚本和资源。
+    </p>
+    <div class="hero-meta">
+      <span><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l2.5 2.5"/></svg>阅读约 <b>10 分钟</b></span>
+      <span><svg viewBox="0 0 16 16"><path d="M2 4h12v8H2z"/><path d="M2 4l6 5 6-5"/></svg>作者 <b>Barry Zhang · Keith Lazuka · Mahesh Murag</b></span>
+      <span><svg viewBox="0 0 16 16"><path d="M3 8h10M8 3v10"/></svg>核心概念 <b>渐进式披露 · 文件即接口</b></span>
+    </div>
+
+    <div class="tldr">
+      <div class="tldr-title">TL;DR · 30 秒抓核心</div>
+      <p class="tldr-text">
+        <b>Skill = 一个带 SKILL.md 的文件夹</b>。SKILL.md 的 YAML 头里只放 <b>name</b> 和 <b>description</b>，
+        启动时会被加载进系统提示，作为所有 skill 的"目录"；正文和附带的脚本 / 文档，只有当 Claude 判断这个 skill 与当前任务相关时才会被读进上下文。
+      </p>
+      <p class="tldr-text">
+        关键设计是<b>渐进式披露</b>：上下文里始终只装"当前需要"的那部分，所以一个 skill 可以打包任意多的程序性知识，而不会撑爆 context window。
+        Skill 还可以包含可执行脚本，让 Claude 把那些"代码做更可靠"的事情交给确定性的代码去做。
+      </p>
+    </div>
+  </div>
+</header>
+
+<!-- ---------- Section 1 · Why ---------- -->
+<section class="block" id="why">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">01 · 起点</div>
+      <h2>为什么通用 Agent 还差最后一公里？</h2>
+      <p class="section-sub">
+        模型能在通用任务上表现很好，但落到具体团队、具体流程时，
+        总是缺少"那一份只有你才知道的程序性知识"。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        随着模型能力变强，我们已经可以构建在真实环境中独立行动的通用 Agent —— Claude Code 就是这样一个例子，它能借助本地代码执行和文件系统跨领域完成复杂任务。
+        但越是通用，越需要<b>可组合、可扩展、可移植的方式</b>把领域专家的知识喂给它。
+      </p>
+      <p>
+        Anthropic 的回答是 <b>Agent Skills</b>：把一份份程序性知识打包成"一个文件夹 + 一份 SKILL.md"的形式，让 Agent 在需要时自己去发现和加载。
+        作者把这件事比作<em>给新员工写入职指南</em> —— 你不会一次性塞所有制度给新人，而是先给一份目录，让他在遇到问题时再翻特定章节。
+      </p>
+    </div>
+
+    <div class="why-panel">
+      <div class="why-grid">
+        <div class="why-card">
+          <div class="why-kicker">不解决会怎样</div>
+          <div class="why-title">每个用例都得做一个定制 Agent</div>
+          <div class="why-body">
+            原本要为每个新场景重新搭一套提示、一套工具、一套上下文，结果是<b>碎片化的、互不兼容的 Agent 集合</b>，
+            团队的程序性知识既没沉淀也没复用。
+          </div>
+        </div>
+        <div class="why-card solid">
+          <div class="why-kicker">Skills 怎么解</div>
+          <div class="why-title">把"专家知识"做成可拼装的资源</div>
+          <div class="why-body">
+            任何人都能把一段流程、一份模板、一个脚本写成 skill，扔进文件夹。
+            通用 Agent 在需要时自己 <b>发现 → 加载 → 调用</b>，专业 Agent 由通用 Agent 加上一组合适的 skill 拼出来。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 2 · Anatomy ---------- -->
+<section class="block" id="anatomy">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">02 · 它长什么样</div>
+      <h2>一个 skill = 一个文件夹</h2>
+      <p class="section-sub">
+        最简形态：一个文件夹，里面有一份 <b>SKILL.md</b>，开头是一段 YAML frontmatter 描述这个 skill 的身份。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        文章中举了 Claude 文档编辑能力背后的 <b>PDF skill</b> 作为例子。Claude 本身已经知道很多关于 PDF 的事情，
+        但直接操作（比如<em>填表单</em>）还差一截。PDF skill 就是来补这部分能力的。
+      </p>
+      <p>
+        当一个 skill 的内容多到一份 SKILL.md 装不下，或某些章节只在特定场景才需要时，
+        就把它们拆成 <b>SKILL.md 旁边的附带文件</b>，在主文件里按名字引用。
+        Claude 只在真的需要时才去读那些附带文件。
+      </p>
+    </div>
+
+    <div class="anatomy">
+      <div class="anatomy-tree">
+        <div class="tree-line root"><span class="glyph">📁</span><span class="name">pdf/</span><span class="note">skill 目录</span></div>
+        <div class="tree-line"><span class="glyph">├─</span><span class="name">SKILL.md</span><span class="note">入口 · 主文件</span></div>
+        <div class="tree-line"><span class="glyph">├─</span><span class="name">reference</span><span class="ext">.md</span><span class="note">第三层 · 参考</span></div>
+        <div class="tree-line"><span class="glyph">├─</span><span class="name">forms</span><span class="ext">.md</span><span class="note">第三层 · 填表流程</span></div>
+        <div class="tree-line"><span class="glyph">└─</span><span class="name">scripts/</span><span class="note">可执行代码</span></div>
+        <div class="tree-line dim"><span class="glyph">&nbsp;&nbsp;&nbsp;└─</span><span class="name">extract_fields</span><span class="ext">.py</span><span class="note">读取 PDF 表单字段</span></div>
+      </div>
+
+      <div class="anatomy-explain">
+        <h3>SKILL.md 的开头是元数据</h3>
+        <p>
+          每个 SKILL.md 必须以 YAML frontmatter 开头，至少包含 <b>name</b> 和 <b>description</b>。
+          这两段会在 Agent 启动时被加载进系统提示，作为<b>「skill 目录」的索引</b>。
+        </p>
+        <p>
+          这个 description 写得好不好，直接决定 Claude 能不能在需要的时候联想到这个 skill。
+          作者特别强调：<em>把 name 和 description 当成触发条件来写</em>。
+        </p>
+
+        <div class="frontmatter-block"><span class="cm">---</span>
+<span class="key">name</span>: pdf
+<span class="key">description</span>: <span class="val">Read, fill, and edit PDF documents,
+    including form fields and signatures.</span>
+<span class="cm">---</span>
+
+# PDF Skill
+
+For form-filling workflows, see <span class="key">forms.md</span>.
+For low-level PDF spec details, see <span class="key">reference.md</span>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 3 · Three levels ---------- -->
+<section class="block" id="levels">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">03 · 核心机制</div>
+      <h2>渐进式披露 · 把上下文按需打开</h2>
+      <p class="section-sub">
+        从"目录"到"章节"再到"附录"，Claude 只读它当下需要的那一层 —— 这是 Skills 能做大、做多、做杂的根本原因。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        作者打了一个比喻：好的手册<b>从目录开始，再到具体章节，最后才是详细附录</b>。
+        渐进式披露就是把这套阅读节奏直接搬进了 Agent 的 context window。
+      </p>
+      <p>
+        一个 Agent 配了 <em>n</em> 个 skill，并不意味着上下文里要塞 <em>n</em> 份手册的全文。
+        实际上常驻的，只有每个 skill 的<b>一段元数据</b>。
+      </p>
+    </div>
+
+    <div class="visual-bridge">↓ 三层加载，token 成本逐层放大但只在需要时才支付</div>
+
+    <div class="levels">
+      <div class="level-row lv1">
+        <div class="level-tag">
+          <div class="lvl-num">L1</div>
+          <div class="lvl-lbl">Always</div>
+        </div>
+        <div class="level-card">
+          <div>
+            <div class="lvl-title">元数据（name + description）</div>
+            <div class="lvl-desc">
+              所有已安装 skill 的<b>名字</b>和<b>描述</b>，启动时就预载进系统提示。
+              它的作用是让 Claude "知道有哪些工具可用"。
+            </div>
+          </div>
+          <div class="lvl-trigger">
+            <div class="arrow">↓</div>
+            <div>触发条件</div>
+            <div><b>系统启动</b></div>
+          </div>
+          <div class="lvl-cost">
+            <div class="num">~30<small>tokens</small></div>
+            <div class="lbl">每个 skill</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="level-row lv2">
+        <div class="level-tag">
+          <div class="lvl-num">L2</div>
+          <div class="lvl-lbl">On match</div>
+        </div>
+        <div class="level-card">
+          <div>
+            <div class="lvl-title">SKILL.md 正文</div>
+            <div class="lvl-desc">
+              当 Claude 判断<b>这个 skill 与当前任务相关</b>，就读入完整 SKILL.md：
+              主流程、术语、关键约束、对其他附带文件的指引。
+            </div>
+          </div>
+          <div class="lvl-trigger">
+            <div class="arrow">↓</div>
+            <div>触发条件</div>
+            <div><b>任务匹配</b></div>
+          </div>
+          <div class="lvl-cost">
+            <div class="num">~5K<small>tokens</small></div>
+            <div class="lbl">读入一次</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="level-row lv3">
+        <div class="level-tag">
+          <div class="lvl-num">L3+</div>
+          <div class="lvl-lbl">As needed</div>
+        </div>
+        <div class="level-card">
+          <div>
+            <div class="lvl-title">附带文件 / 脚本（forms.md、reference.md、scripts/…）</div>
+            <div class="lvl-desc">
+              只在<b>真正用到</b>的时候才读 —— 比如要填表单时才打开 <code style="font-family:'JetBrains Mono',monospace;font-size:12.5px;background:var(--bg-soft);padding:1px 6px;border-radius:4px;">forms.md</code>。
+              脚本则可以"运行而不读"。
+            </div>
+          </div>
+          <div class="lvl-trigger">
+            <div class="arrow">↓</div>
+            <div>触发条件</div>
+            <div><b>子任务命中</b></div>
+          </div>
+          <div class="lvl-cost">
+            <div class="num">∞<small></small></div>
+            <div class="lbl">理论无上限</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="levels-footnote">
+      <b>关键含义：</b>因为有"代码执行 + 文件系统"两件套，Agent 不必把整个 skill 读进 context window。
+      所以一个 skill 能打包的程序性知识量，<b>实际上是无界的</b>。
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 4 · PDF Walkthrough (Interactive) ---------- -->
+<section class="block" id="walkthrough">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">04 · 走一遍 PDF 例子</div>
+      <h2>四步看懂 context window 怎么变化</h2>
+      <p class="section-sub">
+        点上方任意一步，看看用户问"帮我填这份 PDF"时，Claude 的上下文是怎么<b>逐层打开</b>的。
+      </p>
+    </div>
+
+    <div class="walkthrough">
+      <div class="wt-controls" id="wtControls">
+        <button class="wt-step active" data-step="1">
+          <span class="step-num">Step 01</span>
+          <span class="step-label">用户提问 · 仅有元数据</span>
+        </button>
+        <button class="wt-step" data-step="2">
+          <span class="step-num">Step 02</span>
+          <span class="step-label">触发 skill · 读 SKILL.md</span>
+        </button>
+        <button class="wt-step" data-step="3">
+          <span class="step-num">Step 03</span>
+          <span class="step-label">填表场景 · 读 forms.md</span>
+        </button>
+        <button class="wt-step" data-step="4">
+          <span class="step-num">Step 04</span>
+          <span class="step-label">执行任务 · 调用脚本</span>
+        </button>
+      </div>
+
+      <div class="wt-stage">
+        <div class="wt-narration" id="wtNarration">
+          <!-- Filled by JS -->
+        </div>
+
+        <div class="wt-window">
+          <div class="wt-window-head">
+            <div class="ttl">Context Window</div>
+            <div class="tokens">大约 <b id="wtTokens">~3.2K</b> tokens 占用</div>
+          </div>
+          <div class="ctx-stack" id="ctxStack">
+            <!-- Filled by JS -->
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="reader-note" style="max-width:none;">
+      四步走完之后回头看：用户那句"帮我填这份 PDF"<b>触发了一系列由小到大的加载</b>。
+      只有最相关的部分进了上下文，附带文件按需打开，最重的活（解析 PDF 字段）甚至全程没进上下文 ——
+      它在沙盒里跑，只把结果回来。这就是"渐进式披露 + 代码执行"放在一起的威力。
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 5 · Code execution ---------- -->
+<section class="block" id="code">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">05 · 不只是文档</div>
+      <h2>Skill 也可以打包代码 · 让模型把"该用代码做的事"交给代码</h2>
+      <p class="section-sub">
+        大模型擅长的事很多，但<b>排序、解析二进制、读取 PDF 字段</b>这种事，
+        让模型一个 token 一个 token 地生成既慢又贵，还不一定对。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        在 PDF skill 里，Anthropic 预先写了一段 Python 脚本，用来读取 PDF 并提取所有表单字段。
+        Claude 可以直接<b>运行这个脚本</b>，<em>既不用把脚本读进上下文，也不用把 PDF 读进上下文</em>。
+        因为代码是确定性的，这个流程稳定可重复 —— 这是任何 token 生成都给不了的保证。
+      </p>
+    </div>
+
+    <div class="code-exec">
+      <div class="code-vs">
+        <div class="code-pane bad">
+          <div class="pane-kicker">如果让模型自己做</div>
+          <h4>用 token 生成"硬解析"PDF</h4>
+          <p>
+            把整份 PDF 塞进上下文，让模型一格一格地"看"出哪里是字段、哪里是签名位 ——
+            <b>慢、贵、还可能漏</b>。
+          </p>
+          <p>对每一份新 PDF 都要重来一次。</p>
+        </div>
+
+        <div class="code-vs-arrow">→</div>
+
+        <div class="code-pane good">
+          <div class="pane-kicker">Skill 里打包好的脚本</div>
+          <h4>调用 extract_fields.py</h4>
+          <p>
+            Claude 看到 SKILL.md 里写的"用 <b>extract_fields.py</b> 读取字段"，
+            直接 bash 调用脚本，<b>只有结果（字段列表）回到上下文</b>。
+          </p>
+          <div class="code-snippet"><span class="cm"># inside Claude's bash tool</span>
+$ <span class="fn">python</span> pdf/scripts/extract_fields.py form.pdf
+<span class="str">[{"name": "applicant_name", "type": "text"},</span>
+<span class="str"> {"name": "signature", "type": "signature"}]</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 6 · Best practices ---------- -->
+<section class="block" id="practice">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">06 · 怎么写一个好 skill</div>
+      <h2>四条作者亲口讲的实操经验</h2>
+      <p class="section-sub">
+        点开任一卡片，看看它对应的具体做法。
+      </p>
+    </div>
+
+    <div class="practice-grid" id="practiceGrid">
+      <div class="practice">
+        <div class="practice-head">
+          <div class="practice-num">01 · 起点</div>
+          <div class="practice-toggle">+</div>
+        </div>
+        <div class="practice-title">从评测开始，而不是从写文档开始</div>
+        <div class="practice-summary">先在真实任务上跑一遍 Agent，看它在哪儿卡住，再针对性地补 skill。</div>
+        <div class="practice-detail">
+          <div class="practice-detail-inner">
+            找到具体的能力缺口才能写出有用的 skill。空想"它可能需要什么"很容易写出大而无当的 skill，
+            最后既触发不准，<b>也没人愿意维护</b>。
+          </div>
+        </div>
+      </div>
+
+      <div class="practice">
+        <div class="practice-head">
+          <div class="practice-num">02 · 规模化</div>
+          <div class="practice-toggle">+</div>
+        </div>
+        <div class="practice-title">SKILL.md 撑不下时，立刻拆文件</div>
+        <div class="practice-summary">把互斥或低频路径拆成附带文件，主文件保持轻盈、token 友好。</div>
+        <div class="practice-detail">
+          <div class="practice-detail-inner">
+            如果两条路径几乎不会同时被用到（例如<em>解析 PDF</em> vs <em>填表</em>），就拆开。
+            另外，<b>代码既可以是工具也可以是文档</b> —— 在 SKILL.md 里说清楚是"运行它"还是"读它"。
+          </div>
+        </div>
+      </div>
+
+      <div class="practice">
+        <div class="practice-head">
+          <div class="practice-num">03 · 视角</div>
+          <div class="practice-toggle">+</div>
+        </div>
+        <div class="practice-title">站在 Claude 的角度看 skill 怎么被用</div>
+        <div class="practice-summary">观察真实 trace，重点看 name / description 是不是能精准触发。</div>
+        <div class="practice-detail">
+          <div class="practice-detail-inner">
+            真实使用时它走错了哪条路？过度依赖了哪段上下文？回过头去改 skill。
+            <b>name 和 description 是触发开关</b>，写不好的话整个 skill 都不会被叫起来。
+          </div>
+        </div>
+      </div>
+
+      <div class="practice">
+        <div class="practice-head">
+          <div class="practice-num">04 · 协同</div>
+          <div class="practice-toggle">+</div>
+        </div>
+        <div class="practice-title">和 Claude 一起迭代 skill</div>
+        <div class="practice-summary">让模型自己复盘哪里走偏，把成功路径沉淀回 skill 里。</div>
+        <div class="practice-detail">
+          <div class="practice-detail-inner">
+            做完一个任务，让 Claude 把"这次哪里做对、哪里走弯路"反思总结成可复用的 skill 内容。
+            这比你提前预测它"需要什么上下文"靠谱得多 —— <b>真实需要由真实使用揭示</b>。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 7 · Security + Future ---------- -->
+<section class="block" id="future">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">07 · 风险 & 未来</div>
+      <h2>它强大也意味着它危险 · 它简单也意味着它能长出更多</h2>
+      <p class="section-sub">
+        Skill 给 Claude 注入的是"指令 + 代码"，所以它能放大能力，也能放大恶意。
+        但同样因为格式简单，它有非常大的演化空间。
+      </p>
+    </div>
+
+    <div class="security-row">
+      <div class="security-card">
+        <h3>装载之前，先审计</h3>
+        <div class="body">
+          恶意 skill 可能往运行环境里塞漏洞，或<b>引导 Claude 把数据外发</b>，做出预期之外的动作。
+        </div>
+        <ul>
+          <li>只装来自<b>可信来源</b>的 skill。</li>
+          <li>来自非完全可信来源时，<b>逐文件审一遍</b>：注意代码依赖、附带的图片或脚本。</li>
+          <li>特别留意"指示 Claude 连接外部网络"的指令或代码。</li>
+        </ul>
+      </div>
+
+      <div class="future-card">
+        <h3>Skills 接下来会去哪</h3>
+        <div class="body">
+          目前 Claude.ai、Claude Code、Claude Agent SDK、Developer Platform 都已经支持。
+        </div>
+        <ul>
+          <li>持续完善<b>创建 / 编辑 / 发现 / 分享</b>的全生命周期工具。</li>
+          <li>探索 Skills 与 <b>MCP server</b> 的互补关系：用 skill 教更复杂的工作流。</li>
+          <li>更长远：让 Agent <b>自己创建、编辑、评估 skill</b>，把行为模式沉淀成可复用能力。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="article-copy" style="margin-top:32px;">
+      <p>
+        Skills 是一个简单的概念，对应的是一个同样简单的格式。
+        正是这种简单，让组织、开发者和最终用户都能<b>定制自己的 Agent，赋予新能力</b>。
+        作者最后一句话很克制：<em>Skills 一开始只是给文件夹的人写的；接下来轮到 Agent 自己来写文件夹了。</em>
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Footer ---------- -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <h4>原文</h4>
+        <div class="footer-source">
+          <div class="footer-source-meta">
+            <strong>Equipping agents for the real world with Agent Skills</strong>
+            <div>Barry Zhang · Keith Lazuka · Mahesh Murag · Engineering at Anthropic · 2025-10-16</div>
+          </div>
+          <a href="https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills" target="_blank" rel="noopener">
+            阅读原文
+            <svg viewBox="0 0 16 16" width="12" height="12" stroke="currentColor" fill="none" stroke-width="2"><path d="M3 13L13 3M13 3H6M13 3V10"/></svg>
+          </a>
+        </div>
+      </div>
+      <div>
+        <h4>关于本页</h4>
+        <p style="font-size:13.5px;color:#C8C0B3;line-height:1.6;">
+          一份配合阅读用的可视化，呈现的是原文的核心脉络：
+          <i>问题 → skill 长什么样 → 渐进式披露 → PDF 实例 → 代码执行 → 最佳实践 → 未来</i>。
+          所有概念、引用、数字均来自原文。
+        </p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 · 可视化阅读 · 仅供学习</span>
+      <span style="font-family:'JetBrains Mono',monospace;">equipping-agents-for-the-real-world-with-agent-skills</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  // ---------- 1. Practice cards expand/collapse ----------
+  const practices = document.querySelectorAll('#practiceGrid .practice');
+  practices.forEach(function (p) {
+    p.addEventListener('click', function () {
+      p.classList.toggle('open');
+    });
+  });
+
+  // ---------- 2. Walkthrough state ----------
+  const STEPS = {
+    1: {
+      tokens: '~3.2K',
+      narration: {
+        kicker: 'Step 01 · 起点',
+        title: '只有元数据 + 用户问题',
+        body: [
+          '系统启动时，所有已安装 skill 的 <b>name</b> 和 <b>description</b> 已经加载到系统提示里。',
+          '此刻用户输入一句话「帮我填这份 PDF 表单」。Claude 的上下文里还没有任何 skill 正文。'
+        ],
+        action: '— Claude 检索元数据中，匹配到 「pdf」 skill 的 description'
+      },
+      blocks: [
+        { cls: 'system', tag: 'System Prompt · 核心', body: 'Claude 的通用工作指令、工具集说明。' },
+        { cls: 'metadata', tag: 'Skills 索引 · 仅元数据', body: '<code>pdf</code>: read, fill, edit PDF documents…<br/><code>excel</code>: parse and edit spreadsheets…<br/><code>docx</code>: read and modify Word documents…' },
+        { cls: 'user', tag: 'User Message', body: '"帮我把这份 PDF 表单填好，姓名写「张三」、签名占位先空着。"' }
+      ]
+    },
+    2: {
+      tokens: '~8.4K',
+      narration: {
+        kicker: 'Step 02 · 触发',
+        title: 'Claude 主动读 pdf/SKILL.md',
+        body: [
+          'Claude 判断「pdf」skill 与本次任务相关，调用 bash 工具读取 <code>pdf/SKILL.md</code>。',
+          'SKILL.md 的正文进入上下文，里面包含：主流程、术语、以及对 <b>forms.md / reference.md / scripts/ 的引用</b>。'
+        ],
+        action: '$ cat pdf/SKILL.md   →  正文加载完成'
+      },
+      blocks: [
+        { cls: 'system', tag: 'System Prompt · 核心', body: 'Claude 的通用工作指令、工具集说明。' },
+        { cls: 'metadata', tag: 'Skills 索引 · 仅元数据', body: '<code>pdf</code>: read, fill, edit PDF documents…<br/><code>excel</code>: parse and edit spreadsheets…<br/><code>docx</code>: read and modify Word documents…' },
+        { cls: 'user', tag: 'User Message', body: '"帮我把这份 PDF 表单填好，姓名写「张三」、签名占位先空着。"' },
+        { cls: 'assistant', tag: 'Tool Call · bash', body: '<code>cat pdf/SKILL.md</code>' },
+        { cls: 'skill-md fresh', tag: 'pdf/SKILL.md · 正文', body: '"PDF Skill — 主流程概览。要填表单请见 forms.md；要读取 PDF 内部结构请见 reference.md；提取字段可用 scripts/extract_fields.py。"' }
+      ]
+    },
+    3: {
+      tokens: '~12.1K',
+      narration: {
+        kicker: 'Step 03 · 子任务',
+        title: '需要填表单 · 加载 forms.md',
+        body: [
+          'SKILL.md 里说"填表请看 forms.md"。Claude 现在确实要填表，于是又一次主动读 <code>pdf/forms.md</code>。',
+          '<b>注意：reference.md 没有被读</b>。这次任务用不到 PDF 底层规范，作者把它单独拆出去就是为了避免占用 token。'
+        ],
+        action: '$ cat pdf/forms.md  →  填表流程加载完成'
+      },
+      blocks: [
+        { cls: 'system', tag: 'System Prompt · 核心', body: 'Claude 的通用工作指令、工具集说明。' },
+        { cls: 'metadata', tag: 'Skills 索引 · 仅元数据', body: '<code>pdf</code>, <code>excel</code>, <code>docx</code> …' },
+        { cls: 'user', tag: 'User Message', body: '"帮我把这份 PDF 表单填好…"' },
+        { cls: 'skill-md', tag: 'pdf/SKILL.md · 正文', body: '主流程 + 对 forms.md / reference.md / scripts 的引用。' },
+        { cls: 'assistant', tag: 'Tool Call · bash', body: '<code>cat pdf/forms.md</code>' },
+        { cls: 'bundled fresh', tag: 'pdf/forms.md · 仅在填表时加载', body: '"填表流程：1. 用 extract_fields.py 拿到字段列表；2. 按字段 id 写值；3. 用 fill_form.py 输出新 PDF。"' }
+      ]
+    },
+    4: {
+      tokens: '~12.5K',
+      narration: {
+        kicker: 'Step 04 · 执行',
+        title: '调用脚本 · 完成填表',
+        body: [
+          'Claude 直接执行 <code>scripts/extract_fields.py</code>，<b>脚本本身没有进入上下文</b>，只有它的输出（字段列表）回来了。',
+          '随后 Claude 按 forms.md 的步骤写值、调用 fill_form.py。最后只把"已生成填好的 PDF"作为结果返回给用户。'
+        ],
+        action: '$ python pdf/scripts/extract_fields.py form.pdf   →  仅结果回到上下文'
+      },
+      blocks: [
+        { cls: 'system', tag: 'System Prompt · 核心', body: 'Claude 的通用工作指令、工具集说明。' },
+        { cls: 'metadata', tag: 'Skills 索引 · 仅元数据', body: '<code>pdf</code>, <code>excel</code>, <code>docx</code> …' },
+        { cls: 'user', tag: 'User Message', body: '"帮我把这份 PDF 表单填好…"' },
+        { cls: 'skill-md', tag: 'pdf/SKILL.md · 正文', body: '主流程 + 对附带文件的引用。' },
+        { cls: 'bundled', tag: 'pdf/forms.md · 填表流程', body: '步骤 1-3。' },
+        { cls: 'assistant fresh', tag: 'Tool Call · bash + 输出', body: '<code>python pdf/scripts/extract_fields.py form.pdf</code><br/>→ <code>[{"name": "applicant_name"}, …]</code>' }
+      ]
+    }
+  };
+
+  const stepBtns = document.querySelectorAll('#wtControls .wt-step');
+  const ctxStack = document.getElementById('ctxStack');
+  const narrEl = document.getElementById('wtNarration');
+  const tokensEl = document.getElementById('wtTokens');
+
+  function renderStep(n) {
+    const data = STEPS[n];
+    if (!data) return;
+
+    // tabs
+    stepBtns.forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-step') === String(n));
+    });
+
+    // tokens
+    tokensEl.textContent = data.tokens;
+
+    // narration
+    let narrHtml = '<div class="narr-kicker">' + data.narration.kicker + '</div>';
+    narrHtml += '<h4>' + data.narration.title + '</h4>';
+    data.narration.body.forEach(function (p) {
+      narrHtml += '<p>' + p + '</p>';
+    });
+    narrHtml += '<div class="wt-action"><span class="arrow">→</span>' + data.narration.action + '</div>';
+    narrEl.innerHTML = narrHtml;
+
+    // context blocks
+    let blocksHtml = '';
+    data.blocks.forEach(function (b) {
+      blocksHtml += '<div class="ctx-block ' + b.cls + '">';
+      blocksHtml += '<span class="ctx-tag">' + b.tag + '</span>';
+      blocksHtml += '<div class="ctx-body">' + b.body + '</div>';
+      blocksHtml += '</div>';
+    });
+    ctxStack.innerHTML = blocksHtml;
+  }
+
+  stepBtns.forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const n = parseInt(btn.getAttribute('data-step'), 10);
+      renderStep(n);
+    });
+  });
+
+  renderStep(1);
+})();
+</script>
+
+</body>
+</html>

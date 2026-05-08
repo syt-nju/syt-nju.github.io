@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: anthropic-skills
+    title: "Anthropic Skills"
+    date: 2026-05-08
+    source_type: blog
+    source_url: "https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills"
   - slug: manus-context-engineering
     title: "Manus 上下文工程 · 重写 4 次 Agent 框架的 6 条经验"
     date: 2026-05-08
