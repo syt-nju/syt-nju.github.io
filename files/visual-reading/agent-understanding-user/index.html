@@ -1,0 +1,1672 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>构造一个更懂用户的 Agent System · 三层设计</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #FBF6EA;
+    --bg-surface: #FFFFFF;
+    --bg-soft: #F5ECD8;
+    --bg-dark: #1A1816;
+    --bg-dark-2: #252220;
+    --text: #1A1816;
+    --text-muted: #6B6660;
+    --text-soft: #8C857B;
+    --text-invert: #F5F1E8;
+    --accent: #C04E2D;
+    --accent-hover: #A8401F;
+    --accent-soft: #F4DCD0;
+    --accent-deep: #7A2E16;
+    --tone-pref: #B8860B;
+    --tone-pref-soft: #F4E8C7;
+    --tone-flow: #2E5A6B;
+    --tone-flow-soft: #D8E4EA;
+    --tone-align: #5A4A8C;
+    --tone-align-soft: #E2DDEE;
+    --border: #E8DCC7;
+    --border-strong: #D4C4A6;
+    --border-dark: #3A3633;
+    --shadow-sm: 0 1px 2px rgba(26, 24, 22, 0.04);
+    --shadow-md: 0 4px 14px rgba(26, 24, 22, 0.06);
+    --shadow-lg: 0 16px 40px rgba(26, 24, 22, 0.10);
+    --radius: 10px;
+    --radius-lg: 16px;
+    --radius-xl: 22px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-hover); }
+
+  .container { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- Top Bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(251, 246, 234, 0.86);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px; max-width: 1180px; margin: 0 auto;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    font-weight: 700; font-size: 14.5px; letter-spacing: -0.005em;
+  }
+  .brand-logo {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: var(--bg-dark);
+    display: grid; place-items: center; color: var(--accent); font-size: 16px; font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .brand-text { color: var(--text); }
+  .brand-text small { color: var(--text-muted); font-weight: 500; font-size: 12px; margin-left: 8px; }
+  .topnav { display: flex; gap: 4px; align-items: center; }
+  .topnav a {
+    padding: 7px 9px; border-radius: 8px;
+    color: var(--text-muted); font-size: 12.5px; font-weight: 500;
+    transition: color 0.15s, background 0.15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--accent-soft); }
+  .source-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; color: var(--text-muted); text-decoration: none;
+    padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border);
+    transition: all 0.15s; font-weight: 500;
+  }
+  .source-link:hover { border-color: var(--accent); color: var(--accent); }
+  .source-link svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 72px 0 36px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--accent); text-transform: uppercase;
+    background: var(--accent-soft); padding: 6px 14px; border-radius: 100px;
+    margin-bottom: 22px; font-family: 'JetBrains Mono', monospace;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  h1 {
+    font-size: clamp(34px, 5.2vw, 54px); line-height: 1.1; letter-spacing: -0.025em;
+    font-weight: 800; margin-bottom: 22px; max-width: 880px;
+  }
+  .hero-sub {
+    font-size: 19px; color: var(--text-muted); max-width: 720px; line-height: 1.6;
+    font-weight: 400;
+  }
+  .hero-meta {
+    display: flex; gap: 22px; margin-top: 28px; font-size: 13px; color: var(--text-muted);
+    flex-wrap: wrap; align-items: center;
+  }
+  .hero-meta span { display: inline-flex; align-items: center; gap: 7px; }
+  .hero-meta b { color: var(--text); font-weight: 600; }
+
+  /* ---------- TL;DR ---------- */
+  .tldr {
+    margin-top: 44px; background: var(--bg-dark); color: var(--text-invert);
+    border-radius: var(--radius-xl); padding: 36px 40px;
+    box-shadow: var(--shadow-lg); position: relative; overflow: hidden;
+  }
+  .tldr::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent);
+  }
+  .tldr-title {
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 18px; font-family: 'JetBrains Mono', monospace;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .tldr-title::after { content: ''; flex: 1; height: 1px; background: rgba(192, 78, 45, 0.2); }
+  .tldr-text { font-size: 19px; line-height: 1.65; color: var(--text-invert); font-weight: 400; }
+  .tldr-text b { color: #F2A07A; font-weight: 600; }
+  .tldr-text + .tldr-text { margin-top: 14px; font-size: 16px; color: #C8C0B3; }
+
+  /* ---------- Section ---------- */
+  section.block { padding: 60px 0; border-top: 1px solid var(--border); }
+  .section-head { margin-bottom: 24px; max-width: 760px; }
+  .section-num {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--accent); font-weight: 600;
+    background: var(--accent-soft); padding: 5px 12px; border-radius: 100px;
+    margin-bottom: 16px;
+  }
+  h2 {
+    font-size: clamp(26px, 3.4vw, 36px); font-weight: 700; letter-spacing: -0.022em;
+    margin-bottom: 14px; line-height: 1.18;
+  }
+  h3 {
+    font-size: 19px; font-weight: 700; letter-spacing: -0.012em;
+    margin-bottom: 10px; line-height: 1.3;
+  }
+  .section-sub { color: var(--text-muted); font-size: 16.5px; line-height: 1.65; }
+  .section-sub b { color: var(--text); font-weight: 600; }
+  .article-copy {
+    max-width: 760px;
+    font-size: 17px;
+    line-height: 1.82;
+    color: var(--text);
+  }
+  .article-copy p + p { margin-top: 16px; }
+  .article-copy b { font-weight: 600; color: var(--text); }
+  .article-copy em { color: var(--text-muted); font-style: normal; }
+  .reader-note {
+    margin-top: 24px;
+    padding: 18px 22px;
+    background: rgba(255, 255, 255, 0.62);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    color: var(--text-muted);
+    font-size: 14.5px;
+    line-height: 1.7;
+  }
+  .reader-note b { color: var(--text); font-weight: 600; }
+  .visual-bridge {
+    margin: 28px 0 14px;
+    max-width: 760px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  /* ---------- 三层概览图 ---------- */
+  .overview-stage {
+    margin-top: 32px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px 32px 28px;
+    box-shadow: var(--shadow-md);
+  }
+  .overview-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 14px; margin-bottom: 22px; flex-wrap: wrap;
+  }
+  .overview-kicker {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase; color: var(--accent);
+  }
+  .overview-cap {
+    font-size: 13px; color: var(--text-muted); font-style: italic;
+  }
+  .layer-stack { display: grid; gap: 14px; }
+  .layer {
+    border-radius: var(--radius-lg);
+    padding: 22px 24px;
+    border: 1px solid var(--border-strong);
+    background: var(--bg);
+    position: relative;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .layer:hover { transform: translateY(-1px); box-shadow: var(--shadow-md); }
+  .layer.pref { border-left: 4px solid var(--tone-pref); }
+  .layer.flow { border-left: 4px solid var(--tone-flow); }
+  .layer.align { border-left: 4px solid var(--tone-align); }
+  .layer-row {
+    display: grid;
+    grid-template-columns: 200px 1fr 1.1fr;
+    gap: 24px;
+    align-items: center;
+  }
+  .layer-id {
+    display: flex; flex-direction: column; gap: 4px;
+  }
+  .layer-id .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    color: var(--text-muted);
+  }
+  .layer-id .name {
+    font-size: 19px; font-weight: 700; letter-spacing: -0.01em;
+  }
+  .layer-id .scale {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; color: var(--text-soft);
+    margin-top: 4px;
+  }
+  .layer.pref .layer-id .name { color: var(--tone-pref); }
+  .layer.flow .layer-id .name { color: var(--tone-flow); }
+  .layer.align .layer-id .name { color: var(--tone-align); }
+  .layer-q {
+    font-size: 14.5px; line-height: 1.55; color: var(--text-muted);
+  }
+  .layer-q b { color: var(--text); font-weight: 600; }
+  .layer-tags {
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 500;
+    padding: 4px 10px; border-radius: 100px;
+    background: var(--bg-surface); color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .layer.pref .tag.primary { background: var(--tone-pref-soft); color: var(--tone-pref); border-color: rgba(184, 134, 11, 0.28); }
+  .layer.flow .tag.primary { background: var(--tone-flow-soft); color: var(--tone-flow); border-color: rgba(46, 90, 107, 0.28); }
+  .layer.align .tag.primary { background: var(--tone-align-soft); color: var(--tone-align); border-color: rgba(90, 74, 140, 0.28); }
+  .overview-foot {
+    margin-top: 22px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 14px;
+    line-height: 1.65;
+    display: flex; align-items: flex-start; gap: 14px;
+  }
+  .overview-foot::before {
+    content: '※'; color: var(--accent); font-weight: 700; font-size: 16px;
+    flex-shrink: 0; margin-top: 1px;
+  }
+  .overview-foot b { color: var(--text); font-weight: 600; }
+
+  /* ---------- 偏好对比表 ---------- */
+  .compare-table {
+    margin-top: 26px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .compare-table table {
+    width: 100%; border-collapse: collapse;
+    font-size: 14px;
+  }
+  .compare-table th {
+    text-align: left;
+    font-weight: 600;
+    padding: 16px 20px;
+    background: var(--bg-soft);
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+    color: var(--text);
+  }
+  .compare-table th.dim { width: 26%; color: var(--text-muted); font-weight: 500; }
+  .compare-table th.cc { color: var(--tone-pref); }
+  .compare-table th.hermes { color: var(--tone-flow); }
+  .compare-table td {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+    line-height: 1.55;
+    vertical-align: top;
+  }
+  .compare-table td.dim {
+    color: var(--text-muted); font-size: 13.5px;
+    background: rgba(245, 236, 216, 0.4);
+  }
+  .compare-table tr:last-child td { border-bottom: none; }
+  .compare-table code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    background: var(--bg-soft);
+    padding: 2px 6px; border-radius: 4px;
+    color: var(--accent-deep);
+  }
+  .compare-table .row-emph td.dim { color: var(--accent); font-weight: 600; }
+  .compare-table .row-emph td:not(.dim) { background: var(--accent-soft); color: var(--accent-deep); font-weight: 500; }
+
+  .insight {
+    margin-top: 24px;
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    border-radius: var(--radius-lg);
+    padding: 26px 30px;
+    box-shadow: var(--shadow-md);
+  }
+  .insight-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.12em; color: var(--accent); text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+  .insight-text { font-size: 16.5px; line-height: 1.7; color: var(--text-invert); }
+  .insight-text b { color: #F2A07A; font-weight: 600; }
+  .insight-text + .insight-text { margin-top: 12px; font-size: 14.5px; color: #C8C0B3; }
+
+  /* ---------- Skill 自动迭代闭环图 ---------- */
+  .loop-stage {
+    margin-top: 28px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+  }
+  .loop-stage-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 14px; margin-bottom: 24px; flex-wrap: wrap;
+  }
+  .loop-stage-title { font-size: 17px; font-weight: 700; }
+  .loop-stage-cap { font-size: 12.5px; color: var(--text-muted); font-family: 'JetBrains Mono', monospace; }
+
+  .loop-grid {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr;
+    gap: 14px;
+    align-items: stretch;
+  }
+  .loop-node {
+    background: var(--bg);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    padding: 18px 18px;
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .loop-node.dialog { border-top: 4px solid var(--tone-pref); }
+  .loop-node.judge { border-top: 4px solid var(--accent); }
+  .loop-node.skill { border-top: 4px solid var(--tone-flow); }
+  .loop-node-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: var(--bg-soft); color: var(--text);
+    display: grid; place-items: center;
+    font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 13px;
+  }
+  .loop-node.dialog .loop-node-icon { background: var(--tone-pref-soft); color: var(--tone-pref); }
+  .loop-node.judge .loop-node-icon { background: var(--accent-soft); color: var(--accent); }
+  .loop-node.skill .loop-node-icon { background: var(--tone-flow-soft); color: var(--tone-flow); }
+  .loop-node-name {
+    font-size: 14.5px; font-weight: 700; letter-spacing: -0.005em;
+  }
+  .loop-node-desc {
+    font-size: 12.5px; color: var(--text-muted); line-height: 1.55;
+  }
+  .loop-node-tag {
+    margin-top: auto;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; font-weight: 600;
+    color: var(--accent);
+    letter-spacing: 0.06em; text-transform: uppercase;
+    padding-top: 6px;
+  }
+  .loop-arrow {
+    display: grid; place-items: center;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px;
+  }
+  .loop-arrow small {
+    display: block;
+    font-size: 9.5px; font-weight: 500;
+    color: var(--text-muted);
+    letter-spacing: 0.05em;
+    margin-top: 2px;
+    text-align: center;
+    max-width: 60px;
+  }
+
+  .loop-feedback {
+    margin-top: 20px;
+    padding: 16px 22px;
+    background: var(--bg);
+    border: 1px dashed var(--border-strong);
+    border-radius: var(--radius);
+    font-size: 13.5px; line-height: 1.6;
+    color: var(--text-muted);
+    display: flex; align-items: flex-start; gap: 12px;
+  }
+  .loop-feedback-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.08em; text-transform: uppercase;
+    flex-shrink: 0;
+    padding: 3px 9px;
+    background: var(--accent-soft);
+    border-radius: 100px;
+    margin-top: 1px;
+  }
+  .loop-feedback b { color: var(--text); font-weight: 600; }
+
+  /* ---------- LRU 汰换可视 ---------- */
+  .cache-stage {
+    margin-top: 26px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px 32px;
+  }
+  .cache-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 14px; margin-bottom: 18px; flex-wrap: wrap;
+  }
+  .cache-title { font-size: 16px; font-weight: 700; }
+  .cache-cap { font-size: 12.5px; color: var(--text-muted); }
+
+  .cache-pool {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 10px;
+    padding: 16px;
+    background: var(--bg);
+    border-radius: var(--radius);
+    border: 1px solid var(--border);
+  }
+  .skill-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    cursor: default;
+    transition: all 0.2s;
+    position: relative;
+  }
+  .skill-card.hot { border-color: var(--accent); background: var(--accent-soft); }
+  .skill-card.cold { opacity: 0.55; }
+  .skill-card.evict { border-style: dashed; opacity: 0.45; background: var(--bg-soft); }
+  .skill-card-name {
+    font-family: 'JetBrains Mono', monospace; font-size: 12.5px; font-weight: 600;
+    color: var(--text); margin-bottom: 4px;
+    word-break: break-all;
+  }
+  .skill-card.hot .skill-card-name { color: var(--accent-deep); }
+  .skill-card-meta {
+    font-size: 10.5px; color: var(--text-muted);
+    display: flex; gap: 8px; align-items: center;
+  }
+  .skill-card-meta .hits {
+    font-family: 'JetBrains Mono', monospace; font-weight: 600;
+  }
+  .skill-card.hot .skill-card-meta { color: var(--accent); }
+  .skill-card.evict .skill-card-name {
+    text-decoration: line-through; color: var(--text-soft);
+  }
+  .cache-legend {
+    display: flex; gap: 18px; flex-wrap: wrap;
+    margin-top: 14px;
+    font-size: 12.5px; color: var(--text-muted);
+  }
+  .cache-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend-dot {
+    width: 10px; height: 10px; border-radius: 3px; display: inline-block;
+  }
+  .legend-dot.hot { background: var(--accent); }
+  .legend-dot.warm { background: var(--bg-surface); border: 1px solid var(--border-strong); }
+  .legend-dot.cold { background: var(--bg-soft); border: 1px dashed var(--border-strong); }
+
+  /* ---------- 对齐双栏 ---------- */
+  .align-grid {
+    margin-top: 26px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+  }
+  .align-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px 30px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .align-card.light { border-top: 4px solid var(--tone-pref); }
+  .align-card.heavy { border-top: 4px solid var(--accent); }
+  .align-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .align-card.light .align-tag { color: var(--tone-pref); }
+  .align-card.heavy .align-tag { color: var(--accent); }
+  .align-name {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.015em; line-height: 1.2;
+  }
+  .align-pitch {
+    font-size: 14.5px; line-height: 1.65; color: var(--text-muted);
+  }
+  .align-pitch b { color: var(--text); font-weight: 600; }
+
+  .align-flow {
+    background: var(--bg);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    font-size: 13px; line-height: 1.6;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .align-flow ol { padding-left: 18px; }
+  .align-flow li + li { margin-top: 6px; }
+  .align-flow li b { color: var(--accent-deep); font-weight: 600; }
+  .align-card.heavy .align-flow li b { color: var(--accent); }
+
+  .align-fit {
+    margin-top: auto;
+    padding: 14px 16px;
+    background: var(--bg-soft);
+    border-radius: 10px;
+    font-size: 13px; line-height: 1.55;
+  }
+  .align-fit b {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; font-weight: 700;
+    color: var(--accent); letter-spacing: 0.08em; text-transform: uppercase;
+    display: block; margin-bottom: 6px;
+  }
+
+  /* 对齐场景维度对比表 */
+  .dim-table {
+    margin-top: 26px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .dim-table table { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+  .dim-table th {
+    text-align: left; font-weight: 600;
+    padding: 14px 18px; background: var(--bg-soft);
+    border-bottom: 1px solid var(--border);
+    font-size: 12.5px; color: var(--text);
+  }
+  .dim-table th.dim { color: var(--text-muted); font-weight: 500; width: 28%; }
+  .dim-table th.light { color: var(--tone-pref); }
+  .dim-table th.heavy { color: var(--accent); }
+  .dim-table td {
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text); line-height: 1.55;
+    vertical-align: top;
+  }
+  .dim-table td.dim { color: var(--text-muted); background: rgba(245, 236, 216, 0.4); }
+  .dim-table tr:last-child td { border-bottom: none; }
+
+  /* ---------- 收尾回收 ---------- */
+  .closing-stage {
+    margin-top: 30px;
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    border-radius: var(--radius-xl);
+    padding: 36px 40px;
+    box-shadow: var(--shadow-lg);
+    position: relative; overflow: hidden;
+  }
+  .closing-stage::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, var(--tone-pref) 0%, var(--tone-pref) 33%, var(--tone-flow) 33%, var(--tone-flow) 66%, var(--tone-align) 66%, var(--tone-align) 100%);
+  }
+  .closing-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 700;
+    letter-spacing: 0.14em; color: var(--accent); text-transform: uppercase;
+    margin-bottom: 14px;
+  }
+  .closing-headline {
+    font-size: 24px; font-weight: 700; line-height: 1.3; letter-spacing: -0.015em;
+    color: var(--text-invert); margin-bottom: 22px;
+  }
+  .closing-headline b { color: #F2A07A; font-weight: 700; }
+  .closing-foot {
+    margin-top: 26px; padding-top: 22px;
+    border-top: 1px solid var(--border-dark);
+    font-size: 14.5px; line-height: 1.7; color: #C8C0B3;
+  }
+  .closing-foot b { color: #F2A07A; font-weight: 600; }
+
+  /* ---------- 收尾：多轮对话示意图 ---------- */
+  .conv-flow {
+    margin-top: 8px;
+    position: relative;
+    padding-left: 32px;
+  }
+  .conv-flow::before {
+    content: '';
+    position: absolute;
+    left: 9px; top: 8px; bottom: 8px;
+    width: 2px;
+    background: rgba(245, 241, 232, 0.10);
+    border-radius: 2px;
+  }
+  .conv-row {
+    position: relative;
+    margin-bottom: 12px;
+    padding: 13px 16px;
+    border-radius: 10px;
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    align-items: center;
+  }
+  .conv-row::before {
+    content: '';
+    position: absolute;
+    left: -28px;
+    top: 50%;
+    width: 12px; height: 12px;
+    transform: translateY(-50%);
+    border-radius: 50%;
+    background: var(--bg-dark);
+    border: 2px solid rgba(245, 241, 232, 0.3);
+    z-index: 1;
+  }
+  .conv-row.user::before { border-color: #B3AB9F; background: #2A2723; }
+  .conv-row.agent::before { border-color: #F2A07A; background: rgba(192, 78, 45, 0.4); }
+  .conv-row.sys::before {
+    border-style: dashed;
+    border-color: rgba(245, 241, 232, 0.35);
+    background: var(--bg-dark);
+  }
+  .conv-row.boundary { padding: 0; margin-bottom: 16px; margin-top: 6px; }
+  .conv-row.boundary::before { display: none; }
+
+  .conv-row.user { background: rgba(255, 255, 255, 0.05); }
+  .conv-row.user .conv-content { color: #E8E2D4; }
+  .conv-row.agent { background: rgba(192, 78, 45, 0.10); }
+  .conv-row.agent .conv-content { color: #F2A07A; }
+  .conv-row.sys {
+    background: transparent;
+    border: 1px dashed rgba(245, 241, 232, 0.16);
+  }
+  .conv-row.sys .conv-content {
+    color: #B3AB9F;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+  .conv-row.sys .conv-content b { color: #F2A07A; font-weight: 600; }
+  .conv-row.alt {
+    margin-top: -6px;
+    margin-left: 18px;
+    border-style: dashed;
+    border-color: rgba(245, 241, 232, 0.12);
+    opacity: 0.85;
+  }
+  .conv-row.alt::before {
+    left: -46px;
+    border-color: rgba(245, 241, 232, 0.18);
+    background: transparent;
+  }
+  .conv-row.alt .conv-content { color: #9C948A; font-style: italic; }
+  .conv-row.alt .conv-content b { font-style: normal; color: #DBC274; letter-spacing: 0.05em; }
+
+  .conv-speaker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.06em;
+    margin-right: 8px;
+  }
+  .conv-row.user .conv-speaker { color: #B3AB9F; }
+  .conv-row.agent .conv-speaker { color: var(--accent); }
+  .conv-content {
+    font-size: 14px; line-height: 1.55;
+  }
+  .conv-content b { color: #F2A07A; font-weight: 600; }
+
+  .conv-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; font-weight: 700;
+    letter-spacing: 0.08em; text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 100px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+  .conv-tag.l1 {
+    background: rgba(184, 134, 11, 0.16);
+    color: #DBC274;
+    border: 1px solid rgba(184, 134, 11, 0.32);
+  }
+  .conv-tag.l2 {
+    background: rgba(46, 90, 107, 0.22);
+    color: #88B5C8;
+    border: 1px solid rgba(46, 90, 107, 0.42);
+  }
+  .conv-tag.l3 {
+    background: rgba(90, 74, 140, 0.22);
+    color: #B8A6E0;
+    border: 1px solid rgba(90, 74, 140, 0.42);
+  }
+
+  .conv-boundary {
+    margin-left: -28px;
+    padding: 8px 0;
+    display: flex; align-items: center; gap: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .conv-boundary::before, .conv-boundary::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: rgba(192, 78, 45, 0.25);
+  }
+  .conv-boundary span.note {
+    color: #8C857B; font-weight: 500;
+    letter-spacing: 0.06em;
+    text-transform: none;
+    font-size: 11px;
+  }
+
+  /* ---------- 流程 Pipeline (引言级 · 训练-测试流水线) ---------- */
+  .flow-pipeline {
+    margin: 22px 0 14px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr auto 1fr;
+    gap: 10px;
+    align-items: stretch;
+  }
+  .flow-stage {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-top: 4px solid var(--tone-flow);
+    border-radius: var(--radius);
+    padding: 16px 16px;
+    display: flex; flex-direction: column; gap: 8px;
+    box-shadow: var(--shadow-sm);
+  }
+  .flow-stage-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    color: var(--tone-flow);
+    letter-spacing: 0.05em;
+  }
+  .flow-stage-name {
+    font-size: 15px; font-weight: 700; letter-spacing: -0.005em;
+    line-height: 1.25;
+  }
+  .flow-stage-name small {
+    display: block;
+    font-size: 11.5px; font-weight: 500;
+    color: var(--text-muted);
+    margin-top: 3px;
+    letter-spacing: 0;
+  }
+  .flow-stage-variants {
+    margin-top: auto;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border-strong);
+    font-size: 11.5px; color: var(--text-muted);
+    line-height: 1.55;
+  }
+  .flow-stage-variants .label {
+    display: block;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700; color: var(--accent);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    font-size: 10px;
+  }
+  .flow-arrow-pipeline {
+    display: grid; place-items: center;
+    color: var(--accent); font-weight: 700; font-size: 16px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .flow-pipeline-foot {
+    margin-top: 4px;
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.6;
+    padding: 12px 18px;
+    background: var(--bg-soft);
+    border-radius: var(--radius);
+    display: flex; align-items: center; gap: 14px;
+    flex-wrap: wrap;
+  }
+  .flow-pipeline-foot::before {
+    content: '↑';
+    color: var(--accent);
+    font-weight: 700;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+  .flow-pipeline-foot b { color: var(--text); font-weight: 600; }
+  .flow-pipeline-foot .accent { color: var(--accent); font-weight: 600; }
+
+  /* ---------- 风格对比卡片 (引言级 · CC vs Hermes) ---------- */
+  .style-pair {
+    margin-top: 20px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .style-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 26px;
+    box-shadow: var(--shadow-sm);
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .style-card.cc { border-top: 4px solid var(--tone-pref); }
+  .style-card.hermes { border-top: 4px solid var(--tone-flow); }
+  .style-card-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .style-card.cc .style-card-tag { color: var(--tone-pref); }
+  .style-card.hermes .style-card-tag { color: var(--tone-flow); }
+  .style-card-name {
+    font-size: 18px; font-weight: 700; letter-spacing: -0.01em;
+    line-height: 1.3;
+  }
+  .style-card-name em {
+    font-style: normal;
+  }
+  .style-card.cc .style-card-name em { color: var(--tone-pref); }
+  .style-card.hermes .style-card-name em { color: var(--tone-flow); }
+  .style-card-body {
+    font-size: 14px; color: var(--text-muted); line-height: 1.7;
+  }
+  .style-card-body b { color: var(--text); font-weight: 600; }
+  .style-card-keys {
+    margin-top: auto;
+    padding-top: 6px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .style-card-key {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 100px;
+    background: var(--bg-soft);
+    color: var(--text-muted);
+    border: 1px solid var(--border);
+  }
+  .style-card.cc .style-card-key {
+    background: var(--tone-pref-soft);
+    color: var(--tone-pref);
+    border-color: rgba(184, 134, 11, 0.28);
+  }
+  .style-card.hermes .style-card-key {
+    background: var(--tone-flow-soft);
+    color: var(--tone-flow);
+    border-color: rgba(46, 90, 107, 0.28);
+  }
+
+  /* ---------- 案例卡片 (Karpathy 等) ---------- */
+  .case-card {
+    margin-top: 26px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 28px 32px;
+    box-shadow: var(--shadow-sm);
+    position: relative;
+  }
+  .case-card.pref { border-left: 4px solid var(--tone-pref); }
+  .case-card.flow { border-left: 4px solid var(--tone-flow); }
+  .case-card.align { border-left: 4px solid var(--tone-align); }
+  .case-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    gap: 14px; margin-bottom: 6px; flex-wrap: wrap;
+  }
+  .case-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--text-muted);
+  }
+  .case-card.pref .case-tag { color: var(--tone-pref); }
+  .case-card.flow .case-tag { color: var(--tone-flow); }
+  .case-card.align .case-tag { color: var(--tone-align); }
+  .case-link {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--text-muted);
+    display: inline-flex; align-items: center; gap: 6px;
+  }
+  .case-link:hover { color: var(--accent); }
+  .case-link svg { width: 11px; height: 11px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .case-name {
+    font-size: 22px; font-weight: 700; letter-spacing: -0.015em;
+    line-height: 1.25; margin-bottom: 12px;
+  }
+  .case-pitch {
+    font-size: 14.5px; color: var(--text-muted); line-height: 1.65;
+    margin-bottom: 18px; max-width: 680px;
+  }
+  .case-pitch b { color: var(--text); font-weight: 600; }
+
+  /* Karpathy 4 条规则 */
+  .pref-rules {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
+    margin-top: 6px;
+  }
+  .pref-rule {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 18px;
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .pref-rule-head {
+    display: flex; align-items: center; gap: 10px;
+  }
+  .pref-rule-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    color: var(--tone-pref);
+    background: var(--tone-pref-soft);
+    border-radius: 6px;
+    padding: 3px 8px;
+  }
+  .pref-rule-title {
+    font-size: 14.5px; font-weight: 700; letter-spacing: -0.005em;
+  }
+  .pref-rule-body {
+    font-size: 13px; color: var(--text-muted); line-height: 1.55;
+  }
+  .pref-rule-body b { color: var(--text); font-weight: 600; }
+
+  /* ---------- 引用块 ---------- */
+  .quote {
+    margin: 24px 0;
+    padding: 20px 24px;
+    background: rgba(255, 255, 255, 0.62);
+    border-left: 3px solid var(--accent);
+    border-radius: 0 var(--radius) var(--radius) 0;
+    font-size: 15px;
+    line-height: 1.65;
+    color: var(--text);
+    max-width: 780px;
+  }
+  .quote-cite {
+    display: block;
+    margin-top: 10px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .quote em { color: var(--text-muted); font-style: italic; }
+
+  /* ---------- 页脚 ---------- */
+  footer {
+    border-top: 1px solid var(--border);
+    margin-top: 80px;
+    padding: 40px 0;
+    color: var(--text-muted);
+    font-size: 13.5px;
+  }
+  footer .container { display: flex; justify-content: space-between; gap: 22px; flex-wrap: wrap; }
+  footer .src-list { display: grid; gap: 6px; }
+  footer .src-list a { color: var(--text-muted); }
+  footer .src-list a:hover { color: var(--accent); }
+  footer b { color: var(--text); font-weight: 600; }
+
+  /* ---------- 响应式 ---------- */
+  @media (max-width: 980px) {
+    .layer-row { grid-template-columns: 1fr; gap: 14px; }
+    .loop-grid { grid-template-columns: 1fr; }
+    .loop-arrow { transform: rotate(90deg); padding: 4px 0; }
+    .loop-arrow small { transform: rotate(-90deg); margin: 0; max-width: none; }
+    .align-grid { grid-template-columns: 1fr; }
+    .pref-rules { grid-template-columns: 1fr; }
+    .style-pair { grid-template-columns: 1fr; }
+    .flow-pipeline { grid-template-columns: 1fr; }
+    .flow-arrow-pipeline { transform: rotate(90deg); padding: 4px 0; }
+  }
+  @media (max-width: 720px) {
+    .container { padding: 0 18px; }
+    .topbar-inner { padding: 12px 18px; }
+    .topnav { display: none; }
+    .hero { padding: 48px 0 24px; }
+    .tldr, .insight, .closing-stage { padding: 26px 22px; }
+    .overview-stage, .loop-stage, .cache-stage { padding: 22px 18px; }
+    .compare-table th, .compare-table td { padding: 12px 14px; font-size: 13px; }
+    .dim-table th, .dim-table td { padding: 10px 12px; }
+    .align-card { padding: 22px 22px; }
+    .conv-flow { padding-left: 24px; }
+    .conv-row { grid-template-columns: 1fr; gap: 8px; padding: 11px 14px; }
+    .conv-row::before { left: -22px; }
+    .conv-tag { justify-self: start; }
+    .conv-boundary { margin-left: -24px; gap: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== Top Bar ===== -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <a href="#" class="brand" style="text-decoration:none">
+      <div class="brand-logo">A</div>
+      <div class="brand-text">懂用户的 Agent System<small>三层设计</small></div>
+    </a>
+    <nav class="topnav">
+      <a href="#overview">总览</a>
+      <a href="#section-pref">偏好</a>
+      <a href="#section-flow">工作流</a>
+      <a href="#section-align">对齐</a>
+      <a href="#closing">收尾</a>
+    </nav>
+    <a class="source-link" href="#sources" title="参考资料">
+      <svg viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-9 9M21 14v6a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1h6"/></svg>
+      参考资料
+    </a>
+  </div>
+</header>
+
+<!-- ===== Hero ===== -->
+<section class="hero">
+  <div class="container">
+    <div class="eyebrow"><span class="dot"></span>设计文 · 系统观点</div>
+    <h1>构造一个更懂用户的 Agent System</h1>
+    <p class="hero-sub">把"懂用户"拆成三层：<b>偏好</b>（你是谁）、<b>工作流</b>（你怎么干）、<b>对齐</b>（这次你要什么）。这三层的时间尺度不同，但共享同一种工程取舍——读时灵活、写时延迟，让 KV cache 不被频繁打断。</p>
+
+    <div class="hero-meta">
+      <span><b>时间尺度</b> · 跨会话 / 回合级 / 任务前</span>
+      <span><b>关键参考</b> · Claude Code · Hermes Agent · Anthropic Skills · Harness Design</span>
+      <span><b>状态</b> · 草稿 (temp/)</span>
+    </div>
+
+    <div class="tldr">
+      <div class="tldr-title">TL;DR</div>
+      <div class="tldr-text">"懂用户"不是给 agent 加 RAG 或长窗口就够了，而要在 <b>三个时间尺度上分别做对</b>：跨会话的偏好、回合级的工作流、任务前的需求对齐。</div>
+      <div class="tldr-text">每一层都需要"读时灵活、写时延迟"——session 内可以记，但要等下次 session 才生效，目的是不打断 LLM 的 prefix cache。这件事在 Claude Code 和 Hermes Agent 的设计里已经被两次确认。</div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 三层总览图 ===== -->
+<section id="overview" class="block">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">▸ Overview · 视觉锚</div>
+      <h2>三层"懂用户"架构</h2>
+      <p class="section-sub">先用一张图把整套系统压成三行，后面三节分别拆解。结构上是<b>从慢到快</b>：偏好最稳，工作流次之，对齐发生在每一次任务开始的瞬间。</p>
+    </div>
+
+    <div class="overview-stage">
+      <div class="overview-head">
+        <div class="overview-kicker">USER UNDERSTANDING · 3 LAYERS</div>
+        <div class="overview-cap">由稳到变 · 由长到短 · 由静态到即时</div>
+      </div>
+
+      <div class="layer-stack">
+        <div class="layer pref">
+          <div class="layer-row">
+            <div class="layer-id">
+              <div class="num">LAYER 1</div>
+              <div class="name">偏好</div>
+              <div class="scale">cross-session · static</div>
+            </div>
+            <div class="layer-q"><b>你是谁、你怎么想？</b><br/>用户的长期立场、风格、约束。一次会话里不能改，否则破坏 cache。</div>
+            <div class="layer-tags">
+              <span class="tag primary">CLAUDE.md</span>
+              <span class="tag primary">USER.md</span>
+              <span class="tag">frozen snapshot</span>
+              <span class="tag">auto memory</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="layer flow">
+          <div class="layer-row">
+            <div class="layer-id">
+              <div class="num">LAYER 2</div>
+              <div class="name">工作流</div>
+              <div class="scale">turn-level · evolving</div>
+            </div>
+            <div class="layer-q"><b>你怎么干这类活？</b><br/>把重复出现的步骤沉淀成可复用 skill，每 N 回合让一个 evaluator 决定要不要写、要不要合并、要不要汰换。</div>
+            <div class="layer-tags">
+              <span class="tag primary">Skill 自动迭代</span>
+              <span class="tag primary">LRU 汰换</span>
+              <span class="tag">每 N 回合触发</span>
+              <span class="tag">session 边界生效</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="layer align">
+          <div class="layer-row">
+            <div class="layer-id">
+              <div class="num">LAYER 3</div>
+              <div class="name">对齐</div>
+              <div class="scale">pre-task · interactive</div>
+            </div>
+            <div class="layer-q"><b>这次你要的到底是什么？</b><br/>任务一来就 fire-and-forget 是最大的浪费来源。轻量场景出选择题，复杂场景上 plan-eval loop。</div>
+            <div class="layer-tags">
+              <span class="tag primary">clearify-task</span>
+              <span class="tag primary">harness loop</span>
+              <span class="tag">spec lock</span>
+              <span class="tag">escalation</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="overview-foot">
+        <div><b>读这张图的姿势：</b>由上到下是时间尺度从长到短，由静到变。三层的<b>共同设计原则</b>都是"读时灵活、写时延迟"——任何一层修改了用户视角的状态，都不应当立刻打断当前会话的 prefix cache，而是落盘后等下一个合适的边界（下次 session、下次任务）才注入 system prompt。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 第一节：偏好 ===== -->
+<section id="section-pref" class="block">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">▸ Layer 1 · Preference</div>
+      <h2>偏好层：你是谁，agent 怎么记得</h2>
+      <p class="section-sub">偏好层管的是<b>跨会话、低频更新</b>的信息：编码风格、工作语言、组织约束、代码评审口味。这一层最容易被忽视，因为它"不变"——但正因为它不变，它才适合放进 system prompt 的最前面，吃满 KV cache 的 prefix 命中率。</p>
+    </div>
+
+    <div class="article-copy">
+      <p>业界这几年有两个有代表性的实现：Anthropic 的 <b>Claude Code</b> 和 Nous Research 的 <b>Hermes Agent</b>。两者的方案有 80% 的重合，但 20% 的差异恰好暴露了"偏好层应该怎么写"的工程口味。</p>
+    </div>
+
+    <div class="style-pair">
+      <div class="style-card cc">
+        <div class="style-card-tag">Anthropic · Claude Code</div>
+        <div class="style-card-name">CLAUDE.md · <em>分层继承</em></div>
+        <div class="style-card-body">一个项目里同时存在<b>组织级 / 项目级 / 用户级 / 本地级</b> 四份偏好文件，按优先级合并。它假设"用户偏好"天然多层——公司规范、个人习惯、项目特殊约定需要分别归档，而不是糊在一个文件里。</div>
+        <div class="style-card-keys">
+          <span class="style-card-key">4 层继承</span>
+          <span class="style-card-key">auto memory</span>
+          <span class="style-card-key">/memory</span>
+        </div>
+      </div>
+
+      <div class="style-card hermes">
+        <div class="style-card-tag">Nous Research · Hermes Agent</div>
+        <div class="style-card-name">USER.md + MEMORY.md · <em>极简加冻结</em></div>
+        <div class="style-card-body">就两个文件，加起来不超过 <b>1300 token</b>。会话开始时整段塞进 system prompt 然后<b>整段冻结</b>——session 内的修改先落盘，必须等下次 session 才进入 prompt。冻结是为了保 KV cache prefix。</div>
+        <div class="style-card-keys">
+          <span class="style-card-key">≤ 1300 token</span>
+          <span class="style-card-key">frozen snapshot</span>
+          <span class="style-card-key">memory_tool</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="visual-bridge">▸ 把两者的设计逐项摆在一起</div>
+
+    <div class="compare-table">
+      <table>
+        <thead>
+          <tr>
+            <th class="dim">维度</th>
+            <th class="cc">Claude Code</th>
+            <th class="hermes">Hermes Agent</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="dim">数据格式</td>
+            <td><code>CLAUDE.md</code> · markdown，无强制结构</td>
+            <td><code>USER.md</code> + <code>MEMORY.md</code>，分别记用户与 agent</td>
+          </tr>
+          <tr>
+            <td class="dim">分层结构</td>
+            <td>组织 / 项目 / 用户 / 本地，4 层继承</td>
+            <td>单层，所有内容都在一个文件里</td>
+          </tr>
+          <tr>
+            <td class="dim">字符上限</td>
+            <td>无强制上限（实际由 context window 约束）</td>
+            <td>USER.md ≈ 500 token · MEMORY.md ≈ 800 token</td>
+          </tr>
+          <tr>
+            <td class="dim">写入路径</td>
+            <td>用户手写 + auto memory（agent 在每个回合末抽取）</td>
+            <td>仅通过 <code>memory_tool</code> 的 add / replace / remove</td>
+          </tr>
+          <tr>
+            <td class="dim">编辑入口</td>
+            <td><code>/memory</code> 命令打开文件 · <code>@path</code> 跨文件 import</td>
+            <td>对话中靠工具调用 · 文件直接落盘</td>
+          </tr>
+          <tr class="row-emph">
+            <td class="dim">注入与冻结策略</td>
+            <td>会话开始注入；session 内修改的可见性未明确</td>
+            <td>会话开始整段注入并<b>冻结</b>，session 内改动落盘但<b>下个 session 才生效</b></td>
+          </tr>
+          <tr>
+            <td class="dim">设计动机</td>
+            <td>分层归档：项目共享 + 个人偏好 + 团队规范同时存在</td>
+            <td>明确为<b>保 prefix cache hit rate</b> 而冻结</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="insight">
+      <div class="insight-tag">SHARED INSIGHT · 两者的共同选择</div>
+      <div class="insight-text">虽然 Claude Code 文档没有直接说"为了 cache hit rate 才不能 session 内变"，但<b>两者都选择把偏好放在 system prompt 的最前面</b>，并把可变内容堆到 user/assistant 段尾部——本质上都默认偏好层应当是个稳定 prefix。</div>
+      <div class="insight-text">Hermes 把这件事说破了：<em>"系统提示的注入只在 session 开始时捕获一次，整段会话不再变动。这是有意为之——为了保持 LLM 的 prefix cache 性能。"</em></div>
+    </div>
+
+    <div class="quote">
+      偏好这一层的工程取舍其实只有一句话：<b>把不变的东西放到 prefix，把会变的东西放到 suffix</b>。CLAUDE.md / USER.md 是 prefix 的极致体现——它们假设用户的偏好在一次会话内不会反悔，于是用整个 KV cache 命中作为回报。
+    </div>
+
+    <div class="visual-bridge">▸ 一个具体的 case · 偏好不是一次性能想清楚的</div>
+
+    <div class="article-copy">
+      <p>但偏好层有一个隐性问题：<b>用户不会主动写 CLAUDE.md</b>。"配置自己的偏好"对绝大多数用户来说是一项需要先想清楚再动手的活，可偏好本身又是<b>在工作中浮现的</b>——你不知道这个 LLM 会怎么犯错，怎么提前定义"我不喜欢的写法"？</p>
+      <p>一个典型例子是 <b>Karpathy Guidelines</b>。这套规则是 Karpathy 公开吐槽 LLM 编码踩坑后被社区整理出来的——每一条规则都对应一类<b>没有明示就会反复出现的反模式</b>。比如一堆 <code>try / except</code> 包着一段根本不会失败的代码，只是为了"看起来稳"。这种偏好是用户用了 N 次 agent 之后才发现"哦原来我不喜欢这样"，而不是 day 0 就能写下来。</p>
+    </div>
+
+    <div class="case-card pref">
+      <div class="case-head">
+        <div>
+          <div class="case-tag">CASE · 偏好沉淀的实例</div>
+          <div class="case-name">Karpathy Guidelines</div>
+        </div>
+        <a class="case-link" href="https://x.com/karpathy/status/2015883857489522876" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24"><path d="M14 3h7v7M21 3l-9 9M21 14v6a1 1 0 01-1 1H4a1 1 0 01-1-1V4a1 1 0 011-1h6"/></svg>
+          原始来源
+        </a>
+      </div>
+      <p class="case-pitch">把"反复给 LLM 改同一类毛病"这件事变成可注入的偏好规则。这套规则不是 day 0 拍脑袋写的，是<b>从大量 LLM 编码踩坑里逐渐沉淀出来的</b>——它的每一条都对应一种"不说就会再犯"的反模式。</p>
+
+      <div class="pref-rules">
+        <div class="pref-rule">
+          <div class="pref-rule-head">
+            <span class="pref-rule-num">01</span>
+            <span class="pref-rule-title">Think Before Coding</span>
+          </div>
+          <div class="pref-rule-body">假设要明确说出来；多种解释要全部摆出来；不清楚就停下来问。<b>不允许沉默地选择一种实现。</b></div>
+        </div>
+        <div class="pref-rule">
+          <div class="pref-rule-head">
+            <span class="pref-rule-num">02</span>
+            <span class="pref-rule-title">Simplicity First</span>
+          </div>
+          <div class="pref-rule-body">不为不存在的可能错误加防御。<b>不要 try/except 包一段不会出错的代码</b>；不要为单次使用写抽象；不要加未要求的可配置性。</div>
+        </div>
+        <div class="pref-rule">
+          <div class="pref-rule-head">
+            <span class="pref-rule-num">03</span>
+            <span class="pref-rule-title">Surgical Changes</span>
+          </div>
+          <div class="pref-rule-body">只动必须动的代码；<b>不顺手"优化"周边格式与注释</b>；不删别人的死代码，只清理自己改动产生的孤儿。每一行变更都要能回溯到用户请求。</div>
+        </div>
+        <div class="pref-rule">
+          <div class="pref-rule-head">
+            <span class="pref-rule-num">04</span>
+            <span class="pref-rule-title">Goal-Driven Execution</span>
+          </div>
+          <div class="pref-rule-body">把"修复 bug"翻译成"先写一个能复现的测试，让它通过"。<b>强 success criteria 让 agent 自己 loop</b>，弱 criteria（"让它 work"）只能不停打扰用户。</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="reader-note">
+      <b>这件事的工程结论：</b>偏好层的写入路径不能只靠"用户手写 CLAUDE.md"。Claude Code 的 <b>auto memory</b>（在每个回合末从纠正中抽取偏好）、Hermes 的 <code>memory_tool</code>（agent 主动调用工具落盘）、Cursor 的 rules 文件——本质都是为了解决同一件事：<b>让偏好可以被被动地、增量地积累</b>。Karpathy Guidelines 这种"事后整理出来的反模式集合"，正是它们的目标产物。
+    </div>
+  </div>
+</section>
+
+<!-- ===== 第二节：工作流 ===== -->
+<section id="section-flow" class="block">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">▸ Layer 2 · Workflow</div>
+      <h2>工作流层：让 agent 自己沉淀 skill</h2>
+      <p class="section-sub">偏好层只能装<b>一次会话内不变的</b>东西。但用户真正的工作流——比如训练完一个模型，要走 merge → 部署 → 测试 → 结果统计这一整条流水线——是 <b>多次任务后才浮现、并且每次都有细微差异的模式</b>。这种东西写在 CLAUDE.md 里既写不全也写不对，它们应该被 agent 自己发现、自己写、自己维护。</p>
+    </div>
+
+    <div class="article-copy">
+      <p>举个每天都在重复的场景——训练完一个新 checkpoint 后的标准流程：</p>
+    </div>
+
+    <div class="flow-pipeline">
+      <div class="flow-stage">
+        <div class="flow-stage-num">STAGE 01</div>
+        <div class="flow-stage-name">Merge<small>权重合并</small></div>
+        <div class="flow-stage-variants">
+          <span class="label">变体来源</span>
+          LoRA / full · shard 数 · 合并策略
+        </div>
+      </div>
+      <div class="flow-arrow-pipeline">→</div>
+      <div class="flow-stage">
+        <div class="flow-stage-num">STAGE 02</div>
+        <div class="flow-stage-name">Deploy<small>推理部署</small></div>
+        <div class="flow-stage-variants">
+          <span class="label">变体来源</span>
+          TP / PP 切片 · 显存预算 · 引擎版本
+        </div>
+      </div>
+      <div class="flow-arrow-pipeline">→</div>
+      <div class="flow-stage">
+        <div class="flow-stage-num">STAGE 03</div>
+        <div class="flow-stage-name">Eval<small>跑评测套件</small></div>
+        <div class="flow-stage-variants">
+          <span class="label">变体来源</span>
+          benchmark · 子任务 ID · 采样策略
+        </div>
+      </div>
+      <div class="flow-arrow-pipeline">→</div>
+      <div class="flow-stage">
+        <div class="flow-stage-num">STAGE 04</div>
+        <div class="flow-stage-name">Result<small>汇总结果表</small></div>
+        <div class="flow-stage-variants">
+          <span class="label">变体来源</span>
+          列名 · 实验组归并 · 输出格式
+        </div>
+      </div>
+    </div>
+
+    <div class="flow-pipeline-foot">
+      <span><b>骨架固定 · 4 阶段顺序不变</b>，但每次<span class="accent">每个阶段</span>都有细微调整——换模型 / 换数据集 / 换实验组都会让某一格的具体配置改变。变体本身是任务驱动浮现的，不可能一次性写一个 cover 所有变体的脚本。</span>
+    </div>
+
+    <div class="article-copy" style="margin-top:24px">
+      <p>这正是 <b>Skill 自动迭代</b> 的舞台：把骨架沉淀成 skill，差异作为参数与示例追加进去，让 skill 随用随长。Anthropic 已经把"capability 打包"做成了 <b>Skills</b>——每个 skill 是一个 <code>SKILL.md</code> 加可选脚本，agent 按描述决定加载。但这套机制目前主要靠人工写。我想把它自动化——每隔 N 个回合启动一个 <em>skill evaluator</em>，扫描这段对话，判定是否出现了值得沉淀的工作流：</p>
+    </div>
+
+    <div class="loop-stage">
+      <div class="loop-stage-head">
+        <div class="loop-stage-title">Skill 自动迭代闭环</div>
+        <div class="loop-stage-cap">EVERY N TURNS · ASYNC</div>
+      </div>
+
+      <div class="loop-grid">
+        <div class="loop-node dialog">
+          <div class="loop-node-icon">①</div>
+          <div class="loop-node-name">对话进行中</div>
+          <div class="loop-node-desc">主 agent 与用户正常协作。每个回合都被异步队列记录，但不影响主链路 cache。</div>
+          <div class="loop-node-tag">main agent · turn N+M</div>
+        </div>
+
+        <div class="loop-arrow">→<small>每 N 回合</small></div>
+
+        <div class="loop-node judge">
+          <div class="loop-node-icon">②</div>
+          <div class="loop-node-name">Skill Evaluator</div>
+          <div class="loop-node-desc">独立 agent 读取近 N 回合，判定：无可抽取 / 命中已有 skill / 发现新 skill 三种之一。</div>
+          <div class="loop-node-tag">judge · async</div>
+        </div>
+
+        <div class="loop-arrow">→<small>分支处理</small></div>
+
+        <div class="loop-node skill">
+          <div class="loop-node-icon">③</div>
+          <div class="loop-node-name">写盘 / 合并 / 创建</div>
+          <div class="loop-node-desc">命中已有 → 增量更新；新工作流 → 新建 SKILL.md；同时触发汰换检查。</div>
+          <div class="loop-node-tag">skill pool · disk</div>
+        </div>
+      </div>
+
+      <div class="loop-feedback">
+        <div class="loop-feedback-tag">关键约束</div>
+        <div>所有写盘操作都<b>不进入当前 session 的 system prompt</b>。新 skill 只在<b>下一个 session 启动时</b>被注入——这是把 Hermes 的 frozen snapshot 思路从"用户偏好"扩展到了"工作流模板"，目的还是同一个：<b>不打断当前会话的 prefix cache</b>。</div>
+      </div>
+    </div>
+
+    <div class="article-copy" style="margin-top:24px">
+      <p>第二个工程问题来自规模：随着用户使用时间变长，skill 会越攒越多，但 system prompt 装不下所有 skill 的描述（光是 SKILL.md 的 <em>name + description</em> 字段就占 token）。这时需要一套类似缓存的汰换策略。</p>
+      <p>简单可用的策略：<b>LRU + 高价值锁定</b>。统计每个 skill 在过去 K 个 session 中的命中次数，长期未命中的 skill 进入"冷池"——它的 SKILL.md 描述不再注入 system prompt（节省 token），但脚本与参考文件仍保留在磁盘。如果用户后来又触发了相关任务，evaluator 会把它从冷池捞回来。</p>
+    </div>
+
+    <div class="cache-stage">
+      <div class="cache-head">
+        <div class="cache-title">Skill 池中的状态分布</div>
+        <div class="cache-cap">示意 · 实际策略可换 LFU / TTL</div>
+      </div>
+
+      <div class="cache-pool">
+        <div class="skill-card hot">
+          <div class="skill-card-name">merge-ckpt</div>
+          <div class="skill-card-meta"><span class="hits">38</span><span>近 7 天</span></div>
+        </div>
+        <div class="skill-card hot">
+          <div class="skill-card-name">deploy-eval-pipeline</div>
+          <div class="skill-card-meta"><span class="hits">31</span><span>近 7 天</span></div>
+        </div>
+        <div class="skill-card hot">
+          <div class="skill-card-name">result-table-merge</div>
+          <div class="skill-card-meta"><span class="hits">22</span><span>近 7 天</span></div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-card-name">tp-config-tuner</div>
+          <div class="skill-card-meta"><span class="hits">9</span><span>近 7 天</span></div>
+        </div>
+        <div class="skill-card">
+          <div class="skill-card-name">karpathy-guidelines</div>
+          <div class="skill-card-meta"><span class="hits">7</span><span>近 7 天</span></div>
+        </div>
+        <div class="skill-card cold">
+          <div class="skill-card-name">old-eval-suite-v1</div>
+          <div class="skill-card-meta"><span class="hits">2</span><span>30 天前</span></div>
+        </div>
+        <div class="skill-card cold">
+          <div class="skill-card-name">legacy-merge-script</div>
+          <div class="skill-card-meta"><span class="hits">1</span><span>40 天前</span></div>
+        </div>
+        <div class="skill-card evict">
+          <div class="skill-card-name">draft-deploy-poc</div>
+          <div class="skill-card-meta"><span class="hits">0</span><span>已汰换</span></div>
+        </div>
+      </div>
+
+      <div class="cache-legend">
+        <span><i class="legend-dot hot"></i>热池：描述始终注入 system prompt</span>
+        <span><i class="legend-dot warm"></i>温池：仅 metadata 在索引中，按需召回</span>
+        <span><i class="legend-dot cold"></i>冷/汰换：磁盘保留但不再 prompt 中露面</span>
+      </div>
+    </div>
+
+    <div class="reader-note">
+      <b>为什么不直接清掉冷 skill？</b>因为 skill 的"价值"不只是命中次数。有些 skill 是<b>为罕见但关键场景准备的</b>——一年用一次的发布流程、跨季度的事故复盘模板。这类 skill 命中频次低但删除代价高。所以汰换策略要给"显式锁定"留口子，让用户/agent 自己标记 keep-forever。另一边，对反复失败的 skill 也要回写"这种条件下不能这么走"，<b>失败也是信号</b>，不只是热度才是。
+    </div>
+  </div>
+</section>
+
+<!-- ===== 第三节：对齐 ===== -->
+<section id="section-align" class="block">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">▸ Layer 3 · Alignment</div>
+      <h2>对齐层：在动手之前先确认任务</h2>
+      <p class="section-sub">前两层解决"长期的我"，对齐层解决"此时此刻的我"——不同任务里总有<b>无法从历史推断的实现细节</b>，这一层只能靠<b>问</b>。</p>
+    </div>
+
+    <div class="article-copy">
+      <p>对齐机制按场景并存，不是替代关系：早期靠 <code>/clearify-task</code> 这类命令<b>显式触发</b> agent 抛选择题；新模型（如 Opus 4.7）已经会<b>自己主动追问</b>实现细节，这件事被一定程度内化进了模型；但对<b>不关注实现细节的用户</b>，问 API 选哪个没意义，他们要的是产品需求层面的对齐——这只能靠 harness 风格的 plan-eval loop 来做。三种方案各有适用边界，下面把其中两种最成熟的代表放在一起看：</p>
+    </div>
+
+    <div class="visual-bridge">▸ 两种风格的对齐 · 各自的适用空间</div>
+
+    <div class="align-grid">
+      <div class="align-card light">
+        <div class="align-tag">轻量 · 命令式</div>
+        <div class="align-name">clearify-task</div>
+        <div class="align-pitch">在 Cursor / Claude Code 里挂一个 slash 命令，强制 agent 在动手前先<b>识别需求里模棱两可、有 argue 空间的细节</b>，再针对这些点抛多选题确认。重点不在问得多，在<b>问对位置</b>。</div>
+        <div class="align-flow">
+          <ol>
+            <li>用户给一段任务描述</li>
+            <li>agent <b>识别其中模棱两可、有 argue 空间的需求细节</b>（不是泛泛地问，而是聚焦 spec 漏洞）</li>
+            <li>针对这些点抛 2–4 个多选题（数据流？API？认证？UI？边界？仅作示例）</li>
+            <li>用户答完 → agent <b>用自己的话重述</b></li>
+            <li>用户确认 → 才允许进入 plan / 写代码</li>
+          </ol>
+        </div>
+        <div class="align-fit">
+          <b>SUITS</b>
+          中等复杂度的 IDE 内任务、单 agent 协作、几分钟到几十分钟的工作单元。重写代价低、用户在线。
+        </div>
+      </div>
+
+      <div class="align-card heavy">
+        <div class="align-tag">复杂 · 流程式</div>
+        <div class="align-name">harness loop</div>
+        <div class="align-pitch">参考 Anthropic 的 <em>harness for long-running apps</em>：把对齐分成三层——<b>产品顶层需求</b>（feature list，只说做什么）、<b>Sprint 契约</b>（每个 feature 配 check + git 分支边界）、<b>底层实现</b>（在契约约束下写代码）。三层之间不许跨级——Plan 不写代码、写代码的不裁决质量。本质上是 <b>state machine 的思路</b>：只声明目标状态（check 通过），中间怎么走 agent 自由发挥。</div>
+        <div class="align-flow">
+          <ol>
+            <li><b>顶层需求：</b>plan agent 把含糊需求扩成产品级 feature list（只写做什么）</li>
+            <li><b>Sprint 契约：</b>每个 feature 单独锁定可验证的 check + git 分支 / commit 边界</li>
+            <li>用户审阅 feature list + 各自的 Sprint 契约，迭代到稳定</li>
+            <li><b>实现层：</b>Generator 在契约约束下写代码，Evaluator 围绕 check 跑验收</li>
+            <li>check 不过 → 回到当前 feature 修复；全过 → 合入主干，进入下一个 feature</li>
+          </ol>
+        </div>
+        <div class="align-fit">
+          <b>SUITS</b>
+          多 agent / 多日 / 多里程碑任务。feature 之间需要协同设计、重写代价高；用户只参与<b>顶层需求 + Sprint 契约</b>两层，实现层完全交给 agent。
+        </div>
+      </div>
+    </div>
+
+    <div class="dim-table">
+      <table>
+        <thead>
+          <tr>
+            <th class="dim">对齐维度</th>
+            <th class="light">clearify-task 风格</th>
+            <th class="heavy">harness 风格</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td class="dim">任务规模</td><td>分钟级到小时级</td><td>小时级到周级</td></tr>
+          <tr><td class="dim">对齐层级</td><td>实现细节里模棱两可的点</td><td>顶层需求 + Sprint 契约（feature × check × git）</td></tr>
+          <tr><td class="dim">用户参与频率</td><td>开场一次</td><td>开场审 feature list + 关键 milestone 审 Sprint 契约</td></tr>
+          <tr><td class="dim">对齐产物</td><td>2–4 道针对性多选题</td><td>feature list + 每个 feature 的 Sprint 契约（check + git 边界）</td></tr>
+          <tr><td class="dim">承载形式</td><td>slash 命令 / prompt 模板</td><td>子 agent / 工作流引擎</td></tr>
+          <tr><td class="dim">失败代价</td><td>低（重跑一次任务）</td><td>高（中间产物难复用）</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="article-copy" style="margin-top:24px">
+      <p>这两种风格不是互斥关系。一个成熟的 agent 系统应当<b>按任务复杂度自动选择</b>：简单任务直接干、中等任务挂 clearify-task、复杂任务进 harness loop。判定逻辑可以放在主 agent 的开场 routing 里，也可以做成一个独立的 <em>complexity classifier</em>。</p>
+      <p>更进一步，这两种风格的<b>底层共性</b>都是把"还没说清楚的需求"显式化——前者用选择题、后者用 spec 文档。两者都遵循同一条直觉：<b>提问的 token 远比重做的 token 便宜</b>。</p>
+    </div>
+
+    <div class="quote">
+      对齐层的产出不是"agent 答得多对"，而是"agent 在多大程度上避免了答错的那些 token"。这个层次的 ROI 是用<b>节省下来的废跑次数</b>来衡量的。
+    </div>
+  </div>
+</section>
+
+<!-- ===== 收尾回收 ===== -->
+<section id="closing" class="block">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">▸ Closing · 三层回收</div>
+      <h2>把三层放回一次真实对话里</h2>
+      <p class="section-sub">把三层放在<b>同一次对话的时序里</b>——「在哪个位置插什么机制」就清楚了。读取（注入）发生在 session 开头，写入（落盘）发生在 session 结尾，下次 session 才生效。这就是<b>读时灵活、写时延迟</b>的全部含义。</p>
+    </div>
+
+    <div class="closing-stage">
+      <div class="closing-tag">REVISIT · 三层在一次对话中各自插在哪里</div>
+      <div class="closing-headline">"懂用户" = <b>偏好 + 工作流 + 对齐</b>，三层在 <b>session 边界与对话内部</b>各司其职。</div>
+
+      <div class="conv-flow">
+
+        <div class="conv-row boundary">
+          <div class="conv-boundary">▷ Session N · 开始<span class="note">system prompt 锁定</span></div>
+        </div>
+
+        <div class="conv-row sys">
+          <div class="conv-content"><b>注入</b> · CLAUDE.md / USER.md 整段塞入 system prompt（frozen）</div>
+          <div class="conv-tag l1">L1 · 偏好</div>
+        </div>
+        <div class="conv-row sys">
+          <div class="conv-content"><b>注入</b> · 召回相关 skill 描述，挂入 system prompt（frozen）</div>
+          <div class="conv-tag l2">L2 · 工作流</div>
+        </div>
+
+        <div class="conv-row user">
+          <span class="conv-speaker">USER</span>
+          <span class="conv-content">帮我跑一遍新 ckpt 的训练-测试流水线</span>
+        </div>
+
+        <div class="conv-row agent">
+          <span class="conv-speaker">AGENT</span>
+          <span class="conv-content"><b>识别歧义点</b> → 抛针对性多选题：LoRA 还是 full merge？eval 跑哪些 benchmark？</span>
+          <div class="conv-tag l3">L3 · clearify-task</div>
+        </div>
+
+        <div class="conv-row sys alt">
+          <div class="conv-content"><b>OR</b> · 若任务是复杂产品需求（不只是工程细节），这一步换成 plan agent 输出 feature list + 每个 feature 的 Sprint 契约</div>
+          <div class="conv-tag l3">L3 · harness loop</div>
+        </div>
+
+        <div class="conv-row user">
+          <span class="conv-speaker">USER</span>
+          <span class="conv-content">full merge / mmlu + gsm8k</span>
+        </div>
+
+        <div class="conv-row agent">
+          <span class="conv-speaker">AGENT</span>
+          <span class="conv-content">需求锁定，调用 deploy-eval-pipeline skill 开干</span>
+        </div>
+
+        <div class="conv-row sys">
+          <div class="conv-content">… 多轮工具调用 / 代码生成 / 验证 …</div>
+        </div>
+
+        <div class="conv-row boundary">
+          <div class="conv-boundary">▷ Session N · 结束<span class="note">异步写盘，不打断本次 cache</span></div>
+        </div>
+
+        <div class="conv-row sys">
+          <div class="conv-content"><b>异步写盘</b> · skill evaluator 抽取本次新工作流 → 更新 / 新建 SKILL.md</div>
+          <div class="conv-tag l2">L2 · 自动迭代</div>
+        </div>
+        <div class="conv-row sys">
+          <div class="conv-content"><b>异步写盘</b> · auto memory 抽取新偏好（如 try/except 风格） → 追加 CLAUDE.md</div>
+          <div class="conv-tag l1">L1 · 增量</div>
+        </div>
+
+        <div class="conv-row boundary">
+          <div class="conv-boundary">▷ Session N+1 · 开始<span class="note">读取上一次的写入</span></div>
+        </div>
+
+        <div class="conv-row sys">
+          <div class="conv-content"><b>注入</b> · 新偏好 + 新 skill 一并 frozen 进 system prompt，从此次 session 起生效</div>
+          <div class="conv-tag l1">L1+L2</div>
+        </div>
+
+      </div>
+
+      <div class="closing-foot">
+        注意图里所有<b>实线圆点（用户/agent 消息）发生在 session 内</b>，所有<b>虚线圆点（注入/写盘）只发生在 session 边界</b>——这就是"读时灵活、写时延迟"的物理形态。session 内 system prompt 始终是稳定的 prefix，任何对偏好或 skill 的更新都被推到下一次 session。"懂用户"和"算得快"由此可以同时做到。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 参考资料 ===== -->
+<footer id="sources">
+  <div class="container">
+    <div>
+      <b>这篇是设计文，没有对应的"原文"。</b>核心观点取自以下几个公开实现与文档的拼合与延伸：
+      <div class="src-list" style="margin-top:12px">
+        <a href="https://docs.anthropic.com/en/docs/claude-code/memory" target="_blank" rel="noopener">Claude Code · How Claude remembers your project (Anthropic)</a>
+        <a href="https://hermes-agent.nousresearch.com/docs/user-guide/features/memory" target="_blank" rel="noopener">Hermes Agent · Persistent Memory (Nous Research)</a>
+        <a href="https://www.anthropic.com/engineering/equipping-agents-for-the-real-world-with-agent-skills" target="_blank" rel="noopener">Anthropic · Equipping agents with Skills</a>
+        <a href="https://www.anthropic.com/engineering/harness-design-long-running-apps" target="_blank" rel="noopener">Anthropic · Harness design for long-running apps</a>
+      </div>
+    </div>
+    <div style="text-align:right">
+      <b>状态</b>：草稿（temp/agent-understanding-user/）<br/>
+      <b>生成方式</b>：基于个人观点 + 公开材料整合<br/>
+      <span style="color:var(--text-soft)">© 2026 · 仅作读者私人参考</span>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

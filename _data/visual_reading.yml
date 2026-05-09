@@ -10,6 +10,10 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: agent-understanding-user
+    title: "构造一个更懂用户的 Agent System · 三层设计"
+    date: 2026-05-09
+    source_type: blog
   - slug: hermes-agent-memory
     title: "Hermes Agent 的记忆机制 · 双层结构与冻结快照"
     date: 2026-05-08
