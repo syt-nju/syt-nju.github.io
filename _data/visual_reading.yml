@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: post-training-distributional-view
+    title: "用分布几何看 SFT、RL、OPD 三种 post-training 怎么推模型"
+    date: 2026-05-11
+    source_type: blog
+    source_url: "https://nrehiew.github.io/blog/sft_rl_opd/"
   - slug: deepseek-v2-mla
     title: "MLA · 把 KV cache 联合压成一个 latent 向量"
     date: 2026-05-11

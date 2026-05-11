@@ -1,0 +1,1987 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>在分布视角下看 SFT / RL / On-Policy Distillation · 可视化阅读</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #FBF6EA;
+    --bg-surface: #FFFFFF;
+    --bg-soft: #F5ECD8;
+    --bg-dark: #1A1816;
+    --bg-dark-2: #252220;
+    --text: #1A1816;
+    --text-muted: #6B6660;
+    --text-soft: #8C857B;
+    --text-invert: #F5F1E8;
+    --accent: #C04E2D;
+    --accent-hover: #A8401F;
+    --accent-soft: #F4DCD0;
+    --accent-deep: #7A2E16;
+    --sft-tone: #2E5A6B;
+    --sft-soft: #DCE6EB;
+    --rl-tone: #B8860B;
+    --rl-soft: #F4E8C7;
+    --opd-tone: #6A4C8C;
+    --opd-soft: #E4DCEC;
+    --border: #E8DCC7;
+    --border-strong: #D4C4A6;
+    --border-dark: #3A3633;
+    --shadow-sm: 0 1px 2px rgba(26, 24, 22, 0.04);
+    --shadow-md: 0 4px 14px rgba(26, 24, 22, 0.06);
+    --shadow-lg: 0 16px 40px rgba(26, 24, 22, 0.10);
+    --radius: 10px;
+    --radius-lg: 16px;
+    --radius-xl: 22px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-hover); }
+
+  .container { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- Top bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(251, 246, 234, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px; max-width: 1180px; margin: 0 auto;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    font-weight: 700; font-size: 14.5px; letter-spacing: -0.005em;
+  }
+  .brand-logo {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: var(--bg-dark);
+    display: grid; place-items: center; color: var(--accent); font-size: 14px; font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .brand-text { color: var(--text); }
+  .brand-text small { color: var(--text-muted); font-weight: 500; font-size: 12px; margin-left: 8px; }
+  .topnav { display: flex; gap: 4px; align-items: center; }
+  .topnav a {
+    padding: 7px 9px; border-radius: 8px;
+    color: var(--text-muted); font-size: 12.5px; font-weight: 500;
+    transition: color 0.15s, background 0.15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--accent-soft); }
+  .source-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; color: var(--text-muted); text-decoration: none;
+    padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border);
+    transition: all 0.15s; font-weight: 500;
+  }
+  .source-link:hover { border-color: var(--accent); color: var(--accent); }
+  .source-link svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 72px 0 44px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--accent); text-transform: uppercase;
+    background: var(--accent-soft); padding: 6px 14px; border-radius: 100px;
+    margin-bottom: 22px; font-family: 'JetBrains Mono', monospace;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  h1 {
+    font-size: clamp(34px, 5.2vw, 54px); line-height: 1.1; letter-spacing: -0.025em;
+    font-weight: 800; margin-bottom: 22px; max-width: 880px;
+  }
+  .hero-sub {
+    font-size: 19px; color: var(--text-muted); max-width: 720px; line-height: 1.6;
+    font-weight: 400;
+  }
+  .hero-meta {
+    display: flex; gap: 22px; margin-top: 28px; font-size: 13px; color: var(--text-muted);
+    flex-wrap: wrap; align-items: center;
+  }
+  .hero-meta span { display: inline-flex; align-items: center; gap: 7px; }
+  .hero-meta svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .hero-meta b { color: var(--text); font-weight: 600; }
+
+  .tldr {
+    margin-top: 48px; background: var(--bg-dark); color: var(--text-invert);
+    border-radius: var(--radius-xl); padding: 36px 40px;
+    box-shadow: var(--shadow-lg); position: relative; overflow: hidden;
+  }
+  .tldr::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent);
+  }
+  .tldr-title {
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 18px; font-family: 'JetBrains Mono', monospace;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .tldr-title::after {
+    content: ''; flex: 1; height: 1px; background: rgba(192, 78, 45, 0.2);
+  }
+  .tldr-text {
+    font-size: 19px; line-height: 1.65; color: var(--text-invert); font-weight: 400;
+  }
+  .tldr-text b { color: #F2A07A; font-weight: 600; }
+  .tldr-text + .tldr-text { margin-top: 14px; font-size: 16px; color: #C8C0B3; }
+
+  /* ---------- Metric strip ---------- */
+  .metrics-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-top: 22px;
+  }
+  .metric {
+    background: var(--bg-dark-2); border-radius: 14px; padding: 22px 22px;
+    border: 1px solid var(--border-dark);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .metric-value {
+    font-size: 30px; font-weight: 800; letter-spacing: -0.02em;
+    color: #F2A07A; line-height: 1; font-family: 'JetBrains Mono', monospace;
+  }
+  .metric-value small { font-size: 14px; font-weight: 500; color: #8C857B; margin-left: 4px; }
+  .metric-label {
+    font-size: 12px; color: #B3AB9F; line-height: 1.45; margin-top: 6px;
+  }
+
+  /* ---------- Section ---------- */
+  section.block { padding: 64px 0; border-top: 1px solid var(--border); }
+  .section-head { margin-bottom: 26px; max-width: 760px; }
+  .section-num {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--accent); font-weight: 600;
+    background: var(--accent-soft); padding: 5px 12px; border-radius: 100px;
+    margin-bottom: 16px;
+  }
+  h2 {
+    font-size: clamp(26px, 3.4vw, 36px); font-weight: 700; letter-spacing: -0.022em;
+    margin-bottom: 14px; line-height: 1.18;
+  }
+  h3 {
+    font-size: 19px; font-weight: 700; letter-spacing: -0.012em;
+    margin-bottom: 10px; line-height: 1.3;
+  }
+  .section-sub { color: var(--text-muted); font-size: 16.5px; line-height: 1.65; }
+  .section-sub b { color: var(--text); font-weight: 600; }
+  .article-copy {
+    max-width: 760px;
+    font-size: 17px;
+    line-height: 1.82;
+    color: var(--text);
+  }
+  .article-copy p + p { margin-top: 16px; }
+  .article-copy b { font-weight: 600; color: var(--text); }
+  .article-copy em { color: var(--text-muted); font-style: normal; }
+  .reader-note {
+    margin-top: 24px;
+    padding: 18px 22px;
+    background: rgba(255, 255, 255, 0.62);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    color: var(--text-muted);
+    font-size: 14.5px;
+    line-height: 1.7;
+  }
+  .reader-note b { color: var(--text); font-weight: 600; }
+  .visual-bridge {
+    margin: 30px 0 14px;
+    max-width: 760px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  /* ---------- Mental model card ---------- */
+  .mental-card {
+    margin-top: 28px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 34px;
+    box-shadow: var(--shadow-md);
+  }
+  .mental-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    align-items: center;
+  }
+  .mental-text-col h3 { margin-bottom: 14px; font-size: 20px; }
+  .mental-text-col p {
+    color: var(--text-muted); font-size: 15px; line-height: 1.72;
+  }
+  .mental-text-col p b { color: var(--text); font-weight: 600; }
+  .mental-text-col p + p { margin-top: 12px; }
+
+  .dist-svg {
+    width: 100%; height: 260px;
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+
+  /* ---------- Three methods compare ---------- */
+  .methods-tabs {
+    display: flex; gap: 8px; margin: 30px 0 18px;
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 0;
+    flex-wrap: wrap;
+  }
+  .method-tab {
+    padding: 12px 18px;
+    font-family: inherit; font-size: 14px; font-weight: 600;
+    background: transparent; border: none;
+    color: var(--text-muted); cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+    transition: all 0.15s;
+    display: inline-flex; align-items: center; gap: 8px;
+  }
+  .method-tab .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--border-strong);
+  }
+  .method-tab[data-target="sft"] .dot { background: var(--sft-tone); }
+  .method-tab[data-target="rl"] .dot { background: var(--rl-tone); }
+  .method-tab[data-target="opd"] .dot { background: var(--opd-tone); }
+  .method-tab:hover { color: var(--text); }
+  .method-tab.active { color: var(--text); border-bottom-color: var(--accent); }
+
+  .method-panel { display: none; }
+  .method-panel.active { display: block; }
+  .method-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+    display: grid;
+    grid-template-columns: 1.05fr 0.95fr;
+    gap: 28px;
+    align-items: stretch;
+  }
+  .method-info .method-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase; margin-bottom: 10px;
+  }
+  .method-card[data-id="sft"] .method-kicker { color: var(--sft-tone); }
+  .method-card[data-id="rl"] .method-kicker { color: var(--rl-tone); }
+  .method-card[data-id="opd"] .method-kicker { color: var(--opd-tone); }
+  .method-info h3 {
+    font-size: 22px; line-height: 1.25; margin-bottom: 12px;
+  }
+  .method-info p {
+    font-size: 15px; line-height: 1.72; color: var(--text-muted);
+  }
+  .method-info p b { color: var(--text); font-weight: 600; }
+  .method-info p + p { margin-top: 12px; }
+  .method-attrs {
+    margin-top: 18px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px 14px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+  }
+  .method-attr {
+    font-size: 13px;
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: baseline;
+    column-gap: 10px;
+  }
+  .method-attr .k {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; font-weight: 600;
+    color: var(--text-soft); letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
+  .method-attr .v { color: var(--text); font-weight: 500; }
+
+  .method-viz {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 16px;
+    display: flex; flex-direction: column; gap: 10px;
+  }
+  .method-viz svg { width: 100%; height: 100%; min-height: 220px; }
+  .viz-caption {
+    font-size: 12px; color: var(--text-muted);
+    line-height: 1.55;
+    padding-top: 6px;
+    border-top: 1px dashed var(--border-strong);
+  }
+  .viz-caption b { color: var(--text); font-weight: 600; }
+
+  /* ---------- OPSD token KL bar ---------- */
+  .opsd-stage {
+    margin-top: 22px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+  }
+  .opsd-stage h3 { font-size: 19px; margin-bottom: 10px; }
+  .opsd-stage > p {
+    color: var(--text-muted); font-size: 14.5px; line-height: 1.7;
+    max-width: 760px;
+  }
+  .opsd-stage > p b { color: var(--text); font-weight: 600; }
+
+  .token-chart {
+    margin-top: 24px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 22px;
+  }
+  .token-col {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+  }
+  .token-col h4 {
+    font-size: 14px;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    margin-bottom: 6px;
+    text-transform: uppercase;
+  }
+  .token-col.high h4 { color: var(--accent); }
+  .token-col.low h4 { color: var(--rl-tone); }
+  .token-col .legend {
+    font-size: 12px; color: var(--text-muted); margin-bottom: 14px;
+  }
+  .token-bars { display: grid; gap: 8px; }
+  .token-bar {
+    display: grid;
+    grid-template-columns: 110px 1fr 56px;
+    gap: 12px;
+    align-items: center;
+    font-size: 13px;
+  }
+  .token-bar .label {
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--text);
+  }
+  .token-bar .track {
+    height: 9px; border-radius: 100px;
+    background: var(--bg-soft);
+    position: relative; overflow: hidden;
+  }
+  .token-bar .fill {
+    position: absolute; top: 0; left: 0; bottom: 0;
+    border-radius: 100px;
+    transition: width 0.6s cubic-bezier(.4,0,.2,1);
+  }
+  .token-col.high .fill { background: var(--accent); }
+  .token-col.low .fill { background: var(--rl-tone); }
+  .token-bar .v {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--text-muted);
+    text-align: right;
+  }
+  .opsd-key {
+    margin-top: 22px;
+    padding: 16px 20px;
+    background: var(--bg-soft);
+    border-radius: var(--radius);
+    border-left: 3px solid var(--accent);
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--text);
+  }
+  .opsd-key b { color: var(--accent); font-weight: 600; }
+
+  /* ---------- Experiment table ---------- */
+  .exp-stage {
+    margin-top: 28px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+  }
+  .exp-table-wrap { overflow-x: auto; }
+  .exp-table {
+    width: 100%; min-width: 720px;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .exp-table thead th {
+    text-align: left;
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    font-weight: 700;
+    font-size: 12px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+  }
+  .exp-table thead th:not(:first-child) { text-align: right; }
+  .exp-table tbody td {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    font-family: 'JetBrains Mono', monospace;
+    text-align: right;
+    color: var(--text);
+  }
+  .exp-table tbody td:first-child {
+    text-align: left;
+    font-family: inherit;
+    font-weight: 500;
+  }
+  .exp-table tbody tr.group-head td {
+    background: var(--bg-soft);
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    padding: 8px 20px;
+  }
+  .exp-table tbody tr.highlight td {
+    background: rgba(192, 78, 45, 0.05);
+  }
+  .exp-table .cell-good { color: var(--rl-tone); font-weight: 600; }
+  .exp-table .cell-bad { color: var(--accent); font-weight: 600; }
+  .exp-table .cell-best { color: var(--rl-tone); font-weight: 700; }
+  .exp-note {
+    padding: 18px 22px;
+    background: var(--bg-soft);
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.6;
+    border-top: 1px solid var(--border);
+  }
+  .exp-note b { color: var(--text); font-weight: 600; }
+
+  .exp-takeaways {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 16px;
+    margin-top: 24px;
+  }
+  .exp-takeaway {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+  }
+  .exp-takeaway .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    color: var(--accent); margin-bottom: 8px;
+  }
+  .exp-takeaway h4 {
+    font-size: 15.5px; line-height: 1.35; margin-bottom: 8px;
+  }
+  .exp-takeaway p {
+    font-size: 13.5px; line-height: 1.65; color: var(--text-muted);
+  }
+  .exp-takeaway p b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Forgetting explanations ---------- */
+  .why-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1.15fr;
+    gap: 16px;
+    margin-top: 26px;
+  }
+  .why-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 26px;
+    display: flex; flex-direction: column;
+    position: relative;
+  }
+  .why-card .why-tag {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--text-muted);
+    background: var(--bg-soft);
+    padding: 4px 10px; border-radius: 100px;
+    margin-bottom: 14px;
+    align-self: flex-start;
+  }
+  .why-card h3 {
+    font-size: 17px; line-height: 1.3; margin-bottom: 12px;
+  }
+  .why-card p {
+    font-size: 13.5px; line-height: 1.7; color: var(--text-muted);
+  }
+  .why-card p + p { margin-top: 10px; }
+  .why-card p b { color: var(--text); font-weight: 600; }
+  .why-verdict {
+    margin-top: auto;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border-strong);
+    font-size: 12.5px;
+    color: var(--text-muted);
+    font-style: italic;
+  }
+  .why-card.preferred {
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    border-color: var(--bg-dark);
+  }
+  .why-card.preferred .why-tag {
+    background: rgba(192, 78, 45, 0.18);
+    color: #F2A07A;
+  }
+  .why-card.preferred h3 { color: var(--text-invert); }
+  .why-card.preferred p { color: #C8C0B3; }
+  .why-card.preferred p b { color: #F2A07A; }
+  .why-card.preferred .why-verdict {
+    color: #F2A07A;
+    border-top-color: rgba(192, 78, 45, 0.3);
+    font-style: normal;
+    font-weight: 600;
+  }
+
+  /* ---------- Nearest π* geometric figure ---------- */
+  .geo-stage {
+    margin-top: 28px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+    display: grid;
+    grid-template-columns: 1fr 0.95fr;
+    gap: 28px;
+    align-items: center;
+  }
+  .geo-text h3 { font-size: 19px; margin-bottom: 12px; }
+  .geo-text p {
+    font-size: 14.5px; line-height: 1.72; color: var(--text-muted);
+  }
+  .geo-text p + p { margin-top: 12px; }
+  .geo-text p b { color: var(--text); font-weight: 600; }
+  .geo-svg { width: 100%; height: 320px; }
+  .geo-legend {
+    margin-top: 14px;
+    display: grid;
+    gap: 6px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+  }
+  .geo-legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .geo-legend .swatch {
+    width: 12px; height: 12px; border-radius: 3px; flex: none;
+  }
+
+  /* ---------- Student > teacher panel ---------- */
+  .student-grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+    margin-top: 24px;
+  }
+  .student-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 26px;
+  }
+  .student-card .num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    color: var(--accent); letter-spacing: 0.1em;
+    margin-bottom: 10px;
+  }
+  .student-card h4 { font-size: 17px; line-height: 1.3; margin-bottom: 10px; }
+  .student-card p { font-size: 14px; line-height: 1.7; color: var(--text-muted); }
+  .student-card p + p { margin-top: 10px; }
+  .student-card p b { color: var(--text); font-weight: 600; }
+  .dist-viz {
+    margin: 14px auto;
+    max-width: 600px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    padding: 16px 12px 12px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .dist-col {
+    display: flex; flex-direction: column;
+    align-items: center;
+    gap: 6px;
+  }
+  .mini-dist-svg {
+    width: 100%;
+    max-width: 180px;
+    aspect-ratio: 1 / 1;
+  }
+  .dist-col-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px;
+    color: var(--text-muted);
+    text-align: center;
+    line-height: 1.45;
+    letter-spacing: 0.02em;
+  }
+  .dist-col-label b { color: var(--text); font-weight: 700; }
+
+  .curve-stage {
+    margin-top: 22px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 28px;
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .curve-svg-wrap {
+    max-width: 760px;
+    margin: 0 auto;
+    width: 100%;
+  }
+  .curve-svg { width: 100%; height: auto; aspect-ratio: 460 / 320; display: block; }
+  .curve-text h4 { font-size: 15.5px; margin-bottom: 10px; letter-spacing: -0.01em; }
+  .curve-text p { font-size: 13.5px; line-height: 1.7; color: var(--text-muted); }
+  .curve-text p + p { margin-top: 10px; }
+  .curve-text p b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Pipeline ---------- */
+  .pipeline {
+    margin-top: 28px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 30px;
+    box-shadow: var(--shadow-md);
+  }
+  .pipeline-flow {
+    display: grid;
+    grid-template-columns: repeat(7, auto);
+    align-items: center;
+    gap: 10px;
+  }
+  .pipe-step {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 18px;
+    text-align: center;
+  }
+  .pipe-step .stage {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-soft);
+    margin-bottom: 4px;
+  }
+  .pipe-step .name {
+    font-size: 15px; font-weight: 700;
+    color: var(--text);
+  }
+  .pipe-step.sft { border-top: 3px solid var(--sft-tone); }
+  .pipe-step.rl { border-top: 3px solid var(--rl-tone); }
+  .pipe-step.opd { border-top: 3px solid var(--opd-tone); }
+  .pipe-arrow {
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700;
+    font-size: 16px;
+  }
+  .pipe-foot {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+    color: var(--text-muted);
+    font-size: 13.5px;
+    line-height: 1.65;
+  }
+  .pipe-foot b { color: var(--text); font-weight: 600; }
+
+  .expert-table {
+    margin-top: 22px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    overflow: hidden;
+    box-shadow: var(--shadow-sm);
+  }
+  .expert-table table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+  }
+  .expert-table thead th {
+    background: var(--bg);
+    text-align: left;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    font-weight: 700;
+    font-size: 11.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .expert-table tbody td {
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  .expert-table tbody tr:last-child td { border-bottom: none; }
+  .expert-table .pill {
+    display: inline-block;
+    padding: 2px 10px;
+    border-radius: 100px;
+    font-size: 11.5px;
+    font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em;
+  }
+  .pill.rl { background: var(--rl-soft); color: var(--rl-tone); }
+  .pill.sft { background: var(--sft-soft); color: var(--sft-tone); }
+  .pill.opd { background: var(--opd-soft); color: var(--opd-tone); }
+  .pill.mix { background: var(--bg-soft); color: var(--text-muted); }
+
+  /* ---------- Future algorithm axes ---------- */
+  .axes-stage {
+    margin-top: 28px;
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    border-radius: var(--radius-xl);
+    padding: 36px;
+    box-shadow: var(--shadow-lg);
+  }
+  .axes-head .kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 10px;
+  }
+  .axes-head h3 {
+    font-size: 22px;
+    line-height: 1.3;
+    color: var(--text-invert);
+    margin-bottom: 6px;
+  }
+  .axes-head p {
+    font-size: 14.5px; color: #C8C0B3; max-width: 700px; line-height: 1.7;
+  }
+  .axes-grid {
+    margin-top: 26px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 14px;
+  }
+  .axis {
+    background: var(--bg-dark-2);
+    border: 1px solid var(--border-dark);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+  }
+  .axis .icon {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    color: #F2A07A;
+    margin-bottom: 10px;
+  }
+  .axis h4 {
+    font-size: 16px; color: var(--text-invert);
+    margin-bottom: 8px;
+  }
+  .axis p {
+    font-size: 13px; line-height: 1.7; color: #B3AB9F;
+  }
+  .axis p b { color: #F2A07A; font-weight: 600; }
+  .axes-foot {
+    margin-top: 24px;
+    padding-top: 20px;
+    border-top: 1px solid var(--border-dark);
+    font-size: 14px;
+    color: #C8C0B3;
+    line-height: 1.7;
+  }
+  .axes-foot b { color: #F2A07A; font-weight: 600; }
+
+  /* ---------- Quote ---------- */
+  .quote-block {
+    margin: 36px 0 0;
+    padding: 30px 36px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sm);
+    position: relative;
+  }
+  .quote-block::before {
+    content: '“';
+    position: absolute;
+    top: -10px; left: 24px;
+    font-family: 'Inter', serif;
+    font-size: 72px;
+    color: var(--accent);
+    line-height: 1;
+    font-weight: 700;
+    background: var(--bg);
+    padding: 0 8px;
+  }
+  .quote-text {
+    font-size: 17px; line-height: 1.7; color: var(--text);
+    font-weight: 400;
+  }
+  .quote-text b { color: var(--accent); font-weight: 600; }
+  .quote-attr {
+    margin-top: 14px;
+    font-size: 13px; color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ---------- Footer ---------- */
+  .site-footer {
+    background: var(--bg-dark); color: #C8C0B3;
+    padding: 50px 0 30px; margin-top: 60px;
+  }
+  .footer-grid {
+    display: grid; grid-template-columns: 1.4fr 1fr; gap: 36px;
+  }
+  .footer-grid h4 {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent);
+    margin-bottom: 14px;
+  }
+  .footer-source {
+    display: flex; justify-content: space-between; gap: 18px; align-items: center;
+    padding: 18px 20px;
+    background: var(--bg-dark-2);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-dark);
+  }
+  .footer-source-meta strong {
+    color: var(--text-invert); font-weight: 600; font-size: 14.5px;
+    display: block; margin-bottom: 4px;
+  }
+  .footer-source-meta div {
+    font-size: 12.5px; color: #8C857B;
+  }
+  .footer-source a {
+    color: var(--accent); display: inline-flex; align-items: center; gap: 6px;
+    font-size: 13px; font-weight: 600;
+    padding: 8px 14px; border: 1px solid var(--accent); border-radius: 8px;
+    transition: all 0.15s; white-space: nowrap;
+  }
+  .footer-source a:hover { background: var(--accent); color: white; }
+  .footer-bottom {
+    margin-top: 30px;
+    padding-top: 22px;
+    border-top: 1px solid var(--border-dark);
+    display: flex; justify-content: space-between;
+    font-size: 12px; color: #8C857B;
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 880px) {
+    .container { padding: 0 20px; }
+    .hero { padding: 48px 0 30px; }
+    .tldr { padding: 28px 24px; }
+    .tldr-text { font-size: 17px; }
+    .metrics-row { grid-template-columns: repeat(2, 1fr); }
+    .mental-grid { grid-template-columns: 1fr; }
+    .method-card { grid-template-columns: 1fr; }
+    .token-chart { grid-template-columns: 1fr; }
+    .exp-takeaways { grid-template-columns: 1fr; }
+    .why-grid { grid-template-columns: 1fr; }
+    .geo-stage { grid-template-columns: 1fr; }
+    .student-grid { grid-template-columns: 1fr; }
+    .curve-stage { grid-template-columns: 1fr; }
+    .pipeline-flow {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+    .pipe-arrow { transform: rotate(90deg); }
+    .axes-grid { grid-template-columns: 1fr; }
+    .footer-grid { grid-template-columns: 1fr; }
+    .footer-source { flex-direction: column; align-items: flex-start; }
+    .topnav { display: none; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ---------- Top bar ---------- -->
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-logo">D</div>
+      <span class="brand-text">分布视角 · SFT / RL / OPD<small>blog-to-html · 2026-05-11</small></span>
+    </div>
+    <nav class="topnav">
+      <a href="#mental">心智模型</a>
+      <a href="#methods">三种方法</a>
+      <a href="#experiment">实验</a>
+      <a href="#why-forget">为什么 RL 少遗忘</a>
+      <a href="#pipeline">Pipeline</a>
+      <a href="#future">最佳算法</a>
+    </nav>
+    <a class="source-link" href="https://nrehiew.github.io/blog/sft_rl_opd/" target="_blank" rel="noopener">
+      原文
+      <svg viewBox="0 0 16 16"><path d="M3 13L13 3M13 3H6M13 3V10"/></svg>
+    </a>
+  </div>
+</div>
+
+<!-- ---------- Hero ---------- -->
+<section class="hero">
+  <div class="container">
+    <div class="eyebrow"><span class="dot"></span>Distributional Lens · Post-Training</div>
+    <h1>把 SFT / RL / On-Policy Distillation 看成对同一个分布的三种塑形</h1>
+    <p class="hero-sub">
+      一个语言模型其实就是一个序列上的分布。Post-training 在做的事，是把这个分布往某个目标推。
+      SFT、RL、OPD 的差别，不在「学不学得到」，而在<b>目标分布是什么，以及梯度被允许从哪儿出发</b>。
+      nrehiew 这篇 blog 的核心论点是：真正承重的不是显式 KL 惩罚，而是「on-policy 数据」。
+    </p>
+    <div class="hero-meta">
+      <span><svg viewBox="0 0 16 16"><circle cx="8" cy="8" r="6"/><path d="M8 4v4l3 2"/></svg>原文阅读 <b>≈ 12 分钟</b></span>
+      <span><svg viewBox="0 0 16 16"><path d="M2 4h12M2 8h12M2 12h12"/></svg>本页 <b>8 段 · 多个对照图</b></span>
+      <span><svg viewBox="0 0 16 16"><path d="M3 13L13 3M13 3H6M13 3V10"/></svg><a href="https://nrehiew.github.io/blog/sft_rl_opd/" target="_blank" rel="noopener">nrehiew.github.io</a></span>
+      <span><svg viewBox="0 0 16 16"><path d="M3 13L13 3M13 3H6M13 3V10"/></svg><a href="https://x.com/nrehiew_/status/2053482349300797526" target="_blank" rel="noopener">原推文</a></span>
+    </div>
+
+    <div class="tldr">
+      <div class="tldr-title">TL;DR<span></span></div>
+      <p class="tldr-text">
+        SFT 把模型拉向<b>外部数据集</b>，RL 沿<b>当前策略上奖励最高的方向</b>更新，OPD 用<b>学生自己的样本</b>但跟着教师的分布走。
+        前者会按整个分布均匀施力，因此容易把无关能力一起冲掉；后两者只在「模型自己访问过的区域」上动，自带一种<b>隐式 KL 约束</b>。
+      </p>
+      <p class="tldr-text">
+        在最小代码编辑实验里，OPD 的两个学生（一个从 SFT 教师、一个从 RL 教师蒸馏）<b>表现几乎一模一样</b>，
+        甚至都略超过 RL 教师本身。说明真正在起作用的是<b>"数据从学生分布采样"</b>这一性质，而不是教师的好坏。
+        把 SFT / RL / OPD 并排看，<b>on-policy 数据才是 post-training 真正的承重梁</b>。
+      </p>
+    </div>
+
+    <div class="metrics-row">
+      <div class="metric">
+        <div class="metric-value">0.45 <small>→ 0.06</small></div>
+        <div class="metric-label">归一化 Levenshtein 距离<br/>SFT 教师 → OPD 学生：从大改特改回到「最小编辑」</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">0.286 <small>→ 0.297</small></div>
+        <div class="metric-label">LiveCodeBench v6<br/>OPD 学生的通用代码能力<b>比 SFT 教师还高</b>，遗忘被吸收掉了</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">≈ 0%</div>
+        <div class="metric-label">OPD-SFT 与 OPD-RL 两个学生<br/>核心指标几乎完全一致 —— 教师不重要，数据来源才重要</div>
+      </div>
+      <div class="metric">
+        <div class="metric-value">3 轴</div>
+        <div class="metric-label">下一代算法要同时满足：<br/>蒸馏的<b>密度</b> · RL 的<b>无偏</b> · on-policy 的<b>就近</b></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 1: Mental model ---------- -->
+<section class="block" id="mental">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">01 · 心智模型</div>
+      <h2>语言模型 = 一种分布；训练算法 = 怎么把分布往目标推</h2>
+      <p class="section-sub">
+        nrehiew 提出一个统一的视角：先别看损失函数长什么样，而是问<b>「目标分布是什么？它有多直接？」</b>
+        这一节先把这个模板立起来，后面的所有差异都可以套进它。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        作者明确说这不是一个严谨的数学定义，更像一个<b>有用的思考模板</b>。在这个视角下：
+        SFT 把当前分布拉向「数据集定义的那个分布」；RL 没有一个事先指定的外部分布，
+        但每一步都试图朝「期望奖励更高的方向」挪一点；OPD 介于两者之间 ——
+        样本由学生自己生成，但梯度让学生去匹配教师的分布。
+      </p>
+      <p>
+        模板里最关键的一个问题是 <em>—— gradient 是从哪儿出发的？</em>
+        SFT 的梯度均匀地铺在外部数据集的 token 上，<b>不管这些 token 是不是任务核心</b>；
+        RL 和 OPD 的梯度则只在模型当前访问的区域上动。这就是后面所有「为什么 RL 少遗忘」讨论的几何源头。
+      </p>
+    </div>
+
+    <div class="mental-card">
+      <div class="mental-grid">
+        <div class="mental-text-col">
+          <h3>同一个模型，三种被拉的方式</h3>
+          <p>
+            想象当前模型分布 <b>π</b> 是一条曲线，覆盖了它已经学到的所有能力（数学、代码、写作……不同的「山头」）。
+            训练 = 拿一只手去推这条曲线，让它的某个山头变高。
+          </p>
+          <p>
+            <b>SFT 的手是直的</b>，从外部按住目标 token，不管模型现在长什么样；
+            <b>RL 的手在曲线自己的高地里推</b>，只动模型采得到的区域；
+            <b>OPD 的手也在曲线自己的高地里</b>，但推力来自教师 logits 的形状，不是来自外部奖励。
+          </p>
+          <p class="reader-note" style="margin-top:14px;">
+            <b>读到这里要 get 到</b>：算法的差别不在「学不学得到任务」，而在<i>从哪推、推多远、付出什么代价</i>。
+          </p>
+        </div>
+        <div>
+          <svg class="dist-svg" viewBox="0 0 460 260" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <marker id="arrowSolid" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#C04E2D"/>
+              </marker>
+              <marker id="arrowDashed" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#8C857B"/>
+              </marker>
+            </defs>
+
+            <!-- baseline -->
+            <line x1="20" y1="220" x2="440" y2="220" stroke="#D4C4A6" stroke-width="1"/>
+
+            <!-- current distribution π: 3 hills representing existing capabilities -->
+            <path d="M 20 220
+                     Q 60 220 90 165
+                     Q 120 220 160 220
+                     Q 200 220 230 145
+                     Q 260 220 300 220
+                     Q 340 220 380 175
+                     Q 410 220 440 220 Z"
+                  fill="#8C857B" fill-opacity="0.18" stroke="#6B6660" stroke-width="1.6"/>
+
+            <!-- target distribution: hill B greatly raised, hill A slightly suppressed, hill C ~unchanged -->
+            <path d="M 20 220
+                     Q 60 220 90 195
+                     Q 120 220 160 220
+                     Q 200 220 230 55
+                     Q 260 220 300 220
+                     Q 340 220 380 175
+                     Q 410 220 440 220 Z"
+                  fill="#C04E2D" fill-opacity="0.18" stroke="#C04E2D" stroke-width="1.6" stroke-dasharray="5 3"/>
+
+            <!-- hill labels (existing capabilities) -->
+            <text x="90" y="245" font-family="JetBrains Mono, monospace" font-size="10" fill="#6B6660" text-anchor="middle">能力 A</text>
+            <text x="230" y="245" font-family="JetBrains Mono, monospace" font-size="10" fill="#C04E2D" text-anchor="middle" font-weight="700">能力 B（要学的新任务）</text>
+            <text x="380" y="245" font-family="JetBrains Mono, monospace" font-size="10" fill="#6B6660" text-anchor="middle">能力 C</text>
+
+            <!-- distribution labels -->
+            <text x="32" y="35" font-family="JetBrains Mono, monospace" font-size="11" fill="#6B6660" font-weight="600">
+              <tspan>π · 当前模型</tspan>
+            </text>
+            <rect x="20" y="40" width="14" height="3" fill="#8C857B" fill-opacity="0.18" stroke="#6B6660" stroke-width="1"/>
+            <text x="40" y="49" font-family="JetBrains Mono, monospace" font-size="9" fill="#8C857B">已经学到的能力</text>
+
+            <text x="280" y="35" font-family="JetBrains Mono, monospace" font-size="11" fill="#C04E2D" font-weight="600">target · 目标分布</text>
+            <rect x="280" y="40" width="14" height="3" fill="#C04E2D" fill-opacity="0.18" stroke="#C04E2D" stroke-width="1" stroke-dasharray="2 1.5"/>
+            <text x="300" y="49" font-family="JetBrains Mono, monospace" font-size="9" fill="#C04E2D">训练想达到的形状</text>
+
+            <!-- ===== Arrows: the "pull" of training ===== -->
+            <!-- Hill B: solid red arrow (useful update — pull current peak up to target peak) -->
+            <g stroke="#C04E2D" stroke-width="2" fill="none">
+              <line x1="230" y1="140" x2="230" y2="68" marker-end="url(#arrowSolid)"/>
+            </g>
+            <text x="240" y="105" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#C04E2D" font-weight="600">有用更新 ↑</text>
+
+            <!-- Hill A: dashed gray arrow (collateral — peak slightly pushed down) -->
+            <g stroke="#8C857B" stroke-width="1.6" fill="none" stroke-dasharray="3 3">
+              <line x1="90" y1="170" x2="90" y2="195" marker-end="url(#arrowDashed)"/>
+            </g>
+            <text x="100" y="187" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#8C857B">附带挤压 ↓</text>
+
+            <!-- Hill C: no arrow — annotated as "unaffected" -->
+            <text x="380" y="165" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#8C857B" text-anchor="middle">— 不变 —</text>
+          </svg>
+          <div class="viz-caption" style="margin-top:8px;">
+            <b>灰色山头</b>：当前模型分布 π，每个山头是一类已经学会的能力。
+            <b>红色虚线山头</b>：训练想推到的目标形状 —— 想把<b>能力 B</b>这个山头大幅拔高。
+            <b>红色实箭头</b>：在目标山头上施加的"有用拉力"。<b>灰色虚箭头</b>：附带把无关山头压低（潜在遗忘）。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 2: Three methods ---------- -->
+<section class="block" id="methods">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">02 · 三种塑形</div>
+      <h2>SFT、RL、OPD 各自拿什么当目标，又施加了什么样的力</h2>
+      <p class="section-sub">
+        把三种方法并排放在同一张图上对比。每张卡片同时回答三个问题：
+        <b>「目标分布是谁定义的？数据是哪儿来的？梯度怎么被约束？」</b>
+        切换 Tab 就可以一个一个看。
+      </p>
+    </div>
+
+    <div class="methods-tabs" id="methodTabs">
+      <button class="method-tab active" data-target="sft"><span class="dot"></span>SFT · 外部数据集</button>
+      <button class="method-tab" data-target="rl"><span class="dot"></span>RL · 期望奖励方向</button>
+      <button class="method-tab" data-target="opd"><span class="dot"></span>OPD · 学生采样 + 老师匹配</button>
+    </div>
+
+    <!-- SFT panel -->
+    <div class="method-panel active" id="panel-sft">
+      <div class="method-card" data-id="sft">
+        <div class="method-info">
+          <div class="method-kicker">Method 01 · Supervised Fine-Tuning</div>
+          <h3>目标分布提前固定，模型被「直接拉过去」</h3>
+          <p>
+            数据集在训练开始前就已经存在 —— 人写的、强模型生成的，都行。
+            然后用交叉熵让模型尽量贴近数据集的 token 分布。
+            <b>起点是哪个分布完全不影响最终目标方向</b>，因为 NLL 损失对起点不敏感。
+          </p>
+          <p>
+            这也是 SFT「灾难性遗忘」最自然的源头：数据集分布如果离原模型很远，
+            模型没有理由优先选「附近的解」，它只会被往示范 token 上拽。
+            梯度在<b>整个分布</b>上均匀施力，不区分 token 是任务关键的运算符，还是「therefore」「we can see that」这类风格 token。
+          </p>
+          <div class="method-attrs">
+            <div class="method-attr"><div class="k">target</div><div class="v">外部固定分布（数据集）</div></div>
+            <div class="method-attr"><div class="k">data</div><div class="v">外部 trajectory</div></div>
+            <div class="method-attr"><div class="k">gradient</div><div class="v">每个 token 上都有压力</div></div>
+            <div class="method-attr"><div class="k">擅长</div><div class="v">冷启动、格式变更</div></div>
+            <div class="method-attr"><div class="k">软肋</div><div class="v">对原有能力的连带挤压</div></div>
+            <div class="method-attr"><div class="k">几何形象</div><div class="v">一只外部的手直接按住</div></div>
+          </div>
+        </div>
+        <div class="method-viz">
+          <svg viewBox="0 0 360 240" preserveAspectRatio="xMidYMid meet">
+            <line x1="20" y1="200" x2="340" y2="200" stroke="#D4C4A6" stroke-width="1"/>
+            <!-- current model curve -->
+            <path d="M 20 200 Q 60 200 90 170 Q 120 130 150 160 Q 175 185 200 120 Q 225 60 255 100 Q 285 145 320 195 L 340 200 L 20 200 Z"
+                  fill="rgba(212, 196, 166, 0.4)" stroke="#8C857B" stroke-width="1.3"/>
+            <!-- target dataset distribution -->
+            <path d="M 20 200 Q 50 200 80 195 Q 110 188 140 170 Q 170 150 200 50 Q 225 25 250 50 Q 280 90 310 195 L 340 200 L 20 200 Z"
+                  fill="none" stroke="#2E5A6B" stroke-width="1.8" stroke-dasharray="5 3"/>
+            <!-- uniform pull arrows everywhere -->
+            <g stroke="#2E5A6B" stroke-width="1.5" fill="none">
+              <path d="M 90 170 L 90 195" marker-end="url(#arrowSFT)" opacity="0.85"/>
+              <path d="M 150 160 L 150 175" marker-end="url(#arrowSFT)" opacity="0.85"/>
+              <path d="M 200 120 L 200 70" marker-end="url(#arrowSFT)"/>
+              <path d="M 255 100 L 255 60" marker-end="url(#arrowSFT)"/>
+              <path d="M 290 145 L 290 195" marker-end="url(#arrowSFT)" opacity="0.85"/>
+              <path d="M 60 200 L 60 196" marker-end="url(#arrowSFT)" opacity="0.6"/>
+              <path d="M 330 198 L 330 195" marker-end="url(#arrowSFT)" opacity="0.6"/>
+            </g>
+            <defs>
+              <marker id="arrowSFT" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#2E5A6B"/>
+              </marker>
+            </defs>
+            <text x="22" y="38" font-family="JetBrains Mono, monospace" font-size="10" fill="#6B6660">π · model</text>
+            <text x="170" y="30" font-family="JetBrains Mono, monospace" font-size="10" fill="#2E5A6B">target dataset distribution</text>
+          </svg>
+          <div class="viz-caption">
+            蓝色虚线：数据集定义的目标。蓝色箭头：每个 token 上施加的「拉力」。
+            <b>注意低概率山头同样被向上推</b>，这是与任务无关的连带压力，最终表现为 catastrophic forgetting。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- RL panel -->
+    <div class="method-panel" id="panel-rl">
+      <div class="method-card" data-id="rl">
+        <div class="method-info">
+          <div class="method-kicker">Method 02 · Online RL</div>
+          <h3>模型从自己里采样，被「沿着奖励梯度往前挪」</h3>
+          <p>
+            没有一个外部的目标分布。模型自己生成轨迹，奖励函数打分，然后用 Policy Gradient 增加期望奖励。
+            <b>梯度只能从「当前策略采得到的样本」上发出</b>，所以更新天然集中在模型已经访问的高概率区域。
+          </p>
+          <p>
+            这种局部性正是 RL「不太遗忘」的物理来源。前提是奖励有意义 ——
+            RLVR 有可验证奖励，奖励方向≈质量方向；RLHF 用奖励模型，方向更有偏，因此需要 KL 惩罚和 trust region 兜底。
+          </p>
+          <div class="method-attrs">
+            <div class="method-attr"><div class="k">target</div><div class="v">沿期望奖励的最近优策略</div></div>
+            <div class="method-attr"><div class="k">data</div><div class="v">on-policy 自采样</div></div>
+            <div class="method-attr"><div class="k">gradient</div><div class="v">只在自己采得到的区域</div></div>
+            <div class="method-attr"><div class="k">擅长</div><div class="v">数学 / 代码 / RLVR</div></div>
+            <div class="method-attr"><div class="k">软肋</div><div class="v">credit assignment、稀疏奖励</div></div>
+            <div class="method-attr"><div class="k">几何形象</div><div class="v">在自己的高地里轻推</div></div>
+          </div>
+        </div>
+        <div class="method-viz">
+          <svg viewBox="0 0 360 240" preserveAspectRatio="xMidYMid meet">
+            <line x1="20" y1="200" x2="340" y2="200" stroke="#D4C4A6" stroke-width="1"/>
+            <!-- current model curve -->
+            <path d="M 20 200 Q 60 200 90 170 Q 120 130 150 160 Q 175 185 200 120 Q 225 60 255 100 Q 285 145 320 195 L 340 200 L 20 200 Z"
+                  fill="rgba(212, 196, 166, 0.4)" stroke="#8C857B" stroke-width="1.3"/>
+            <!-- sampled rollouts dots -->
+            <g fill="#B8860B">
+              <circle cx="95" cy="172" r="3" opacity="0.5"/>
+              <circle cx="155" cy="162" r="3" opacity="0.5"/>
+              <circle cx="200" cy="120" r="3.6"/>
+              <circle cx="218" cy="100" r="3.6"/>
+              <circle cx="245" cy="92" r="3.6"/>
+              <circle cx="260" cy="105" r="3"/>
+              <circle cx="288" cy="148" r="3" opacity="0.5"/>
+            </g>
+            <!-- high-reward circle highlights -->
+            <g fill="none" stroke="#B8860B" stroke-width="1.5">
+              <circle cx="218" cy="100" r="8" opacity="0.7"/>
+              <circle cx="245" cy="92" r="8" opacity="0.7"/>
+              <circle cx="200" cy="120" r="8" opacity="0.5"/>
+            </g>
+            <!-- gradient arrows only in high-prob regions -->
+            <g stroke="#B8860B" stroke-width="1.5" fill="none">
+              <path d="M 218 100 L 218 75" marker-end="url(#arrowRL)"/>
+              <path d="M 245 92 L 245 65" marker-end="url(#arrowRL)"/>
+              <path d="M 200 120 L 200 92" marker-end="url(#arrowRL)" opacity="0.7"/>
+            </g>
+            <!-- updated dashed contour -->
+            <path d="M 20 200 Q 60 200 90 173 Q 120 135 150 162 Q 175 184 200 92 Q 225 35 255 78 Q 285 142 320 195 L 340 200 L 20 200 Z"
+                  fill="none" stroke="#B8860B" stroke-width="1.4" stroke-dasharray="4 3" opacity="0.8"/>
+            <defs>
+              <marker id="arrowRL" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#B8860B"/>
+              </marker>
+            </defs>
+            <text x="22" y="38" font-family="JetBrains Mono, monospace" font-size="10" fill="#6B6660">π · current</text>
+            <text x="230" y="30" font-family="JetBrains Mono, monospace" font-size="10" fill="#B8860B">π · updated</text>
+          </svg>
+          <div class="viz-caption">
+            <b>金色点</b>：当前策略下采到的 rollout。 <b>圆圈</b>：奖励较高的样本。 <b>箭头</b>：只从这些样本出发的梯度。
+            <b>更新后的虚线轮廓</b>：高奖励区被抬高，其余区域几乎不动 —— 这就是 on-policy 的「局部性」。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OPD panel -->
+    <div class="method-panel" id="panel-opd">
+      <div class="method-card" data-id="opd">
+        <div class="method-info">
+          <div class="method-kicker">Method 03 · On-Policy Distillation</div>
+          <h3>样本来自学生自己，但梯度让学生贴向老师的分布</h3>
+          <p>
+            <b>OPD 是 SFT 和 RL 中间的那一档</b>：像 SFT 那样有一个明确的「老师信号」，但像 RL 那样数据来自学生本身。
+            每一步先 on-policy 采样，再用 reverse KL 把学生的 logits 朝老师的 logits 拉。
+            粗略类比：RL 用 advantage 加权 completion，OPD 用「学生/老师 log ratio」加权。
+          </p>
+          <p>
+            一种新变体是 <b>On-Policy Self Distillation (OPSD)</b>：教师 = 学生，但教师在算 log 概率时可以看到参考答案作为前缀。
+            因为两者本质同一个模型，<b>大部分 token 上 KL 都很小</b>；
+            真正张开的是 style / pivot token（如 <code>wait</code> / <code>alright</code>），这反而和任务核心不同步。
+          </p>
+          <div class="method-attrs">
+            <div class="method-attr"><div class="k">target</div><div class="v">教师分布（reverse KL）</div></div>
+            <div class="method-attr"><div class="k">data</div><div class="v">on-policy 学生采样</div></div>
+            <div class="method-attr"><div class="k">gradient</div><div class="v">token 级 KL，有偏但更密</div></div>
+            <div class="method-attr"><div class="k">擅长</div><div class="v">写作 / 知识 / 专家融合</div></div>
+            <div class="method-attr"><div class="k">软肋</div><div class="v">style token 过更新、需 clip</div></div>
+            <div class="method-attr"><div class="k">几何形象</div><div class="v">自己的高地，外部的形状</div></div>
+          </div>
+        </div>
+        <div class="method-viz">
+          <svg viewBox="0 0 360 240" preserveAspectRatio="xMidYMid meet">
+            <defs>
+              <marker id="arrowOPD" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z" fill="#6A4C8C"/>
+              </marker>
+            </defs>
+            <line x1="20" y1="200" x2="340" y2="200" stroke="#D4C4A6" stroke-width="1"/>
+            <!-- student current curve (filled) -->
+            <path d="M 20 200 Q 60 200 90 170 Q 120 130 150 160 Q 175 185 200 120 Q 225 60 255 100 Q 285 145 320 195 L 340 200 L 20 200 Z"
+                  fill="rgba(212, 196, 166, 0.45)" stroke="#8C857B" stroke-width="1.4"/>
+            <!-- teacher overlay: light fill + dashed stroke for clearer mode-seeking shape -->
+            <path d="M 20 200 Q 60 200 95 188 Q 125 180 155 188 Q 185 195 200 95 Q 225 45 255 80 Q 285 132 320 195 L 340 200 L 20 200 Z"
+                  fill="rgba(106, 76, 140, 0.10)" stroke="#6A4C8C" stroke-width="2" stroke-dasharray="5 3"/>
+            <!-- student-sampled rollouts: positioned ON the student curve via Bezier midpoint math -->
+            <g>
+              <circle cx="95" cy="166" r="3.2" fill="#6A4C8C" opacity="0.45" stroke="#FFFFFF" stroke-width="0.8"/>
+              <circle cx="155" cy="164" r="3.2" fill="#6A4C8C" opacity="0.45" stroke="#FFFFFF" stroke-width="0.8"/>
+              <circle cx="200" cy="120" r="3.8" fill="#6A4C8C" stroke="#FFFFFF" stroke-width="0.8"/>
+              <circle cx="226" cy="85" r="3.8" fill="#6A4C8C" stroke="#FFFFFF" stroke-width="0.8"/>
+              <circle cx="255" cy="100" r="3.8" fill="#6A4C8C" stroke="#FFFFFF" stroke-width="0.8"/>
+              <circle cx="288" cy="147" r="3.2" fill="#6A4C8C" opacity="0.45" stroke="#FFFFFF" stroke-width="0.8"/>
+            </g>
+            <!-- gradient arrows: from sampled point on student up toward teacher curve at same x -->
+            <g stroke="#6A4C8C" stroke-width="1.6" fill="none">
+              <path d="M 200 116 L 200 100" marker-end="url(#arrowOPD)"/>
+              <path d="M 226 81 L 226 70" marker-end="url(#arrowOPD)"/>
+              <path d="M 255 96 L 255 85" marker-end="url(#arrowOPD)"/>
+            </g>
+            <!-- labels with leader lines -->
+            <text x="80" y="195" font-family="JetBrains Mono, monospace" font-size="10" fill="#6B6660">student π</text>
+            <text x="178" y="40" font-family="JetBrains Mono, monospace" font-size="10" fill="#6A4C8C">teacher distribution</text>
+            <text x="265" y="135" font-family="JetBrains Mono, monospace" font-size="9.5" fill="#6A4C8C">↑ KL gradient</text>
+          </svg>
+          <div class="viz-caption">
+            <b>紫色面+虚线</b>：教师分布（主峰更高、小峰更平 —— reverse KL 的 mode-seeking 形状）。
+            <b>紫色点</b>：学生从自己分布上采到的点。<b>箭头</b>：在这些点上，KL 把学生 logits 朝老师同一 x 处拉。
+            梯度<b>既来自学生自身的可达区域</b>，又被赋予了老师那侧的「形状信号」。
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 3: OPSD token KL ---------- -->
+<section class="block" id="opsd">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">03 · OPSD 的尴尬</div>
+      <h2>当学生 = 老师，最大的 KL 反而出现在「style token」上</h2>
+      <p class="section-sub">
+        OPSD 用同一个模型当学生和老师，老师比学生多看到一个「参考答案前缀」。
+        作者做了 per-token KL 分析后发现：在所有 thinking 配置下，<b>风格 token 的 KL 显著高于数学 token</b>。
+        如果不加 clip，模型会被这些与任务无关的 token 过度拉扯，最终崩掉。
+      </p>
+    </div>
+
+    <div class="opsd-stage">
+      <h3>per-token KL：风格 token vs 数学 token</h3>
+      <p>
+        下面这两组是作者图示中的典型 token 类别。bar 长度按相对 KL 强度对照（论文里是相对量级）。
+        Style 这一侧远高于 Math 这一侧 —— <b>意味着如果朴素地走梯度，每一步更新都会被 style token 主导</b>。
+      </p>
+
+      <div class="token-chart">
+        <div class="token-col high">
+          <h4>Style / Pivot tokens · 高 KL</h4>
+          <div class="legend">老师有「答案前缀」这一上下文优势，最容易在这些 transition 词上跟学生分歧</div>
+          <div class="token-bars">
+            <div class="token-bar"><span class="label">"wait"</span><div class="track"><div class="fill" style="width:95%"></div></div><span class="v">≈ 1.0</span></div>
+            <div class="token-bar"><span class="label">"alright"</span><div class="track"><div class="fill" style="width:88%"></div></div><span class="v">≈ 0.92</span></div>
+            <div class="token-bar"><span class="label">"therefore"</span><div class="track"><div class="fill" style="width:80%"></div></div><span class="v">≈ 0.83</span></div>
+            <div class="token-bar"><span class="label">"so"</span><div class="track"><div class="fill" style="width:72%"></div></div><span class="v">≈ 0.75</span></div>
+            <div class="token-bar"><span class="label">"actually"</span><div class="track"><div class="fill" style="width:68%"></div></div><span class="v">≈ 0.70</span></div>
+          </div>
+        </div>
+        <div class="token-col low">
+          <h4>Math / Content tokens · 低 KL</h4>
+          <div class="legend">学生和老师都倾向给这些 token 高且接近的概率，KL 自然就小</div>
+          <div class="token-bars">
+            <div class="token-bar"><span class="label">"power"</span><div class="track"><div class="fill" style="width:22%"></div></div><span class="v">≈ 0.23</span></div>
+            <div class="token-bar"><span class="label">"exponent"</span><div class="track"><div class="fill" style="width:18%"></div></div><span class="v">≈ 0.18</span></div>
+            <div class="token-bar"><span class="label">"logarithm"</span><div class="track"><div class="fill" style="width:16%"></div></div><span class="v">≈ 0.16</span></div>
+            <div class="token-bar"><span class="label">"="</span><div class="track"><div class="fill" style="width:12%"></div></div><span class="v">≈ 0.12</span></div>
+            <div class="token-bar"><span class="label">"integral"</span><div class="track"><div class="fill" style="width:10%"></div></div><span class="v">≈ 0.10</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="opsd-key">
+        <b>关键直觉</b>：OPSD 的训练信号其实和 <b>RLHF</b> 是一个家族 —— 两者都依赖于一个「<i>有偏但密集</i>」的信号。
+        所以两者都需要 KL 惩罚、trust region、token-level clipping 这类机制来防止模型在错的方向上跑太远。
+        相比之下，<b>RLVR</b> 的可验证奖励偏差更小，反而可以放松 KL 约束（用 GRPO 替代 PPO）。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 4: Experiment ---------- -->
+<section class="block" id="experiment">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">04 · 出乎意料的实验</div>
+      <h2>OPD 学生几乎不在乎老师是谁 —— 两种老师都炼出几乎一样的学生</h2>
+      <p class="section-sub">
+        作者沿用前作的「<a href="https://nrehiew.github.io/blog/minimal_editing/" target="_blank" rel="noopener">最小代码编辑</a>」任务：给模型一段被人为损坏的函数，
+        只允许修改 bug 相关的几行。SFT 教师泛化差、伤害通用代码能力；RL 教师泛化好、不掉 LCB。
+        作者本来以为 OPD 学生会跟教师一致 —— 结果完全不是。
+      </p>
+    </div>
+
+    <div class="exp-stage">
+      <div class="exp-table-wrap">
+        <table class="exp-table">
+          <thead>
+            <tr>
+              <th>Model</th>
+              <th>Pass@1 ↑</th>
+              <th>Norm. Levenshtein ↓</th>
+              <th>Added CC ↓</th>
+              <th>LiveCodeBench v6 ↑</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="group-head"><td colspan="5">教师 · Teachers</td></tr>
+            <tr>
+              <td>SFT teacher</td>
+              <td>0.775</td>
+              <td class="cell-bad">0.450</td>
+              <td class="cell-bad">0.450</td>
+              <td class="cell-bad">0.286</td>
+            </tr>
+            <tr>
+              <td>RL teacher</td>
+              <td>0.792</td>
+              <td class="cell-good">0.063</td>
+              <td>0.206</td>
+              <td class="cell-best">0.320</td>
+            </tr>
+            <tr class="group-head"><td colspan="5">学生 · On-Policy Distillation</td></tr>
+            <tr class="highlight">
+              <td>OPD · 从 SFT 教师蒸馏</td>
+              <td class="cell-best">0.800</td>
+              <td class="cell-good">0.059</td>
+              <td>0.206</td>
+              <td>0.297</td>
+            </tr>
+            <tr class="highlight">
+              <td>OPD · 从 RL 教师蒸馏</td>
+              <td>0.787</td>
+              <td class="cell-good">0.055</td>
+              <td>0.228</td>
+              <td>0.314</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="exp-note">
+        <b>读法</b>：↑ 越高越好，↓ 越低越好。<b>Norm. Levenshtein</b> 量化「改了多少」 —— SFT 教师 0.45 是大改特改；
+        <b>Added CC</b> 是新增的圈复杂度，SFT 教师同样飙到 0.45。OPD 两个学生在这两列上都几乎完全一致。
+      </div>
+    </div>
+
+    <div class="exp-takeaways">
+      <div class="exp-takeaway">
+        <div class="num">FINDING 01</div>
+        <h4>两个 OPD 学生几乎一模一样</h4>
+        <p>
+          <b>OPD-SFT</b>（0.800 / 0.059 / 0.206）和 <b>OPD-RL</b>（0.787 / 0.055 / 0.228）的差距，
+          比两种教师之间的差距小一个量级。教师的好坏几乎被「on-policy 采样」这个步骤抹平了。
+        </p>
+      </div>
+      <div class="exp-takeaway">
+        <div class="num">FINDING 02</div>
+        <h4>两个学生都打过 RL 教师</h4>
+        <p>
+          OPD-SFT 在 Pass@1 上 <b>0.800 &gt; 0.792</b>，OPD-RL 的 Levenshtein <b>0.055 &lt; 0.063</b>。
+          这跟 Agarwal 等人在 GSM8K 上观察到的「学生超过老师」一致 —— OPD 的监督本身就比单纯模仿教师轨迹更针对学生的状态。
+        </p>
+      </div>
+      <div class="exp-takeaway">
+        <div class="num">FINDING 03</div>
+        <h4>SFT 教师的遗忘被学生吸收掉了</h4>
+        <p>
+          SFT 教师在 LCB 上 <b>0.286</b>（明显掉了），但从它蒸馏出来的 OPD 学生反而是 <b>0.297</b>，
+          甚至比教师还高。即使教师本身已经退化，学生也<b>没有继承这份退化</b>。结论：教师提供信号，状态分布属于学生。
+        </p>
+      </div>
+    </div>
+
+    <div class="reader-note" style="max-width:none; margin-top:24px;">
+      <b>这意味着什么</b>：如果是要培养一个专家模型再融合进主线模型，
+      可以用<b>"暴力 SFT"</b>把专家训得很强（哪怕它本身在通用能力上有退化），
+      然后通过 OPD 把这份专家能力<b>反过来注入</b>一个仍然保留通用能力的学生。
+      这给「专家融合式后训练」开了一条可行路径。
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 5: Why RL forgets less ---------- -->
+<section class="block" id="why-forget">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">05 · 为什么 RL 会少遗忘</div>
+      <h2>三种常见解释 —— 作者只完全买账其中一种</h2>
+      <p class="section-sub">
+        关于「为什么 RL 比 SFT 少遗忘」，社区里至少有三种说法。
+        作者认为前两种<b>都有一部分对</b>，但都解释不清 OPD 的现象。
+        他真正相信的是第三种：<b>on-policy 数据本身就是隐式 KL 约束</b>。
+      </p>
+    </div>
+
+    <div class="why-grid">
+      <div class="why-card">
+        <div class="why-tag">解释 01</div>
+        <h3>"SFT 是 forward KL、RL 是 reverse KL"</h3>
+        <p>
+          SFT 的交叉熵在固定数据集上等价于最小化 forward KL；Chen et al. (2025) 证明 RL 可被看作 reverse KL 最小化。
+          forward KL 是 mode-covering，会牺牲已有的 mode 去覆盖新数据。
+        </p>
+        <p>
+          <b>作者的批评</b>：这论证依赖于显式 KL 惩罚。但实证上即便 KL 惩罚被弱化或去掉，RL 也仍然不太遗忘 ——
+          所以「KL 方向」<b>不是</b>真正的发动机。
+        </p>
+        <div class="why-verdict">部分正确，但解释不到根</div>
+      </div>
+
+      <div class="why-card">
+        <div class="why-tag">解释 02</div>
+        <h3>"SFT 的 token 级梯度均匀又密集"</h3>
+        <p>
+          每个示范 token 都被无差别推高概率 —— 不管是数学符号还是「therefore」。
+          Diao et al. 发现 SFT 上大量 token 都是低概率 + 低熵：<b>模型本来很自信，却被迫去拟合一个发散的 ground-truth</b>，
+          代价是冲掉现有的表示。
+        </p>
+        <p>
+          RL 有<b>数据相关的隐式正则</b>（Lai et al. 2025）：方差大的样本组得到更小的 advantage；
+          Mukherjee 等人观察到 RL 只更新了一个稀疏的子网络。
+        </p>
+        <div class="why-verdict">实证扎实，但是否普适尚未验证</div>
+      </div>
+
+      <div class="why-card preferred">
+        <div class="why-tag">作者偏好 · Shenfeld et al.</div>
+        <h3>真正的发动机：on-policy 数据 = 隐式 KL 约束</h3>
+        <p>
+          想象一个最朴素的 RL：REINFORCE + 0/1 奖励。这时奖励就是个 filter，
+          得到 reward = 1 的样本本质上和拒绝采样产生的样本一样。
+        </p>
+        <p>
+          把 RL 的目标定义为「所有 completion reward 都是 1 的最优策略」。
+          因为我们只从当前策略采样，<b>所有可达的最优策略里，离我们最近的那一个</b>就成了实际的训练目标。
+          每一步策略梯度，都把我们朝<b>"最近的、可解的最优解"</b>挪一点。
+        </p>
+        <div class="why-verdict">on-policy 数据本身约束了"挪到哪里"</div>
+      </div>
+    </div>
+
+    <div class="geo-stage">
+      <div class="geo-text">
+        <h3>几何直觉：on-policy 把目标限制在"够得到的最优解"里</h3>
+        <p>
+          所有让任务做对的策略形成一个集合 <b>P*</b>。一般的 SFT 目标可以选 P* 里的任意一个 —— 哪怕它离当前 π 很远。
+          而 on-policy 训练，因为每一步只能从 π 自己里采样，<b>能挪到的位置自然被局限在 π 的邻域</b>。
+        </p>
+        <p>
+          所以训练过程倾向于走向「π 在 P* 中的最近投影 <b>π*</b>」。这就是 RL 不太遗忘的几何源头 ——
+          它不需要 KL 惩罚，<b>采样过程本身已经把"可达范围"卡住了</b>。
+        </p>
+        <p>
+          这也解释了为什么 <b>OPD 从 SFT 教师蒸馏</b>也能少遗忘：教师 logits 提供方向信号，但<i>状态分布始终是学生的</i>，
+          所以更新仍然被约束在学生附近的可达区域里。
+        </p>
+        <div class="geo-legend">
+          <span><span class="swatch" style="background:#1A1816;"></span>当前策略 π（起点）</span>
+          <span><span class="swatch" style="background:rgba(184,134,11,0.35);border:1px dashed #B8860B;"></span>最优策略集合 P*</span>
+          <span><span class="swatch" style="background:#C04E2D;"></span>"最近"的最优策略 π*（实际去的地方）</span>
+          <span><span class="swatch" style="background:#8C857B;"></span>外部目标（SFT 可能要去的位置）</span>
+        </div>
+      </div>
+      <div>
+        <svg class="geo-svg" viewBox="0 0 420 340" preserveAspectRatio="xMidYMid meet">
+          <!-- backdrop -->
+          <rect x="0" y="0" width="420" height="340" fill="none"/>
+          <!-- P* region -->
+          <ellipse cx="280" cy="160" rx="100" ry="80" fill="rgba(184, 134, 11, 0.18)" stroke="#B8860B" stroke-width="1.5" stroke-dasharray="4 4"/>
+          <text x="240" y="80" font-family="JetBrains Mono, monospace" font-size="13" fill="#B8860B" font-weight="600">P* · 所有最优策略</text>
+
+          <!-- current policy region (around π) -->
+          <circle cx="120" cy="220" r="55" fill="rgba(212, 196, 166, 0.4)" stroke="#8C857B" stroke-width="1" stroke-dasharray="3 3"/>
+          <text x="60" y="290" font-family="JetBrains Mono, monospace" font-size="11" fill="#6B6660">on-policy 可达邻域</text>
+
+          <!-- nearest π* -->
+          <circle cx="200" cy="190" r="6" fill="#C04E2D"/>
+          <text x="170" y="178" font-family="JetBrains Mono, monospace" font-size="12" fill="#C04E2D" font-weight="700">π*</text>
+
+          <!-- alternative π* inside P* but farther -->
+          <circle cx="330" cy="120" r="5" fill="#B8860B" opacity="0.7"/>
+          <circle cx="320" cy="200" r="5" fill="#B8860B" opacity="0.7"/>
+          <circle cx="270" cy="180" r="5" fill="#B8860B" opacity="0.7"/>
+
+          <!-- π start -->
+          <circle cx="120" cy="220" r="6" fill="#1A1816"/>
+          <text x="92" y="244" font-family="JetBrains Mono, monospace" font-size="12" fill="#1A1816" font-weight="700">π</text>
+
+          <!-- path to nearest π* -->
+          <path d="M 120 220 Q 150 200 200 190" fill="none" stroke="#C04E2D" stroke-width="2.5" marker-end="url(#arrowGeo)"/>
+
+          <!-- SFT external target -->
+          <circle cx="370" cy="280" r="6" fill="#8C857B"/>
+          <text x="320" y="305" font-family="JetBrains Mono, monospace" font-size="11" fill="#6B6660">SFT 外部目标</text>
+          <path d="M 120 220 Q 230 290 370 280" fill="none" stroke="#8C857B" stroke-width="2" stroke-dasharray="5 4" marker-end="url(#arrowGeoG)" opacity="0.75"/>
+
+          <defs>
+            <marker id="arrowGeo" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#C04E2D"/>
+            </marker>
+            <marker id="arrowGeoG" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#8C857B"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 6: Why student > teacher ---------- -->
+<section class="block" id="student-better">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">06 · 学生为什么能超过老师</div>
+      <h2>监督打在学生自己会犯的错上 —— 为什么 OPD 学生能反超老师</h2>
+      <p class="section-sub">
+        实验里 OPD 学生在 Pass@1 上反超了 RL 教师本身。蒸馏一般不会超过老师，这事反直觉。
+        作者没给严格证明，但给了两条解释，并补一张曲线说明这件好事的代价是什么。
+      </p>
+    </div>
+
+    <div class="student-grid">
+      <div class="student-card">
+        <div class="num">HYPOTHESIS 01</div>
+        <h4>监督打在学生自己会犯的错上（on-policy）</h4>
+        <p>
+          传统离线蒸馏只在<b>教师自己生成的轨迹</b>上学。问题是：学生真实犯的错，教师轨迹里可能根本没出现过 —— 等于没被监督到。
+        </p>
+        <p>
+          OPD 反过来：<b>让学生先自己生成一段 prefix，教师在这段 prefix 上给意见</b>。
+          监督直接发生在学生"真正会去的状态"上，所以错在哪、就被纠在哪。
+        </p>
+      </div>
+      <div class="student-card">
+        <div class="num">HYPOTHESIS 02</div>
+        <h4>OPD 学的是老师的"整张分布"，不只是老师吐出的那一个 token</h4>
+        <p>
+          先打个底：模型每生成一个 token，softmax 出来其实是<b>覆盖整个词表的一张概率分布</b>。我们平时看到的"老师输出 X"只是这张分布的最高峰（argmax）。下面三张图直接对比看：
+        </p>
+
+        <div class="dist-viz">
+          <div class="dist-col">
+            <svg viewBox="0 0 100 100" class="mini-dist-svg" preserveAspectRatio="xMidYMid meet">
+              <line x1="10" y1="75" x2="90" y2="75" stroke="#D4C4A6" stroke-width="0.7"/>
+              <rect x="14" y="25" width="12" height="50" fill="#6A4C8C" rx="1"/>
+              <rect x="29" y="47" width="12" height="28" fill="#6A4C8C" rx="1" opacity="0.85"/>
+              <rect x="44" y="62" width="12" height="13" fill="#6A4C8C" rx="1" opacity="0.7"/>
+              <rect x="59" y="69" width="12" height="6"  fill="#6A4C8C" rx="1" opacity="0.55"/>
+              <rect x="74" y="72" width="12" height="3"  fill="#6A4C8C" rx="1" opacity="0.4"/>
+              <g font-family="JetBrains Mono, monospace" font-size="6" fill="#8C857B">
+                <text x="20" y="84" text-anchor="middle">a</text>
+                <text x="35" y="84" text-anchor="middle">b</text>
+                <text x="50" y="84" text-anchor="middle">c</text>
+                <text x="65" y="84" text-anchor="middle">d</text>
+                <text x="80" y="84" text-anchor="middle">e</text>
+              </g>
+              <text x="50" y="95" font-family="JetBrains Mono, monospace" font-size="6" fill="#6B6660" text-anchor="middle">vocab tokens →</text>
+            </svg>
+            <div class="dist-col-label"><b>老师每步的真实输出</b><br>整张概率分布</div>
+          </div>
+
+          <div class="dist-col">
+            <svg viewBox="0 0 100 100" class="mini-dist-svg" preserveAspectRatio="xMidYMid meet">
+              <line x1="10" y1="75" x2="90" y2="75" stroke="#D4C4A6" stroke-width="0.7"/>
+              <rect x="14" y="25" width="12" height="50" fill="#B8860B" rx="1"/>
+              <rect x="29" y="74" width="12" height="1" fill="#D4C4A6"/>
+              <rect x="44" y="74" width="12" height="1" fill="#D4C4A6"/>
+              <rect x="59" y="74" width="12" height="1" fill="#D4C4A6"/>
+              <rect x="74" y="74" width="12" height="1" fill="#D4C4A6"/>
+              <g font-family="JetBrains Mono, monospace" font-size="6" fill="#8C857B">
+                <text x="20" y="84" text-anchor="middle">a</text>
+                <text x="35" y="84" text-anchor="middle">b</text>
+                <text x="50" y="84" text-anchor="middle">c</text>
+                <text x="65" y="84" text-anchor="middle">d</text>
+                <text x="80" y="84" text-anchor="middle">e</text>
+              </g>
+              <text x="50" y="95" font-family="JetBrains Mono, monospace" font-size="6" fill="#6B6660" text-anchor="middle">vocab tokens →</text>
+            </svg>
+            <div class="dist-col-label">普通 SFT / token 蒸馏<br><b>学生只学到 argmax</b></div>
+          </div>
+
+          <div class="dist-col">
+            <svg viewBox="0 0 100 100" class="mini-dist-svg" preserveAspectRatio="xMidYMid meet">
+              <line x1="10" y1="75" x2="90" y2="75" stroke="#D4C4A6" stroke-width="0.7"/>
+              <rect x="14" y="25" width="12" height="50" fill="#C04E2D" rx="1"/>
+              <rect x="29" y="47" width="12" height="28" fill="#C04E2D" rx="1" opacity="0.85"/>
+              <rect x="44" y="62" width="12" height="13" fill="#C04E2D" rx="1" opacity="0.7"/>
+              <rect x="59" y="69" width="12" height="6"  fill="#C04E2D" rx="1" opacity="0.55"/>
+              <rect x="74" y="72" width="12" height="3"  fill="#C04E2D" rx="1" opacity="0.4"/>
+              <g font-family="JetBrains Mono, monospace" font-size="6" fill="#8C857B">
+                <text x="20" y="84" text-anchor="middle">a</text>
+                <text x="35" y="84" text-anchor="middle">b</text>
+                <text x="50" y="84" text-anchor="middle">c</text>
+                <text x="65" y="84" text-anchor="middle">d</text>
+                <text x="80" y="84" text-anchor="middle">e</text>
+              </g>
+              <text x="50" y="95" font-family="JetBrains Mono, monospace" font-size="6" fill="#6B6660" text-anchor="middle">vocab tokens →</text>
+            </svg>
+            <div class="dist-col-label">OPD（reverse KL）<br><b>学生学整张分布形状</b></div>
+          </div>
+        </div>
+
+        <p>
+          普通 token 蒸馏只学最高那一根；OPD 用 <b>reverse KL</b>，让学生把整张分布对齐到老师 —— 老师在第二、第三峰各有多少概率、哪些位置老师其实自己就拿不准（多 bar 都不矮），学生统统学下来。
+        </p>
+        <p>
+          学生因此继承的是老师的<b>判断力</b>，不只是"答案"。所以哪怕老师采样出来的某个具体样本不算最佳（采样有运气成分），学生<b>自己采样反而能更稳地落到分布里好的那部分</b> —— 这就是 Pass@1 反超老师的来源。
+        </p>
+      </div>
+    </div>
+
+    <div class="curve-stage">
+      <div class="curve-svg-wrap">
+        <svg class="curve-svg" viewBox="0 0 460 320" preserveAspectRatio="xMidYMid meet">
+          <!-- ====== Top panel: Reward ====== -->
+          <text x="40" y="14" font-family="JetBrains Mono, monospace" font-size="10" fill="#6B6660" font-weight="600">↑ reward</text>
+          <line x1="40" y1="130" x2="430" y2="130" stroke="#D4C4A6" stroke-width="1"/>
+          <line x1="40" y1="22" x2="40" y2="130" stroke="#D4C4A6" stroke-width="1"/>
+
+          <!-- RL reward: gradual rise -->
+          <path d="M 40 122 Q 100 115 160 105 Q 220 92 280 80 Q 340 68 400 58" stroke="#B8860B" stroke-width="2.5" fill="none"/>
+          <text x="345" y="50" font-family="JetBrains Mono, monospace" font-size="11" fill="#B8860B" font-weight="600">RL · 平滑上升</text>
+
+          <!-- OPD reward: sudden jump -->
+          <path d="M 40 122 L 140 122 Q 160 122 175 80 Q 188 45 210 38 L 400 35" stroke="#6A4C8C" stroke-width="2.5" fill="none"/>
+          <text x="195" y="22" font-family="JetBrains Mono, monospace" font-size="11" fill="#6A4C8C" font-weight="600">OPD · 突跳</text>
+
+          <!-- ====== Divider gap ====== -->
+
+          <!-- ====== Bottom panel: Entropy ====== -->
+          <text x="40" y="160" font-family="JetBrains Mono, monospace" font-size="10" fill="#6B6660" font-weight="600">↑ entropy（多样性 / 不确定性）</text>
+          <line x1="40" y1="290" x2="430" y2="290" stroke="#D4C4A6" stroke-width="1"/>
+          <line x1="40" y1="170" x2="40" y2="290" stroke="#D4C4A6" stroke-width="1"/>
+
+          <!-- RL entropy: starts mid-high, gentle decline -->
+          <path d="M 40 195 Q 100 200 160 208 Q 220 215 280 222 Q 340 228 400 232" stroke="#B8860B" stroke-width="2.5" fill="none"/>
+          <text x="280" y="248" font-family="JetBrains Mono, monospace" font-size="11" fill="#B8860B" font-weight="600">RL · 缓慢下降</text>
+
+          <!-- OPD entropy: high plateau then sudden collapse, mirrors reward jump -->
+          <path d="M 40 195 L 140 195 Q 160 195 175 245 Q 188 280 210 282 L 400 280" stroke="#6A4C8C" stroke-width="2.5" fill="none"/>
+          <text x="200" y="275" font-family="JetBrains Mono, monospace" font-size="11" fill="#6A4C8C" font-weight="600">OPD · 同步崩塌</text>
+
+          <!-- vertical sync line: where OPD jumps -->
+          <line x1="160" y1="22" x2="160" y2="290" stroke="#C04E2D" stroke-width="0.8" stroke-dasharray="3 3" opacity="0.45"/>
+          <text x="163" y="305" font-family="JetBrains Mono, monospace" font-size="9" fill="#C04E2D" font-weight="600">同一步：reward 突跳 ⇄ entropy 崩塌</text>
+
+          <text x="370" y="318" font-family="JetBrains Mono, monospace" font-size="10" fill="#6B6660">training steps →</text>
+        </svg>
+      </div>
+      <div class="curve-text">
+        <h4>代价：reward 突跳的那一步，OPD 的熵同步坍塌</h4>
+        <p>
+          原文实测了 OPD 和 RL 训练全程的 reward / entropy 曲线，这是结论：
+          <b>RL 的 reward 平稳爬升、熵缓慢温和下降</b>；OPD 的 reward 近乎阶跃地拉升，<b>同一步上熵直接断崖崩塌</b>到非常低的水平 —— 远低于 RL。
+        </p>
+        <p>
+          为什么 OPD 的熵反而比 RL 更低？因为 reverse KL 是 <b>mode-seeking</b> 的（Gu et al. 2023）—— 它要求学生的整张分布对齐老师，会主动把概率<b>压到老师的少数几个峰值上</b>，其它合理备选 token 的概率被压到接近 0。RL 哪怕弱化了 KL 约束，因为 on-policy 采样的"近优解"性质，分布形状本身没被那么剧烈地改写。
+        </p>
+        <p>
+          对应到指标：Pass@1 提升，但 Pass@k（k&gt;1）和多样性会被 mode collapse 拖累。<b>Pass@1 强 ≠ 全面更强</b>，评估时要单独看多样性指标。
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Section 7: Pipeline ---------- -->
+<section class="block" id="pipeline">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">07 · 完整 pipeline</div>
+      <h2>Pretrain → SFT → RL → OPD：每个领域都在「挑最适合它的教师」</h2>
+      <p class="section-sub">
+        近一年开源 / 半开源模型逐渐收敛到一个范式：用 SFT 立基础格式，用 RL 在可验证领域里冲分，
+        最后用 OPD 把不同领域的「专家教师」融合到同一个学生里 —— 学生最后<b>不再走 RL</b>。
+        GLM 5、DeepSeek V4、MiMo-V2 Flash 都走这套。
+      </p>
+    </div>
+
+    <div class="pipeline">
+      <div class="pipeline-flow">
+        <div class="pipe-step"><div class="stage">Stage 1</div><div class="name">Pretrain</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step sft"><div class="stage">Stage 2</div><div class="name">SFT</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step rl"><div class="stage">Stage 3</div><div class="name">RL · 训练专家</div></div>
+        <div class="pipe-arrow">→</div>
+        <div class="pipe-step opd"><div class="stage">Stage 4</div><div class="name">OPD · 融合</div></div>
+      </div>
+      <div class="pipe-foot">
+        <b>核心问题转移了</b>：SFT 是必须的（不做 SFT 没法做 RL；Chu et al. 2025）；
+        RL 也是必须的，但<i>只用于训练专家教师</i>；
+        最后一步是把每个领域的专家通过 OPD 蒸馏进同一个 student，<b>最终模型本身不经过 RL</b>。
+        所以新的问题变成了：<b>该用什么训出最好的「专家教师」？</b>
+      </div>
+    </div>
+
+    <div class="expert-table">
+      <table>
+        <thead>
+          <tr>
+            <th>领域</th>
+            <th>最佳教师训练方法</th>
+            <th>理由</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Math · Code</td>
+            <td><span class="pill rl">RL · RLVR</span></td>
+            <td>有可验证奖励，方向无偏，正合 RL 长项</td>
+          </tr>
+          <tr>
+            <td>Creative Writing</td>
+            <td><span class="pill opd">Self-Distillation</span></td>
+            <td>奖励信号噪声大，用 LLM judge 反而是有偏代理</td>
+          </tr>
+          <tr>
+            <td>Knowledge-heavy benchmarks</td>
+            <td><span class="pill mix">Distillation 系</span></td>
+            <td>同上 —— 知识题用 RL 反而容易跑偏</td>
+          </tr>
+          <tr>
+            <td>BrowseComp 等开放任务</td>
+            <td><span class="pill sft">SFT 等</span></td>
+            <td>这是少数几个最终合并模型反而<b>弱于教师</b>的领域</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="reader-note" style="max-width:none; margin-top:18px;">
+      <b>有趣的观察</b>：在 RL 这一列上，最终合并模型几乎总是优于专家教师；
+      只有 self-distilled 专家所在的领域，合并模型可能反而退步。原因尚不明确，但本身就是 OPD 作为"承重梁"的一个反证。
+    </p>
+  </div>
+</section>
+
+<!-- ---------- Section 8: Best algorithm ---------- -->
+<section class="block" id="future">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">08 · 接下来</div>
+      <h2>下一代算法应该长什么样：密度 × 无偏 × on-policy</h2>
+      <p class="section-sub">
+        Brown (2026) 提出 RL 之所以 Pareto-optimal，是因为在「capability ↑ vs KL 移动 ↑」这条曲线上很高效。
+        nrehiew 用 OPD 把这个框架补完：<b>真正决定 KL 预算的是 on-policy 数据，而不是显式 KL 惩罚</b>。
+        所以未来的最优算法，需要同时满足三个性质 —— 而目前任何已知方法都只占两个。
+      </p>
+    </div>
+
+    <div class="axes-stage">
+      <div class="axes-head">
+        <div class="kicker">Three Properties · Pick Three</div>
+        <h3>"形状像蒸馏一样致密、信号像 RL 一样无偏、数据像两者一样 on-policy"</h3>
+        <p>
+          作者承认他不知道具体算法长什么样。但问题的形状是清楚的：每一根轴都解决一个已知的缺陷，
+          目前还没有任何一种已知方法把三根轴同时占满。
+        </p>
+      </div>
+      <div class="axes-grid">
+        <div class="axis">
+          <div class="icon">AXIS · DENSITY</div>
+          <h4>每个 token 都有信号</h4>
+          <p>
+            RLVR 的 outcome reward 一回合只给 O(1) bit 信息（Schulman et al. 2025）。
+            Logits 蒸馏密度高，但<b>引入偏差</b>。
+            未来算法需要密度，但代价不能是偏差。
+          </p>
+        </div>
+        <div class="axis">
+          <div class="icon">AXIS · UNBIASED</div>
+          <h4>信号方向不能歪</h4>
+          <p>
+            RLVR 因为奖励可验证，<b>偏差几乎为零</b>。
+            OPD 教师 logits 是高偏代理，需要靠 clipping 兜底。
+            最佳算法应该在保持密度的同时把偏差压下去。
+          </p>
+        </div>
+        <div class="axis">
+          <div class="icon">AXIS · ON-POLICY</div>
+          <h4>状态分布属于学生自己</h4>
+          <p>
+            on-policy 数据是隐式 KL 约束的源头，避免了模型为了拟合<i>遥远目标</i>而摧毁原有能力。
+            RL 和 OPD 都有这一性质，<b>它是承重梁</b>。
+          </p>
+        </div>
+      </div>
+      <div class="axes-foot">
+        <b>方向已经清楚，但还没有人写出具体的 loss</b>。
+        Process Reward Model（Lightman et al.）试图增加密度但训练成本高、扩展难；
+        token 级蒸馏（OPD / OPSD）增加了密度但带来偏差，必须配 clip。
+        作者的最后一句话很坦诚：「<i>这个算法具体长什么样，我也不知道</i>」。
+      </div>
+    </div>
+
+    <div class="quote-block">
+      <div class="quote-text">
+        把 RL 当成「特殊」的算法，会让人误判努力方向。真正承重的是 <b>on-policy 数据</b>，
+        而不是显式 KL 惩罚 —— 任何想取代 RL 的算法，<b>必须先保留这一点</b>，再去加密度、再去减偏差。
+      </div>
+      <div class="quote-attr">— nrehiew · SFT, RL, and On-Policy Distillation Through a Distributional Lens (2026)</div>
+    </div>
+  </div>
+</section>
+
+<!-- ---------- Footer ---------- -->
+<footer class="site-footer">
+  <div class="container">
+    <div class="footer-grid">
+      <div>
+        <h4>原文</h4>
+        <div class="footer-source">
+          <div class="footer-source-meta">
+            <strong>SFT, RL, and On-Policy Distillation Through a Distributional Lens</strong>
+            <div>nrehiew (wh) · nrehiew.github.io · 2026 年 5 月 10 日 · 配发于 <a href="https://x.com/nrehiew_/status/2053482349300797526" target="_blank" rel="noopener" style="color:#F2A07A;">@nrehiew_ on X</a></div>
+          </div>
+          <a href="https://nrehiew.github.io/blog/sft_rl_opd/" target="_blank" rel="noopener">
+            阅读原文
+            <svg viewBox="0 0 16 16" width="12" height="12" stroke="currentColor" fill="none" stroke-width="2"><path d="M3 13L13 3M13 3H6M13 3V10"/></svg>
+          </a>
+        </div>
+      </div>
+      <div>
+        <h4>关于本页</h4>
+        <p style="font-size:13.5px;color:#C8C0B3;line-height:1.6;">
+          配合阅读用的可视化，呈现原文的论证脉络：
+          <i>分布塑形心智模型 → 三种方法对照 → OPD 实验意外发现 → on-policy 几何 → 未来算法的三轴</i>。
+          所有数字与实验结论均来自原文。
+        </p>
+      </div>
+    </div>
+    <div class="footer-bottom">
+      <span>© 2026 · 可视化阅读 · 仅供学习</span>
+      <span style="font-family:'JetBrains Mono',monospace;">distributional-lens-sft-rl-opd</span>
+    </div>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var tabs = document.querySelectorAll('#methodTabs .method-tab');
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      var target = tab.getAttribute('data-target');
+      tabs.forEach(function (t) { t.classList.remove('active'); });
+      tab.classList.add('active');
+      document.querySelectorAll('.method-panel').forEach(function (p) {
+        p.classList.toggle('active', p.id === ('panel-' + target));
+      });
+    });
+  });
+})();
+</script>
+
+</body>
+</html>
