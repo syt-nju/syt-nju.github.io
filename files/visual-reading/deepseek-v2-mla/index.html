@@ -1,0 +1,2099 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>DeepSeek 的 MLA 怎么把 KV cache 压到原来的 7% · 可视化阅读</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #FBF6EA;
+    --bg-surface: #FFFFFF;
+    --bg-soft: #F5ECD8;
+    --bg-dark: #1A1816;
+    --bg-dark-2: #252220;
+    --text: #1A1816;
+    --text-muted: #6B6660;
+    --text-soft: #8C857B;
+    --text-invert: #F5F1E8;
+    --accent: #C04E2D;
+    --accent-hover: #A8401F;
+    --accent-soft: #F4DCD0;
+    --accent-deep: #7A2E16;
+    --mha-tone: #2E5A6B;
+    --mha-soft: #D8E4EA;
+    --mqa-tone: #B8860B;
+    --mqa-soft: #F4E8C7;
+    --gqa-tone: #5A4A8C;
+    --gqa-soft: #E2DDEE;
+    --mla-tone: #C04E2D;
+    --mla-soft: #F4DCD0;
+    --border: #E8DCC7;
+    --border-strong: #D4C4A6;
+    --border-dark: #3A3633;
+    --shadow-sm: 0 1px 2px rgba(26, 24, 22, 0.04);
+    --shadow-md: 0 4px 14px rgba(26, 24, 22, 0.06);
+    --shadow-lg: 0 16px 40px rgba(26, 24, 22, 0.10);
+    --radius: 10px;
+    --radius-lg: 16px;
+    --radius-xl: 22px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-hover); }
+
+  .container { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- Top Bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(251, 246, 234, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px; max-width: 1180px; margin: 0 auto;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    font-weight: 700; font-size: 14.5px; letter-spacing: -0.005em;
+  }
+  .brand-logo {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: var(--bg-dark);
+    display: grid; place-items: center; color: var(--accent); font-size: 14px; font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .brand-text { color: var(--text); }
+  .brand-text small { color: var(--text-muted); font-weight: 500; font-size: 12px; margin-left: 8px; }
+  .topnav { display: flex; gap: 4px; align-items: center; }
+  .topnav a {
+    padding: 7px 9px; border-radius: 8px;
+    color: var(--text-muted); font-size: 12.5px; font-weight: 500;
+    transition: color 0.15s, background 0.15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--accent-soft); }
+  .source-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; color: var(--text-muted); text-decoration: none;
+    padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border);
+    transition: all 0.15s; font-weight: 500;
+  }
+  .source-link:hover { border-color: var(--accent); color: var(--accent); }
+  .source-link svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 72px 0 44px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--accent); text-transform: uppercase;
+    background: var(--accent-soft); padding: 6px 14px; border-radius: 100px;
+    margin-bottom: 22px; font-family: 'JetBrains Mono', monospace;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  h1 {
+    font-size: clamp(34px, 5.2vw, 54px); line-height: 1.1; letter-spacing: -0.025em;
+    font-weight: 800; margin-bottom: 22px; max-width: 880px;
+  }
+  .hero-sub {
+    font-size: 19px; color: var(--text-muted); max-width: 720px; line-height: 1.6;
+    font-weight: 400;
+  }
+  .hero-meta {
+    display: flex; gap: 22px; margin-top: 28px; font-size: 13px; color: var(--text-muted);
+    flex-wrap: wrap; align-items: center;
+  }
+  .hero-meta span { display: inline-flex; align-items: center; gap: 7px; }
+  .hero-meta svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .hero-meta b { color: var(--text); font-weight: 600; }
+
+  /* TL;DR card */
+  .tldr {
+    margin-top: 48px; background: var(--bg-dark); color: var(--text-invert);
+    border-radius: var(--radius-xl); padding: 36px 40px;
+    box-shadow: var(--shadow-lg); position: relative; overflow: hidden;
+  }
+  .tldr::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent);
+  }
+  .tldr-title {
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 18px; font-family: 'JetBrains Mono', monospace;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .tldr-title::after {
+    content: ''; flex: 1; height: 1px; background: rgba(192, 78, 45, 0.2);
+  }
+  .tldr-text {
+    font-size: 19px; line-height: 1.65; color: var(--text-invert); font-weight: 400;
+  }
+  .tldr-text b { color: #F2A07A; font-weight: 600; }
+  .tldr-text + .tldr-text { margin-top: 14px; font-size: 16px; color: #C8C0B3; }
+
+  /* ---------- Metric strip ---------- */
+  .metrics-row {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+    margin-top: 22px;
+  }
+  .metric {
+    background: var(--bg-dark-2); border-radius: 14px; padding: 22px 22px;
+    border: 1px solid var(--border-dark);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .metric-value {
+    font-size: 30px; font-weight: 800; letter-spacing: -0.02em;
+    color: #F2A07A; line-height: 1; font-family: 'JetBrains Mono', monospace;
+  }
+  .metric-value small { font-size: 14px; font-weight: 500; color: #8C857B; margin-left: 4px; }
+  .metric-label {
+    font-size: 12px; color: #B3AB9F; line-height: 1.45; margin-top: 6px;
+  }
+
+  /* ---------- Section ---------- */
+  section.block { padding: 64px 0; border-top: 1px solid var(--border); }
+  .section-head { margin-bottom: 26px; max-width: 760px; }
+  .section-num {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--accent); font-weight: 600;
+    background: var(--accent-soft); padding: 5px 12px; border-radius: 100px;
+    margin-bottom: 16px;
+  }
+  h2 {
+    font-size: clamp(26px, 3.4vw, 36px); font-weight: 700; letter-spacing: -0.022em;
+    margin-bottom: 14px; line-height: 1.18;
+  }
+  h3 {
+    font-size: 19px; font-weight: 700; letter-spacing: -0.012em;
+    margin-bottom: 10px; line-height: 1.3;
+  }
+  .section-sub { color: var(--text-muted); font-size: 16.5px; line-height: 1.65; }
+  .section-sub b { color: var(--text); font-weight: 600; }
+  .article-copy {
+    max-width: 760px;
+    font-size: 17px;
+    line-height: 1.82;
+    color: var(--text);
+  }
+  .article-copy p + p { margin-top: 16px; }
+  .article-copy b { font-weight: 600; color: var(--text); }
+  .article-copy em { color: var(--text-muted); font-style: normal; }
+  .article-copy code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14.5px;
+    background: var(--bg-soft);
+    padding: 1px 6px;
+    border-radius: 5px;
+    color: var(--accent-deep);
+  }
+  .reader-note {
+    margin-top: 24px;
+    padding: 18px 22px;
+    background: rgba(255, 255, 255, 0.62);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    color: var(--text-muted);
+    font-size: 14.5px;
+    line-height: 1.7;
+  }
+  .reader-note b { color: var(--text); font-weight: 600; }
+  .visual-bridge {
+    margin: 30px 0 14px;
+    max-width: 760px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  /* ---------- KV cache bandwidth visualization ---------- */
+  .bandwidth-panel {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 34px;
+    box-shadow: var(--shadow-md);
+  }
+  .bandwidth-kicker {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 14px;
+  }
+  .bandwidth-title {
+    font-size: 21px; font-weight: 800; letter-spacing: -0.015em;
+    margin-bottom: 10px;
+  }
+  .bandwidth-desc {
+    color: var(--text-muted); font-size: 14.5px; line-height: 1.65;
+    max-width: 640px;
+  }
+  .bw-flow {
+    margin-top: 28px;
+    display: grid;
+    grid-template-columns: 1fr auto 1fr auto 1fr;
+    gap: 14px;
+    align-items: stretch;
+  }
+  .bw-step {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 20px;
+  }
+  .bw-step.warn { border: 1px solid var(--accent); background: var(--accent-soft); }
+  .bw-step-num {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    font-weight: 700; color: var(--accent); margin-bottom: 8px;
+    letter-spacing: 0.06em;
+  }
+  .bw-step-title { font-size: 16px; font-weight: 700; margin-bottom: 6px; letter-spacing: -0.01em; }
+  .bw-step-body { font-size: 13.5px; color: var(--text-muted); line-height: 1.6; }
+  .bw-step-body code { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; color: var(--accent-deep); background: rgba(192, 78, 45, 0.08); padding: 1px 5px; border-radius: 4px; }
+  .bw-arrow {
+    align-self: center; color: var(--accent);
+    font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 18px;
+  }
+  .bw-math {
+    margin-top: 24px;
+    background: var(--bg-dark);
+    border-radius: var(--radius-lg);
+    padding: 22px 26px;
+    color: var(--text-invert);
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 13.5px;
+    line-height: 1.85;
+  }
+  .bw-math .label { color: #8C857B; font-size: 11px; letter-spacing: 0.1em; text-transform: uppercase; margin-bottom: 10px; }
+  .bw-math .formula { color: #F2A07A; font-weight: 600; font-size: 15px; }
+  .bw-math .annot { color: #C8C0B3; font-size: 13px; margin-top: 16px; padding-top: 14px; border-top: 1px solid rgba(255,255,255,0.08); }
+  .bw-math .annot b { color: var(--text-invert); font-weight: 600; }
+  .bw-math .symbol-legend {
+    margin-top: 14px; padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,0.08);
+    display: grid; gap: 8px;
+  }
+  .bw-math .sym-row {
+    display: grid; grid-template-columns: 70px 1fr; gap: 14px;
+    align-items: baseline;
+    font-family: 'Inter', 'Noto Sans SC', sans-serif;
+    font-size: 12.5px;
+    line-height: 1.55;
+  }
+  .bw-math .sym {
+    font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+    color: #F2A07A; font-weight: 600;
+    background: rgba(242, 160, 122, 0.10);
+    padding: 2px 8px; border-radius: 5px;
+    text-align: center;
+  }
+  .bw-math .sym-desc { color: #C8C0B3; }
+  .bw-math .sym-desc b { color: var(--text-invert); font-weight: 600; }
+
+  /* ---------- Variants comparison (MHA / MQA / GQA / MLA) ---------- */
+  .variants-panel {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 34px;
+    box-shadow: var(--shadow-md);
+  }
+  .variants-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 14px;
+    margin-top: 22px;
+  }
+  .variant-card {
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px 18px 22px;
+    background: var(--bg);
+    display: flex; flex-direction: column;
+    transition: all 0.2s;
+  }
+  .variant-card.mha { border-top: 4px solid var(--mha-tone); }
+  .variant-card.mqa { border-top: 4px solid var(--mqa-tone); }
+  .variant-card.gqa { border-top: 4px solid var(--gqa-tone); }
+  .variant-card.mla { border-top: 4px solid var(--mla-tone); background: var(--mla-soft); }
+  .variant-name {
+    font-size: 16px; font-weight: 800; letter-spacing: -0.01em;
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    margin-bottom: 4px;
+  }
+  .variant-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--text-soft); font-weight: 600;
+    background: var(--bg-surface); border: 1px solid var(--border);
+    padding: 2px 7px; border-radius: 6px;
+    letter-spacing: 0.04em;
+  }
+  .variant-card.mla .variant-tag { color: var(--accent); border-color: var(--accent); background: white; }
+  .variant-sub {
+    font-size: 12.5px; color: var(--text-muted); margin-bottom: 14px;
+    line-height: 1.5;
+  }
+  .variant-svg {
+    width: 100%; aspect-ratio: 1.6 / 1; margin-bottom: 14px;
+    background: var(--bg-surface); border-radius: 10px;
+    border: 1px solid var(--border);
+    padding: 8px;
+  }
+  .variant-card.mla .variant-svg { background: white; border-color: rgba(192, 78, 45, 0.2); }
+  .variant-stats {
+    display: grid; gap: 6px;
+    font-size: 12px; color: var(--text-muted);
+    margin-top: auto;
+  }
+  .variant-stats .row {
+    display: flex; justify-content: space-between; gap: 8px;
+    padding: 6px 0; border-bottom: 1px dashed var(--border);
+  }
+  .variant-stats .row:last-child { border-bottom: 0; }
+  .variant-stats .row b { color: var(--text); font-weight: 600; font-family: 'JetBrains Mono', monospace; font-size: 12px; }
+  .variant-card.mla .variant-stats .row b { color: var(--accent-deep); }
+
+  /* ---------- MLA core mechanism diagram ---------- */
+  .mla-core {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 34px;
+    box-shadow: var(--shadow-md);
+  }
+  .mla-tabs {
+    display: flex; gap: 6px; margin-bottom: 22px;
+    flex-wrap: wrap;
+  }
+  .mla-tab {
+    padding: 8px 16px; border-radius: 100px;
+    border: 1px solid var(--border-strong); background: var(--bg);
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    color: var(--text-muted); transition: all 0.15s;
+    font-family: inherit;
+  }
+  .mla-tab:hover { border-color: var(--accent); color: var(--accent); }
+  .mla-tab.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+  .mla-pane { display: none; }
+  .mla-pane.active { display: block; }
+
+  .mla-pipeline {
+    background: var(--bg);
+    border-radius: var(--radius-lg);
+    padding: 28px 22px;
+    border: 1px solid var(--border);
+    overflow-x: auto;
+  }
+  .pipeline-row {
+    display: grid;
+    grid-template-columns: 110px 1fr;
+    gap: 18px;
+    align-items: center;
+    margin-bottom: 14px;
+  }
+  .pipeline-row:last-child { margin-bottom: 0; }
+  .pipeline-side {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-align: right;
+    padding-right: 10px;
+    border-right: 2px solid var(--border-strong);
+  }
+  .pipeline-side b { color: var(--text); display: block; font-size: 13px; }
+  .pipeline-flow {
+    display: flex; gap: 10px; align-items: center;
+    flex-wrap: wrap;
+  }
+  .pip-box {
+    padding: 9px 14px; border-radius: 8px;
+    background: var(--bg-surface); border: 1px solid var(--border-strong);
+    font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+    color: var(--text); font-weight: 500;
+  }
+  .pip-box.input { background: var(--bg-soft); border-color: var(--border-strong); }
+  .pip-box.latent { background: var(--accent); color: white; border-color: var(--accent); font-weight: 700; }
+  .pip-box.cache { background: var(--mla-soft); border-color: var(--accent); color: var(--accent-deep); font-weight: 700; }
+  .pip-box.weight { background: var(--bg); border-color: var(--border); color: var(--text-muted); font-size: 11.5px; }
+  .pip-box.ghost { background: transparent; border: 1px dashed var(--border-strong); color: var(--text-soft); }
+  .pip-arrow { color: var(--accent); font-family: 'JetBrains Mono', monospace; font-weight: 700; font-size: 14px; }
+  .pip-note {
+    margin-top: 6px; font-size: 12px; color: var(--text-muted);
+    width: 100%; padding-left: 4px;
+  }
+  .pip-note b { color: var(--text); font-weight: 600; }
+
+  .pipeline-legend {
+    margin-top: 18px;
+    display: flex; gap: 18px; flex-wrap: wrap;
+    font-size: 12px; color: var(--text-muted);
+  }
+  .pipeline-legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .legend-dot {
+    width: 12px; height: 12px; border-radius: 4px;
+    border: 1px solid var(--border-strong);
+  }
+  .legend-dot.cache { background: var(--mla-soft); border-color: var(--accent); }
+  .legend-dot.latent { background: var(--accent); border-color: var(--accent); }
+  .legend-dot.compute { background: var(--bg-soft); }
+  .legend-dot.absorbed { background: transparent; border: 1px dashed var(--border-strong); }
+
+  /* ---------- Trick callout (matrix absorption) ---------- */
+  .trick {
+    margin-top: 24px;
+    background: var(--bg-dark);
+    border-radius: var(--radius-lg);
+    padding: 24px 28px;
+    color: var(--text-invert);
+  }
+  .trick-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    letter-spacing: 0.12em; text-transform: uppercase; color: #F2A07A;
+    font-weight: 700; margin-bottom: 10px;
+  }
+  .trick-title { font-size: 19px; font-weight: 700; margin-bottom: 12px; letter-spacing: -0.012em; }
+  .trick-body { font-size: 14.5px; color: #C8C0B3; line-height: 1.7; }
+  .trick-body b { color: #F2A07A; font-weight: 600; }
+  .trick-body code { font-family: 'JetBrains Mono', monospace; font-size: 13px; background: rgba(242, 160, 122, 0.12); color: #F2A07A; padding: 1px 6px; border-radius: 4px; }
+  .trick-formula {
+    margin-top: 14px; padding: 14px 18px;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 10px; font-family: 'JetBrains Mono', monospace;
+    font-size: 13px; line-height: 1.85; color: #F2A07A;
+  }
+  .trick-formula .small { color: #8C857B; font-size: 11.5px; }
+
+  /* ---------- Inline math style ---------- */
+  .math {
+    font-family: 'Cambria Math', 'Latin Modern Roman', 'Times New Roman', 'Noto Serif', serif;
+    font-style: italic;
+    font-size: 1em;
+    color: var(--accent-deep);
+    background: rgba(192, 78, 45, 0.06);
+    padding: 0 5px;
+    border-radius: 4px;
+    white-space: nowrap;
+    letter-spacing: 0.01em;
+  }
+  .math sub, .math sup { font-style: normal; font-size: 0.72em; }
+  .math .op { font-style: normal; font-family: 'Inter', sans-serif; padding: 0 1px; }
+
+  /* ---------- Compress + Absorb visualization (rebuilt) ---------- */
+  .compress-viz {
+    margin-top: 28px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+  }
+  .cv-head { margin-bottom: 22px; }
+  .cv-head .kicker {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 10px;
+  }
+  .cv-head .title { font-size: 21px; font-weight: 800; letter-spacing: -0.018em; margin-bottom: 8px; }
+  .cv-head .sub { font-size: 14.5px; color: var(--text-muted); line-height: 1.65; max-width: 720px; }
+
+  .stage {
+    margin-top: 20px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 26px 22px;
+  }
+  .stage-absorb { background: #FBF6E5; }
+  .stage-header {
+    display: flex; align-items: baseline; gap: 12px;
+    margin-bottom: 18px;
+    padding-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+  }
+  .stage-num {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    color: white; background: var(--accent);
+    padding: 4px 11px; border-radius: 100px;
+    letter-spacing: 0.06em;
+  }
+  .stage-name { font-size: 16.5px; font-weight: 700; letter-spacing: -0.012em; }
+  .stage-foot {
+    margin-top: 16px; padding-top: 12px;
+    border-top: 1px dashed var(--border-strong);
+    font-size: 12.5px; line-height: 1.65; color: var(--text-muted);
+  }
+  .stage-foot b { color: var(--text); font-weight: 600; }
+
+  /* Stage 1: dimension blocks (width = dimension size) */
+  .compress-flow {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 4px;
+    padding: 10px 0 6px;
+  }
+  .dim-block {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 6px;
+    text-align: center;
+  }
+  .block-name {
+    font-family: 'Cambria Math', serif;
+    font-style: italic; font-size: 16px;
+    font-weight: 700; color: var(--text);
+  }
+  .block-name sub, .block-name sup { font-style: normal; font-size: 0.72em; }
+  .block-bar {
+    height: 38px; border-radius: 8px;
+    background: var(--bg-soft);
+    border: 1.5px solid var(--border-strong);
+    display: flex; align-items: center; justify-content: center;
+    position: relative; min-width: 70px;
+  }
+  .block-bar.hidden-bar { background: var(--mha-soft); border-color: rgba(46,90,107,0.4); }
+  .block-bar.mla-bar {
+    background: var(--mla-soft); border-color: var(--accent);
+    box-shadow: 0 0 0 4px rgba(192, 78, 45, 0.10);
+  }
+  .block-bar.ghost-bar {
+    background: transparent; border-style: dashed;
+    border-color: var(--border-strong); opacity: 0.45;
+  }
+  .block-dim {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--text-muted);
+    font-weight: 600; letter-spacing: 0.02em;
+  }
+  .block-bar.mla-bar .block-dim { color: var(--accent-deep); }
+  .block-bar.hidden-bar .block-dim { color: var(--mha-tone); }
+  .block-bar.ghost-bar .block-dim { color: var(--text-soft); font-style: italic; }
+  .block-tag {
+    position: absolute; top: -11px; right: -10px;
+    background: var(--accent); color: white;
+    font-size: 10px; font-weight: 700; letter-spacing: 0.04em;
+    padding: 3px 9px; border-radius: 100px;
+    font-family: 'JetBrains Mono', monospace;
+    white-space: nowrap;
+  }
+  .block-desc {
+    font-size: 12px; color: var(--text-muted); margin-top: 1px;
+  }
+  .block-desc b { color: var(--accent); font-weight: 700; }
+  .block-pair { display: flex; gap: 18px; }
+
+  .vert-arrow {
+    display: flex; flex-direction: column;
+    align-items: center; gap: 4px;
+    padding: 4px 0;
+  }
+  .vert-arrow .vert-line {
+    width: 2px; height: 22px; background: var(--text-muted);
+  }
+  .vert-arrow.compress .vert-line { background: var(--accent); }
+  .vert-arrow.dashed .vert-line {
+    background: repeating-linear-gradient(to bottom, var(--text-soft) 0 4px, transparent 4px 8px);
+    opacity: 0.6;
+  }
+  .vert-arrow .vert-label {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; color: var(--text-muted);
+    font-weight: 600;
+  }
+  .vert-arrow.compress .vert-label { color: var(--accent); }
+  .vert-arrow.dashed .vert-label { color: var(--text-soft); }
+  .vert-arrow.dashed .vert-label b { color: var(--accent); font-weight: 700; }
+
+  /* Stage 2: matrix multiplication cards */
+  .absorb-row {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 18px;
+    align-items: center;
+    padding: 14px 0;
+  }
+  .absorb-label { text-align: right; }
+  .absorb-tag {
+    display: inline-block;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; font-weight: 700;
+    letter-spacing: 0.06em;
+    padding: 4px 10px; border-radius: 100px;
+    background: var(--bg-soft); color: var(--text-muted);
+    margin-bottom: 8px;
+  }
+  .absorb-tag.good { background: var(--mla-soft); color: var(--accent-deep); }
+  .absorb-cost { font-size: 11.5px; color: var(--text-muted); line-height: 1.5; }
+  .absorb-equation {
+    display: flex; align-items: center; gap: 10px;
+    flex-wrap: wrap;
+  }
+  .op-mul, .op-eq {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 18px; color: var(--text-muted); font-weight: 700;
+  }
+  .op-eq { color: var(--accent); }
+  .matrix-card {
+    border: 1.5px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 8px 12px;
+    background: var(--bg-surface);
+    text-align: center;
+    display: flex; flex-direction: column;
+    gap: 1px;
+    min-width: 78px;
+  }
+  .matrix-card .card-head {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 9.5px; font-weight: 600;
+    color: var(--text-soft); letter-spacing: 0.04em;
+    text-transform: uppercase;
+  }
+  .matrix-card .card-body {
+    font-family: 'Cambria Math', serif;
+    font-style: italic; font-size: 17px;
+    font-weight: 700; color: var(--text);
+    line-height: 1.15;
+  }
+  .matrix-card .card-body sub, .matrix-card .card-body sup { font-style: normal; font-size: 0.7em; }
+  .matrix-card .card-shape {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--text-muted);
+    font-weight: 500; letter-spacing: 0.02em;
+  }
+  .matrix-card.q { border-color: var(--gqa-tone); background: rgba(90, 74, 140, 0.06); }
+  .matrix-card.q .card-head { color: var(--gqa-tone); }
+  .matrix-card.w-up { border-color: var(--mqa-tone); background: rgba(184, 134, 11, 0.08); }
+  .matrix-card.w-up .card-head { color: var(--mqa-tone); }
+  .matrix-card.c-cache { border-color: var(--accent); background: var(--mla-soft); }
+  .matrix-card.c-cache .card-head { color: var(--accent-deep); }
+  .matrix-card.score {
+    border-color: var(--mha-tone); background: var(--mha-soft);
+    justify-content: center; min-width: 84px;
+  }
+  .matrix-card.score .card-body {
+    font-size: 12px; font-style: normal;
+    font-family: 'Inter', 'Noto Sans SC', sans-serif;
+    color: var(--mha-tone); font-weight: 700;
+  }
+  .matrix-card.q-tilde {
+    border-color: var(--accent-deep);
+    background: linear-gradient(135deg, rgba(90,74,140,0.12), rgba(184,134,11,0.18));
+    border-width: 2px;
+  }
+  .matrix-card.q-tilde .card-head { color: var(--accent-deep); font-weight: 700; }
+  .matrix-card .card-from {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10px; color: var(--accent-deep);
+    font-weight: 600; margin-top: 5px;
+    padding-top: 5px;
+    border-top: 1px dashed rgba(192,78,45,0.4);
+  }
+  .matrix-card .card-from .seg-mla { color: var(--mqa-tone); }
+  .matrix-card .card-from .seg-mha { color: var(--gqa-tone); }
+
+  .absorb-merge {
+    margin: 6px 0;
+    display: flex; justify-content: center;
+  }
+  .merge-bar {
+    display: flex; align-items: stretch; gap: 14px;
+    background: white;
+    border: 1.5px dashed var(--accent);
+    border-radius: var(--radius-lg);
+    padding: 14px 18px;
+    max-width: 700px;
+  }
+  .merge-circle {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent); color: white;
+    display: grid; place-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 800; font-size: 13px;
+    flex-shrink: 0;
+  }
+  .merge-content { flex: 1; }
+  .merge-title {
+    font-size: 13.5px; font-weight: 700; color: var(--text);
+    margin-bottom: 6px;
+  }
+  .merge-formula {
+    font-family: 'Cambria Math', serif;
+    font-style: italic; font-size: 14.5px;
+    color: var(--accent-deep);
+    background: var(--mla-soft);
+    padding: 8px 12px; border-radius: 6px;
+    text-align: center; margin: 6px 0;
+  }
+  .merge-formula sub, .merge-formula sup { font-style: normal; font-size: 0.7em; }
+  .merge-formula b { font-weight: 700; }
+  .merge-note {
+    font-size: 12px; color: var(--text-muted); line-height: 1.6;
+  }
+  .merge-note b { color: var(--text); font-weight: 600; }
+
+  .absorb-output {
+    margin-top: 16px;
+    display: flex; gap: 14px; align-items: flex-start;
+    padding: 14px 16px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .absorb-output-text {
+    font-size: 13px; color: var(--text-muted); line-height: 1.65;
+  }
+  .absorb-output-text b { color: var(--text); font-weight: 600; }
+
+  /* ---------- RoPE problem ---------- */
+  .rope-panel {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 34px;
+    box-shadow: var(--shadow-md);
+  }
+  .rope-grid {
+    margin-top: 22px;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 18px;
+  }
+  .rope-card {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+  }
+  .rope-card.bad { border-color: rgba(192, 78, 45, 0.4); background: var(--accent-soft); }
+  .rope-card.good { border-color: rgba(46, 90, 107, 0.4); background: var(--mha-soft); }
+  .rope-card-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 8px;
+  }
+  .rope-card.bad .rope-card-tag { color: var(--accent-deep); }
+  .rope-card.good .rope-card-tag { color: var(--mha-tone); }
+  .rope-card-title { font-size: 16px; font-weight: 800; letter-spacing: -0.01em; margin-bottom: 10px; }
+  .rope-card-body { font-size: 13.5px; color: var(--text); line-height: 1.7; }
+  .rope-card-body code { font-family: 'JetBrains Mono', monospace; font-size: 12.5px; background: rgba(0,0,0,0.05); padding: 1px 5px; border-radius: 4px; }
+
+  .rope-decouple {
+    margin-top: 22px;
+    padding: 22px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+  }
+  .rope-decouple-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    font-weight: 700; letter-spacing: 0.1em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 12px;
+  }
+  .decouple-flow {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-top: 14px;
+  }
+  .decouple-track {
+    background: var(--bg-surface);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius);
+    padding: 16px;
+  }
+  .decouple-track h4 {
+    font-size: 13.5px; font-weight: 700; margin-bottom: 8px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .decouple-track h4 .pill {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    background: var(--bg-soft); padding: 2px 7px; border-radius: 5px;
+    color: var(--text-muted); font-weight: 600;
+  }
+  .decouple-track.content h4 .pill { background: var(--mla-soft); color: var(--accent-deep); }
+  .decouple-track.rope h4 .pill { background: var(--gqa-soft); color: var(--gqa-tone); }
+  .decouple-track p {
+    font-size: 12.5px; color: var(--text-muted); line-height: 1.6;
+  }
+  .decouple-merge {
+    margin-top: 14px;
+    padding: 12px 16px;
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+    text-align: center;
+  }
+  .decouple-merge b { color: #F2A07A; font-weight: 600; }
+
+  /* ---------- Results numbers ---------- */
+  .results-panel {
+    margin-top: 30px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 34px;
+    box-shadow: var(--shadow-md);
+  }
+  .results-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 22px;
+  }
+  .result-block {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 22px;
+  }
+  .result-block h3 {
+    font-size: 15px; font-weight: 700;
+    margin-bottom: 14px;
+    color: var(--text); letter-spacing: -0.01em;
+  }
+  .compare-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .compare-table th {
+    text-align: left; padding: 8px 10px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--text-muted); font-weight: 600;
+    border-bottom: 1px solid var(--border-strong);
+    letter-spacing: 0.04em; text-transform: uppercase;
+  }
+  .compare-table td {
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text);
+  }
+  .compare-table td:first-child { font-weight: 600; }
+  .compare-table tr:last-child td { border-bottom: 0; }
+  .compare-table .num {
+    font-family: 'JetBrains Mono', monospace; font-size: 12.5px;
+    text-align: right;
+  }
+  .compare-table tr.highlight td {
+    background: var(--mla-soft);
+    color: var(--accent-deep);
+    font-weight: 600;
+  }
+  .compare-table tr.highlight td:first-child { color: var(--accent-deep); font-weight: 700; }
+
+  .bar-chart {
+    display: grid; gap: 12px;
+    margin-top: 8px;
+  }
+  .bar-row {
+    display: grid;
+    grid-template-columns: 100px 1fr 70px;
+    gap: 12px;
+    align-items: center;
+    font-size: 13px;
+  }
+  .bar-name { font-weight: 600; color: var(--text); }
+  .bar-track {
+    height: 18px; background: var(--bg-soft); border-radius: 5px;
+    position: relative; overflow: hidden;
+  }
+  .bar-fill {
+    height: 100%; border-radius: 5px;
+    background: linear-gradient(90deg, var(--accent), #E07A5C);
+  }
+  .bar-fill.mha { background: var(--mha-tone); }
+  .bar-fill.gqa { background: var(--gqa-tone); }
+  .bar-fill.mqa { background: var(--mqa-tone); }
+  .bar-fill.mla { background: var(--accent); }
+  .bar-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px; color: var(--text-muted);
+    text-align: right;
+  }
+
+  /* ---------- Alternatives matrix ---------- */
+  .alt-panel {
+    margin-top: 30px;
+  }
+  .alt-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-top: 22px;
+  }
+  .alt-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 24px 24px 22px;
+    transition: all 0.2s;
+  }
+  .alt-card:hover {
+    border-color: var(--border-strong);
+    box-shadow: var(--shadow-md);
+  }
+  .alt-card-head {
+    display: flex; gap: 14px; align-items: flex-start;
+    margin-bottom: 12px;
+  }
+  .alt-card-icon {
+    width: 36px; height: 36px; border-radius: 9px;
+    background: var(--accent-soft);
+    color: var(--accent); display: grid; place-items: center;
+    font-family: 'JetBrains Mono', monospace; font-weight: 800;
+    font-size: 14px; flex-shrink: 0;
+  }
+  .alt-card.alt-mqa .alt-card-icon { background: var(--mqa-soft); color: var(--mqa-tone); }
+  .alt-card.alt-quant .alt-card-icon { background: var(--gqa-soft); color: var(--gqa-tone); }
+  .alt-card.alt-window .alt-card-icon { background: var(--mha-soft); color: var(--mha-tone); }
+  .alt-card.alt-stream .alt-card-icon { background: var(--mqa-soft); color: var(--mqa-tone); }
+  .alt-card.alt-paged .alt-card-icon { background: var(--gqa-soft); color: var(--gqa-tone); }
+  .alt-card.alt-ssm .alt-card-icon { background: var(--mha-soft); color: var(--mha-tone); }
+  .alt-card-name { font-size: 16px; font-weight: 800; letter-spacing: -0.012em; margin-bottom: 2px; }
+  .alt-card-sub { font-size: 12px; color: var(--text-soft); font-family: 'JetBrains Mono', monospace; }
+  .alt-card-body {
+    font-size: 14px; line-height: 1.65; color: var(--text-muted);
+  }
+  .alt-card-body b { color: var(--text); font-weight: 600; }
+  .alt-card-tags {
+    margin-top: 14px;
+    display: flex; gap: 6px; flex-wrap: wrap;
+  }
+  .alt-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    padding: 3px 8px; border-radius: 5px;
+    background: var(--bg-soft); color: var(--text-muted);
+    font-weight: 500;
+  }
+  .alt-tag.pos { background: rgba(46, 90, 107, 0.12); color: var(--mha-tone); }
+  .alt-tag.neg { background: rgba(192, 78, 45, 0.12); color: var(--accent-deep); }
+
+  .decision-box {
+    margin-top: 30px;
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    border-radius: var(--radius-xl);
+    padding: 30px 34px;
+  }
+  .decision-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase;
+    color: #F2A07A; margin-bottom: 10px;
+  }
+  .decision-title { font-size: 22px; font-weight: 800; letter-spacing: -0.018em; margin-bottom: 18px; }
+  .decision-list { display: grid; gap: 12px; }
+  .decision-row {
+    display: grid; grid-template-columns: 200px 1fr;
+    gap: 18px; padding: 12px 0;
+    border-bottom: 1px solid var(--border-dark);
+    font-size: 14px;
+  }
+  .decision-row:last-child { border-bottom: 0; }
+  .decision-row .case { color: #F2A07A; font-weight: 600; }
+  .decision-row .pick { color: #C8C0B3; line-height: 1.6; }
+  .decision-row .pick b { color: var(--text-invert); font-weight: 600; }
+
+  /* ---------- Footer ---------- */
+  .site-foot {
+    border-top: 1px solid var(--border);
+    padding: 50px 0 80px;
+    color: var(--text-muted);
+    font-size: 13.5px;
+    line-height: 1.65;
+  }
+  .site-foot .container { display: grid; gap: 12px; }
+  .site-foot .source-line { color: var(--text-muted); }
+  .site-foot .source-line a { font-weight: 600; }
+  .site-foot .refs {
+    margin-top: 14px;
+    display: grid; gap: 6px;
+    font-size: 13px;
+  }
+  .site-foot .refs a { color: var(--text-muted); }
+  .site-foot .refs a:hover { color: var(--accent); }
+  .site-foot .refs span {
+    color: var(--text-soft); font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; margin-right: 8px;
+  }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 880px) {
+    .container { padding: 0 20px; }
+    .topnav { display: none; }
+    .hero { padding: 50px 0 32px; }
+    .tldr { padding: 26px 24px; }
+    .metrics-row { grid-template-columns: 1fr; }
+    .bw-flow { grid-template-columns: 1fr; }
+    .bw-arrow { transform: rotate(90deg); align-self: center; padding: 4px 0; }
+    .variants-grid { grid-template-columns: 1fr 1fr; }
+    .results-grid { grid-template-columns: 1fr; }
+    .rope-grid { grid-template-columns: 1fr; }
+    .decouple-flow { grid-template-columns: 1fr; }
+    .alt-grid { grid-template-columns: 1fr; }
+    .decision-row { grid-template-columns: 1fr; gap: 6px; }
+    .pipeline-row { grid-template-columns: 1fr; }
+    .pipeline-side { text-align: left; border-right: 0; border-left: 2px solid var(--border-strong); padding-left: 10px; padding-right: 0; }
+  }
+</style>
+</head>
+<body>
+
+<!-- ============== Top Bar ============== -->
+<header class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-logo">M</div>
+      <div class="brand-text">MLA <small>· DeepSeek-V2 的注意力机制</small></div>
+    </div>
+    <nav class="topnav">
+      <a href="#problem">问题</a>
+      <a href="#prior">已有方案</a>
+      <a href="#mla">MLA 怎么做</a>
+      <a href="#rope">RoPE 兼容</a>
+      <a href="#numbers">数字</a>
+      <a href="#alternatives">其他选择</a>
+    </nav>
+    <a class="source-link" href="https://arxiv.org/abs/2405.04434" target="_blank" rel="noopener">
+      原文
+      <svg viewBox="0 0 24 24"><path d="M7 17L17 7M9 7h8v8" /></svg>
+    </a>
+  </div>
+</header>
+
+<!-- ============== Hero ============== -->
+<section class="hero">
+  <div class="container">
+    <div class="eyebrow"><span class="dot"></span>Paper · DeepSeek-V2 · 2024</div>
+    <h1>把 KV cache 联合压成一个 latent 向量 · MLA 是怎么做到的</h1>
+    <p class="hero-sub">
+      推理时的 KV cache 已经是大模型长上下文部署的硬约束。<b style="color:var(--text)">MLA（Multi-head Latent Attention）</b>用一招"低秩联合压缩 + 矩阵吸收"，把 cache 缩到 GQA 2.25 组的水平，效果反而比 MHA 更好。
+    </p>
+    <div class="hero-meta">
+      <span>📄 <b>DeepSeek-V2</b> · arXiv 2405.04434</span>
+      <span>📅 2024 / 5</span>
+      <span>🔗 <a href="https://arxiv.org/abs/2405.04434" target="_blank" rel="noopener">arxiv.org/abs/2405.04434</a></span>
+      <span>💻 <a href="https://github.com/deepseek-ai/DeepSeek-V2" target="_blank" rel="noopener">GitHub</a></span>
+    </div>
+
+    <div class="tldr">
+      <div class="tldr-title">TL;DR · 30 秒拿到核心思想</div>
+      <p class="tldr-text">
+        要解决的问题是：自回归推理时每生成一个 token 都要把<b>所有历史 token 的 K 和 V</b>从显存读一遍，KV cache 同时吃掉显存容量和带宽，长上下文 + 大 batch 直接撞墙。
+      </p>
+      <p class="tldr-text">
+        MQA / GQA 用「让多个 query head 共享同一组 K/V」来缩 cache，但<b>共享是粗暴的有损压缩</b>，效果会掉。MLA 不走共享，而是把 K 和 V 一起<b>低秩联合压缩成一个 d_c 维 latent 向量</b>缓存起来；再借助矩阵乘法的结合律把上投影矩阵<b>吸收进 W^Q 和 W^O</b>，推理时根本不用还原出 K/V。RoPE 因为破坏可交换性需要单独处理：拆出一条「带 RoPE 的小 head」并行计算，再拼回去。
+      </p>
+
+      <div class="metrics-row">
+        <div class="metric">
+          <div class="metric-value">93.3<small>%</small></div>
+          <div class="metric-label">vs DeepSeek 67B（MHA），KV cache 总量减少</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">5.76<small>×</small></div>
+          <div class="metric-label">最大生成吞吐量提升（同硬件、同序列长度）</div>
+        </div>
+        <div class="metric">
+          <div class="metric-value">&gt;<small>MHA</small></div>
+          <div class="metric-label">在 MoE 场景下 BBH/MMLU/CMMLU 都略胜 MHA</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Section 1: The Problem ============== -->
+<section class="block" id="problem">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">01 · 问题</div>
+      <h2>瓶颈不在算力，而在「KV cache 的搬运」</h2>
+      <p class="section-sub">
+        Transformer 推理时为了不重算前面 token 的 K 和 V，会把它们逐层缓存下来。这块缓存体量随上下文长度线性增长、随 batch 线性增长，最终撞到的不只是显存装得下装不下，还撞到「每个 step 都要把它从显存读一遍」的带宽。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>自回归生成的运作方式很简单：模型每生成一个 token，都要让这个新 token 的 query 与<b>所有历史 token</b>的 key、value 做注意力。如果每生成一步都重新算一遍前面所有 token 的 K/V，复杂度是 O(n²)，根本没法用。所以工程上一定要把历史的 K 和 V 缓存下来，只为新 token 算 K/V 然后追加进去——这就是 KV cache。</p>
+      <p>问题在于这块 cache 的体量：每层 <span class="math">2 <span class="op">×</span> n<sub>h</sub> <span class="op">×</span> d<sub>h</sub></span> 个元素，乘上层数 <span class="math">l</span>，再乘上序列长度，再乘上 batch。以 DeepSeek 67B（标准 MHA）为例，单 token 单层 cache 是几 KB；推到 128K context、batch=8，一个请求就要吞几十 GB——大头反而不是模型权重。</p>
+      <p>更要命的是：<b>每个 decoding step 都要把整个 KV cache 从显存里读一遍</b>。decoding 是 memory-bound 的，不是 compute-bound 的。这意味着你哪怕用 H100 也喂不饱算力，瓶颈在显存带宽（HBM bandwidth）上。所以「缩小 KV cache」不只是省显存，更是直接降低单 step 延迟、提升 throughput 的杠杆。</p>
+    </div>
+
+    <div class="visual-bridge">▸ 推理为什么是 memory-bound</div>
+
+    <div class="bandwidth-panel">
+      <div class="bandwidth-kicker">DECODE 一个 TOKEN 的三件事</div>
+      <div class="bandwidth-title">每生成一个 token，cache 都要被全量搬运一次</div>
+      <p class="bandwidth-desc">
+        Decoding 时新 token 的 query 是单条向量，K/V 矩阵是历史所有 token——这是个又长又瘦的 GEMV，HBM 带宽喂不动算力，绝大部分时间花在搬 cache 上。
+      </p>
+
+      <div class="bw-flow">
+        <div class="bw-step">
+          <div class="bw-step-num">STEP 1</div>
+          <div class="bw-step-title">算新 token 的 Q/K/V</div>
+          <div class="bw-step-body">输入 hidden state <code>h_t</code> → 三组 projection 算出 <code>q_t</code>、<code>k_t</code>、<code>v_t</code>。计算量小、一次搞定。</div>
+        </div>
+        <div class="bw-arrow">→</div>
+        <div class="bw-step warn">
+          <div class="bw-step-num">STEP 2 · 瓶颈</div>
+          <div class="bw-step-title">从 HBM 读全量 KV cache</div>
+          <div class="bw-step-body"><b>显存带宽决速步</b>。要把过去所有 token 的 K、V 从 HBM 搬到 SRAM 才能算 attention score。</div>
+        </div>
+        <div class="bw-arrow">→</div>
+        <div class="bw-step">
+          <div class="bw-step-num">STEP 3</div>
+          <div class="bw-step-title">算 attention + FFN，写回新 KV</div>
+          <div class="bw-step-body">softmax(QKᵀ)V，输出经 FFN 得到下一层 hidden；同时把新 token 的 K/V 追加到 cache。</div>
+        </div>
+      </div>
+
+      <div class="bw-math">
+        <div class="label">KV cache 大小（per token, per layer · MHA）</div>
+        <div class="formula">cache = 2 · n_h · d_h · sizeof(dtype)</div>
+        <div class="symbol-legend">
+          <div class="sym-row"><span class="sym">n_h</span><span class="sym-desc"><b>head 数</b>（number of attention heads）。多头机制把 attention 切成 n_h 份并行做。LLaMA-3 70B 用 64，DeepSeek-V2 用 128。</span></div>
+          <div class="sym-row"><span class="sym">d_h</span><span class="sym-desc"><b>每个 head 的维度</b>。通常 d_h = d / n_h（d 是 hidden size），常见取值 64 或 128。</span></div>
+          <div class="sym-row"><span class="sym">l</span><span class="sym-desc"><b>层数</b>。每一层的 attention 都要独立维护一份 KV cache。</span></div>
+          <div class="sym-row"><span class="sym">×2</span><span class="sym-desc">K 和 V 各存一份，所以前面带了一个 2。</span></div>
+        </div>
+        <div class="annot">
+          以 <b>n_h = 128, d_h = 128, fp16</b> 为例：单 token 单层 = <b>64 KB</b>；推满 60 层 + 128K 序列长度 + batch=4，仅 KV 就 <b>≈ 1.9 TB</b>。这就是为什么大家拼命要压 cache。
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Section 2: Prior approaches ============== -->
+<section class="block" id="prior">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">02 · MLA 之前</div>
+      <h2>从 MHA 到 GQA · 业界一直在「让多个 query head 共享同一组 KV」</h2>
+      <p class="section-sub">
+        MLA 之前主流的 cache 压缩思路只有一条：既然每个 head 都各自有 K 和 V 太贵，那就让多个 query head <b>共享</b>少量 K/V head。MQA 是极端共享（全部共享一组），GQA 是折中（按组共享）。但本质上都是在「质量 vs cache」之间做线性 trade-off。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>原始的 <b>MHA（Multi-Head Attention）</b>给每个 head 单独算一组 K 和 V。这是 quality 的天花板，也是 cache 的"丑数字"。</p>
+      <p>2019 年 Noam Shazeer 提出 <b>MQA（Multi-Query Attention）</b>：让所有 head 共享同一组 K/V，cache 一下子缩小 <span class="math">n<sub>h</sub></span> 倍。代价是质量肉眼可见地下降，且训练不稳定。</p>
+      <p>2023 年 Google 提出 <b>GQA（Grouped-Query Attention）</b>：把 head 分成 <span class="math">n<sub>g</sub></span> 组，每组共享一组 K/V。本质是 MHA 和 MQA 中间的插值，绝大部分 LLaMA-2/3 系列、Qwen、Mistral 都在用。它解决了 MQA 质量太差的问题，但 KV cache 的下限是 GQA-1（即 MQA），上限是 GQA-H（即 MHA），<b>它没有打破"共享 K/V"这个范式</b>。</p>
+      <p>DeepSeek 的论文里做过一个直观对比：在 7B dense 上对齐参数量后，MMLU 分别是 MQA 37.9 / GQA 41.2 / MHA 45.2 ——共享得越狠，掉得越多。MLA 想问的是：能不能既不共享、又把 cache 缩到 GQA 的量级，同时质量持平甚至超过 MHA？</p>
+    </div>
+
+    <div class="visual-bridge">▸ 四种注意力机制并排看 K/V 的"分布密度"</div>
+
+    <div class="variants-panel">
+      <div class="bandwidth-kicker">MHA · MQA · GQA · MLA · 简化对比</div>
+      <div class="bandwidth-title">所有 query head 都要算 attention，但 K/V 谁出钱、出多少？</div>
+      <p class="bandwidth-desc">
+        下面四张小图都画 4 个 query head（紫色）。差别只在于 K/V（青色 / 橙色）有几组、来源是什么。MLA 不再像前三种那样"按 head 摊分"，而是先压成一个 latent 再 up-project。
+      </p>
+
+      <div class="variants-grid">
+        <!-- MHA -->
+        <div class="variant-card mha">
+          <div class="variant-name">MHA <span class="variant-tag">Vaswani · 2017</span></div>
+          <div class="variant-sub">每个 head 独立的 K 和 V。质量最强，cache 最重。</div>
+          <svg class="variant-svg" viewBox="0 0 200 130" preserveAspectRatio="xMidYMid meet">
+            <g font-family="JetBrains Mono, monospace" font-size="9" fill="#6B6660">
+              <text x="100" y="14" text-anchor="middle" font-weight="600" fill="#1A1816">4 Q · 4 K · 4 V</text>
+            </g>
+            <!-- queries -->
+            <g>
+              <rect x="14" y="40" width="22" height="22" fill="#5A4A8C" rx="3"/>
+              <rect x="42" y="40" width="22" height="22" fill="#5A4A8C" rx="3"/>
+              <rect x="70" y="40" width="22" height="22" fill="#5A4A8C" rx="3"/>
+              <rect x="98" y="40" width="22" height="22" fill="#5A4A8C" rx="3"/>
+            </g>
+            <text x="67" y="80" font-family="JetBrains Mono, monospace" font-size="8" fill="#6B6660" text-anchor="middle">Q heads</text>
+            <!-- keys -->
+            <g>
+              <rect x="14" y="92" width="22" height="14" fill="#2E5A6B" rx="2"/>
+              <rect x="42" y="92" width="22" height="14" fill="#2E5A6B" rx="2"/>
+              <rect x="70" y="92" width="22" height="14" fill="#2E5A6B" rx="2"/>
+              <rect x="98" y="92" width="22" height="14" fill="#2E5A6B" rx="2"/>
+            </g>
+            <!-- values -->
+            <g>
+              <rect x="14" y="110" width="22" height="14" fill="#C04E2D" rx="2"/>
+              <rect x="42" y="110" width="22" height="14" fill="#C04E2D" rx="2"/>
+              <rect x="70" y="110" width="22" height="14" fill="#C04E2D" rx="2"/>
+              <rect x="98" y="110" width="22" height="14" fill="#C04E2D" rx="2"/>
+            </g>
+            <text x="158" y="100" font-family="JetBrains Mono, monospace" font-size="9" fill="#2E5A6B" text-anchor="middle">K</text>
+            <text x="158" y="118" font-family="JetBrains Mono, monospace" font-size="9" fill="#C04E2D" text-anchor="middle">V</text>
+          </svg>
+          <div class="variant-stats">
+            <div class="row"><span>cache/token</span><b>2·n_h·d_h·l</b></div>
+            <div class="row"><span>质量</span><b>★★★★</b></div>
+            <div class="row"><span>问题</span><b>cache 过大</b></div>
+          </div>
+        </div>
+
+        <!-- MQA -->
+        <div class="variant-card mqa">
+          <div class="variant-name">MQA <span class="variant-tag">Shazeer · 2019</span></div>
+          <div class="variant-sub">所有 query 共享同一对 K/V。cache 最小，质量掉得明显。</div>
+          <svg class="variant-svg" viewBox="0 0 200 130" preserveAspectRatio="xMidYMid meet">
+            <g font-family="JetBrains Mono, monospace" font-size="9" fill="#6B6660">
+              <text x="100" y="14" text-anchor="middle" font-weight="600" fill="#1A1816">4 Q · 1 K · 1 V</text>
+            </g>
+            <g>
+              <rect x="14" y="40" width="22" height="22" fill="#5A4A8C" rx="3"/>
+              <rect x="42" y="40" width="22" height="22" fill="#5A4A8C" rx="3"/>
+              <rect x="70" y="40" width="22" height="22" fill="#5A4A8C" rx="3"/>
+              <rect x="98" y="40" width="22" height="22" fill="#5A4A8C" rx="3"/>
+            </g>
+            <!-- shared K -->
+            <rect x="56" y="92" width="36" height="14" fill="#2E5A6B" rx="2"/>
+            <rect x="56" y="110" width="36" height="14" fill="#B8860B" rx="2"/>
+            <!-- arrows -->
+            <g stroke="#B8860B" stroke-width="0.8" fill="none" opacity="0.5">
+              <line x1="25" y1="62" x2="68" y2="92"/>
+              <line x1="53" y1="62" x2="72" y2="92"/>
+              <line x1="81" y1="62" x2="76" y2="92"/>
+              <line x1="109" y1="62" x2="80" y2="92"/>
+            </g>
+            <text x="158" y="100" font-family="JetBrains Mono, monospace" font-size="9" fill="#2E5A6B" text-anchor="middle">shared K</text>
+            <text x="158" y="118" font-family="JetBrains Mono, monospace" font-size="9" fill="#B8860B" text-anchor="middle">shared V</text>
+          </svg>
+          <div class="variant-stats">
+            <div class="row"><span>cache/token</span><b>2·d_h·l</b></div>
+            <div class="row"><span>质量</span><b>★★</b></div>
+            <div class="row"><span>问题</span><b>掉点 / 不稳</b></div>
+          </div>
+        </div>
+
+        <!-- GQA -->
+        <div class="variant-card gqa">
+          <div class="variant-name">GQA <span class="variant-tag">Google · 2023</span></div>
+          <div class="variant-sub">分组共享 K/V。LLaMA-2/3、Mistral、Qwen 主流方案。</div>
+          <svg class="variant-svg" viewBox="0 0 200 130" preserveAspectRatio="xMidYMid meet">
+            <g font-family="JetBrains Mono, monospace" font-size="9" fill="#6B6660">
+              <text x="100" y="14" text-anchor="middle" font-weight="600" fill="#1A1816">4 Q · 2 K · 2 V (G=2)</text>
+            </g>
+            <g>
+              <rect x="14" y="40" width="22" height="22" fill="#5A4A8C" rx="3"/>
+              <rect x="42" y="40" width="22" height="22" fill="#5A4A8C" rx="3"/>
+              <rect x="70" y="40" width="22" height="22" fill="#5A4A8C" rx="3"/>
+              <rect x="98" y="40" width="22" height="22" fill="#5A4A8C" rx="3"/>
+            </g>
+            <!-- group 1 -->
+            <rect x="20" y="92" width="38" height="14" fill="#2E5A6B" rx="2"/>
+            <rect x="20" y="110" width="38" height="14" fill="#C04E2D" rx="2"/>
+            <!-- group 2 -->
+            <rect x="76" y="92" width="38" height="14" fill="#2E5A6B" rx="2"/>
+            <rect x="76" y="110" width="38" height="14" fill="#C04E2D" rx="2"/>
+            <g stroke="#5A4A8C" stroke-width="0.7" fill="none" opacity="0.4">
+              <line x1="25" y1="62" x2="32" y2="92"/>
+              <line x1="53" y1="62" x2="46" y2="92"/>
+              <line x1="81" y1="62" x2="88" y2="92"/>
+              <line x1="109" y1="62" x2="100" y2="92"/>
+            </g>
+            <text x="158" y="100" font-family="JetBrains Mono, monospace" font-size="9" fill="#2E5A6B" text-anchor="middle">2× K</text>
+            <text x="158" y="118" font-family="JetBrains Mono, monospace" font-size="9" fill="#C04E2D" text-anchor="middle">2× V</text>
+          </svg>
+          <div class="variant-stats">
+            <div class="row"><span>cache/token</span><b>2·n_g·d_h·l</b></div>
+            <div class="row"><span>质量</span><b>★★★</b></div>
+            <div class="row"><span>本质</span><b>插值 MHA↔MQA</b></div>
+          </div>
+        </div>
+
+        <!-- MLA -->
+        <div class="variant-card mla">
+          <div class="variant-name">MLA <span class="variant-tag">DeepSeek · 2024</span></div>
+          <div class="variant-sub">不共享！把 K/V 联合压成一个 latent 向量缓存，用时再 up-project。</div>
+          <svg class="variant-svg" viewBox="0 0 200 130" preserveAspectRatio="xMidYMid meet">
+            <g font-family="JetBrains Mono, monospace" font-size="9" fill="#6B6660">
+              <text x="100" y="14" text-anchor="middle" font-weight="600" fill="#1A1816">4 Q · 1 latent c</text>
+            </g>
+            <g>
+              <rect x="14" y="40" width="22" height="22" fill="#5A4A8C" rx="3"/>
+              <rect x="42" y="40" width="22" height="22" fill="#5A4A8C" rx="3"/>
+              <rect x="70" y="40" width="22" height="22" fill="#5A4A8C" rx="3"/>
+              <rect x="98" y="40" width="22" height="22" fill="#5A4A8C" rx="3"/>
+            </g>
+            <!-- latent -->
+            <rect x="32" y="94" width="78" height="22" fill="#C04E2D" rx="4"/>
+            <text x="71" y="108" font-family="JetBrains Mono, monospace" font-size="10" fill="white" text-anchor="middle" font-weight="600">latent c_t^KV</text>
+            <!-- up-projection arrows -->
+            <g stroke="#C04E2D" stroke-width="0.7" fill="none" opacity="0.6" stroke-dasharray="2 2">
+              <path d="M 71 94 Q 25 80 25 62"/>
+              <path d="M 71 94 Q 53 80 53 62"/>
+              <path d="M 71 94 Q 81 80 81 62"/>
+              <path d="M 71 94 Q 109 80 109 62"/>
+            </g>
+            <text x="158" y="108" font-family="JetBrains Mono, monospace" font-size="9" fill="#C04E2D" text-anchor="middle" font-weight="600">cache 这个</text>
+          </svg>
+          <div class="variant-stats">
+            <div class="row"><span>cache/token</span><b>(d_c+d_h^R)·l</b></div>
+            <div class="row"><span>≈ GQA</span><b>2.25 组水平</b></div>
+            <div class="row"><span>质量</span><b>&gt; MHA</b></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="reader-note" style="margin-top: 22px;">
+        <b>关键观察：</b>MQA / GQA 仍然是「cache 里直接放 K 和 V」，只是数量从 H → G → 1 在缩小；MLA 是<b>cache 里放一个低秩 latent c</b>，K 和 V 由 c 经过权重矩阵 up-project 出来——这才让"质量超过 MHA"成为可能。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Section 3: How MLA works ============== -->
+<section class="block" id="mla">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">03 · MLA 怎么做</div>
+      <h2>低秩联合压缩 + 矩阵吸收 · 让 cache 只存一个 latent</h2>
+      <p class="section-sub">
+        MLA 真正的秘诀有两部分。第一部分让 cache 变小：把 K 和 V 联合压成一个低秩 latent；第二部分让计算也不变贵：利用矩阵乘法的结合律，把"还原 K/V 的 up-projection"提前吸收进 W^Q 和 W^O，<b>推理时根本不需要解压回 K/V</b>。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p><b>第一招：低秩联合压缩。</b>给定输入 <span class="math">h<sub>t</sub> <span class="op">∈</span> ℝ<sup>d</sup></span>，MLA 不再像 MHA 那样直接算出全维度的 K 和 V，而是先经过一个 down-projection 矩阵 <span class="math">W<sup>DKV</sup></span> 把它压成一个小很多的 latent 向量 <span class="math">c<sub>t</sub><sup>KV</sup> <span class="op">∈</span> ℝ<sup>d<sub>c</sub></sup></span>，其中 <span class="math">d<sub>c</sub> <span class="op">≪</span> n<sub>h</sub><span class="op">·</span>d<sub>h</sub></span>。需要 K 时再用 <span class="math">W<sup>UK</sup></span> up-project 回去，需要 V 时再用 <span class="math">W<sup>UV</sup></span> up-project 回去。</p>
+      <p>注意"联合"两个字：K 和 V 共用同一个 latent，意味着 cache 里只存这一个 latent 就行，cache 量直接从 <span class="math">2<span class="op">·</span>n<sub>h</sub><span class="op">·</span>d<sub>h</sub></span> 砍到 <span class="math">d<sub>c</sub></span>——而且这是<b>每个 token 都拥有自己的 latent</b>，不是 MQA/GQA 那种"多个 head 共用一组 K/V"的有损共享。</p>
+      <p><b>第二招：矩阵吸收（associativity trick）。</b>看起来 cache 是省了，但推理时每来一个新 query，还要把 <span class="math">W<sup>UK</sup></span> 和 <span class="math">W<sup>UV</sup></span> 作用在缓存的 latent 上去把 K/V "解压"出来——这步算量加回来怎么办？利用矩阵乘法结合律，<span class="math">W<sup>UK</sup></span> 可以提前合并进 query 投影矩阵 <span class="math">W<sup>Q</sup></span>，<span class="math">W<sup>UV</sup></span> 可以合并进输出投影矩阵 <span class="math">W<sup>O</sup></span>。这样 attention 算分数时直接用 query 和 latent 算内积，<b>解压 K/V 这一步在数学上根本不存在</b>（具体推导见下文 trick 块）。</p>
+      <p>结果是：cache 里只放一个 <span class="math">d<sub>c</sub></span> 维向量，attention 计算也不需要把它展回 K/V 全维度。这一步就是 MLA 区别于"普通低秩 KV"的关键——<b>不只是省内存，连计算也是直接在 latent 空间里做的</b>。</p>
+    </div>
+
+    <div class="visual-bridge">▸ 把"压缩"和"吸收"拆成两段直观看</div>
+
+    <div class="compress-viz">
+      <div class="cv-head">
+        <div class="kicker">MLA 的两步戏法 · 一步省 cache，一步省计算</div>
+        <div class="title">阶段 1 怎么"压"，阶段 2 怎么"不必再展开"</div>
+        <div class="sub">
+          下面用方块宽度直观表达维度大小，再用矩阵卡片演示"吸收"到底是把哪两个矩阵合并成了什么。两步合起来才是 MLA 真正的优势——光压不吸收，每步都要还原 K/V，省 cache 但加算量；光吸收不压，cache 一点没小。
+        </div>
+      </div>
+
+      <!-- ============== Stage 1: Compress ============== -->
+      <div class="stage stage-compress">
+        <div class="stage-header">
+          <div class="stage-num">阶段 1</div>
+          <div class="stage-name">压缩 · 把全维度 hidden 砸成一个小 latent</div>
+        </div>
+
+        <div class="compress-flow">
+          <div class="dim-block">
+            <div class="block-name">h<sub>t</sub></div>
+            <div class="block-bar hidden-bar" style="width: 360px;">
+              <span class="block-dim">d 维（例如 5120）</span>
+            </div>
+            <div class="block-desc">输入 hidden state · 全维度</div>
+          </div>
+
+          <div class="vert-arrow compress">
+            <span class="vert-line"></span>
+            <span class="vert-label">× W<sup>DKV</sup>  ·  down-project（实际发生）</span>
+          </div>
+
+          <div class="dim-block">
+            <div class="block-name">c<sub>t</sub><sup>KV</sup></div>
+            <div class="block-bar mla-bar" style="width: 80px;">
+              <span class="block-dim">d<sub>c</sub> 维 (≈ 512)</span>
+              <span class="block-tag">★ CACHE 只存它</span>
+            </div>
+            <div class="block-desc">维度从 d 缩到 d<sub>c</sub>，约 <b>10×</b> 落差</div>
+          </div>
+
+          <div class="vert-arrow dashed">
+            <span class="vert-line"></span>
+            <span class="vert-label">× W<sup>UK</sup> / W<sup>UV</sup>  ·  up-project（朴素实现要算 → 阶段 2 把它<b>抹掉</b>）</span>
+          </div>
+
+          <div class="block-pair">
+            <div class="dim-block">
+              <div class="block-name">K</div>
+              <div class="block-bar ghost-bar" style="width: 360px;">
+                <span class="block-dim">n<sub>h</sub>·d<sub>h</sub> 维</span>
+              </div>
+            </div>
+            <div class="dim-block">
+              <div class="block-name">V</div>
+              <div class="block-bar ghost-bar" style="width: 360px;">
+                <span class="block-dim">n<sub>h</sub>·d<sub>h</sub> 维</span>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stage-foot">
+          <b>看点：</b>方块宽度反映了真实维度。h<sub>t</sub> 是宽方块，c 是窄方块——<b>"压"</b>就是这一步。下方灰色 K / V 是 MLA 数学公式里仍然定义的中间量，但它们到底要不要被实际算出来，取决于阶段 2。
+        </div>
+      </div>
+
+      <!-- ============== Stage 2: Absorb ============== -->
+      <div class="stage stage-absorb">
+        <div class="stage-header">
+          <div class="stage-num">阶段 2</div>
+          <div class="stage-name">吸收 · 用结合律让"还原 K"那一步从代数上消失</div>
+        </div>
+
+        <div class="absorb-row naive">
+          <div class="absorb-label">
+            <div class="absorb-tag">朴素写法</div>
+            <div class="absorb-cost">3 个矩阵相乘<br>每一步都要先算 K</div>
+          </div>
+          <div class="absorb-equation">
+            <div class="matrix-card q">
+              <div class="card-head">query 头</div>
+              <div class="card-body">q<sub>t</sub><sup>⊤</sup></div>
+              <div class="card-shape">1 × d<sub>h</sub></div>
+            </div>
+            <span class="op-mul">×</span>
+            <div class="matrix-card w-up">
+              <div class="card-head">MLA 上投影</div>
+              <div class="card-body">W<sup>UK</sup></div>
+              <div class="card-shape">d<sub>h</sub> × d<sub>c</sub></div>
+            </div>
+            <span class="op-mul">×</span>
+            <div class="matrix-card c-cache">
+              <div class="card-head">从 cache 读</div>
+              <div class="card-body">c<sub>j</sub><sup>KV</sup></div>
+              <div class="card-shape">d<sub>c</sub> × 1</div>
+            </div>
+            <span class="op-eq">=</span>
+            <div class="matrix-card score">
+              <div class="card-head">输出</div>
+              <div class="card-body">attn<br>score</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="absorb-merge">
+          <div class="merge-bar">
+            <div class="merge-circle">①</div>
+            <div class="merge-content">
+              <div class="merge-title">用矩阵乘法结合律，把跟 cache 无关的两块提前合并</div>
+              <div class="merge-formula">
+                q<sup>⊤</sup> · W<sup>UK</sup> · c &nbsp;&nbsp;=&nbsp;&nbsp; <b>(W<sup>UK⊤</sup> · q)<sup>⊤</sup></b> · c &nbsp;&nbsp;=&nbsp;&nbsp; <b>q̃<sup>⊤</sup></b> · c
+              </div>
+              <div class="merge-note">
+                <b>W<sup>UK</sup></b>（来自 MLA 的上投影）和 <b>q</b>（由 W<sup>Q</sup> 算出）都<b>跟 cache 里的 c 无关</b>——它们能被提到一起合并成一个新矩阵 <b>q̃</b>，这个合并<b>离线一次性算好</b>，推理时不再发生。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="absorb-row absorbed">
+          <div class="absorb-label">
+            <div class="absorb-tag good">吸收后</div>
+            <div class="absorb-cost">只剩 2 个矩阵相乘<br>K 永远不算</div>
+          </div>
+          <div class="absorb-equation">
+            <div class="matrix-card q-tilde">
+              <div class="card-head">latent 空间的 query</div>
+              <div class="card-body">q̃<sub>t</sub><sup>⊤</sup></div>
+              <div class="card-shape">1 × d<sub>c</sub></div>
+              <div class="card-from">
+                合并自:
+                <span class="seg-mla">W<sup>UK⊤</sup></span>
+                ×
+                <span class="seg-mha">W<sup>Q</sup></span>
+                · h<sub>t</sub>
+              </div>
+            </div>
+            <span class="op-mul">×</span>
+            <div class="matrix-card c-cache">
+              <div class="card-head">从 cache 读</div>
+              <div class="card-body">c<sub>j</sub><sup>KV</sup></div>
+              <div class="card-shape">d<sub>c</sub> × 1</div>
+            </div>
+            <span class="op-eq">=</span>
+            <div class="matrix-card score">
+              <div class="card-head">输出</div>
+              <div class="card-body">attn<br>score</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="absorb-merge">
+          <div class="merge-bar">
+            <div class="merge-circle">②</div>
+            <div class="merge-content">
+              <div class="merge-title">输出侧同样地：把 W<sup>UV</sup> 合并进输出投影矩阵</div>
+              <div class="merge-formula">
+                W<sup>O</sup> · W<sup>UV</sup> · (∑ softmax · c) &nbsp;&nbsp;=&nbsp;&nbsp; <b>W̃<sup>O</sup></b> · (∑ softmax · c)
+              </div>
+              <div class="merge-note">
+                attention 加权后的"值"也直接用 c 来算，再乘合并矩阵 <b>W̃<sup>O</sup> = W<sup>O</sup> · W<sup>UV</sup></b> 投回 d 维。<b>V 同样从不被还原</b>。
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="stage-foot">
+          <b>融合矩阵的来源一目了然：</b>q̃ 卡片下方明确写了它由 <span style="color:var(--mqa-tone);font-weight:700">W<sup>UK⊤</sup></span>（MLA 阶段 1 的上投影）和 <span style="color:var(--gqa-tone);font-weight:700">W<sup>Q</sup></span>（MHA 时代就有的 query 投影）相乘而来。颜色对应上面卡片的边框色——读者可以一一对照。
+        </div>
+      </div>
+    </div>
+
+    <div class="visual-bridge">▸ 训练时的全流程 vs 推理时的 latent-only 路径</div>
+
+    <div class="mla-core">
+      <div class="bandwidth-kicker">两种视角看同一个机制</div>
+      <div class="bandwidth-title">训练时算的样子 vs 推理时实际跑的样子</div>
+      <p class="bandwidth-desc">
+        切换两个 tab 看清楚：训练时为了得到正确的 attention 输出，K 和 V 是真的被算出来过的；推理时由于矩阵吸收，那一步根本不发生，cache 里只有一个 latent。
+      </p>
+
+      <div class="mla-tabs">
+        <button class="mla-tab active" data-pane="train">训练时（公式直观）</button>
+        <button class="mla-tab" data-pane="infer">推理时（矩阵吸收后）</button>
+      </div>
+
+      <!-- TRAIN PANE -->
+      <div class="mla-pane active" id="pane-train">
+        <div class="mla-pipeline">
+          <div class="pipeline-row">
+            <div class="pipeline-side"><b>输入</b>token t 的 hidden</div>
+            <div class="pipeline-flow">
+              <div class="pip-box input">h_t ∈ R^d</div>
+            </div>
+          </div>
+
+          <div class="pipeline-row">
+            <div class="pipeline-side"><b>压缩</b>down-projection</div>
+            <div class="pipeline-flow">
+              <div class="pip-box weight">W^DKV</div>
+              <span class="pip-arrow">→</span>
+              <div class="pip-box latent">c_t^KV ∈ R^{d_c}</div>
+              <div class="pip-note">d_c 远小于 n_h·d_h（DeepSeek-V2 取 d_c = 4·d_h）</div>
+            </div>
+          </div>
+
+          <div class="pipeline-row">
+            <div class="pipeline-side"><b>解压</b>up-projection</div>
+            <div class="pipeline-flow">
+              <div class="pip-box latent">c_t^KV</div>
+              <span class="pip-arrow">→</span>
+              <div class="pip-box weight">W^UK</div>
+              <span class="pip-arrow">→</span>
+              <div class="pip-box">k_t^C（n_h 个 head 的 key）</div>
+            </div>
+          </div>
+
+          <div class="pipeline-row">
+            <div class="pipeline-side"></div>
+            <div class="pipeline-flow">
+              <div class="pip-box latent">c_t^KV</div>
+              <span class="pip-arrow">→</span>
+              <div class="pip-box weight">W^UV</div>
+              <span class="pip-arrow">→</span>
+              <div class="pip-box">v_t^C（n_h 个 head 的 value）</div>
+            </div>
+          </div>
+
+          <div class="pipeline-row">
+            <div class="pipeline-side"><b>Query</b>同样压缩</div>
+            <div class="pipeline-flow">
+              <div class="pip-box input">h_t</div>
+              <span class="pip-arrow">→</span>
+              <div class="pip-box weight">W^DQ</div>
+              <span class="pip-arrow">→</span>
+              <div class="pip-box latent" style="background:#5A4A8C;border-color:#5A4A8C">c_t^Q</div>
+              <span class="pip-arrow">→</span>
+              <div class="pip-box weight">W^UQ</div>
+              <span class="pip-arrow">→</span>
+              <div class="pip-box">q_t^C</div>
+              <div class="pip-note">Query 的低秩压缩主要为<b>训练时省 activation 显存</b>，不影响 KV cache</div>
+            </div>
+          </div>
+
+          <div class="pipeline-row">
+            <div class="pipeline-side"><b>Attention</b>常规计算</div>
+            <div class="pipeline-flow">
+              <div class="pip-box">softmax(q · kᵀ / √d) · v</div>
+              <span class="pip-arrow">→</span>
+              <div class="pip-box weight">W^O</div>
+              <span class="pip-arrow">→</span>
+              <div class="pip-box">u_t（输出）</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pipeline-legend">
+          <span><span class="legend-dot latent"></span>压缩后的 latent（待 cache）</span>
+          <span><span class="legend-dot compute"></span>原始输入 / 中间张量</span>
+          <span><span class="legend-dot"></span>实算的 K / V（训练时存在）</span>
+        </div>
+      </div>
+
+      <!-- INFER PANE -->
+      <div class="mla-pane" id="pane-infer">
+        <div class="mla-pipeline">
+          <div class="pipeline-row">
+            <div class="pipeline-side"><b>缓存</b>每 token 只存这个</div>
+            <div class="pipeline-flow">
+              <div class="pip-box cache">c_t^KV ∈ R^{d_c}</div>
+              <div class="pip-note">所有历史 token 的 latent 拼成 cache（外加后面 RoPE 部分的 k_t^R，下一节讲）</div>
+            </div>
+          </div>
+
+          <div class="pipeline-row">
+            <div class="pipeline-side"><b>Query 侧</b>把 W^UK 吸收</div>
+            <div class="pipeline-flow">
+              <div class="pip-box input">h_t</div>
+              <span class="pip-arrow">→</span>
+              <div class="pip-box weight">(W^UK)^T · W^UQ · W^DQ</div>
+              <span class="pip-arrow">→</span>
+              <div class="pip-box latent" style="background:#5A4A8C;border-color:#5A4A8C">q̃_t（latent 空间的 query）</div>
+              <div class="pip-note">三个矩阵在<b>离线时合并成一个</b>。query 直接落在 latent 空间</div>
+            </div>
+          </div>
+
+          <div class="pipeline-row">
+            <div class="pipeline-side"><b>Attention</b>在 latent 空间</div>
+            <div class="pipeline-flow">
+              <div class="pip-box">attn_score = q̃_t · c_jᵀ</div>
+              <div class="pip-note">直接 query · latent 求内积，<b>从来不还原 K</b></div>
+            </div>
+          </div>
+
+          <div class="pipeline-row">
+            <div class="pipeline-side"><b>Output 侧</b>把 W^UV 吸收</div>
+            <div class="pipeline-flow">
+              <div class="pip-box">∑ softmax · c_j（值是 latent 的加权和）</div>
+              <span class="pip-arrow">→</span>
+              <div class="pip-box weight">W^O · W^UV</div>
+              <span class="pip-arrow">→</span>
+              <div class="pip-box">u_t</div>
+              <div class="pip-note">同样 offline 合并；<b>从来不还原 V</b></div>
+            </div>
+          </div>
+
+          <div class="pipeline-row">
+            <div class="pipeline-side"><b>已消失</b>这些步骤不再发生</div>
+            <div class="pipeline-flow">
+              <div class="pip-box ghost">c_t^KV → W^UK → k_t^C ✗</div>
+              <div class="pip-box ghost">c_t^KV → W^UV → v_t^C ✗</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="pipeline-legend">
+          <span><span class="legend-dot cache"></span>cache 实际存放的内容</span>
+          <span><span class="legend-dot latent"></span>合并后的等价 query</span>
+          <span><span class="legend-dot absorbed"></span>被矩阵吸收，不再算</span>
+        </div>
+      </div>
+
+      <div class="trick">
+        <div class="trick-tag">⚡ 矩阵吸收 trick</div>
+        <div class="trick-title">为什么"压成 latent 再展回去"不会让 attention 变贵</div>
+        <p class="trick-body">
+          关键是注意力分数 <code>q · k</code> 的形式。把 key 的定义代入并利用矩阵乘法结合律重组：
+        </p>
+        <div class="trick-formula">
+          <div>q<sub>t</sub><sup>⊤</sup> <span style="color:#8C857B">·</span> k<sub>j</sub>
+            <span style="color:#8C857B">&nbsp;&nbsp;=&nbsp;&nbsp;</span>
+            q<sub>t</sub><sup>⊤</sup> <span style="color:#8C857B">·</span>
+            <span style="color:#C8C0B3">(</span> W<sup>UK</sup> <span style="color:#8C857B">·</span> c<sub>j</sub><sup>KV</sup> <span style="color:#C8C0B3">)</span>
+            <span style="color:#8C857B">&nbsp;&nbsp;=&nbsp;&nbsp;</span>
+            <b>(W<sup>UK⊤</sup> <span style="color:#F2A07A">·</span> q<sub>t</sub>)<sup>⊤</sup> <span style="color:#F2A07A">·</span> c<sub>j</sub><sup>KV</sup></b>
+          </div>
+          <div class="small" style="margin-top: 10px;">
+            同理：W<sup>O</sup> · W<sup>UV</sup> · <span style="color:#C8C0B3">∑</span> softmax · c<sub>j</sub><sup>KV</sup>
+            （把 W<sup>UV</sup> 也提到外面合并进 W<sup>O</sup>）
+          </div>
+        </div>
+        <p class="trick-body" style="margin-top:14px">
+          也就是说，<b>W<sup>UK</sup> 可以被吸收进 W<sup>Q</sup>（实质是 W<sup>UQ</sup>）</b>，<b>W<sup>UV</sup> 可以被吸收进 W<sup>O</sup></b>。这两步合并是离线的、一次性的；推理时 attention 直接在 latent 空间做，K 和 V 永远不需要被还原成全维度。这是 MLA 区别于普通 "low-rank KV" 想法的关键工程点。
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Section 4: RoPE problem ============== -->
+<section class="block" id="rope">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">04 · RoPE 兼容</div>
+      <h2>遇上 RoPE 就破功 · 怎么再补回来</h2>
+      <p class="section-sub">
+        矩阵吸收依赖于矩阵乘法的<b>结合律和可交换的因子顺序</b>。但 RoPE 是位置敏感的旋转矩阵，它会卡在 W^Q 和 W^UK 中间，不能交换位置——吸收技巧立刻失效。MLA 的解法是「解耦 RoPE」：让一小部分 head 维度专门承担位置编码，其余维度仍然走 latent 通路。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>RoPE 的工作方式是给 query 和 key 各自乘一个由位置 t 决定的旋转矩阵 <span class="math">R<sub>t</sub></span>。在 MHA 里这无伤大雅，因为 q 和 k 都是显式存在的。但在 MLA 里，如果想给 key 加 RoPE，就变成 <span class="math">k<sub>t</sub> <span class="op">=</span> R<sub>t</sub> <span class="op">·</span> W<sup>UK</sup> <span class="op">·</span> c<sub>t</sub></span>。这时 <span class="math">W<sup>Q</sup></span> 与 <span class="math">W<sup>UK</sup></span> 之间多了一个<b>跟当前 query 位置有关的 <span class="math">R<sub>t</sub></span></b>，矩阵乘法不再可交换——<span class="math">W<sup>UK</sup></span> 没法再被合并进 <span class="math">W<sup>Q</sup></span>，<b>每生成一步都要重新 up-project 所有历史 token 的 K</b>，吞吐立刻崩盘。</p>
+      <p>DeepSeek 的解法很巧：与其让 RoPE 和 latent 通路硬碰硬，不如把它们<b>分开两条路</b>。给每个 head 额外开一段维度 <span class="math">d<sub>h</sub><sup>R</sup></span>（论文里 <span class="math">d<sub>h</sub><sup>R</sup> <span class="op">=</span> d<sub>h</sub>/2</span>）专门用来承载 RoPE 信息，这部分的 query 仍然按 head 分开算（保留位置敏感性），但 key 是<b>所有 head 共享一个</b>（这部分回到 MQA 的做法，反正只是辅助位置信号）。</p>
+      <p>原本走 latent 通路的部分（content）继续保持矩阵吸收的红利；带 RoPE 的小尾巴单独缓存一份。最终 attention 时把 content 和 rope 两段拼接起来一起做内积。cache 多出来一份 <span class="math">d<sub>h</sub><sup>R</sup> <span class="op">·</span> l</span>，但量级很小：DeepSeek-V2 总 cache <span class="math"><span class="op">=</span> (d<sub>c</sub> <span class="op">+</span> d<sub>h</sub><sup>R</sup>) <span class="op">·</span> l <span class="op">≈</span> 4.5<span class="op">·</span>d<sub>h</sub><span class="op">·</span>l</span>，<b>相当于 GQA 只有 2.25 组的水平</b>，但效果比 MHA 还强。</p>
+    </div>
+
+    <div class="rope-panel">
+      <div class="bandwidth-kicker">RoPE 为什么破坏吸收</div>
+      <div class="bandwidth-title">问题与解法 · 一图看穿</div>
+
+      <div class="rope-grid">
+        <div class="rope-card bad">
+          <div class="rope-card-tag">✗ 直接给 latent K 上 RoPE</div>
+          <div class="rope-card-title">乘法链中冒出"位置矩阵 R_t"</div>
+          <p class="rope-card-body">
+            attention 分数变成 <span class="math">q<sub>t</sub><sup>⊤</sup> <span class="op">·</span> R<sub>t</sub> <span class="op">·</span> W<sup>UK</sup> <span class="op">·</span> c<sub>j</sub><sup>KV</sup></span>。<b><span class="math">R<sub>t</sub></span> 与位置有关</b>，没法跟 <span class="math">W<sup>UK</sup></span>、<span class="math">W<sup>Q</sup></span> 互换位置。"把 <span class="math">W<sup>UK</sup></span> 吸收进 <span class="math">W<sup>Q</sup></span>"的等价变形不再成立。<br><br>
+            后果：每个 step 都要重新算所有历史 token 的真实 key，cache 缩了但<b>计算量爆炸</b>，工程上得不偿失。
+          </p>
+        </div>
+        <div class="rope-card good">
+          <div class="rope-card-tag">✓ Decoupled RoPE</div>
+          <div class="rope-card-title">把 head 维度切成「content + rope」两段</div>
+          <p class="rope-card-body">
+            <b>Content 段（d_h 维）</b>：走 latent 通路，按原方案吸收 W^UK / W^UV，不带 RoPE。<br>
+            <b>RoPE 段（d_h^R 维）</b>：专门承载位置信息。query 按 head 分开算，key 是<b>所有 head 共享一个</b> k_t^R。<br><br>
+            attention 时拼接两段一起算内积。Content 享受吸收红利，RoPE 段单独 cache 一份。
+          </p>
+        </div>
+      </div>
+
+      <div class="rope-decouple">
+        <div class="rope-decouple-tag">解耦后两条路并行</div>
+        <h3 style="font-size:17px;margin-bottom:6px">最终的 query / key 结构</h3>
+        <p style="font-size:13.5px;color:var(--text-muted);line-height:1.65">
+          每个 head 的 query 和 key 都是「Content 部分 ⨁ RoPE 部分」拼接而成。Content 部分走 MLA 的 latent 通路，RoPE 部分走类 MQA 的共享通路。
+        </p>
+
+        <div class="decouple-flow">
+          <div class="decouple-track content">
+            <h4>Content 通路 <span class="pill">d_h 维 · 每 head 独立</span></h4>
+            <p>q^C ← W^UQ · c_t^Q（query 由低秩 latent up-project）<br>k^C ← W^UK · c_t^KV（key 由 KV latent up-project）<br>推理时<b>整条路被矩阵吸收</b>，cache 只放 c_t^KV。</p>
+          </div>
+          <div class="decouple-track rope">
+            <h4>RoPE 通路 <span class="pill">d_h^R 维 · key 全 head 共享</span></h4>
+            <p>q^R ← RoPE(W^QR · c_t^Q)（每 head 一份）<br>k^R ← RoPE(W^KR · h_t)（<b>全 head 共享一份</b>）<br>承担位置编码，cache 单独存 k_t^R。</p>
+          </div>
+        </div>
+
+        <div class="decouple-merge">
+          q_{t,i} = [ q_{t,i}^C ⨁ q_{t,i}^R ]   ·   k_{j,i} = [ k_{j,i}^C ⨁ k_j^R ]   →   <b>attention 一次算完</b>
+        </div>
+      </div>
+
+      <div class="reader-note" style="margin-top: 22px;">
+        <b>cache 总量：</b>(d_c + d_h^R) · l 个元素 / token。论文中 d_c = 4·d_h、d_h^R = d_h/2，合起来 = <b>9/2 · d_h · l</b>，相当于 GQA 仅 2.25 组的水平。
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Section 5: Numbers ============== -->
+<section class="block" id="numbers">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">05 · 数字说话</div>
+      <h2>cache 缩、质量升、吞吐翻 · 每个数字都来自论文</h2>
+      <p class="section-sub">
+        论文里给了两组对照实验：4 种注意力机制的<b>每 token 缓存大小公式</b>，以及在小 / 大 MoE 上 MLA 与 MHA 的<b>实测对比</b>。MLA 在两种规模下都既省 cache 又涨点。
+      </p>
+    </div>
+
+    <div class="results-panel">
+      <div class="results-grid">
+
+        <div class="result-block">
+          <h3>每 token 的 KV cache 大小（公式）</h3>
+          <table class="compare-table">
+            <thead>
+              <tr><th>机制</th><th class="num">cache (元素数)</th><th>能力</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>MHA</td><td class="num">2·n_h·d_h·l</td><td>Strong</td></tr>
+              <tr><td>GQA</td><td class="num">2·n_g·d_h·l</td><td>Moderate</td></tr>
+              <tr><td>MQA</td><td class="num">2·d_h·l</td><td>Weak</td></tr>
+              <tr class="highlight"><td>MLA</td><td class="num">(d_c+d_h^R)·l ≈ 9/2·d_h·l</td><td>Stronger</td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:12.5px;color:var(--text-muted);margin-top:14px;line-height:1.6">
+            DeepSeek-V2 取 d_c = 4·d_h，d_h^R = d_h/2。cache 量级介于 GQA-2 与 GQA-3 之间，但效果反而比 MHA 强。
+          </p>
+        </div>
+
+        <div class="result-block">
+          <h3>MLA vs MHA · Large MoE 模型实测</h3>
+          <table class="compare-table">
+            <thead>
+              <tr><th>指标</th><th class="num">MHA</th><th class="num">MLA</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>KV cache / token</td><td class="num">860.2K</td><td class="num">34.6K</td></tr>
+              <tr><td>BBH (3-shot)</td><td class="num">46.6</td><td class="num">50.7</td></tr>
+              <tr><td>MMLU (5-shot)</td><td class="num">57.5</td><td class="num">59.0</td></tr>
+              <tr><td>C-Eval (5-shot)</td><td class="num">57.9</td><td class="num">59.2</td></tr>
+              <tr><td>CMMLU (5-shot)</td><td class="num">60.7</td><td class="num">62.5</td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:12.5px;color:var(--text-muted);margin-top:14px;line-height:1.6">
+            两个 ~250B 总参数的 MoE 模型，唯一差别是注意力机制。MLA 用 MHA <b>4%</b> 的 cache，质量四项全胜。
+          </p>
+        </div>
+
+        <div class="result-block">
+          <h3>vs DeepSeek 67B 老模型（MHA → MLA）</h3>
+          <div class="bar-chart">
+            <div class="bar-row">
+              <div class="bar-name">KV cache</div>
+              <div class="bar-track"><div class="bar-fill mha" style="width: 100%"></div></div>
+              <div class="bar-value">100%</div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-name">↳ MLA 后</div>
+              <div class="bar-track"><div class="bar-fill mla" style="width: 6.7%"></div></div>
+              <div class="bar-value">6.7%</div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-name">训练成本</div>
+              <div class="bar-track"><div class="bar-fill mha" style="width: 100%"></div></div>
+              <div class="bar-value">100%</div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-name">↳ V2 全栈优化后</div>
+              <div class="bar-track"><div class="bar-fill mla" style="width: 57.5%"></div></div>
+              <div class="bar-value">57.5%</div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-name">生成吞吐</div>
+              <div class="bar-track"><div class="bar-fill mha" style="width: 17.4%"></div></div>
+              <div class="bar-value">1×</div>
+            </div>
+            <div class="bar-row">
+              <div class="bar-name">↳ V2 max throughput</div>
+              <div class="bar-track"><div class="bar-fill mla" style="width: 100%"></div></div>
+              <div class="bar-value">5.76×</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="result-block">
+          <h3>消融：单纯换 attention 的代价（7B Dense）</h3>
+          <table class="compare-table">
+            <thead>
+              <tr><th>机制</th><th class="num">MMLU</th><th class="num">C-Eval</th><th class="num">CMMLU</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>MQA</td><td class="num">37.9</td><td class="num">30.0</td><td class="num">34.6</td></tr>
+              <tr><td>GQA-8</td><td class="num">41.2</td><td class="num">37.7</td><td class="num">38.4</td></tr>
+              <tr><td>MHA</td><td class="num">45.2</td><td class="num">42.9</td><td class="num">43.5</td></tr>
+            </tbody>
+          </table>
+          <p style="font-size:12.5px;color:var(--text-muted);margin-top:14px;line-height:1.6">
+            单看 dense 模型，"共享 KV 越狠 → 质量掉得越多"是非常清楚的趋势。GQA 比 MHA 也明显落后近 4 个点。
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Section 6: Alternatives ============== -->
+<section class="block" id="alternatives">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">06 · 还有别的解法吗</div>
+      <h2>压 KV cache 的几种思路 · 各自适合什么场景</h2>
+      <p class="section-sub">
+        MLA 是「<b>改 attention 数学</b>」这条路的代表。但围绕 KV cache 的优化是个生态：还有量化它的、扔掉一部分的、跨层共享的、彻底换掉 attention 的、以及在系统层做内存管理的。下面是六个值得知道的方向。
+      </p>
+    </div>
+
+    <div class="alt-panel">
+      <div class="alt-grid">
+
+        <div class="alt-card alt-mqa">
+          <div class="alt-card-head">
+            <div class="alt-card-icon">G</div>
+            <div>
+              <div class="alt-card-name">GQA / MQA · 共享 K/V head</div>
+              <div class="alt-card-sub">Shazeer 2019 · Ainslie 2023</div>
+            </div>
+          </div>
+          <div class="alt-card-body">
+            让多个 query head 共享同一组 K 和 V。<b>实现简单、和现有 kernel 兼容</b>，LLaMA-2/3、Mistral、Qwen 主流都在用。代价是质量随共享度线性下降，cache 下界是 GQA-1（即 MQA）。MLA 出现后定位变成「ROI 高的折中方案」。
+          </div>
+          <div class="alt-card-tags">
+            <span class="alt-tag pos">易实现</span>
+            <span class="alt-tag pos">生态好</span>
+            <span class="alt-tag neg">有损共享</span>
+          </div>
+        </div>
+
+        <div class="alt-card alt-quant">
+          <div class="alt-card-head">
+            <div class="alt-card-icon">Q</div>
+            <div>
+              <div class="alt-card-name">KV 量化 · INT8 / INT4 / KIVI</div>
+              <div class="alt-card-sub">KIVI · ZipCache · KVQuant</div>
+            </div>
+          </div>
+          <div class="alt-card-body">
+            cache 还是按 MHA / GQA 存，但精度从 fp16 降到 INT8 甚至 INT4，<b>体积直接对半砍或更狠</b>。和 MLA / GQA 正交，可以叠加使用。挑战是 K 和 V 分布差异大，需要不同的量化策略，长上下文时误差会累积。
+          </div>
+          <div class="alt-card-tags">
+            <span class="alt-tag pos">和 MLA 正交</span>
+            <span class="alt-tag pos">易部署</span>
+            <span class="alt-tag neg">误差累积</span>
+          </div>
+        </div>
+
+        <div class="alt-card alt-window">
+          <div class="alt-card-head">
+            <div class="alt-card-icon">W</div>
+            <div>
+              <div class="alt-card-name">Sliding Window Attention · 只看最近 N 个</div>
+              <div class="alt-card-sub">Mistral 7B · Longformer</div>
+            </div>
+          </div>
+          <div class="alt-card-body">
+            放弃"看全部历史 token"，每个 token 只跟最近 W 个做 attention。cache 体积 cap 在 W，<b>跟序列长度无关</b>。代价是模型只能看到一段近距离上下文，远距离信息要靠层堆叠或外部检索补回来。Mistral 7B 是最知名实践。
+          </div>
+          <div class="alt-card-tags">
+            <span class="alt-tag pos">cache 有上界</span>
+            <span class="alt-tag neg">远距离衰减</span>
+          </div>
+        </div>
+
+        <div class="alt-card alt-stream">
+          <div class="alt-card-head">
+            <div class="alt-card-icon">S</div>
+            <div>
+              <div class="alt-card-name">StreamingLLM · 滑窗 + 起始 sink</div>
+              <div class="alt-card-sub">Xiao 2023 · Attention Sink</div>
+            </div>
+          </div>
+          <div class="alt-card-body">
+            发现纯滑窗会让模型崩溃，因为开头几个 token 是天然的 attention sink。解决：<b>始终保留前 4 个 token + 一个滑动窗口</b>，cache 维持常数。适合长流式对话场景，但仍是"丢历史"的策略，不适合需要精确召回的任务。
+          </div>
+          <div class="alt-card-tags">
+            <span class="alt-tag pos">流式部署</span>
+            <span class="alt-tag pos">常数 cache</span>
+            <span class="alt-tag neg">丢历史</span>
+          </div>
+        </div>
+
+        <div class="alt-card alt-paged">
+          <div class="alt-card-head">
+            <div class="alt-card-icon">P</div>
+            <div>
+              <div class="alt-card-name">PagedAttention · 系统层管 cache</div>
+              <div class="alt-card-sub">vLLM · Kwon 2023</div>
+            </div>
+          </div>
+          <div class="alt-card-body">
+            不缩小 cache 本身，而是<b>像操作系统管虚拟内存一样管 cache 块</b>。把 KV cache 切成固定大小的 page，按需分配，消除碎片，让多个请求共享 prefix。和模型架构无关，<b>能跟 MLA / GQA 自由组合</b>。是 vLLM 高吞吐的关键。
+          </div>
+          <div class="alt-card-tags">
+            <span class="alt-tag pos">架构无关</span>
+            <span class="alt-tag pos">多请求共享</span>
+            <span class="alt-tag pos">和 MLA 叠加</span>
+          </div>
+        </div>
+
+        <div class="alt-card alt-ssm">
+          <div class="alt-card-head">
+            <div class="alt-card-icon">M</div>
+            <div>
+              <div class="alt-card-name">Mamba / RWKV / Linear Attention</div>
+              <div class="alt-card-sub">SSM · 替换 Attention</div>
+            </div>
+          </div>
+          <div class="alt-card-body">
+            根本性方案：<b>把 attention 换成 RNN-like 结构</b>，状态是常数大小的 hidden，没有 KV cache 的概念。Mamba、RWKV、Linear Transformer、RetNet 都属于这条路。优势是 O(1) 推理内存，劣势是召回精度仍在追赶 Transformer，目前更多以 hybrid 形式出现（如 Jamba）。
+          </div>
+          <div class="alt-card-tags">
+            <span class="alt-tag pos">无 KV cache</span>
+            <span class="alt-tag neg">需重训</span>
+            <span class="alt-tag neg">精度待追平</span>
+          </div>
+        </div>
+
+      </div>
+
+      <div class="decision-box">
+        <div class="decision-tag">速查：什么场景用什么</div>
+        <div class="decision-title">这些方案不互斥，关键看你能改到哪一层</div>
+        <div class="decision-list">
+          <div class="decision-row">
+            <div class="case">从零训练新模型 · 想吃深度红利</div>
+            <div class="pick"><b>MLA</b>：架构层最大化的 cache 压缩，质量还涨。但需要从训练阶段就用，且 RoPE 解耦增加实现复杂度。</div>
+          </div>
+          <div class="decision-row">
+            <div class="case">已有 MHA 模型 · 想低成本提速</div>
+            <div class="pick"><b>GQA + KV 量化</b>：GQA 可以从 MHA checkpoint 用少量 uptraining 转换；KV 量化是部署期改动。</div>
+          </div>
+          <div class="decision-row">
+            <div class="case">长流式对话 · 上下文不重要</div>
+            <div class="pick"><b>StreamingLLM</b> 或 sliding window：cache 有常数上界，吞吐稳定，丢失早期内容可接受。</div>
+          </div>
+          <div class="decision-row">
+            <div class="case">高并发服务 · 多请求共享 prefix</div>
+            <div class="pick"><b>PagedAttention（vLLM）</b>：和 attention 形式无关，纯系统层优化，可以叠在 MLA / GQA 之上。</div>
+          </div>
+          <div class="decision-row">
+            <div class="case">边端 / 超长文档 · 极致内存约束</div>
+            <div class="pick"><b>Mamba 系</b> 或 hybrid：彻底跳出 KV cache 的范式，但要重新训练且要接受精度差异。</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============== Footer ============== -->
+<footer class="site-foot">
+  <div class="container">
+    <div class="source-line">
+      原文：<a href="https://arxiv.org/abs/2405.04434" target="_blank" rel="noopener">DeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model</a> · DeepSeek-AI · arXiv 2405.04434
+    </div>
+    <div>本页基于论文 §2.1 Multi-Head Latent Attention、Appendix C 全公式、Appendix D 消融实验整理。</div>
+    <div class="refs">
+      <div><span>arXiv 2405.04434</span><a href="https://arxiv.org/abs/2405.04434" target="_blank" rel="noopener">DeepSeek-V2 paper（含 MLA 完整公式）</a></div>
+      <div><span>arXiv 1911.02150</span><a href="https://arxiv.org/abs/1911.02150" target="_blank" rel="noopener">MQA · Fast Transformer Decoding（Shazeer 2019）</a></div>
+      <div><span>arXiv 2305.13245</span><a href="https://arxiv.org/abs/2305.13245" target="_blank" rel="noopener">GQA · Training Generalized Multi-Query Transformer（Ainslie 2023）</a></div>
+      <div><span>GitHub</span><a href="https://github.com/deepseek-ai/DeepSeek-V2" target="_blank" rel="noopener">deepseek-ai/DeepSeek-V2 · 开源代码与 checkpoint</a></div>
+    </div>
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll('.mla-tab').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      var pane = tab.getAttribute('data-pane');
+      document.querySelectorAll('.mla-tab').forEach(function (t) { t.classList.remove('active'); });
+      document.querySelectorAll('.mla-pane').forEach(function (p) { p.classList.remove('active'); });
+      tab.classList.add('active');
+      var target = document.getElementById('pane-' + pane);
+      if (target) target.classList.add('active');
+    });
+  });
+</script>
+
+</body>
+</html>

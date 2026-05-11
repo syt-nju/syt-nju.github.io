@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: deepseek-v2-mla
+    title: "MLA · 把 KV cache 联合压成一个 latent 向量"
+    date: 2026-05-11
+    source_type: paper
+    source_url: "https://arxiv.org/abs/2405.04434"
   - slug: agent-understanding-user
     title: "构造一个更懂用户的 Agent System · 三层设计"
     date: 2026-05-09
