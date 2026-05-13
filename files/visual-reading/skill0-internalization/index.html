@@ -932,8 +932,67 @@ loss = <span class="fn">clip</span>(importance_ratio, advantage, ε) - β * <spa
 
     <figure class="paper-figure">
       <img src="https://arxiv.org/html/2604.02268v1/x5.png" alt="Figure 5: Training Dynamics Comparison" loading="lazy">
-      <figcaption>原文 Figure 5：训练动态对比。(a) 带/不带技能验证，不带技能的曲线从低处逐渐追上——内化正在发生；(b) 同等条件下 Skill0 vs AgentOCR；(c) Skill0 vs GRPO/SkillRL，Skill0 持续提升而其他方法早早 plateau。</figcaption>
+      <figcaption>原文 Figure 5：训练动态对比——三组实验分别回答一个问题。</figcaption>
     </figure>
+
+    <div class="card-grid">
+      <div class="expand-card open">
+        <div class="expand-header" onclick="toggleCard(this)">
+          <span class="card-icon">(a)</span>
+          <span class="card-title">内化真的在发生吗？</span>
+          <span class="card-brief">带 vs 不带技能验证 Skill0 自身</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="expand-body">
+          <div class="expand-content">
+            <p>
+              绿线 = 验证时带技能（w/ skill），紫线 = 验证时不带技能（w/o skill）。两条线用的是同一个模型，区别只在验证时是否注入技能 context。
+            </p>
+            <p>
+              训练前期，绿线远高于紫线——模型还依赖外部技能指导。但随着训练推进，紫线<strong>从 0.2 左右一路追到 0.85+</strong>，最终和绿线几乎重合。这就是内化的直接证据：模型参数里已经编码了技能知识，有没有外部提示不再重要。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="expand-card open">
+        <div class="expand-header" onclick="toggleCard(this)">
+          <span class="card-icon">(b)</span>
+          <span class="card-title">性能提升来自内化还是技能依赖？</span>
+          <span class="card-brief">Skill0 vs AgentOCR，都不带技能推理</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="expand-body">
+          <div class="expand-content">
+            <p>
+              为了排除「Skill0 只是因为训练时看了更多技能才强」的可能，这组实验把 Skill0 和 AgentOCR 放在<strong>完全公平的条件下对比：推理时都不给技能</strong>。
+            </p>
+            <p>
+              结果 Skill0（绿线）始终高于 AgentOCR（蓝线），且差距随训练拉大。这证实优势确实来自参数里内化的知识，而不是运行时偷看了技能提示。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="expand-card open">
+        <div class="expand-header" onclick="toggleCard(this)">
+          <span class="card-icon">(c)</span>
+          <span class="card-title">和其他 RL 方法比，上限在哪？</span>
+          <span class="card-brief">Skill0 vs GRPO vs SkillRL，都不带技能推理</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="expand-body">
+          <div class="expand-content">
+            <p>
+              三条线统一在无技能推理下比较。GRPO（黄线）和 SkillRL（紫线）在 60~90 步左右就 <strong>plateau</strong>，准确率卡在 0.7~0.8 附近不再上升。而 Skill0（绿线）<strong>持续稳步提升到 150 步</strong>，最终达到所有方法中最高的上限。
+            </p>
+            <p>
+              这说明 Skill0 的课程机制不仅帮模型学到了更多，还让学习过程本身更持久——不会因为「该学的都学了」而过早饱和。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
 
     <figure class="paper-figure">
       <img src="https://arxiv.org/html/2604.02268v1/x6.png" alt="Figure 6: Helpfulness Dynamics" loading="lazy">
