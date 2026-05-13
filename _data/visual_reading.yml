@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: mimo-mtp-swa-not-mla
+    title: "MiMo 为什么选 MTP 和更高 SWA 比例而不是 MLA"
+    date: 2026-05-13
+    source_type: paper
+    source_url: "https://arxiv.org/abs/2601.02780"
   - slug: rope-rotary-position-embedding
     title: "RoPE 介绍"
     date: 2026-05-13

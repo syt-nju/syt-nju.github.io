@@ -1,0 +1,2534 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>小米 MiMo 怎么把上下文撑到 1M · 可视化阅读</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #FBF6EA;
+    --bg-surface: #FFFFFF;
+    --bg-soft: #F5ECD8;
+    --bg-dark: #1A1816;
+    --bg-dark-2: #252220;
+    --text: #1A1816;
+    --text-muted: #6B6660;
+    --text-soft: #8C857B;
+    --text-invert: #F5F1E8;
+    --accent: #C04E2D;
+    --accent-hover: #A8401F;
+    --accent-soft: #F4DCD0;
+    --accent-deep: #7A2E16;
+    --swa-tone: #B8860B;
+    --swa-soft: #F4E8C7;
+    --ga-tone: #2E5A6B;
+    --ga-soft: #D8E4EA;
+    --sink-tone: #5A4A8C;
+    --sink-soft: #E2DDEE;
+    --border: #E8DCC7;
+    --border-strong: #D4C4A6;
+    --border-dark: #3A3633;
+    --shadow-sm: 0 1px 2px rgba(26, 24, 22, 0.04);
+    --shadow-md: 0 4px 14px rgba(26, 24, 22, 0.06);
+    --shadow-lg: 0 16px 40px rgba(26, 24, 22, 0.10);
+    --radius: 10px;
+    --radius-lg: 16px;
+    --radius-xl: 22px;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.65;
+    font-size: 16px;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { color: var(--accent-hover); }
+
+  .container { max-width: 1120px; margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- Top Bar ---------- */
+  .topbar {
+    position: sticky; top: 0; z-index: 100;
+    background: rgba(251, 246, 234, 0.82);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border-bottom: 1px solid var(--border);
+  }
+  .topbar-inner {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 28px; max-width: 1180px; margin: 0 auto;
+  }
+  .brand {
+    display: flex; align-items: center; gap: 12px;
+    font-weight: 700; font-size: 14.5px; letter-spacing: -0.005em;
+  }
+  .brand-logo {
+    width: 28px; height: 28px; border-radius: 7px;
+    background: var(--bg-dark);
+    display: grid; place-items: center; color: var(--accent); font-size: 13px; font-weight: 800;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .brand-text { color: var(--text); }
+  .brand-text small { color: var(--text-muted); font-weight: 500; font-size: 12px; margin-left: 8px; }
+  .topnav { display: flex; gap: 4px; align-items: center; flex-wrap: wrap; }
+  .topnav a {
+    padding: 7px 9px; border-radius: 8px;
+    color: var(--text-muted); font-size: 12.5px; font-weight: 500;
+    transition: color 0.15s, background 0.15s;
+  }
+  .topnav a:hover { color: var(--text); background: var(--accent-soft); }
+  .source-link {
+    display: inline-flex; align-items: center; gap: 6px;
+    font-size: 12.5px; color: var(--text-muted); text-decoration: none;
+    padding: 7px 12px; border-radius: 8px; border: 1px solid var(--border);
+    transition: all 0.15s; font-weight: 500; margin-left: 6px;
+  }
+  .source-link:hover { border-color: var(--accent); color: var(--accent); }
+  .source-link svg { width: 12px; height: 12px; stroke: currentColor; fill: none; stroke-width: 2; }
+
+  /* ---------- Hero ---------- */
+  .hero { padding: 72px 0 44px; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-size: 11.5px; font-weight: 600; letter-spacing: 0.08em;
+    color: var(--accent); text-transform: uppercase;
+    background: var(--accent-soft); padding: 6px 14px; border-radius: 100px;
+    margin-bottom: 22px; font-family: 'JetBrains Mono', monospace;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+  h1 {
+    font-size: clamp(34px, 5.2vw, 54px); line-height: 1.1; letter-spacing: -0.025em;
+    font-weight: 800; margin-bottom: 22px; max-width: 880px;
+  }
+  .hero-sub {
+    font-size: 19px; color: var(--text-muted); max-width: 760px; line-height: 1.6;
+    font-weight: 400;
+  }
+  .hero-meta {
+    display: flex; gap: 22px; margin-top: 28px; font-size: 13px; color: var(--text-muted);
+    flex-wrap: wrap; align-items: center;
+  }
+  .hero-meta span { display: inline-flex; align-items: center; gap: 7px; }
+  .hero-meta svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 2; }
+  .hero-meta b { color: var(--text); font-weight: 600; }
+
+  /* TL;DR card */
+  .tldr {
+    margin-top: 48px; background: var(--bg-dark); color: var(--text-invert);
+    border-radius: var(--radius-xl); padding: 36px 40px;
+    box-shadow: var(--shadow-lg); position: relative; overflow: hidden;
+  }
+  .tldr::before {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px;
+    background: var(--accent);
+  }
+  .tldr-title {
+    font-size: 11.5px; font-weight: 700; letter-spacing: 0.14em; text-transform: uppercase;
+    color: var(--accent); margin-bottom: 18px; font-family: 'JetBrains Mono', monospace;
+    display: flex; align-items: center; gap: 10px;
+  }
+  .tldr-title::after {
+    content: ''; flex: 1; height: 1px; background: rgba(192, 78, 45, 0.2);
+  }
+  .tldr-text {
+    font-size: 19px; line-height: 1.65; color: var(--text-invert); font-weight: 400;
+  }
+  .tldr-text b { color: #F2A07A; font-weight: 600; }
+  .tldr-text + .tldr-text { margin-top: 14px; font-size: 16px; color: #C8C0B3; }
+
+  /* ---------- Metric strip ---------- */
+  .metrics-row {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px;
+    margin-top: 22px;
+  }
+  .metric {
+    background: var(--bg-dark-2); border-radius: 14px; padding: 22px 22px;
+    border: 1px solid var(--border-dark);
+    display: flex; flex-direction: column; gap: 6px;
+  }
+  .metric-value {
+    font-size: 30px; font-weight: 800; letter-spacing: -0.02em;
+    color: #F2A07A; line-height: 1; font-family: 'JetBrains Mono', monospace;
+  }
+  .metric-value small { font-size: 14px; font-weight: 500; color: #8C857B; margin-left: 4px; }
+  .metric-label {
+    font-size: 12px; color: #B3AB9F; line-height: 1.45; margin-top: 6px;
+  }
+
+  /* ---------- Section ---------- */
+  section.block { padding: 64px 0; border-top: 1px solid var(--border); }
+  .section-head { margin-bottom: 26px; max-width: 760px; }
+  .section-num {
+    display: inline-flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+    color: var(--accent); font-weight: 600;
+    background: var(--accent-soft); padding: 5px 12px; border-radius: 100px;
+    margin-bottom: 16px;
+  }
+  h2 {
+    font-size: clamp(26px, 3.4vw, 36px); font-weight: 700; letter-spacing: -0.022em;
+    margin-bottom: 14px; line-height: 1.18;
+  }
+  h3 {
+    font-size: 19px; font-weight: 700; letter-spacing: -0.012em;
+    margin-bottom: 10px; line-height: 1.3;
+  }
+  .section-sub { color: var(--text-muted); font-size: 16.5px; line-height: 1.65; }
+  .section-sub b { color: var(--text); font-weight: 600; }
+  .article-copy {
+    max-width: 760px;
+    font-size: 17px;
+    line-height: 1.82;
+    color: var(--text);
+  }
+  .article-copy p + p { margin-top: 16px; }
+  .article-copy b { font-weight: 600; color: var(--text); }
+  .article-copy em { color: var(--text-muted); font-style: normal; }
+  .reader-note {
+    margin-top: 24px;
+    padding: 18px 22px;
+    background: rgba(255, 255, 255, 0.62);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    color: var(--text-muted);
+    font-size: 14.5px;
+    line-height: 1.7;
+  }
+  .reader-note b { color: var(--text); font-weight: 600; }
+  .visual-bridge {
+    margin: 30px 0 14px;
+    max-width: 760px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+  }
+
+  /* ---------- Problem framing twin cards ---------- */
+  .twin-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    margin-top: 30px;
+  }
+  .twin-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 28px;
+    box-shadow: var(--shadow-sm);
+    display: flex; flex-direction: column; gap: 12px;
+    position: relative;
+  }
+  .twin-card::before {
+    content: ''; position: absolute; top: 0; left: 28px; right: 28px;
+    height: 2px; background: var(--accent); border-radius: 0 0 2px 2px;
+    opacity: 0.7;
+  }
+  .twin-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; font-weight: 600;
+    color: var(--accent); letter-spacing: 0.08em;
+  }
+  .twin-title {
+    font-size: 19px; font-weight: 700; line-height: 1.25; letter-spacing: -0.01em;
+  }
+  .twin-body {
+    font-size: 14.5px; color: var(--text-muted); line-height: 1.7;
+  }
+  .twin-body b { color: var(--text); font-weight: 600; }
+
+  /* ---------- The architecture rhythm diagram ---------- */
+  .arch-stage {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-xl); padding: 36px;
+    box-shadow: var(--shadow-md); margin-top: 30px;
+  }
+  .arch-stage-head {
+    display: flex; justify-content: space-between; align-items: flex-end; gap: 24px;
+    margin-bottom: 28px; flex-wrap: wrap;
+  }
+  .arch-stage-title {
+    font-size: 18px; font-weight: 700;
+  }
+  .arch-stage-sub {
+    color: var(--text-muted); font-size: 14px; line-height: 1.55; margin-top: 6px; max-width: 540px;
+  }
+  .arch-toggle {
+    display: inline-flex; gap: 6px; padding: 4px;
+    background: var(--bg); border: 1px solid var(--border); border-radius: 100px;
+  }
+  .arch-toggle button {
+    padding: 7px 14px; border-radius: 100px; border: none;
+    background: transparent; color: var(--text-muted);
+    font-family: inherit; font-size: 12.5px; font-weight: 600; cursor: pointer;
+    transition: all 0.18s;
+    letter-spacing: -0.005em;
+  }
+  .arch-toggle button.active {
+    background: var(--bg-dark); color: var(--text-invert);
+  }
+  .arch-toggle button:not(.active):hover { color: var(--text); }
+
+  .arch-summary {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
+    margin-bottom: 24px;
+  }
+  .arch-stat {
+    padding: 14px 16px; background: var(--bg); border: 1px solid var(--border);
+    border-radius: 12px;
+  }
+  .arch-stat-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 6px;
+  }
+  .arch-stat-value {
+    font-size: 18px; font-weight: 700; color: var(--text); letter-spacing: -0.01em;
+  }
+  .arch-stat-value small { font-size: 12px; color: var(--text-muted); font-weight: 500; margin-left: 4px; }
+
+  /* Layer stack visualization */
+  .stack-wrap {
+    display: grid;
+    grid-template-columns: 1fr 280px;
+    gap: 28px;
+    align-items: stretch;
+  }
+  .stack {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+    overflow-x: auto;
+  }
+  .stack-title {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.08em;
+    margin-bottom: 14px;
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .stack-title span:last-child {
+    color: var(--text-muted); text-transform: none; letter-spacing: 0;
+    font-family: inherit; font-size: 12.5px;
+  }
+  .stack-rows {
+    display: flex; flex-direction: column-reverse;
+    gap: 4px;
+    min-width: 480px;
+  }
+  .stack-row {
+    display: grid;
+    grid-template-columns: 36px 1fr 22px;
+    gap: 10px;
+    align-items: center;
+    padding: 5px 8px;
+    border-radius: 7px;
+    transition: background 0.15s;
+  }
+  .stack-row:hover { background: var(--bg-soft); }
+  .stack-idx {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px;
+    color: var(--text-soft);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+  .stack-bar {
+    height: 18px; border-radius: 5px;
+    display: flex; align-items: center; padding: 0 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    transition: transform 0.15s;
+  }
+  .stack-bar.swa {
+    background: var(--swa-soft);
+    color: var(--swa-tone);
+    width: 38%;
+  }
+  .stack-bar.ga {
+    background: var(--ga-soft);
+    color: var(--ga-tone);
+    width: 100%;
+  }
+  .stack-bar.ga.first {
+    background: var(--sink-soft);
+    color: var(--sink-tone);
+  }
+  .stack-bar.swa:hover, .stack-bar.ga:hover { transform: scaleX(1.005); }
+  .stack-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--text-soft);
+    text-align: center;
+  }
+  .stack-side {
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .stack-legend {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+  }
+  .stack-legend h4 {
+    font-size: 13px; font-weight: 700; margin-bottom: 12px;
+    color: var(--text);
+  }
+  .legend-row {
+    display: grid; grid-template-columns: 14px 1fr; gap: 10px;
+    align-items: flex-start; padding: 8px 0;
+    border-top: 1px dashed var(--border);
+  }
+  .legend-row:first-of-type { border-top: 0; padding-top: 0; }
+  .legend-swatch {
+    width: 14px; height: 14px; border-radius: 4px;
+    margin-top: 4px;
+  }
+  .legend-swatch.swa { background: var(--swa-soft); border: 1px solid var(--swa-tone); }
+  .legend-swatch.ga { background: var(--ga-soft); border: 1px solid var(--ga-tone); }
+  .legend-swatch.first { background: var(--sink-soft); border: 1px solid var(--sink-tone); }
+  .legend-name {
+    font-size: 12.5px; font-weight: 600; color: var(--text);
+  }
+  .legend-desc {
+    font-size: 12px; color: var(--text-muted); margin-top: 2px; line-height: 1.5;
+  }
+  .legend-rhythm {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 18px;
+  }
+  .legend-rhythm h4 {
+    font-size: 13px; font-weight: 700; margin-bottom: 10px;
+  }
+  .legend-rhythm code {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px; color: var(--accent);
+    background: var(--accent-soft);
+    padding: 2px 6px; border-radius: 4px;
+  }
+  .legend-rhythm p {
+    font-size: 12.5px; color: var(--text-muted); line-height: 1.6;
+    margin-top: 8px;
+  }
+
+  /* ---------- Three-ingredient cards ---------- */
+  .ingredient-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+    margin-top: 28px;
+  }
+  .ingredient {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 26px;
+    display: flex; flex-direction: column; gap: 12px;
+    box-shadow: var(--shadow-sm);
+  }
+  .ingredient.swa { border-top: 4px solid var(--swa-tone); }
+  .ingredient.ga { border-top: 4px solid var(--ga-tone); }
+  .ingredient.sink { border-top: 4px solid var(--sink-tone); }
+  .ingredient-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .ingredient.swa .ingredient-tag { color: var(--swa-tone); }
+  .ingredient.ga .ingredient-tag { color: var(--ga-tone); }
+  .ingredient.sink .ingredient-tag { color: var(--sink-tone); }
+  .ingredient-name {
+    font-size: 18px; font-weight: 700; letter-spacing: -0.01em;
+  }
+  .ingredient-body {
+    font-size: 14px; color: var(--text-muted); line-height: 1.7;
+  }
+  .ingredient-body b { color: var(--text); font-weight: 600; }
+  .ingredient-foot {
+    margin-top: auto; padding: 12px 14px; background: var(--bg-soft);
+    border-radius: 10px;
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+    color: var(--text); line-height: 1.5;
+  }
+  .ingredient-foot small {
+    display: block; font-family: 'Inter', sans-serif;
+    font-size: 11px; color: var(--text-muted); margin-bottom: 4px;
+    font-weight: 500; text-transform: uppercase; letter-spacing: 0.06em;
+  }
+
+  /* ---------- Sink formula display ---------- */
+  .formula-block {
+    margin-top: 24px;
+    padding: 22px 26px;
+    background: var(--bg-dark);
+    color: var(--text-invert);
+    border-radius: var(--radius-lg);
+    overflow-x: auto;
+  }
+  .formula-block .formula-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--accent);
+    text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 14px;
+  }
+  .formula {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 14px;
+    line-height: 1.9;
+    color: #F2A07A;
+  }
+  .formula .var { color: #C8C0B3; }
+  .formula .sink { color: #F2A07A; font-weight: 700; }
+  .formula-note {
+    margin-top: 12px;
+    color: #B3AB9F; font-size: 13px; line-height: 1.6;
+  }
+  .formula-note b { color: var(--text-invert); }
+
+  /* ---------- Counterintuitive table ---------- */
+  .insight-stage {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 36px;
+    box-shadow: var(--shadow-md);
+    margin-top: 28px;
+  }
+  .insight-stage-head {
+    display: flex; gap: 18px; align-items: flex-start;
+    margin-bottom: 22px;
+  }
+  .insight-icon {
+    width: 38px; height: 38px; border-radius: 10px;
+    background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center;
+    font-size: 18px; font-weight: 700;
+    flex-shrink: 0;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .insight-title {
+    font-size: 19px; font-weight: 700; letter-spacing: -0.01em;
+    line-height: 1.3;
+  }
+  .insight-sub {
+    font-size: 14px; color: var(--text-muted); margin-top: 4px;
+  }
+  table.compare {
+    width: 100%; border-collapse: collapse;
+    font-size: 13.5px; margin-top: 10px;
+  }
+  table.compare th {
+    text-align: left; padding: 10px 12px;
+    background: var(--bg);
+    border-bottom: 2px solid var(--border-strong);
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+    color: var(--text-muted); letter-spacing: 0.04em; font-weight: 600;
+    text-transform: uppercase;
+  }
+  table.compare th:first-child { border-top-left-radius: 8px; }
+  table.compare th:last-child { border-top-right-radius: 8px; }
+  table.compare td {
+    padding: 11px 12px; border-bottom: 1px solid var(--border);
+    color: var(--text); font-variant-numeric: tabular-nums;
+  }
+  table.compare td:first-child {
+    font-weight: 600; color: var(--text); font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+  table.compare tr.highlight td {
+    background: var(--accent-soft);
+    color: var(--accent-deep);
+  }
+  table.compare tr.highlight td:first-child { color: var(--accent); }
+  table.compare .delta-up { color: var(--swa-tone); font-weight: 600; }
+  table.compare .delta-down { color: var(--accent); font-weight: 600; }
+
+  .insight-takeaway {
+    margin-top: 22px;
+    padding: 18px 22px;
+    background: var(--bg-soft);
+    border-radius: var(--radius);
+    border-left: 3px solid var(--accent);
+    font-size: 14.5px;
+    color: var(--text);
+    line-height: 1.7;
+  }
+  .insight-takeaway b { color: var(--accent); }
+
+  /* ---------- Curriculum timeline ---------- */
+  .timeline {
+    margin-top: 28px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 36px;
+    box-shadow: var(--shadow-md);
+  }
+  .timeline-track {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0;
+    margin-top: 8px;
+    position: relative;
+  }
+  .timeline-track::before {
+    content: '';
+    position: absolute;
+    top: 22px; left: 5%; right: 5%;
+    height: 2px;
+    background: var(--border-strong);
+  }
+  .timeline-step {
+    display: flex; flex-direction: column; align-items: center;
+    text-align: center;
+    padding: 0 12px;
+    position: relative;
+  }
+  .timeline-dot {
+    width: 44px; height: 44px; border-radius: 50%;
+    background: var(--bg-surface);
+    border: 2px solid var(--border-strong);
+    display: grid; place-items: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 700; font-size: 14px; color: var(--text-muted);
+    margin-bottom: 14px;
+    position: relative; z-index: 1;
+  }
+  .timeline-step.active .timeline-dot {
+    background: var(--accent); border-color: var(--accent);
+    color: white;
+  }
+  .timeline-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    color: var(--accent); letter-spacing: 0.08em;
+    text-transform: uppercase; font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .timeline-name {
+    font-size: 15px; font-weight: 700; letter-spacing: -0.005em;
+    margin-bottom: 6px; line-height: 1.3;
+  }
+  .timeline-desc {
+    font-size: 12.5px; color: var(--text-muted); line-height: 1.55;
+  }
+  .timeline-key {
+    margin-top: 10px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11px; color: var(--text);
+    background: var(--bg);
+    padding: 4px 10px; border-radius: 6px;
+    border: 1px solid var(--border);
+    display: inline-block;
+  }
+
+  .rope-callout {
+    margin-top: 26px;
+    padding: 22px 26px;
+    background: var(--bg-soft);
+    border-radius: var(--radius-lg);
+    display: grid; grid-template-columns: 220px 1fr; gap: 24px;
+    align-items: center;
+  }
+  .rope-callout h4 {
+    font-size: 14px; font-weight: 700; margin-bottom: 6px;
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.04em;
+  }
+  .rope-callout-body { color: var(--text-muted); font-size: 13.5px; line-height: 1.65; }
+  .rope-callout-body b { color: var(--text); font-weight: 600; }
+  .rope-numbers {
+    display: flex; flex-direction: column; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12.5px;
+  }
+  .rope-numbers .row {
+    display: flex; justify-content: space-between;
+    padding: 8px 12px;
+    background: var(--bg-surface);
+    border-radius: 8px;
+    border: 1px solid var(--border);
+  }
+  .rope-numbers .row span:first-child { color: var(--text-muted); }
+  .rope-numbers .row span:last-child { color: var(--text); font-weight: 600; }
+  .rope-numbers .row.warm { border-color: var(--accent); background: var(--accent-soft); }
+  .rope-numbers .row.warm span:last-child { color: var(--accent); }
+
+  /* ---------- MTP deep-dive diagram ---------- */
+  .mtp-diagram {
+    margin-top: 28px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 36px;
+    box-shadow: var(--shadow-md);
+  }
+  .mtp-diagram h3 {
+    font-size: 16px; font-weight: 700; margin-bottom: 6px;
+  }
+  .mtp-diagram .diagram-sub {
+    font-size: 13.5px; color: var(--text-muted); margin-bottom: 24px;
+  }
+
+  /* --- Part A: single block anatomy --- */
+  .block-anatomy {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 28px;
+    align-items: start;
+  }
+  .anatomy-stack {
+    display: flex; flex-direction: column; gap: 0;
+    position: relative;
+  }
+  .anatomy-node {
+    position: relative;
+    padding: 12px 16px;
+    border-radius: 10px;
+    font-size: 13px;
+    font-weight: 600;
+    text-align: center;
+    line-height: 1.4;
+  }
+  .anatomy-node .node-sub {
+    display: block; font-weight: 400; font-size: 11px;
+    margin-top: 2px; opacity: 0.7;
+  }
+  .anatomy-node.input-h {
+    background: var(--bg-dark); color: var(--text-invert);
+    border: 1px solid var(--bg-dark);
+  }
+  .anatomy-node.input-e {
+    background: var(--sink-soft); color: var(--sink-tone);
+    border: 1px solid var(--sink-tone);
+  }
+  .anatomy-node.proj {
+    background: var(--bg-soft); color: var(--text);
+    border: 1px solid var(--border-strong);
+  }
+  .anatomy-node.attn {
+    background: var(--swa-soft); color: var(--swa-tone);
+    border: 1px solid var(--swa-tone);
+  }
+  .anatomy-node.ffn {
+    background: var(--ga-soft); color: var(--ga-tone);
+    border: 1px solid var(--ga-tone);
+  }
+  .anatomy-node.head {
+    background: var(--accent-soft); color: var(--accent);
+    border: 1px solid var(--accent);
+  }
+  .anatomy-node.output-tok {
+    background: var(--accent); color: white;
+    border: 1px solid var(--accent);
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .anatomy-connector {
+    display: flex; justify-content: center; padding: 3px 0;
+    color: var(--text-soft); font-size: 14px; line-height: 1;
+  }
+  .anatomy-inputs {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    margin-bottom: 0;
+  }
+  .anatomy-merge-arrow {
+    display: flex; justify-content: center; padding: 3px 0;
+    color: var(--text-soft); font-size: 11px; line-height: 1;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .anatomy-annotations {
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .anatomy-annot {
+    padding: 14px 16px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+  }
+  .anatomy-annot .annot-tag {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 10.5px; font-weight: 700; letter-spacing: 0.06em;
+    text-transform: uppercase; margin-bottom: 6px;
+  }
+  .anatomy-annot.a-proj .annot-tag { color: var(--text-muted); }
+  .anatomy-annot.a-attn .annot-tag { color: var(--swa-tone); }
+  .anatomy-annot.a-ffn .annot-tag { color: var(--ga-tone); }
+  .anatomy-annot.a-head .annot-tag { color: var(--accent); }
+  .anatomy-annot .annot-body {
+    font-size: 13px; color: var(--text-muted); line-height: 1.65;
+  }
+  .anatomy-annot .annot-body b { color: var(--text); font-weight: 600; }
+  .anatomy-annot .annot-body code {
+    font-family: 'JetBrains Mono', monospace; font-size: 11.5px;
+    background: var(--bg-soft); padding: 1px 5px; border-radius: 3px;
+    color: var(--text);
+  }
+
+  /* --- Part B: speculative decode animation --- */
+  .spec-anim {
+    margin-top: 32px; padding-top: 28px; border-top: 1px solid var(--border);
+  }
+  .spec-anim h4 { font-size: 15px; font-weight: 700; margin-bottom: 6px; }
+  .spec-anim .spec-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 18px; }
+  .spec-anim-controls {
+    display: flex; gap: 8px; align-items: center; margin-bottom: 20px; flex-wrap: wrap;
+  }
+  .spec-anim-controls button {
+    padding: 7px 16px; border-radius: 100px; border: 1px solid var(--border);
+    background: var(--bg-surface); color: var(--text); font-family: inherit;
+    font-size: 12.5px; font-weight: 600; cursor: pointer; transition: all 0.15s;
+  }
+  .spec-anim-controls button:hover { border-color: var(--accent); color: var(--accent); }
+  .spec-anim-controls button.active {
+    background: var(--bg-dark); color: var(--text-invert); border-color: var(--bg-dark);
+  }
+  .spec-anim-controls .speed-label {
+    font-size: 11.5px; color: var(--text-soft); margin-left: 8px;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .spec-lanes {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  }
+  .spec-lane {
+    background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-lg);
+    padding: 20px; min-height: 320px; display: flex; flex-direction: column;
+  }
+  .spec-lane.lane-ar { border-top: 3px solid var(--text-muted); }
+  .spec-lane.lane-sp { border-top: 3px solid var(--accent); }
+  .lane-head {
+    display: flex; justify-content: space-between; align-items: baseline;
+    margin-bottom: 14px;
+  }
+  .lane-title { font-size: 14px; font-weight: 700; }
+  .lane-sp .lane-title { color: var(--accent); }
+  .lane-counter {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--text-soft);
+  }
+  .lane-counter b { color: var(--text); font-weight: 700; }
+  .lane-status {
+    padding: 8px 12px; border-radius: 8px; margin-bottom: 14px;
+    font-size: 12px; font-weight: 600; min-height: 36px;
+    display: flex; align-items: center; gap: 8px;
+    font-family: 'JetBrains Mono', monospace;
+    transition: background 0.2s, color 0.2s;
+  }
+  .lane-status.idle { background: var(--bg-soft); color: var(--text-soft); }
+  .lane-status.main-fwd { background: var(--bg-dark); color: var(--text-invert); }
+  .lane-status.drafting { background: var(--swa-soft); color: var(--swa-tone); }
+  .lane-status.verifying { background: var(--accent-soft); color: var(--accent); }
+  .lane-status.done { background: #D4EDDA; color: #1B5E20; }
+  .lane-status .pulse {
+    width: 8px; height: 8px; border-radius: 50%; background: currentColor;
+    animation: pulse-dot 0.6s ease-in-out infinite alternate;
+  }
+  @keyframes pulse-dot { 0% { opacity: 0.4; } 100% { opacity: 1; } }
+  .lane-tokens {
+    display: flex; flex-wrap: wrap; gap: 5px; align-items: center;
+    flex: 1; align-content: flex-start;
+  }
+  .lane-tok {
+    padding: 5px 10px; border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 11.5px; font-weight: 600;
+    transition: all 0.25s ease;
+    opacity: 0; transform: translateY(6px);
+  }
+  .lane-tok.visible { opacity: 1; transform: translateY(0); }
+  .lane-tok.t-main { background: var(--bg-dark); color: var(--text-invert); }
+  .lane-tok.t-draft { background: var(--swa-soft); color: var(--swa-tone); border: 1px dashed var(--swa-tone); }
+  .lane-tok.t-accept { background: #D4EDDA; color: #1B5E20; border: 1px solid #A5D6A7; }
+  .lane-tok.t-reject { background: var(--accent-soft); color: var(--accent); border: 1px solid var(--accent); text-decoration: line-through; }
+  .lane-tok.t-resample { background: var(--bg-dark); color: var(--text-invert); }
+  .lane-tok.t-placeholder { background: transparent; border: 1px dashed var(--border); color: var(--text-soft); opacity: 1; transform: none; }
+
+  .spec-result {
+    margin-top: 18px;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+  }
+  .spec-result-card {
+    padding: 14px 18px; border-radius: 12px; text-align: center;
+  }
+  .spec-result-card.ar { background: var(--bg-soft); border: 1px solid var(--border); }
+  .spec-result-card.sp { background: var(--bg-dark); }
+  .spec-result-val {
+    font-family: 'JetBrains Mono', monospace; font-size: 22px; font-weight: 800;
+  }
+  .spec-result-card.ar .spec-result-val { color: var(--text); }
+  .spec-result-card.sp .spec-result-val { color: #F2A07A; }
+  .spec-result-val small { font-size: 12px; font-weight: 500; margin-left: 3px; }
+  .spec-result-card.ar .spec-result-val small { color: var(--text-muted); }
+  .spec-result-card.sp .spec-result-val small { color: #8C857B; }
+  .spec-result-label { font-size: 11.5px; margin-top: 4px; }
+  .spec-result-card.ar .spec-result-label { color: var(--text-muted); }
+  .spec-result-card.sp .spec-result-label { color: #B3AB9F; }
+
+  @media (max-width: 880px) {
+    .block-anatomy { grid-template-columns: 1fr; }
+    .spec-lanes { grid-template-columns: 1fr; }
+    .spec-result { grid-template-columns: 1fr; }
+  }
+
+  /* ---------- MTP duo cards ---------- */
+  .mtp-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 20px;
+    margin-top: 28px;
+  }
+  .mtp-card {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-lg); padding: 28px;
+    box-shadow: var(--shadow-sm);
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .mtp-card.train { border-top: 4px solid var(--swa-tone); }
+  .mtp-card.infer { border-top: 4px solid var(--ga-tone); }
+  .mtp-card-head {
+    display: flex; align-items: center; gap: 12px;
+  }
+  .mtp-card-head .badge {
+    width: 32px; height: 32px; border-radius: 9px;
+    display: grid; place-items: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 14px;
+    font-weight: 800;
+  }
+  .mtp-card.train .badge { background: var(--swa-soft); color: var(--swa-tone); }
+  .mtp-card.infer .badge { background: var(--ga-soft); color: var(--ga-tone); }
+  .mtp-card-head h3 { margin: 0; font-size: 17px; }
+  .mtp-card-head .role {
+    font-size: 12px; color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.04em;
+  }
+  .mtp-body {
+    font-size: 14px; color: var(--text-muted); line-height: 1.7;
+  }
+  .mtp-body b { color: var(--text); font-weight: 600; }
+  .mtp-num {
+    margin-top: auto;
+    display: flex; gap: 14px;
+  }
+  .mtp-num-cell {
+    padding: 12px 14px; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 10px;
+    flex: 1;
+  }
+  .mtp-num-val {
+    font-family: 'JetBrains Mono', monospace; font-size: 18px; font-weight: 800;
+    color: var(--text); letter-spacing: -0.01em;
+  }
+  .mtp-num-val small { font-size: 12px; color: var(--text-muted); font-weight: 500; margin-left: 3px; }
+  .mtp-num-label {
+    font-size: 11.5px; color: var(--text-muted); margin-top: 4px;
+  }
+
+  /* MTP block schematic */
+  .mtp-schema {
+    margin-top: 28px;
+    padding: 28px 32px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-sm);
+  }
+  .mtp-schema h3 {
+    font-size: 15px; margin-bottom: 18px;
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .mtp-schema h3 small {
+    font-size: 12px; color: var(--text-muted); font-weight: 500;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .mtp-flow {
+    display: grid;
+    grid-template-columns: 1fr 30px 1fr 30px 1fr 30px 1fr;
+    gap: 8px;
+    align-items: center;
+  }
+  .mtp-step {
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 14px 12px;
+    text-align: center;
+    min-height: 110px;
+    display: flex; flex-direction: column; justify-content: center; gap: 4px;
+  }
+  .mtp-step.main { background: var(--bg-dark); color: var(--text-invert); border-color: var(--bg-dark); }
+  .mtp-step.draft { border-style: dashed; }
+  .mtp-step .step-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+    color: var(--text-soft); letter-spacing: 0.08em;
+    text-transform: uppercase; font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .mtp-step.main .step-tag { color: var(--accent); }
+  .mtp-step .step-name {
+    font-size: 13px; font-weight: 700; letter-spacing: -0.005em;
+  }
+  .mtp-step .step-detail {
+    font-size: 11px; color: var(--text-muted); margin-top: 3px; line-height: 1.4;
+  }
+  .mtp-step.main .step-detail { color: #B3AB9F; }
+  .mtp-arrow {
+    color: var(--accent);
+    font-family: 'JetBrains Mono', monospace; font-weight: 700;
+    text-align: center;
+    font-size: 16px;
+  }
+
+  /* ---------- Benchmarks ---------- */
+  .bench-stage {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-xl);
+    padding: 32px;
+    box-shadow: var(--shadow-md);
+    margin-top: 28px;
+  }
+  .bench-grid {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 28px;
+  }
+  .bench-block h3 {
+    font-size: 15px; margin-bottom: 14px;
+    display: flex; justify-content: space-between; align-items: baseline;
+  }
+  .bench-block h3 small {
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--text-muted); font-weight: 500;
+  }
+  table.bench {
+    width: 100%; border-collapse: collapse; font-size: 13px;
+  }
+  table.bench th {
+    text-align: left; padding: 8px 10px;
+    background: var(--bg);
+    border-bottom: 2px solid var(--border-strong);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--text-muted); letter-spacing: 0.04em; font-weight: 600;
+    text-transform: uppercase;
+  }
+  table.bench td {
+    padding: 9px 10px; border-bottom: 1px solid var(--border);
+    color: var(--text); font-variant-numeric: tabular-nums;
+  }
+  table.bench td:first-child {
+    font-weight: 600; color: var(--text-muted);
+    font-family: 'JetBrains Mono', monospace; font-size: 12px;
+  }
+  table.bench td.us {
+    color: var(--accent); font-weight: 700;
+    background: var(--accent-soft);
+  }
+  table.bench td.dim { color: var(--text-soft); }
+
+  /* ---------- Lineup section ---------- */
+  .lineup-grid {
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+    margin-top: 28px;
+  }
+  .lineup-card {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
+    padding: 26px;
+    box-shadow: var(--shadow-sm);
+    display: flex; flex-direction: column; gap: 14px;
+    position: relative;
+  }
+  .lineup-card.flagship { border: 2px solid var(--accent); }
+  .lineup-card.flagship::before {
+    content: '旗舰'; position: absolute; top: -12px; right: 22px;
+    background: var(--accent); color: white;
+    font-size: 11px; font-weight: 700; padding: 3px 10px;
+    border-radius: 100px; letter-spacing: 0.04em;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .lineup-name {
+    font-size: 18px; font-weight: 800; letter-spacing: -0.01em;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .lineup-tagline {
+    font-size: 12.5px; color: var(--text-muted);
+  }
+  .lineup-stats {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+    margin-top: 4px;
+  }
+  .lineup-stat {
+    background: var(--bg); border: 1px solid var(--border);
+    border-radius: 8px; padding: 10px 12px;
+  }
+  .lineup-stat-label {
+    font-family: 'JetBrains Mono', monospace; font-size: 9.5px;
+    color: var(--text-soft); text-transform: uppercase; letter-spacing: 0.06em;
+  }
+  .lineup-stat-val {
+    font-size: 15px; font-weight: 700; color: var(--text);
+    margin-top: 3px;
+  }
+  .lineup-arch {
+    margin-top: auto;
+    font-size: 12.5px; color: var(--text-muted); line-height: 1.6;
+    padding-top: 12px;
+    border-top: 1px dashed var(--border);
+  }
+  .lineup-arch b { color: var(--text); font-weight: 600; }
+
+  /* ---------- Quote block ---------- */
+  .quote-block {
+    margin: 24px 0;
+    padding: 22px 26px 22px 28px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-left: 4px solid var(--accent);
+    border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
+    position: relative;
+  }
+  .quote-block::before {
+    content: '\201C'; position: absolute; top: 12px; left: 10px;
+    font-size: 28px; color: var(--accent); opacity: 0.35;
+    font-family: Georgia, serif; line-height: 1;
+  }
+  .quote-text {
+    font-size: 15.5px; line-height: 1.75; color: var(--text);
+    padding-left: 6px;
+  }
+  .quote-text b { color: var(--accent); font-weight: 600; }
+  .quote-attr {
+    margin-top: 10px; padding-left: 6px;
+    font-size: 12.5px; color: var(--text-soft);
+    font-family: 'JetBrains Mono', monospace;
+  }
+
+  /* ---------- MLA vs Hybrid comparison ---------- */
+  .versus-stage {
+    background: var(--bg-surface); border: 1px solid var(--border);
+    border-radius: var(--radius-xl); padding: 36px;
+    box-shadow: var(--shadow-md); margin-top: 28px;
+  }
+  .versus-grid {
+    display: grid; grid-template-columns: 1fr 60px 1fr; gap: 0;
+    align-items: stretch; margin-top: 20px;
+  }
+  .versus-card {
+    padding: 26px; border-radius: var(--radius-lg);
+    display: flex; flex-direction: column; gap: 14px;
+  }
+  .versus-card.mla {
+    background: var(--bg-soft); border: 1px solid var(--border);
+  }
+  .versus-card.hybrid {
+    background: var(--bg-dark); color: var(--text-invert);
+    border: 1px solid var(--bg-dark);
+  }
+  .versus-card .v-tag {
+    font-family: 'JetBrains Mono', monospace; font-size: 10.5px;
+    font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+  }
+  .versus-card.mla .v-tag { color: var(--text-soft); }
+  .versus-card.hybrid .v-tag { color: var(--accent); }
+  .versus-card .v-name {
+    font-size: 20px; font-weight: 800; letter-spacing: -0.01em;
+  }
+  .versus-card.hybrid .v-name { color: var(--text-invert); }
+  .versus-card .v-body {
+    font-size: 13.5px; line-height: 1.7;
+  }
+  .versus-card.mla .v-body { color: var(--text-muted); }
+  .versus-card.hybrid .v-body { color: #C8C0B3; }
+  .versus-card .v-body b { font-weight: 600; }
+  .versus-card.mla .v-body b { color: var(--text); }
+  .versus-card.hybrid .v-body b { color: #F2A07A; }
+  .versus-card .v-pills {
+    display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto;
+  }
+  .versus-card .v-pill {
+    padding: 5px 10px; border-radius: 100px;
+    font-size: 11px; font-weight: 600;
+    font-family: 'JetBrains Mono', monospace;
+    letter-spacing: 0.02em;
+  }
+  .versus-card.mla .v-pill {
+    background: var(--bg); border: 1px solid var(--border); color: var(--text-muted);
+  }
+  .versus-card.mla .v-pill.con {
+    border-color: var(--accent); color: var(--accent); background: var(--accent-soft);
+  }
+  .versus-card.hybrid .v-pill {
+    background: var(--bg-dark-2); border: 1px solid var(--border-dark); color: #B3AB9F;
+  }
+  .versus-card.hybrid .v-pill.pro {
+    border-color: var(--accent); color: var(--accent); background: rgba(192, 78, 45, 0.15);
+  }
+  .versus-divider {
+    display: flex; align-items: center; justify-content: center;
+    font-family: 'JetBrains Mono', monospace; font-size: 14px;
+    color: var(--text-soft); font-weight: 700;
+  }
+  @media (max-width: 880px) {
+    .versus-grid { grid-template-columns: 1fr; gap: 14px; }
+    .versus-divider { padding: 4px 0; }
+  }
+
+  /* ---------- Footer ---------- */
+  footer {
+    margin-top: 80px; padding: 48px 0;
+    background: var(--bg-dark); color: var(--text-invert);
+  }
+  footer .container { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 24px; }
+  footer h4 {
+    font-size: 12px; color: var(--accent);
+    font-family: 'JetBrains Mono', monospace; letter-spacing: 0.1em;
+    text-transform: uppercase; margin-bottom: 14px;
+  }
+  footer p, footer a { font-size: 13.5px; color: #C8C0B3; line-height: 1.7; }
+  footer a:hover { color: var(--accent); }
+  footer .col { max-width: 380px; }
+  footer .col + .col { margin-top: 0; }
+  footer ul { list-style: none; }
+  footer li { margin-bottom: 6px; }
+
+  /* ---------- Responsive ---------- */
+  @media (max-width: 880px) {
+    .container { padding: 0 20px; }
+    .hero { padding: 48px 0 28px; }
+    .tldr { padding: 28px 24px; }
+    .metrics-row { grid-template-columns: 1fr 1fr; }
+    .twin-grid { grid-template-columns: 1fr; }
+    .ingredient-grid { grid-template-columns: 1fr; }
+    .lineup-grid { grid-template-columns: 1fr; }
+    .mtp-grid { grid-template-columns: 1fr; }
+    .stack-wrap { grid-template-columns: 1fr; }
+    .arch-summary { grid-template-columns: 1fr 1fr; }
+    .timeline-track { grid-template-columns: 1fr; gap: 18px; }
+    .timeline-track::before { display: none; }
+    .rope-callout { grid-template-columns: 1fr; }
+    .bench-grid { grid-template-columns: 1fr; }
+    .mtp-flow { grid-template-columns: 1fr; }
+    .mtp-arrow { transform: rotate(90deg); padding: 4px 0; }
+  }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-logo">Mi</div>
+      <div class="brand-text">MiMo Long-Context<small>可视化阅读</small></div>
+    </div>
+    <nav class="topnav">
+      <a href="#problem">问题</a>
+      <a href="#why-not-mla">不用MLA</a>
+      <a href="#architecture">架构</a>
+      <a href="#ingredients">三件套</a>
+      <a href="#insight">反直觉</a>
+      <a href="#curriculum">训练</a>
+      <a href="#mtp">MTP</a>
+      <a href="#bench">数据</a>
+      <a href="#lineup">系列</a>
+      <a class="source-link" href="https://huggingface.co/XiaomiMiMo/MiMo-V2.5-Pro" target="_blank" rel="noopener">
+        模型卡
+        <svg viewBox="0 0 24 24"><path d="M7 17L17 7M7 7h10v10"/></svg>
+      </a>
+    </nav>
+  </div>
+</div>
+
+<header class="hero container">
+  <div class="eyebrow"><span class="dot"></span>Architecture · 2026 Q2</div>
+  <h1>小米 MiMo 怎么把上下文撑到 1M？</h1>
+  <p class="hero-sub">
+    从 V2-Flash 的 256K 到 V2.5-Pro 的 1M token——MiMo 系列没有发明全新的注意力机制，而是把<b style="color:var(--text);">混合稀疏注意力 + 可学习 attention sink + MTP 投机解码</b>这三件套打磨到了能稳定支撑近千轮工具调用的工程化水平。结合罗福莉的采访，这里面还有一笔更深层的账：<b style="color:var(--text);">为什么不用 MLA，以及这个选择如何让 MTP 成为可能。</b>
+  </p>
+  <div class="hero-meta">
+    <span><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>2026 年 4–5 月发布</span>
+    <span><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6M16 13H8M16 17H8M10 9H8"/></svg>arXiv 2601.02780 · MiMo-V2-Flash</span>
+    <span><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path d="M9 12l2 2 4-4"/></svg>开源 MIT · HuggingFace</span>
+    <span><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/></svg>罗福莉采访 · 量子位</span>
+  </div>
+
+  <div class="tldr">
+    <div class="tldr-title">TL;DR · 一句话理解</div>
+    <p class="tldr-text">
+      MiMo 的长上下文不是靠堆注意力，而是把绝大多数层换成<b>只看最近 128 个 token 的小窗口注意力</b>，每 5–6 层才插入一层全局注意力，再用一个<b>可学习的 attention sink</b>给小窗口加上"什么都不看"的安全阀，让 6×–7× 的 KV cache 压缩不掉性能。
+    </p>
+    <p class="tldr-text">
+      推理侧再用一个 0.33B 的轻量级 MTP 模块当草稿，三层叠起来给主模型做投机解码——速度提升 2.6 倍，最长上下文做到 1M。这也解释了为什么他们<b>不用 MLA</b>：MLA 吃光了 compute budget，MTP 就没空间了。
+    </p>
+  </div>
+
+  <div class="metrics-row">
+    <div class="metric">
+      <div class="metric-value">1M<small>token</small></div>
+      <div class="metric-label">V2.5-Pro 最大上下文，原生 32K 训练后扩展</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">7×<small>↓</small></div>
+      <div class="metric-label">KV cache 与全 GA 相比压缩，长 context 推理才扛得住</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">128<small>tok</small></div>
+      <div class="metric-label">SWA 滑动窗口：很激进，但实验证明比 W=512 还好</div>
+    </div>
+    <div class="metric">
+      <div class="metric-value">2.6×<small>⚡</small></div>
+      <div class="metric-label">三层 MTP 投机解码带来的端到端解码加速</div>
+    </div>
+  </div>
+</header>
+
+<!-- ============================================================
+     1. PROBLEM FRAMING
+     ============================================================ -->
+<section class="block" id="problem">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">01 · 长上下文的两难</div>
+      <h2>同时要快、又要强，从来不是免费的</h2>
+      <p class="section-sub">
+        大模型正在从"Chat 模式"转向"Agent 模式"——一次任务要调几百轮工具、读完整个代码仓库、跟住几小时的 trace。这意味着长上下文不再是 nice-to-have，而是<b>Agent 的基础设施</b>。但当上下文从 8K 涨到 1M，全局自注意力的代价是<b>平方级膨胀</b>——KV cache 装不下，attention 算不动，更糟的是模型在长 context 下的真实理解能力会塌方。
+      </p>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        近一年涌现的"长上下文方案"基本分两条路。一条是<b>稀疏 / 选择型</b>：DeepSeek-V3.2 用 sparse attention 只挑重要 token 来算；另一条是<b>混合型</b>：Gemma、MiniMax、Qwen3-Next 等让大部分层只做局部 sliding window，少数层做完整 global。
+      </p>
+      <p>
+        混合路线更工程化、kernel 更熟、KV cache 控制更直接，但有个长期被诟病的弱点——窗口太小、SWA 比例太高时，长 context 任务掉点严重，<em>"看起来便宜，跑起来不行"</em>。
+      </p>
+      <p>
+        MiMo-V2-Flash 论文给出的判断是：这个弱点不是混合架构本身的问题，而是缺了一个关键组件——<b>可学习的 attention sink bias</b>。补上之后，他们敢把窗口缩到 128、把 SWA:GA 比例拉到 5:1（V2.5-Pro 是 6:1），KV cache 直接压到全 GA 的 1/7，长 context 准确率却几乎不掉。
+      </p>
+    </div>
+
+    <div class="twin-grid">
+      <div class="twin-card">
+        <div class="twin-tag">PROBLEM A · 慢</div>
+        <div class="twin-title">长上下文的算力诅咒</div>
+        <div class="twin-body">
+          全局自注意力的 FLOPs 与 KV cache I/O 都是 <b>O(n²)</b>。当 n 从 32K 涨到 1M，单个 sample 的 attention 推理时间能涨 1000 倍，KV cache 直接吃光显存。<b>不解决"快"</b>，1M 上下文只能是一个 PR 数字。
+        </div>
+      </div>
+      <div class="twin-card">
+        <div class="twin-tag">PROBLEM B · 弱</div>
+        <div class="twin-title">长上下文的能力塌方</div>
+        <div class="twin-body">
+          稀疏 / 滑窗注意力直觉上"省"，但 GSM-Infinite 这类长链路推理基准上，DeepSeek-V3.2-Sparse 在 16K 还能拿 50.4 分，到 128K 掉到 25.7；Kimi-K2 从 34.6 掉到 8.8。<b>不解决"强"</b>，长上下文只能用来塞文档，不能用来跑 agent。
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     2. WHY NOT MLA
+     ============================================================ -->
+<section class="block" id="why-not-mla">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">02 · 为什么不用 MLA</div>
+      <h2>MLA 在 H 系列芯片上做到了极致——但也锁死了自己</h2>
+      <p class="section-sub">
+        DeepSeek-V3 的 <b>Multi-head Latent Attention</b> 把 KV cache 压缩到极致，是近一年最受关注的注意力变种。但 MiMo 团队明确选择了不走这条路。主导这个决定的，是一笔关于 <b>compute bound 与 memory bound</b> 的账。
+      </p>
+    </div>
+
+    <div class="quote-block">
+      <p class="quote-text">MLA 的设计是用<b>计算换内存</b>，在 H 系列芯片上做到了几乎极致的优化……但一旦你用了 MLA，模型就变成了 compute bound，你就没有多余的算力来做 MTP 了。</p>
+      <div class="quote-attr">— 罗福莉 · 小米 MiMo 架构负责人</div>
+    </div>
+
+    <div class="article-copy">
+      <p>
+        传统的 Multi-Head Attention (MHA) 在推理时是<b>纯 memory bound</b>——瓶颈在于从显存搬运 KV cache 到计算单元。MLA 通过低秩投影把 KV cache 压缩了 10×，但代价是每次 attention 需要把压缩的 latent 重新投影回完整维度，增加了计算量。这笔交易在 H100/H800 上是值的——显存带宽贵、算力便宜，"用计算换内存"刚好把芯片两端都打满。
+      </p>
+      <p>
+        但这也意味着：<b>MLA 已经把 GPU 的 compute 预算吃光了</b>。MTP 投机解码需要在同一次 forward 中额外跑 draft token 的验证，这需要 compute headroom。MLA 模型没有这个余量——它已经 compute bound 了。
+      </p>
+    </div>
+
+    <div class="versus-stage">
+      <div style="font-size:15px;font-weight:700;margin-bottom:4px;">两条路的核心差异</div>
+      <p style="font-size:13.5px;color:var(--text-muted);">同一个目标（压缩 KV cache），不同的成本与收益结构</p>
+      <div class="versus-grid">
+        <div class="versus-card mla">
+          <div class="v-tag">路线 A</div>
+          <div class="v-name">MLA</div>
+          <div class="v-body">
+            用<b>低秩投影</b>把每层 KV cache 压到很小，推理时再解压回来。KV cache 省了，但 attention 算量增加。在 H100 上刚好打满 compute 和 memory 两端，<b>但没留给 MTP 的算力空间</b>。
+          </div>
+          <div class="v-pills">
+            <div class="v-pill">KV cache ↓10×</div>
+            <div class="v-pill">attention FLOPs ↑</div>
+            <div class="v-pill con">compute bound</div>
+            <div class="v-pill con">MTP 不可行</div>
+          </div>
+          <a href="https://syt-nju.github.io/files/visual-reading/deepseek-v2-mla/" target="_blank" rel="noopener" class="source-link" style="margin-top:auto;align-self:flex-start;">MLA 详解 · 可视化阅读<svg viewBox="0 0 24 24"><path d="M7 17L17 7M7 7h10v10"/></svg></a>
+        </div>
+        <div class="versus-divider">vs</div>
+        <div class="versus-card hybrid">
+          <div class="v-tag">路线 B · MiMo 的选择</div>
+          <div class="v-name">Hybrid SWA + MTP</div>
+          <div class="v-body">
+            大部分层用 <b>SWA (W=128)</b> 把 attention 算量和 KV cache 同时砍掉。模型变成 memory bound，但<b>省下来的 compute budget 刚好拿去跑 MTP 投机解码</b>——一次 verify 3 个 draft token，把闲置的算力转化为吞吐。
+          </div>
+          <div class="v-pills">
+            <div class="v-pill pro">KV cache ↓6–7×</div>
+            <div class="v-pill pro">attention FLOPs ↓↓</div>
+            <div class="v-pill">memory bound</div>
+            <div class="v-pill pro">MTP 2.6× 加速</div>
+          </div>
+          <a href="#mtp" class="source-link" style="margin-top:auto;align-self:flex-start;border-color:var(--border-dark);color:#B3AB9F;">MTP 详解 ↓ 见下文<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12l7 7 7-7"/></svg></a>
+        </div>
+      </div>
+    </div>
+
+    <div class="article-copy" style="margin-top:30px;">
+      <p>
+        罗福莉更进一步地判断：<b>MLA 是为 H 系列芯片特定时代设计的"完美结构"</b>，但芯片在演化、推理场景在变、Agent 时代对后训练灵活性的要求在增加。一个对特定硬件过度优化的结构，在硬件换代时反而会成为负担。
+      </p>
+    </div>
+
+    <div class="quote-block">
+      <p class="quote-text">Hybrid Attention 的好处是<b>足够简单</b>。简单意味着灵活，灵活意味着在 Agent 时代快速迭代后训练时不会被架构绑死。大家太相信 MLA 了。</p>
+      <div class="quote-attr">— 罗福莉 · 小米 MiMo 架构负责人</div>
+    </div>
+
+    <div class="reader-note">
+      <b>一个微妙的对称：</b>MLA 把 memory 的钱花到 compute 上（用计算换内存），MiMo 反过来——SWA 省下 compute，再通过 MTP 把这些 compute 花到"预测多个 token"上（用算力换吞吐）。两条路都在做"重新分配 GPU 预算"，但分配的方向相反。
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     3. ARCHITECTURE: rhythm diagram
+     ============================================================ -->
+<section class="block" id="architecture">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">03 · 核心架构</div>
+      <h2>5+1 的节奏：5 层小窗口看局部，1 层全局兜底</h2>
+      <p class="section-sub">
+        MiMo 把 Transformer 的 48–70 层组织成有节奏的"块"：每 5–6 层<b>只看最近 128 个 token 的 SWA</b>，紧跟着 1 层<b>全局 GA</b>。第 0 层是个特例，用 GA + dense FFN 稳定早期表征学习。这个设计从一开始就是为 Agent 场景量身定制的——<b>长 context 不是功能，而是地基</b>。
+      </p>
+    </div>
+
+    <div class="quote-block">
+      <p class="quote-text">我们在做 MiMo 架构的时候，感知到的是一个趋势——<b>从 Chat 到 Agent</b>。Agent 需要长上下文不是因为用户想读长文章，而是因为 agent 要连续调工具几百轮。如果架构不是天生为长 context 做效率优化的，光靠推理端压缩根本撑不住。</p>
+      <div class="quote-attr">— 罗福莉 · 小米 MiMo 架构负责人</div>
+    </div>
+
+    <div class="reader-note">
+      <b>怎么看下面这张图：</b>每根条代表一层，自下而上是层 0→47（V2-Flash）或 0→69（V2.5-Pro）。<b style="color:var(--swa-tone);">短金条</b>是 SWA（只看最近 128 token），<b style="color:var(--ga-tone);">满蓝条</b>是 GA（全局），<b style="color:var(--sink-tone);">紫条</b>是第 0 层的 dense GA。点上方按钮可以切换 V2-Flash 与 V2.5-Pro 的层栈。
+    </div>
+
+    <div class="arch-stage">
+      <div class="arch-stage-head">
+        <div>
+          <div class="arch-stage-title">Hybrid attention layer stack</div>
+          <p class="arch-stage-sub">两个模型采用同一种节奏，只是块数和 ratio 不同。V2-Flash 用 5:1，V2.5-Pro 用 6:1，sliding window 都是 128。</p>
+        </div>
+        <div class="arch-toggle">
+          <button id="toggle-flash" class="active" onclick="switchModel('flash')">MiMo-V2-Flash · 309B</button>
+          <button id="toggle-pro" onclick="switchModel('pro')">MiMo-V2.5-Pro · 1.02T</button>
+        </div>
+      </div>
+
+      <div class="arch-summary" id="arch-summary"></div>
+
+      <div class="stack-wrap">
+        <div class="stack">
+          <div class="stack-title">
+            <span>LAYER 0 → TOP</span>
+            <span id="stack-caption">48 层 · 39 SWA + 9 GA · 5:1 节奏</span>
+          </div>
+          <div class="stack-rows" id="stack-rows"></div>
+        </div>
+        <div class="stack-side">
+          <div class="stack-legend">
+            <h4>条形含义</h4>
+            <div class="legend-row">
+              <div class="legend-swatch swa"></div>
+              <div>
+                <div class="legend-name">Sliding Window Attention</div>
+                <div class="legend-desc">只看最近 W=128 个 token；每层 KV cache 都是常数</div>
+              </div>
+            </div>
+            <div class="legend-row">
+              <div class="legend-swatch ga"></div>
+              <div>
+                <div class="legend-name">Global Attention</div>
+                <div class="legend-desc">看完整序列；负责跨距离信息整合</div>
+              </div>
+            </div>
+            <div class="legend-row">
+              <div class="legend-swatch first"></div>
+              <div>
+                <div class="legend-name">Layer 0 · GA + dense FFN</div>
+                <div class="legend-desc">唯一一层 dense FFN，稳定早期表征</div>
+              </div>
+            </div>
+          </div>
+          <div class="legend-rhythm">
+            <h4>分布节奏</h4>
+            <p>每个 hybrid block：<code id="rhythm-code">5×SWA → 1×GA</code></p>
+            <p id="rhythm-text">8 个 block × 6 层 = 48 层。第 0 层把第一个 SWA 替换成 dense GA。</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     3. THREE INGREDIENTS: SWA / GA / sink
+     ============================================================ -->
+<section class="block" id="ingredients">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">04 · 让混合稀疏注意力跑起来的三件套</div>
+      <h2>SWA 怎么省、GA 怎么补、sink 怎么救场</h2>
+      <p class="section-sub">
+        这三件单独看都不新——SWA 来自 Longformer，GA 是普通自注意力，attention sink bias 来自 gpt-oss——但<b>组合起来才让"激进的稀疏 + 长上下文"同时成立</b>。
+      </p>
+    </div>
+
+    <!-- ===== Visual: SWA vs GA ===== -->
+    <div class="twin-grid" style="margin-top:28px;">
+      <!-- SWA -->
+      <div style="background:var(--bg-surface);border:1px solid var(--border);border-top:4px solid var(--swa-tone);border-radius:var(--radius-lg);padding:24px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;color:var(--swa-tone);letter-spacing:0.08em;margin-bottom:10px;">SLIDING WINDOW ATTENTION</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:12px;">只看最近 128 个邻居</div>
+        <!-- Token row visualization -->
+        <div style="display:flex;gap:3px;align-items:center;margin-bottom:14px;overflow:hidden;" id="swaVis">
+          <span style="padding:4px 6px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;background:var(--bg);color:var(--text-soft);border:1px solid var(--border);">t₁</span>
+          <span style="padding:4px 6px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;background:var(--bg);color:var(--text-soft);border:1px solid var(--border);">t₂</span>
+          <span style="padding:4px 6px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;background:var(--bg);color:var(--text-soft);border:1px dashed var(--border);">⋯</span>
+          <span style="padding:4px 6px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;background:var(--bg);color:var(--text-soft);border:1px solid var(--border);">t<sub>n-200</sub></span>
+          <span style="color:var(--text-soft);font-size:10px;">┃</span>
+          <span style="padding:4px 6px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;background:var(--swa-soft);color:var(--swa-tone);border:1px solid var(--swa-tone);">t<sub>n-128</sub></span>
+          <span style="padding:4px 6px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;background:var(--swa-soft);color:var(--swa-tone);border:1px solid var(--swa-tone);">⋯</span>
+          <span style="padding:4px 6px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;background:var(--swa-soft);color:var(--swa-tone);border:1px solid var(--swa-tone);">t<sub>n-1</sub></span>
+          <span style="padding:4px 8px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;background:var(--swa-tone);color:white;font-weight:700;">t<sub>n</sub>★</span>
+        </div>
+        <div style="font-size:10px;color:var(--text-soft);margin-bottom:14px;display:flex;gap:16px;">
+          <span>◻ 看不见</span>
+          <span style="color:var(--swa-tone);">◼ 窗口内 W=128</span>
+          <span style="color:var(--swa-tone);">★ 当前 token</span>
+        </div>
+        <div style="font-size:13.5px;color:var(--text-muted);line-height:1.65;">
+          KV cache <b style="color:var(--text);">O(1) per layer</b>——不管上下文多长，每层只存 128 个 token 的 KV。负责局部的语法和语义关系。
+        </div>
+      </div>
+      <!-- GA -->
+      <div style="background:var(--bg-surface);border:1px solid var(--border);border-top:4px solid var(--ga-tone);border-radius:var(--radius-lg);padding:24px;">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;color:var(--ga-tone);letter-spacing:0.08em;margin-bottom:10px;">GLOBAL ATTENTION</div>
+        <div style="font-size:16px;font-weight:700;margin-bottom:12px;">看完整序列，每 5-6 层一次</div>
+        <!-- Token row visualization -->
+        <div style="display:flex;gap:3px;align-items:center;margin-bottom:14px;overflow:hidden;">
+          <span style="padding:4px 6px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;background:var(--ga-soft);color:var(--ga-tone);border:1px solid var(--ga-tone);">t₁</span>
+          <span style="padding:4px 6px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;background:var(--ga-soft);color:var(--ga-tone);border:1px solid var(--ga-tone);">t₂</span>
+          <span style="padding:4px 6px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;background:var(--ga-soft);color:var(--ga-tone);border:1px solid var(--ga-tone);">t₃</span>
+          <span style="padding:4px 6px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;background:var(--ga-soft);color:var(--ga-tone);border:1px solid var(--ga-tone);">⋯</span>
+          <span style="padding:4px 6px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;background:var(--ga-soft);color:var(--ga-tone);border:1px solid var(--ga-tone);">t<sub>n-2</sub></span>
+          <span style="padding:4px 6px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;background:var(--ga-soft);color:var(--ga-tone);border:1px solid var(--ga-tone);">t<sub>n-1</sub></span>
+          <span style="padding:4px 8px;border-radius:4px;font-size:10px;font-family:'JetBrains Mono',monospace;background:var(--ga-tone);color:white;font-weight:700;">t<sub>n</sub>★</span>
+        </div>
+        <div style="font-size:10px;color:var(--text-soft);margin-bottom:14px;">
+          <span style="color:var(--ga-tone);">◼ 全部可见</span>
+        </div>
+        <div style="font-size:13.5px;color:var(--text-muted);line-height:1.65;">
+          KV cache <b style="color:var(--text);">O(n) per layer</b>——贵，但负责<b style="color:var(--text);">跨距离信息搬运</b>：把 32K 之外的引用拉回来、把 agent trace 头部的工具签名传回当前步。
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== Visual: Sink deep dive ===== -->
+    <div style="background:var(--bg-surface);border:1px solid var(--border);border-top:4px solid var(--sink-tone);border-radius:var(--radius-xl);padding:32px;margin-top:20px;box-shadow:var(--shadow-md);">
+      <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;font-weight:700;color:var(--sink-tone);letter-spacing:0.08em;margin-bottom:10px;">INGREDIENT 03 · 关键创新</div>
+      <div style="font-size:20px;font-weight:800;margin-bottom:8px;">Learnable Attention Sink Bias</div>
+      <div style="font-size:14.5px;color:var(--text-muted);margin-bottom:24px;max-width:680px;line-height:1.65;">
+        SWA 窗口很小（128 token）时，当前 token 有时在窗口内<b style="color:var(--text);">找不到任何有用的信息</b>。没有 sink 时，attention 被迫把概率均摊到一堆噪声 token 上——这就是"激进稀疏导致掉点"的根源。Sink 给了模型一个<b style="color:var(--text);">"什么都不看"的选项</b>。
+      </div>
+
+      <!-- Before / After comparison -->
+      <div class="twin-grid">
+        <!-- Without sink -->
+        <div style="background:var(--accent-soft);border:1px solid var(--accent);border-radius:var(--radius-lg);padding:22px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--accent);margin-bottom:14px;">✗ 没有 SINK</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px;line-height:1.6;">窗口内全是无关 token，但 softmax 必须把概率分完——</div>
+          <!-- Attention distribution bars -->
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-soft);width:32px;text-align:right;">噪声</span>
+              <div style="flex:1;height:14px;background:var(--bg-surface);border-radius:4px;overflow:hidden;">
+                <div style="height:100%;width:18%;background:var(--accent);border-radius:4px;opacity:0.6;"></div>
+              </div>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);">18%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-soft);width:32px;text-align:right;">噪声</span>
+              <div style="flex:1;height:14px;background:var(--bg-surface);border-radius:4px;overflow:hidden;">
+                <div style="height:100%;width:15%;background:var(--accent);border-radius:4px;opacity:0.5;"></div>
+              </div>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);">15%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-soft);width:32px;text-align:right;">噪声</span>
+              <div style="flex:1;height:14px;background:var(--bg-surface);border-radius:4px;overflow:hidden;">
+                <div style="height:100%;width:14%;background:var(--accent);border-radius:4px;opacity:0.45;"></div>
+              </div>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);">14%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-soft);width:32px;text-align:right;">⋯</span>
+              <div style="flex:1;height:14px;background:var(--bg-surface);border-radius:4px;overflow:hidden;">
+                <div style="height:100%;width:53%;background:var(--accent);border-radius:4px;opacity:0.3;"></div>
+              </div>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--accent);">53%</span>
+            </div>
+          </div>
+          <div style="font-size:12.5px;color:var(--accent);font-weight:600;line-height:1.5;">
+            概率被强行均摊到 128 个噪声 token 上，输出被污染。
+          </div>
+        </div>
+        <!-- With sink -->
+        <div style="background:var(--sink-soft);border:1px solid var(--sink-tone);border-radius:var(--radius-lg);padding:22px;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;color:var(--sink-tone);margin-bottom:14px;">✓ 有 SINK</div>
+          <div style="font-size:13px;color:var(--text-muted);margin-bottom:14px;line-height:1.6;">窗口内全是无关 token，注意力"逃"到 sink——</div>
+          <!-- Attention distribution bars -->
+          <div style="display:flex;flex-direction:column;gap:6px;margin-bottom:14px;">
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--sink-tone);width:32px;text-align:right;font-weight:700;">sink</span>
+              <div style="flex:1;height:14px;background:var(--bg-surface);border-radius:4px;overflow:hidden;">
+                <div style="height:100%;width:87%;background:var(--sink-tone);border-radius:4px;"></div>
+              </div>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--sink-tone);font-weight:700;">87%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-soft);width:32px;text-align:right;">噪声</span>
+              <div style="flex:1;height:14px;background:var(--bg-surface);border-radius:4px;overflow:hidden;">
+                <div style="height:100%;width:5%;background:var(--accent);border-radius:4px;opacity:0.3;"></div>
+              </div>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-soft);">5%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-soft);width:32px;text-align:right;">噪声</span>
+              <div style="flex:1;height:14px;background:var(--bg-surface);border-radius:4px;overflow:hidden;">
+                <div style="height:100%;width:4%;background:var(--accent);border-radius:4px;opacity:0.25;"></div>
+              </div>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-soft);">4%</span>
+            </div>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-soft);width:32px;text-align:right;">⋯</span>
+              <div style="flex:1;height:14px;background:var(--bg-surface);border-radius:4px;overflow:hidden;">
+                <div style="height:100%;width:4%;background:var(--accent);border-radius:4px;opacity:0.2;"></div>
+              </div>
+              <span style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-soft);">4%</span>
+            </div>
+          </div>
+          <div style="font-size:12.5px;color:var(--sink-tone);font-weight:600;line-height:1.5;">
+            87% 的概率交给 sink（不参与值加权），噪声的影响几乎归零。
+          </div>
+        </div>
+      </div>
+
+      <!-- How it works: formula + explanation -->
+      <div style="margin-top:22px;padding:22px 26px;background:var(--bg-dark);border-radius:var(--radius-lg);color:var(--text-invert);">
+        <div style="font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--accent);letter-spacing:0.08em;margin-bottom:14px;">机制 · 公式</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:13.5px;line-height:2;color:#F2A07A;">
+          a<span style="color:#C8C0B3;">ᵢⱼ</span> = q<span style="color:#C8C0B3;">ᵢ</span> · k<span style="color:#C8C0B3;">ⱼ</span><sup style="font-size:10px;">T</sup> / √d <span style="color:#6B6660;font-size:11px;margin-left:12px;">← 原始 attention logit</span><br>
+          m<span style="color:#C8C0B3;">ᵢ</span> = max( max<span style="color:#C8C0B3;">ⱼ</span> a<span style="color:#C8C0B3;">ᵢⱼ</span> , <span style="font-weight:700;">sink</span> ) <span style="color:#6B6660;font-size:11px;margin-left:12px;">← 数值稳定：取所有 logit 与 sink 的最大值</span><br>
+          s<span style="color:#C8C0B3;">ᵢⱼ</span> = exp(a<span style="color:#C8C0B3;">ᵢⱼ</span> − m<span style="color:#C8C0B3;">ᵢ</span>) / ( exp(<span style="font-weight:700;">sink</span> − m<span style="color:#C8C0B3;">ᵢ</span>) + Σ<span style="color:#C8C0B3;">ⱼ′</span> exp(a<span style="color:#C8C0B3;">ᵢⱼ′</span> − m<span style="color:#C8C0B3;">ᵢ</span>) )
+        </div>
+        <div style="font-size:14px;line-height:1.75;margin-top:14px;color:#C8C0B3;">
+          改动就一处：softmax 分母多了 <span style="color:#F2A07A;font-weight:700;font-family:'JetBrains Mono',monospace;">exp(sink − m)</span>。<b style="color:#F2A07A;">sink 是每个 head 自学的标量</b>，不参与值的加权（不在分子）。当窗口内所有 logits 都比 sink 小时，概率流向 sink = <b style="color:#F2A07A;">"选择不看任何 token"</b>。
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     4. COUNTERINTUITIVE FINDING
+     ============================================================ -->
+<section class="block" id="insight">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">05 · 反直觉的实验发现</div>
+      <h2>窗口越小反而越好——分工假设</h2>
+      <p class="section-sub">
+        团队在 32B dense 模型上跑了消融，对比 W=128 / W=512 两种 SWA 窗口（都加 sink）。结果在长 context 任务上，<b>更小的窗口稳赢</b>。论文给出的解释直击稀疏注意力研究的"窗口越大越保险"惯性。
+      </p>
+    </div>
+
+    <div class="insight-stage">
+      <div class="insight-stage-head">
+        <div class="insight-icon">!</div>
+        <div>
+          <div class="insight-title">长 context benchmarks 上，W=128 全面碾压 W=512</div>
+          <div class="insight-sub">在 32K 长 context 微调后评测</div>
+        </div>
+      </div>
+      <table class="compare">
+        <thead>
+          <tr>
+            <th>架构</th>
+            <th>GSM-Infinite</th>
+            <th>NoLiMa</th>
+            <th>RULER-32k</th>
+            <th>MRCR</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>All GA</td><td>12.3</td><td>49.7</td><td>89.4</td><td>32.5</td>
+          </tr>
+          <tr class="highlight">
+            <td>SWA W=128 + sink</td>
+            <td>17.3 <span class="delta-up">+5.0</span></td>
+            <td>51.2 <span class="delta-up">+1.5</span></td>
+            <td>89.4 ＝</td>
+            <td>34.4 <span class="delta-up">+1.9</span></td>
+          </tr>
+          <tr>
+            <td>SWA W=512 + sink</td>
+            <td>17.2</td>
+            <td>38.5 <span class="delta-down">−11.2</span></td>
+            <td>84.7 <span class="delta-down">−4.7</span></td>
+            <td>19.6 <span class="delta-down">−12.9</span></td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="insight-takeaway">
+        <b>论文的解释 · 分工假设：</b>窗口很小（W=128）时，SWA 被"逼"得只能管局部信息，长程依赖只能交给 GA 层处理——<b>分工清晰</b>。窗口拉大到 W=512，SWA 开始想自己也试着抓一点远处信息，但它本就看不全、又跟 GA 抢活，结果两边都没做好——<b>分工模糊</b>。
+      </div>
+    </div>
+
+    <div class="article-copy" style="margin-top:30px;">
+      <p>
+        这个发现对工程上有个直接含义：<b>不要"折中"</b>。要么放弃 SWA 走全 GA，要么就把 SWA 用激进——窗口尽量小、SWA 比例尽量高。中间地带反而最差。
+      </p>
+      <p>
+        作者也明确声明：这是在他们的 scale 和数据下的经验观察，不一定泛化到所有架构。但这给了"更小窗口 + 更高 SWA 比例"一个反直觉的实验依据。
+      </p>
+    </div>
+
+    <div class="quote-block" style="margin-top:24px;">
+      <p class="quote-text">模型从 48 层扩到 70 层时，我们保持 GA 层的绝对数量大致不变（9 → 10 层），增加的全是 SWA 层。<b>GA 层的绝对数量比 SWA:GA 的 ratio 更重要。</b>模型越大，能承受的稀疏比例越高。</p>
+      <div class="quote-attr">— 罗福莉 · 小米 MiMo 架构负责人</div>
+    </div>
+
+    <div class="article-copy" style="margin-top:16px;">
+      <p>
+        这是一条实用的缩放律：<b>当 GA 层足够多（~10 层）时，模型已经具备足够的长程建模能力</b>。额外增加的层数全部用 SWA，既省 KV cache、又让 MTP 有更多的 compute 余量。V2-Flash 是 5:1，V2.5-Pro 是 6:1——ratio 变了，但 GA 层从 9 涨到 10，几乎没变。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     5. CURRICULUM: 32K → 256K → 1M
+     ============================================================ -->
+<section class="block" id="curriculum">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">06 · 长上下文训练课程</div>
+      <h2>32K 上预训练，到 1M 是"扩"出来的</h2>
+      <p class="section-sub">
+        混合架构是骨架，但要让模型真正"理解" 1M 上下文，还需要训练流程配合。MiMo 的策略是：<b>大部分预训练用 32K 短序列以保证吞吐</b>，最后小段时间专门切到长序列，并配合 RoPE base 频率调整。
+      </p>
+    </div>
+
+    <div class="timeline">
+      <div class="timeline-track">
+        <div class="timeline-step active">
+          <div class="timeline-dot">1</div>
+          <div class="timeline-tag">PRE-TRAIN</div>
+          <div class="timeline-name">通用预训练</div>
+          <div class="timeline-desc">在 32K 序列上吃掉绝大部分高质量语料</div>
+          <div class="timeline-key">0 → 22T tokens · 32K</div>
+        </div>
+        <div class="timeline-step active">
+          <div class="timeline-dot">2</div>
+          <div class="timeline-tag">MID-TRAIN</div>
+          <div class="timeline-name">代码 + 推理强化</div>
+          <div class="timeline-desc">上调 code & 合成推理数据，仍是 32K</div>
+          <div class="timeline-key">22 → 26T tokens · 32K</div>
+        </div>
+        <div class="timeline-step active">
+          <div class="timeline-dot">3</div>
+          <div class="timeline-tag">EXTEND</div>
+          <div class="timeline-name">长上下文扩展</div>
+          <div class="timeline-desc">切到 256K，上采样 long-range 依赖样本</div>
+          <div class="timeline-key">26 → 27T tokens · 256K</div>
+        </div>
+        <div class="timeline-step active">
+          <div class="timeline-dot">4</div>
+          <div class="timeline-tag">V2.5-PRO</div>
+          <div class="timeline-name">推到 1M token</div>
+          <div class="timeline-desc">同样架构，进一步课程扩展</div>
+          <div class="timeline-key">256K → 1M</div>
+        </div>
+      </div>
+
+      <div class="rope-callout">
+        <div>
+          <h4>RoPE base 调整</h4>
+          <div class="rope-callout-body">
+            扩长时<b>只调全局 GA 层的 RoPE base 频率</b>。SWA 因为只看 128 token，base 频率保持极低（10K）即可，反而避免长 context 下 SWA 学到不该有的远程关系。<b>分工再次发力。</b>
+          </div>
+        </div>
+        <div class="rope-numbers">
+          <div class="row">
+            <span>Stage 1 · GA</span><span>640,000</span>
+          </div>
+          <div class="row">
+            <span>Stage 1 · SWA</span><span>10,000</span>
+          </div>
+          <div class="row warm">
+            <span>Stage 3 · GA</span><span>5,000,000</span>
+          </div>
+          <div class="row">
+            <span>Stage 3 · SWA</span><span>10,000（不变）</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="article-copy" style="margin-top:30px;">
+      <p>
+        这条课程线还有个工程意义：<b>真正昂贵的训练（前 26T token）都跑在 32K 序列上</b>，吞吐高、kernel 友好。只有最后 1T token 才付"长序列训练成本"，再加上 hybrid 架构本身省 KV cache，让 256K → 1M 的扩展从财务上变成可行。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     6. MTP — one weapon, two uses
+     ============================================================ -->
+<section class="block" id="mtp">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">07 · MTP · 一招两吃</div>
+      <h2>训练时是个目标函数，推理时是个草稿模型</h2>
+      <p class="section-sub">
+        Multi-Token Prediction（MTP）原本是为了提升训练效率的辅助 loss，让模型多预测几个未来 token。MiMo 把 MTP 的角色"复用"到了推理侧——同一份权重在推理时<b>变成投机解码的 draft</b>，并故意把它做得很轻。而这一切之所以成立，是因为 SWA 省下来的算力刚好留出了 MTP 需要的空间。
+      </p>
+    </div>
+
+    <div class="mtp-grid">
+      <div class="mtp-card train">
+        <div class="mtp-card-head">
+          <div class="badge">T</div>
+          <div>
+            <h3>训练时：增益的 loss 信号</h3>
+            <div class="role">single MTP head · pretrain</div>
+          </div>
+        </div>
+        <div class="mtp-body">
+          在主模型顶层额外接 <b>1 个 MTP block</b>（一层 SWA + dense FFN），预测下一个 token 作为辅助 loss。不同训练阶段的增益不同：<br><br>
+          <b>预训练</b>：MTP loss 迫使 hidden state 编码更多<b>前瞻性信息</b>，梯度信号更丰富 → 提升 base 模型质量（与 DeepSeek-V3 的发现一致）。<br>
+          <b>RL 后训练</b>：rollout 生成时，MTP 每步多产 1 个 token → 整体生成加速。尤其当 batch 里短 sample 先跑完、只剩长尾 sample 时，GPU 算力大量闲置（memory bound），MTP 刚好<b>用闲置的 compute 多产 token</b>，缩短整个 batch 的等待时间。
+        </div>
+        <div class="mtp-num">
+          <div class="mtp-num-cell">
+            <div class="mtp-num-val">0.33<small>B</small></div>
+            <div class="mtp-num-label">每个 MTP block 参数量</div>
+          </div>
+          <div class="mtp-num-cell">
+            <div class="mtp-num-val">0.3 → 0.1</div>
+            <div class="mtp-num-label">MTP loss 权重 stage1 → stage2/3</div>
+          </div>
+        </div>
+      </div>
+      <div class="mtp-card infer">
+        <div class="mtp-card-head">
+          <div class="badge">I</div>
+          <div>
+            <h3>推理时：自带的 draft 模型</h3>
+            <div class="role">3-layer MTP · speculative decode</div>
+          </div>
+        </div>
+        <div class="mtp-body">
+          后训练时把那个唯一的 head <b>复制 K=3 份</b>组成 K-step MTP 模块，做 multi-step 草稿预测。主模型并行 verify 这 3 个 draft token——<b>token-level parallelism</b>同时拉高 attention 与 FFN 的算力利用率，KV cache I/O 不增加。
+        </div>
+        <div class="mtp-num">
+          <div class="mtp-num-cell">
+            <div class="mtp-num-val">3.6</div>
+            <div class="mtp-num-label">acceptance length（每次草稿被接受的 token 数）</div>
+          </div>
+          <div class="mtp-num-cell">
+            <div class="mtp-num-val">2.6×</div>
+            <div class="mtp-num-label">端到端解码加速</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== MTP architecture diagram ===== -->
+    <div class="mtp-diagram">
+      <h3>MTP 到底长什么样 · 主模型 + 3 个 mini-Transformer 串联</h3>
+      <p class="diagram-sub">每个 MTP block 不是一个输出头——它是一整个<b>单层 Transformer</b>（SWA attention + dense FFN），只是做得很轻（0.33B）。3 个 block 链式串联：前一个的 hidden state + 预测 token 的 embedding 喂给下一个。</p>
+
+      <!-- Architecture: main model tower + MTP chain -->
+      <div style="display:grid;grid-template-columns:140px 1fr;gap:24px;align-items:start;margin-top:20px;">
+
+        <!-- LEFT: main model tower -->
+        <div style="display:flex;flex-direction:column;align-items:center;gap:0;">
+          <div style="font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-soft);letter-spacing:0.06em;margin-bottom:8px;">MAIN MODEL</div>
+          <div style="width:120px;background:var(--bg-dark);color:var(--text-invert);border-radius:12px;padding:14px 10px;text-align:center;position:relative;">
+            <div style="font-size:11px;opacity:0.5;margin-bottom:4px;">Layer 47/69</div>
+            <div style="font-size:9px;color:var(--swa-tone);background:var(--swa-soft);border-radius:3px;padding:2px 6px;display:inline-block;margin:2px 0;">SWA · MoE</div>
+            <div style="font-size:9px;color:var(--ga-tone);background:var(--ga-soft);border-radius:3px;padding:2px 6px;display:inline-block;margin:2px 0;">GA · MoE</div>
+            <div style="font-size:9px;opacity:0.4;margin:4px 0;">⋮ × 48–70 layers</div>
+            <div style="font-size:9px;color:var(--sink-tone);background:var(--sink-soft);border-radius:3px;padding:2px 6px;display:inline-block;margin:2px 0;">GA · dense FFN</div>
+            <div style="font-size:11px;opacity:0.5;margin-top:4px;">Layer 0</div>
+            <div style="font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:700;margin-top:10px;color:#F2A07A;">15B / 42B 激活</div>
+          </div>
+          <div style="color:var(--text-soft);font-size:13px;margin:4px 0;">↓</div>
+          <div style="width:120px;padding:8px;border-radius:8px;text-align:center;background:var(--accent-soft);border:1px solid var(--accent);font-size:11px;font-weight:700;color:var(--accent);font-family:'JetBrains Mono',monospace;">
+            LM Head<br><span style="font-weight:400;font-size:10px;color:var(--text-muted);">(共享)</span>
+          </div>
+          <div style="color:var(--text-soft);font-size:13px;margin:4px 0;">↓</div>
+          <div style="width:120px;padding:8px;border-radius:8px;text-align:center;background:var(--bg-dark);color:white;font-size:12px;font-weight:700;font-family:'JetBrains Mono',monospace;">
+            t̂₀
+          </div>
+          <div style="font-size:10px;color:var(--text-soft);margin-top:4px;">主模型预测</div>
+        </div>
+
+        <!-- RIGHT: MTP chain -->
+        <div style="display:flex;flex-direction:column;gap:16px;">
+          <!-- Connection label -->
+          <div style="font-size:12px;color:var(--text-muted);padding:6px 12px;background:var(--bg-soft);border-radius:8px;display:inline-block;align-self:flex-start;">
+            主模型产出 <b style="color:var(--text);">h<sub>t</sub></b> (hidden state) + <b style="color:var(--text);">t̂₀</b> (token) → 喂给 MTP 链
+          </div>
+
+          <!-- 3 MTP blocks in a row -->
+          <div style="display:grid;grid-template-columns:1fr 28px 1fr 28px 1fr;gap:0;align-items:stretch;">
+
+            <!-- MTP Block 1 -->
+            <div style="border:2px dashed var(--swa-tone);border-radius:14px;padding:16px;background:var(--bg-surface);display:flex;flex-direction:column;gap:0;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--swa-tone);letter-spacing:0.06em;margin-bottom:10px;">MTP BLOCK 1 · 0.33B</div>
+              <!-- inputs -->
+              <div style="display:flex;gap:4px;margin-bottom:4px;">
+                <div style="flex:1;padding:5px;border-radius:5px;background:var(--bg-dark);color:var(--text-invert);font-size:9px;text-align:center;font-family:'JetBrains Mono',monospace;">h<sub>t</sub></div>
+                <div style="flex:1;padding:5px;border-radius:5px;background:var(--sink-soft);color:var(--sink-tone);font-size:9px;text-align:center;font-family:'JetBrains Mono',monospace;">embed(t̂₀)</div>
+              </div>
+              <div style="text-align:center;font-size:9px;color:var(--text-soft);">concat + proj ↓</div>
+              <!-- single transformer layer -->
+              <div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin:4px 0;background:var(--bg);">
+                <div style="padding:4px 8px;border-radius:5px;background:var(--swa-soft);color:var(--swa-tone);font-size:10px;font-weight:600;text-align:center;font-family:'JetBrains Mono',monospace;margin-bottom:4px;">SWA W=128</div>
+                <div style="text-align:center;font-size:8px;color:var(--text-soft);">↓</div>
+                <div style="padding:4px 8px;border-radius:5px;background:var(--ga-soft);color:var(--ga-tone);font-size:10px;font-weight:600;text-align:center;font-family:'JetBrains Mono',monospace;">Dense FFN</div>
+              </div>
+              <div style="font-size:8px;color:var(--text-soft);text-align:center;font-style:italic;margin-bottom:6px;">= 1 层 Transformer</div>
+              <!-- outputs -->
+              <div style="display:flex;gap:4px;">
+                <div style="flex:1;padding:5px;border-radius:5px;background:var(--accent-soft);border:1px solid var(--accent);font-size:9px;text-align:center;font-family:'JetBrains Mono',monospace;color:var(--accent);">LM Head →</div>
+                <div style="flex:1;padding:6px;border-radius:5px;background:var(--swa-tone);color:white;font-size:11px;text-align:center;font-weight:700;font-family:'JetBrains Mono',monospace;">t̂₁</div>
+              </div>
+              <div style="text-align:center;font-size:8px;color:var(--text-soft);margin-top:4px;">h<sub>t+1</sub> 也传给下一个 block →</div>
+            </div>
+
+            <!-- Arrow -->
+            <div style="display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--swa-tone);font-weight:700;">→</div>
+
+            <!-- MTP Block 2 -->
+            <div style="border:2px dashed var(--swa-tone);border-radius:14px;padding:16px;background:var(--bg-surface);display:flex;flex-direction:column;gap:0;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--swa-tone);letter-spacing:0.06em;margin-bottom:10px;">MTP BLOCK 2 · 0.33B</div>
+              <div style="display:flex;gap:4px;margin-bottom:4px;">
+                <div style="flex:1;padding:5px;border-radius:5px;background:var(--bg-dark);color:var(--text-invert);font-size:9px;text-align:center;font-family:'JetBrains Mono',monospace;">h<sub>t+1</sub></div>
+                <div style="flex:1;padding:5px;border-radius:5px;background:var(--sink-soft);color:var(--sink-tone);font-size:9px;text-align:center;font-family:'JetBrains Mono',monospace;">embed(t̂₁)</div>
+              </div>
+              <div style="text-align:center;font-size:9px;color:var(--text-soft);">concat + proj ↓</div>
+              <div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin:4px 0;background:var(--bg);">
+                <div style="padding:4px 8px;border-radius:5px;background:var(--swa-soft);color:var(--swa-tone);font-size:10px;font-weight:600;text-align:center;font-family:'JetBrains Mono',monospace;margin-bottom:4px;">SWA W=128</div>
+                <div style="text-align:center;font-size:8px;color:var(--text-soft);">↓</div>
+                <div style="padding:4px 8px;border-radius:5px;background:var(--ga-soft);color:var(--ga-tone);font-size:10px;font-weight:600;text-align:center;font-family:'JetBrains Mono',monospace;">Dense FFN</div>
+              </div>
+              <div style="font-size:8px;color:var(--text-soft);text-align:center;font-style:italic;margin-bottom:6px;">= 1 层 Transformer</div>
+              <div style="display:flex;gap:4px;">
+                <div style="flex:1;padding:5px;border-radius:5px;background:var(--accent-soft);border:1px solid var(--accent);font-size:9px;text-align:center;font-family:'JetBrains Mono',monospace;color:var(--accent);">LM Head →</div>
+                <div style="flex:1;padding:6px;border-radius:5px;background:var(--swa-tone);color:white;font-size:11px;text-align:center;font-weight:700;font-family:'JetBrains Mono',monospace;">t̂₂</div>
+              </div>
+              <div style="text-align:center;font-size:8px;color:var(--text-soft);margin-top:4px;">h<sub>t+2</sub> 也传给下一个 block →</div>
+            </div>
+
+            <!-- Arrow -->
+            <div style="display:flex;align-items:center;justify-content:center;font-size:18px;color:var(--swa-tone);font-weight:700;">→</div>
+
+            <!-- MTP Block 3 -->
+            <div style="border:2px dashed var(--swa-tone);border-radius:14px;padding:16px;background:var(--bg-surface);display:flex;flex-direction:column;gap:0;">
+              <div style="font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--swa-tone);letter-spacing:0.06em;margin-bottom:10px;">MTP BLOCK 3 · 0.33B</div>
+              <div style="display:flex;gap:4px;margin-bottom:4px;">
+                <div style="flex:1;padding:5px;border-radius:5px;background:var(--bg-dark);color:var(--text-invert);font-size:9px;text-align:center;font-family:'JetBrains Mono',monospace;">h<sub>t+2</sub></div>
+                <div style="flex:1;padding:5px;border-radius:5px;background:var(--sink-soft);color:var(--sink-tone);font-size:9px;text-align:center;font-family:'JetBrains Mono',monospace;">embed(t̂₂)</div>
+              </div>
+              <div style="text-align:center;font-size:9px;color:var(--text-soft);">concat + proj ↓</div>
+              <div style="border:1px solid var(--border);border-radius:8px;padding:8px;margin:4px 0;background:var(--bg);">
+                <div style="padding:4px 8px;border-radius:5px;background:var(--swa-soft);color:var(--swa-tone);font-size:10px;font-weight:600;text-align:center;font-family:'JetBrains Mono',monospace;margin-bottom:4px;">SWA W=128</div>
+                <div style="text-align:center;font-size:8px;color:var(--text-soft);">↓</div>
+                <div style="padding:4px 8px;border-radius:5px;background:var(--ga-soft);color:var(--ga-tone);font-size:10px;font-weight:600;text-align:center;font-family:'JetBrains Mono',monospace;">Dense FFN</div>
+              </div>
+              <div style="font-size:8px;color:var(--text-soft);text-align:center;font-style:italic;margin-bottom:6px;">= 1 层 Transformer</div>
+              <div style="display:flex;gap:4px;">
+                <div style="flex:1;padding:5px;border-radius:5px;background:var(--accent-soft);border:1px solid var(--accent);font-size:9px;text-align:center;font-family:'JetBrains Mono',monospace;color:var(--accent);">LM Head →</div>
+                <div style="flex:1;padding:6px;border-radius:5px;background:var(--swa-tone);color:white;font-size:11px;text-align:center;font-weight:700;font-family:'JetBrains Mono',monospace;">t̂₃</div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Key takeaways -->
+          <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-top:16px;">
+            <div style="padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:10px;font-size:12.5px;color:var(--text-muted);line-height:1.55;">
+              <b style="color:var(--text);">不是输出头</b>——每个 block 有自己的 attention 和 FFN，是一个完整的单层 Transformer。
+            </div>
+            <div style="padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:10px;font-size:12.5px;color:var(--text-muted);line-height:1.55;">
+              <b style="color:var(--text);">链式传递</b>——每个 block 的 hidden state 和 predicted token embedding 一起喂给下一个 block。
+            </div>
+            <div style="padding:12px;background:var(--bg);border:1px solid var(--border);border-radius:10px;font-size:12.5px;color:var(--text-muted);line-height:1.55;">
+              <b style="color:var(--text);">共享 LM Head</b>——三个 block 和主模型用同一个输出层，不增加参数，保持概率空间一致。
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Part B: speculative decode animation -->
+      <div class="spec-anim" id="specAnim">
+        <h4>投机解码 vs 自回归 · 动画对比</h4>
+        <p class="spec-sub">左边每步只产 1 个 token，右边每轮产 ~3.6 个。同时跑，看谁先产出 12 个 token。</p>
+
+        <div class="spec-anim-controls">
+          <button id="specPlay" class="active" onclick="specToggle()">▶ 播放</button>
+          <button onclick="specReset()">↺ 重置</button>
+          <span class="speed-label">速度</span>
+          <button id="speed1" class="active" onclick="specSpeed(1)">1×</button>
+          <button id="speed2" onclick="specSpeed(2)">2×</button>
+          <button id="speed05" onclick="specSpeed(0.5)">0.5×</button>
+        </div>
+
+        <div class="spec-lanes">
+          <!-- Left: autoregressive -->
+          <div class="spec-lane lane-ar">
+            <div class="lane-head">
+              <div class="lane-title">传统自回归</div>
+              <div class="lane-counter">主模型 forward: <b id="arFwd">0</b></div>
+            </div>
+            <div class="lane-status idle" id="arStatus">等待开始</div>
+            <div class="lane-tokens" id="arTokens"></div>
+          </div>
+          <!-- Right: speculative -->
+          <div class="spec-lane lane-sp">
+            <div class="lane-head">
+              <div class="lane-title">MTP 投机解码</div>
+              <div class="lane-counter">主模型 forward: <b id="spFwd">0</b></div>
+            </div>
+            <div class="lane-status idle" id="spStatus">等待开始</div>
+            <div class="lane-tokens" id="spTokens"></div>
+          </div>
+        </div>
+
+        <div class="spec-result" id="specResult" style="display:none;">
+          <div class="spec-result-card ar">
+            <div class="spec-result-val" id="arResultFwd">–<small>次</small></div>
+            <div class="spec-result-label">自回归 · 主模型 forward 次数</div>
+          </div>
+          <div class="spec-result-card sp">
+            <div class="spec-result-val" id="spResultFwd">–<small>次</small></div>
+            <div class="spec-result-label">投机解码 · 主模型 forward 次数</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="reader-note" style="margin-top:22px;">
+      <b>为什么是 dense FFN + SWA？</b>主模型用 MoE + GA/SWA 混合，参数大、KV cache 复杂；如果 MTP 也搬一套 MoE，反而成新的瓶颈。<b>用 dense FFN 限参数、用 SWA 限 KV cache</b>，让 draft 永远比 verify 快，speculative decoding 才有意义。
+    </div>
+
+    <div class="quote-block" style="margin-top:30px;">
+      <p class="quote-text">SWA 把注意力的计算量省下来了，模型就变成了 memory bound。这个时候 MTP 刚好把省下来的算力填进去——验证 3 个 draft token 的 compute 成本几乎是"白捡"的，因为<b>瓶颈早就不在算力上了</b>。</p>
+      <div class="quote-attr">— 罗福莉 · 小米 MiMo 架构负责人</div>
+    </div>
+
+    <div class="article-copy" style="margin-top:20px;">
+      <p>
+        这就是 MiMo 架构最精妙的一笔：SWA 和 MTP 不是两个独立的优化，而是<b>一对互补的预算分配</b>。SWA 把 attention FLOPs 省出来，模型从 compute bound 转向 memory bound；MTP 用投机解码把这些闲置的 compute cycle 填满，转化为 2.6× 的吞吐提升。MLA 走了相反方向——把 memory 省出来的空间拿去堆 compute，结果 MTP 根本没空间切入。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     7. BENCHMARK
+     ============================================================ -->
+<section class="block" id="bench">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">08 · 实验结果</div>
+      <h2>这套架构在长上下文榜单上做到了什么</h2>
+      <p class="section-sub">
+        长上下文有两类典型评测：<b>检索类</b>（NIAH-Multi · 大海捞针）测能不能找到藏在 1M 上下文里的针；<b>推理类</b>（GSM-Infinite）测能不能在长链路上做完整数学推导。前者考记忆、后者考真理解。
+      </p>
+    </div>
+
+    <div class="bench-stage">
+      <div class="bench-grid">
+        <div class="bench-block">
+          <h3>NIAH-Multi · 长上下文检索 <small>越高越好</small></h3>
+          <table class="bench">
+            <thead>
+              <tr>
+                <th>长度</th>
+                <th>MiMo-V2-Flash</th>
+                <th>Kimi-K2</th>
+                <th>DeepSeek-V3.2</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>32K</td><td class="us">99.3</td><td>99.8</td><td class="dim">85.6*</td></tr>
+              <tr><td>64K</td><td class="us">99.9</td><td>100.0</td><td class="dim">85.9*</td></tr>
+              <tr><td>128K</td><td class="us">98.6</td><td>99.5</td><td class="dim">94.3*</td></tr>
+              <tr><td>256K</td><td class="us">96.7</td><td class="dim">—</td><td class="dim">—</td></tr>
+            </tbody>
+          </table>
+          <div class="reader-note" style="margin-top:14px;">
+            <b>读法：</b>15B 激活的 V2-Flash 与 32B / 37B 激活的对手并驾齐驱。最关键的是 256K——其他模型 max length 都不到 256K，MiMo 在 256K 仍稳定 96.7%。
+          </div>
+        </div>
+        <div class="bench-block">
+          <h3>GSM-Infinite Hard · 长上下文推理 <small>看衰减幅度</small></h3>
+          <table class="bench">
+            <thead>
+              <tr>
+                <th>长度</th>
+                <th>MiMo-V2-Flash</th>
+                <th>Kimi-K2</th>
+                <th>DeepSeek-V3.2</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr><td>16K</td><td>37.7</td><td>34.6</td><td class="us">50.4</td></tr>
+              <tr><td>32K</td><td>33.7</td><td>26.1</td><td class="us">45.2</td></tr>
+              <tr><td>64K</td><td class="us">31.5</td><td class="dim">16.0</td><td>32.6</td></tr>
+              <tr><td>128K</td><td class="us">29.0</td><td class="dim">8.8</td><td>25.7</td></tr>
+            </tbody>
+          </table>
+          <div class="reader-note" style="margin-top:14px;">
+            <b>读法：</b>DeepSeek-V3.2 起点最高但<b>掉得快</b>（50.4 → 25.7，−25），稀疏注意力的弱点暴露。Kimi-K2 直接塌方（−25.8）。MiMo 几乎不掉（−8.7），<b>"强而稳"</b>是混合架构 + sink 的胜负手。
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="article-copy" style="margin-top:28px;">
+      <p>
+        到 V2.5-Pro 这一代，OpenAI 的 GraphWalks 长上下文 benchmark 上，512K 仍能拿 0.56 BFS / 0.92 Parents，1M 拿 0.37 / 0.62——而上一代 V2 Pro 在 1M 处直接归零。<b>1M context 不再是个 PR 数字。</b>
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ============================================================
+     8. LINEUP
+     ============================================================ -->
+<section class="block" id="lineup">
+  <div class="container">
+    <div class="section-head">
+      <div class="section-num">09 · 三兄弟一张表</div>
+      <h2>同一套架构，三个尺寸</h2>
+      <p class="section-sub">
+        2026 年 4–5 月这一波 MiMo-V2 / V2.5 系列，技术骨架是同一套——<b>hybrid SWA+GA · W=128 · attention sink · MTP</b>——只是 scale 与 ratio 在调。
+      </p>
+    </div>
+
+    <div class="lineup-grid">
+      <div class="lineup-card">
+        <div class="lineup-name">MiMo-V2-Flash</div>
+        <div class="lineup-tagline">309B / 15B active · 256K · 技术报告原文模型</div>
+        <div class="lineup-stats">
+          <div class="lineup-stat"><div class="lineup-stat-label">layers</div><div class="lineup-stat-val">48</div></div>
+          <div class="lineup-stat"><div class="lineup-stat-label">SWA : GA</div><div class="lineup-stat-val">39 : 9</div></div>
+          <div class="lineup-stat"><div class="lineup-stat-label">experts</div><div class="lineup-stat-val">256 / 8</div></div>
+          <div class="lineup-stat"><div class="lineup-stat-label">window</div><div class="lineup-stat-val">128</div></div>
+        </div>
+        <div class="lineup-arch">
+          5:1 SWA:GA 节奏 · 第 0 层 dense GA · KV cache 压缩约 <b>6×</b>。
+        </div>
+      </div>
+      <div class="lineup-card">
+        <div class="lineup-name">MiMo-V2.5</div>
+        <div class="lineup-tagline">310B / 15B active · 1M · 原生全模态 agent</div>
+        <div class="lineup-stats">
+          <div class="lineup-stat"><div class="lineup-stat-label">layers</div><div class="lineup-stat-val">48</div></div>
+          <div class="lineup-stat"><div class="lineup-stat-label">SWA : GA</div><div class="lineup-stat-val">39 : 9</div></div>
+          <div class="lineup-stat"><div class="lineup-stat-label">experts</div><div class="lineup-stat-val">256 / 8</div></div>
+          <div class="lineup-stat"><div class="lineup-stat-label">context</div><div class="lineup-stat-val">1M</div></div>
+        </div>
+        <div class="lineup-arch">
+          与 V2-Flash 同骨架，<b>课程扩展到 1M</b>。
+        </div>
+      </div>
+      <div class="lineup-card flagship">
+        <div class="lineup-name">MiMo-V2.5-Pro</div>
+        <div class="lineup-tagline">1.02T / 42B active · 1M · 长难 agent 任务</div>
+        <div class="lineup-stats">
+          <div class="lineup-stat"><div class="lineup-stat-label">layers</div><div class="lineup-stat-val">70</div></div>
+          <div class="lineup-stat"><div class="lineup-stat-label">SWA : GA</div><div class="lineup-stat-val">60 : 10</div></div>
+          <div class="lineup-stat"><div class="lineup-stat-label">experts</div><div class="lineup-stat-val">384 / 8</div></div>
+          <div class="lineup-stat"><div class="lineup-stat-label">window</div><div class="lineup-stat-val">128</div></div>
+        </div>
+        <div class="lineup-arch">
+          ratio 拉到 6:1 · KV cache 压缩约 <b>7×</b> · MTP 直接预训练 3 层。
+        </div>
+      </div>
+    </div>
+
+    <div class="reader-note" style="margin-top:24px;">
+      <b>一个工程层面的细节：</b>V2.5-Pro 直接在预训练阶段挂 3 层 MTP（V2-Flash 是 1 层 + 后训练复制），这意味着投机解码的 draft 模型从一开始就是端到端训练的，acceptance rate 更稳。
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <div class="col">
+      <h4>原文 / 来源</h4>
+      <ul>
+        <li><a href="https://arxiv.org/html/2601.02780v1" target="_blank" rel="noopener">MiMo-V2-Flash Technical Report · arXiv 2601.02780</a></li>
+        <li><a href="https://huggingface.co/XiaomiMiMo/MiMo-V2.5-Pro" target="_blank" rel="noopener">MiMo-V2.5-Pro · HuggingFace Model Card</a></li>
+        <li><a href="https://mp.weixin.qq.com/s/zqnJuv5OVsNGEefM7RguqQ" target="_blank" rel="noopener">罗福莉采访：MiMo 架构设计的逻辑 · 量子位</a></li>
+        <li><a href="https://github.com/XiaomiMiMo/MiMo-V2-Flash" target="_blank" rel="noopener">XiaomiMiMo/MiMo-V2-Flash · GitHub</a></li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>延伸阅读</h4>
+      <ul>
+        <li>gpt-oss attention sink: <a href="https://arxiv.org/abs/2309.17453" target="_blank" rel="noopener">"Efficient Streaming Language Models with Attention Sinks"</a></li>
+        <li>Longformer (sliding window 起点)</li>
+        <li>DeepSeek-V3 / V3.2 sparse attention 与 MTP 设计</li>
+      </ul>
+    </div>
+    <div class="col">
+      <h4>关于</h4>
+      <p>这是一篇基于 MiMo-V2-Flash 技术报告、MiMo-V2.5-Pro 模型卡与罗福莉架构师采访整理的可视化阅读。本页解读仅代表整理者个人理解，非 Xiaomi MiMo 团队官方内容。引用部分经编辑缩写。</p>
+    </div>
+  </div>
+</footer>
+
+<script>
+  // ====== Architecture stack data ======
+  const ARCH = {
+    flash: {
+      label: 'MiMo-V2-Flash · 309B / 15B active',
+      caption: '48 层 · 39 SWA + 9 GA · 5:1 节奏',
+      rhythm: '5×SWA → 1×GA',
+      rhythmText: '8 个 hybrid block × 6 层 = 48 层。第 0 层把第一个 SWA 替换成 dense GA。',
+      stats: [
+        { label: 'Total params', value: '309', unit: 'B' },
+        { label: 'Active', value: '15', unit: 'B' },
+        { label: 'Max context', value: '256', unit: 'K' },
+        { label: 'KV cache 压缩', value: '~6', unit: '×' },
+      ],
+      // 48 layers: layer 0 = first GA dense, then 8 blocks of (5 SWA + 1 GA)
+      // result: index 0 -> 'first', then for blocks 1..8: indices 1-5 SWA, 6 GA, ...
+      buildLayers: function() {
+        const layers = [];
+        layers.push({ kind: 'first', name: 'GA · dense FFN' });
+        for (let block = 0; block < 8; block++) {
+          const isFirstBlock = block === 0;
+          const swaCount = isFirstBlock ? 4 : 5;
+          for (let i = 0; i < swaCount; i++) layers.push({ kind: 'swa', name: 'SWA · MoE' });
+          layers.push({ kind: 'ga', name: 'GA · MoE' });
+        }
+        return layers;
+      },
+    },
+    pro: {
+      label: 'MiMo-V2.5-Pro · 1.02T / 42B active',
+      caption: '70 层 · 60 SWA + 10 GA · 6:1 节奏',
+      rhythm: '1×GA → 6×SWA',
+      rhythmText: '10 个 hybrid block × 7 层 = 70 层。每块以 1 GA + 6 SWA 起头，第 0 层那个 GA 是 dense FFN。',
+      stats: [
+        { label: 'Total params', value: '1.02', unit: 'T' },
+        { label: 'Active', value: '42', unit: 'B' },
+        { label: 'Max context', value: '1', unit: 'M' },
+        { label: 'KV cache 压缩', value: '~7', unit: '×' },
+      ],
+      buildLayers: function() {
+        const layers = [];
+        for (let block = 0; block < 10; block++) {
+          const kind = block === 0 ? 'first' : 'ga';
+          const name = block === 0 ? 'GA · dense FFN' : 'GA · MoE';
+          layers.push({ kind: kind, name: name });
+          for (let i = 0; i < 6; i++) layers.push({ kind: 'swa', name: 'SWA · MoE' });
+        }
+        return layers;
+      },
+    },
+  };
+
+  function renderStack(modelKey) {
+    const cfg = ARCH[modelKey];
+    const layers = cfg.buildLayers();
+
+    // summary
+    const summary = document.getElementById('arch-summary');
+    summary.innerHTML = cfg.stats.map(function(s) {
+      return '<div class="arch-stat"><div class="arch-stat-label">' + s.label + '</div>'
+        + '<div class="arch-stat-value">' + s.value + '<small>' + s.unit + '</small></div></div>';
+    }).join('');
+
+    // caption + rhythm
+    document.getElementById('stack-caption').textContent = cfg.caption;
+    document.getElementById('rhythm-code').textContent = cfg.rhythm;
+    document.getElementById('rhythm-text').textContent = cfg.rhythmText;
+
+    // layer rows — show first 2 blocks + ellipsis + last block
+    const rows = document.getElementById('stack-rows');
+    const total = layers.length;
+    const blockSize = modelKey === 'flash' ? 6 : 7;
+    const showHead = blockSize * 2;      // first 2 complete blocks
+    const showTail = blockSize;           // last 1 complete block
+    const cutStart = showHead;
+    const cutEnd = total - showTail;
+    const skipped = cutEnd - cutStart;
+
+    function layerRow(layer, idx) {
+      const finalCls = layer.kind === 'first' ? 'stack-bar ga first' : 'stack-bar ' + layer.kind;
+      const style = layer.kind === 'first' ? ' style="width:100%;"' : '';
+      return '<div class="stack-row">'
+        + '<div class="stack-idx">L' + idx.toString().padStart(2, '0') + '</div>'
+        + '<div class="' + finalCls + '"' + style + '>' + layer.name + '</div>'
+        + '<div class="stack-tag">' + (layer.kind === 'first' ? '★' : layer.kind.toUpperCase()) + '</div>'
+        + '</div>';
+    }
+
+    var html = '';
+    for (var i = 0; i < Math.min(cutStart, total); i++) html += layerRow(layers[i], i);
+    if (skipped > 0) {
+      html += '<div class="stack-row" style="justify-content:center;padding:6px 0;opacity:0.5;">'
+        + '<div style="grid-column:1/-1;text-align:center;font-family:\'JetBrains Mono\',monospace;'
+        + 'font-size:11px;color:var(--text-soft);letter-spacing:0.1em;">'
+        + '⋮ 重复同样的节奏 × ' + skipped + ' 层 ⋮</div></div>';
+    }
+    for (var j = Math.max(cutEnd, cutStart); j < total; j++) html += layerRow(layers[j], j);
+    rows.innerHTML = html;
+  }
+
+  function switchModel(key) {
+    document.getElementById('toggle-flash').classList.toggle('active', key === 'flash');
+    document.getElementById('toggle-pro').classList.toggle('active', key === 'pro');
+    renderStack(key);
+  }
+
+  document.addEventListener('DOMContentLoaded', function() {
+    renderStack('flash');
+  });
+
+  // ====== Speculative Decoding Animation ======
+  var SPEC = {
+    TARGET: 12,
+    BASE_TICK: 700,
+    speedMul: 1,
+    running: false,
+    timer: null,
+    arTokens: 0,
+    arFwd: 0,
+    spTokens: 0,
+    spFwd: 0,
+    spPhase: 'idle',
+    spDraftCount: 0,
+  };
+
+  var SAMPLE_WORDS = [
+    '小米','发布了','一款','新的','大语言','模型','MiMo',
+    '它','支持','最多','1M','token','的','上下文','窗口',
+    '通过','混合','稀疏','注意力','和','MTP','投机','解码'
+  ];
+
+  function tick() { return SPEC.BASE_TICK / SPEC.speedMul; }
+
+  function addTok(container, text, cls) {
+    var el = document.createElement('span');
+    el.className = 'lane-tok ' + cls;
+    el.textContent = text;
+    container.appendChild(el);
+    requestAnimationFrame(function() {
+      requestAnimationFrame(function() { el.classList.add('visible'); });
+    });
+  }
+
+  function setStatus(id, text, cls) {
+    var el = document.getElementById(id);
+    el.className = 'lane-status ' + cls;
+    el.innerHTML = (cls !== 'idle' && cls !== 'done' ? '<span class="pulse"></span>' : '') + text;
+  }
+
+  function arStep() {
+    if (SPEC.arTokens >= SPEC.TARGET) return;
+    setStatus('arStatus', '主模型 forward...', 'main-fwd');
+    setTimeout(function() {
+      if (!SPEC.running) return;
+      SPEC.arFwd++;
+      SPEC.arTokens++;
+      document.getElementById('arFwd').textContent = SPEC.arFwd;
+      var w = SAMPLE_WORDS[(SPEC.arTokens - 1) % SAMPLE_WORDS.length];
+      addTok(document.getElementById('arTokens'), w, 't-main');
+      if (SPEC.arTokens >= SPEC.TARGET) {
+        setStatus('arStatus', '完成 · ' + SPEC.arFwd + ' 次 forward', 'done');
+        checkDone();
+      } else {
+        setTimeout(function() { if (SPEC.running) arStep(); }, tick() * 0.1);
+      }
+    }, tick());
+  }
+
+  function spCycle() {
+    if (SPEC.spTokens >= SPEC.TARGET) return;
+    // Phase 1: main forward
+    setStatus('spStatus', '① 主模型 forward...', 'main-fwd');
+    setTimeout(function() {
+      if (!SPEC.running) return;
+      SPEC.spFwd++;
+      document.getElementById('spFwd').textContent = SPEC.spFwd;
+      var idx = SPEC.spTokens;
+      var w0 = SAMPLE_WORDS[idx % SAMPLE_WORDS.length];
+      SPEC.spTokens++;
+      addTok(document.getElementById('spTokens'), w0, 't-main');
+      if (SPEC.spTokens >= SPEC.TARGET) { spFinish(); return; }
+      // Phase 2: draft 3 tokens (fast)
+      setStatus('spStatus', '② MTP 草稿中...', 'drafting');
+      SPEC.spDraftCount = 0;
+      draftNext();
+    }, tick());
+  }
+
+  function draftNext() {
+    if (!SPEC.running) return;
+    if (SPEC.spDraftCount >= 3 || SPEC.spTokens + SPEC.spDraftCount >= SPEC.TARGET) {
+      verifyPhase();
+      return;
+    }
+    setTimeout(function() {
+      if (!SPEC.running) return;
+      SPEC.spDraftCount++;
+      var idx = SPEC.spTokens + SPEC.spDraftCount - 1;
+      var w = SAMPLE_WORDS[idx % SAMPLE_WORDS.length];
+      addTok(document.getElementById('spTokens'), w, 't-draft');
+      setStatus('spStatus', '② MTP-' + SPEC.spDraftCount + ' → 草稿', 'drafting');
+      draftNext();
+    }, tick() * 0.12);
+  }
+
+  function verifyPhase() {
+    setStatus('spStatus', '③ 主模型验证 ' + SPEC.spDraftCount + ' 个 draft...', 'verifying');
+    setTimeout(function() {
+      if (!SPEC.running) return;
+      SPEC.spFwd++;
+      document.getElementById('spFwd').textContent = SPEC.spFwd;
+      // Simulate acceptance: ~80% per token (avg 3.6 accepted out of 3+1)
+      var container = document.getElementById('spTokens');
+      var draftEls = [];
+      var children = container.children;
+      for (var i = children.length - SPEC.spDraftCount; i < children.length; i++) {
+        draftEls.push(children[i]);
+      }
+      var accepted = 0;
+      for (var j = 0; j < draftEls.length; j++) {
+        var accept = Math.random() < 0.82;
+        if (accept && j === accepted) {
+          draftEls[j].className = 'lane-tok t-accept visible';
+          accepted++;
+        } else {
+          draftEls[j].className = 'lane-tok t-reject visible';
+          // Resample this position
+          var idx2 = SPEC.spTokens + j;
+          var w2 = SAMPLE_WORDS[(idx2 + 7) % SAMPLE_WORDS.length];
+          addTok(container, w2, 't-resample');
+          accepted++;
+          // Remove remaining draft tokens after rejection
+          for (var k = j + 1; k < draftEls.length; k++) {
+            draftEls[k].remove();
+          }
+          break;
+        }
+      }
+      SPEC.spTokens += accepted;
+      if (SPEC.spTokens >= SPEC.TARGET) { spFinish(); return; }
+      setTimeout(function() { if (SPEC.running) spCycle(); }, tick() * 0.3);
+    }, tick() * 0.6);
+  }
+
+  function spFinish() {
+    setStatus('spStatus', '完成 · ' + SPEC.spFwd + ' 次 forward', 'done');
+    checkDone();
+  }
+
+  function checkDone() {
+    if (SPEC.arTokens >= SPEC.TARGET && SPEC.spTokens >= SPEC.TARGET) {
+      SPEC.running = false;
+      document.getElementById('specPlay').textContent = '▶ 播放';
+      document.getElementById('specPlay').classList.remove('active');
+      var result = document.getElementById('specResult');
+      result.style.display = 'grid';
+      document.getElementById('arResultFwd').innerHTML = SPEC.arFwd + '<small>次</small>';
+      document.getElementById('spResultFwd').innerHTML = SPEC.spFwd + '<small>次</small>';
+    }
+  }
+
+  function specToggle() {
+    if (SPEC.running) {
+      SPEC.running = false;
+      document.getElementById('specPlay').textContent = '▶ 继续';
+      document.getElementById('specPlay').classList.remove('active');
+      setStatus('arStatus', '已暂停', 'idle');
+      setStatus('spStatus', '已暂停', 'idle');
+    } else {
+      SPEC.running = true;
+      document.getElementById('specPlay').textContent = '⏸ 暂停';
+      document.getElementById('specPlay').classList.add('active');
+      if (SPEC.arTokens === 0 && SPEC.spTokens === 0) {
+        arStep();
+        spCycle();
+      } else {
+        if (SPEC.arTokens < SPEC.TARGET) arStep();
+        if (SPEC.spTokens < SPEC.TARGET) spCycle();
+      }
+    }
+  }
+
+  function specReset() {
+    SPEC.running = false;
+    SPEC.arTokens = 0; SPEC.arFwd = 0;
+    SPEC.spTokens = 0; SPEC.spFwd = 0;
+    SPEC.spPhase = 'idle'; SPEC.spDraftCount = 0;
+    document.getElementById('arFwd').textContent = '0';
+    document.getElementById('spFwd').textContent = '0';
+    document.getElementById('arTokens').innerHTML = '';
+    document.getElementById('spTokens').innerHTML = '';
+    setStatus('arStatus', '等待开始', 'idle');
+    setStatus('spStatus', '等待开始', 'idle');
+    document.getElementById('specPlay').textContent = '▶ 播放';
+    document.getElementById('specPlay').classList.remove('active');
+    document.getElementById('specResult').style.display = 'none';
+  }
+
+  function specSpeed(s) {
+    SPEC.speedMul = s;
+    document.getElementById('speed1').classList.toggle('active', s === 1);
+    document.getElementById('speed2').classList.toggle('active', s === 2);
+    document.getElementById('speed05').classList.toggle('active', s === 0.5);
+  }
+</script>
+
+</body>
+</html>
