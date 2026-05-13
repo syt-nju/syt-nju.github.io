@@ -984,10 +984,10 @@ loss = <span class="fn">clip</span>(importance_ratio, advantage, ε) - β * <spa
         <div class="expand-body">
           <div class="expand-content">
             <p>
-              三条线统一在无技能推理下比较。GRPO（黄线）和 SkillRL（紫线）在 60~90 步左右就 <strong>plateau</strong>，准确率卡在 0.7~0.8 附近不再上升。而 Skill0（绿线）<strong>持续稳步提升到 150 步</strong>，最终达到所有方法中最高的上限。
+              先说对手：<strong>GRPO</strong> 是纯 RL baseline，训练和推理都没有技能；<strong>SkillRL</strong> 训练时全程注入技能，还会迭代演化技能内容让它变得更好——但推理时也需要技能，模型从未被要求「不看技能也能做」。简单说，SkillRL 让模型越来越会<em>用</em>技能，Skill0 让模型越来越会<em>替代</em>技能。
             </p>
             <p>
-              这说明 Skill0 的课程机制不仅帮模型学到了更多，还让学习过程本身更持久——不会因为「该学的都学了」而过早饱和。
+              三条线统一在无技能推理下比较。GRPO（黄线）本身就没技能可用，上限受限于模型裸能力；SkillRL（紫线）训练时全程依赖技能 context，一旦推理时撤掉就暴露出能力并没有转移到参数里，在 60~90 步左右 <strong>plateau</strong>。而 Skill0（绿线）通过渐进撤除把能力搬进了参数，<strong>持续稳步提升到 150 步</strong>，达到所有方法中最高的上限。
             </p>
           </div>
         </div>
