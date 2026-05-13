@@ -691,6 +691,7 @@ footer a:hover { text-decoration: underline; }
     <span class="nav-brand">Skill0</span>
     <div class="nav-links">
       <a href="#problem">问题</a>
+      <a href="#prior">已有方案</a>
       <a href="#overview">方法总览</a>
       <a href="#icrl">ICRL</a>
       <a href="#curriculum">动态课程</a>
@@ -775,6 +776,75 @@ footer a:hover { text-decoration: underline; }
     <p>
       直接用 RL 训练可以吗？作者发现两头都不行：<strong>不给技能</strong>，Agent 缺乏结构化指导，学不会复杂多步行为；<strong>全程给技能</strong>，模型形成依赖，一撤走技能就崩溃。Skill0 的核心思路是设计一个从「有」到「无」的训练过程，把能力从 context 搬到 parameters。
     </p>
+  </div>
+</section>
+
+<!-- Section: Prior Work -->
+<section id="prior">
+  <div class="container">
+    <h2 class="section-title">Skill0 之前，别人怎么做的？</h2>
+    <p class="section-lead">
+      Skill0 直接建立在两个工作之上：AgentOCR 解决了「怎么压缩 agent 历史」，SkillRL 解决了「怎么在 RL 中利用技能」。理解它们才能理解 Skill0 到底改了什么。
+    </p>
+
+    <div class="card-grid">
+      <div class="expand-card open">
+        <div class="expand-header" onclick="toggleCard(this)">
+          <span class="card-icon">📷</span>
+          <span class="card-title">AgentOCR：把交互历史渲染成图片压缩</span>
+          <span class="card-brief">Skill0 的视觉压缩方案来自这里</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="expand-body">
+          <div class="expand-content">
+            <p>
+              <strong>要解决的问题</strong>：Agent 多步交互后，历史文本越来越长，token 开销爆炸。
+            </p>
+            <p>
+              <strong>做法</strong>：把文本交互历史（观察、动作）用代码渲染成一张 RGB 图片，不同信息类型用不同颜色标记（本质上是像素空间里的 special token），然后喂给 VLM 的视觉编码器压缩成固定大小的 embedding。模型每一步还会自己输出下一步的压缩比，通过 reward（任务成功时 ln(c<sub>t</sub>) 加成）学会在信息充足时激进压缩、关键步骤时保留细节。
+            </p>
+            <p>
+              <strong>效果</strong>：token 消耗从 1k+ 降到 0.3~0.5k。但 AgentOCR 只压缩历史，不涉及技能的利用或内化。
+            </p>
+            <p>
+              <strong>Skill0 继承了什么</strong>：视觉上下文渲染、自适应压缩比、复合奖励设计。全盘拿来用了。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="expand-card open">
+        <div class="expand-header" onclick="toggleCard(this)">
+          <span class="card-icon">🔧</span>
+          <span class="card-title">SkillRL：在 RL 训练中注入并演化技能</span>
+          <span class="card-brief">训练和推理都带技能的范式</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="expand-body">
+          <div class="expand-content">
+            <p>
+              <strong>要解决的问题</strong>：技能库是静态的，不一定适合当前模型的策略水平。
+            </p>
+            <p>
+              <strong>做法</strong>：在 RL 训练时把技能作为 prompt 注入 context，同时根据 Agent 的表现迭代演化技能内容（recursive skill evolution）——让技能本身也变得更好。推理时同样检索注入技能。
+            </p>
+            <p>
+              <strong>局限</strong>：模型学会了更好地<em>利用</em>技能提示，但从未被要求「不看技能也能做」。一旦推理时撤掉技能，性能立刻下降——能力驻留在 context 里，没有转移到参数中。而且推理时始终需要检索 + 注入技能，token 开销高（ALFWorld 上 2.21k/步）。
+            </p>
+            <p>
+              <strong>Skill0 改了什么</strong>：用 SkillRL 提供的技能库作为初始 SkillBank，但训练目标从「更好地用技能」变成「逐步不需要技能」。
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="insight-box">
+      <h4>Skill0 = AgentOCR 的压缩方案 + SkillRL 的技能库 + 全新的内化目标</h4>
+      <p>
+        AgentOCR 告诉你怎么省 token，SkillRL 告诉你怎么用技能做 RL，但两者都没回答「能不能不要技能」。Skill0 在它们的基础上加了一层：通过动态课程逐步撤除技能，把能力从 context 搬到 parameters。
+      </p>
+    </div>
   </div>
 </section>
 
@@ -1028,25 +1098,6 @@ loss = <span class="fn">clip</span>(importance_ratio, advantage, ε) - β * <spa
           <div class="expand-content">
             <p>
               Table 2 的对角线对比令人意外：Skill0 在<strong>不带技能推理</strong>时（87.9%）比<strong>带技能推理</strong>时（86.3%）还高出 1.6%。这说明 Skill0 不仅成功内化了技能，而且避免了技能注入带来的上下文噪声。对比其他配置（如 [6,6,6] 预算），去掉技能后性能暴跌 13.3%，说明它们形成了对外部技能的依赖。Figure 5(a) 也展示了同样的趋势：不带技能的验证曲线从低处起步，但逐渐追上带技能的曲线。
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div class="expand-card">
-        <div class="expand-header" onclick="toggleCard(this)">
-          <span class="card-icon">🏷️</span>
-          <span class="card-title">压缩比不是超参，是模型的输出</span>
-          <span class="card-brief">把超参变成可学习决策</span>
-          <span class="arrow">▼</span>
-        </div>
-        <div class="expand-body">
-          <div class="expand-content">
-            <p>
-              通常图片压缩比 c<sub>t</sub> 是人工设定的超参。Skill0 把它变成了模型在每一步和动作一起生成的输出。Prompt 要求模型在输出动作之外，额外输出一个压缩因子（如 <code>&lt;compression&gt;1.5&lt;/compression&gt;</code>），这个数字会控制下一步渲染历史图片时的压缩程度。
-            </p>
-            <p>
-              怎么让模型学会合理选择？靠 reward 塑形：任务成功时，ln(c<sub>t</sub>) 作为奖励加成——压得越狠奖励越高，但压过头图片质量太差会导致任务失败、拿不到任何奖励。RL 自动找到平衡点，让模型学会在信息充足时激进压缩、在关键步骤时保留细节。
             </p>
           </div>
         </div>
