@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Skill0: 用强化学习把技能内化到模型参数里</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #faf6ee;
+  --bg-card: #f3edd9;
+  --bg-card-hover: #ede5cc;
+  --bg-accent: #e8dcc7;
+  --bg-hero: #f7f1e3;
+  --text: #3a3228;
+  --text-secondary: #6b5e4f;
+  --text-muted: #9a8b78;
+  --accent: #b07840;
+  --accent-light: #c89660;
+  --border: #ddd2bf;
+  --border-light: #e8dfc8;
+  --success: #6b8e5a;
+  --font-sans: 'Inter', 'Noto Sans SC', -apple-system, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html { scroll-behavior: smooth; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg);
+  color: var(--text);
+  line-height: 1.75;
+  font-size: 16px;
+}
+
+.container {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* ── Navigation ── */
+nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: rgba(250, 246, 238, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--border-light);
+  padding: 0 24px;
+}
+
+nav .nav-inner {
+  max-width: 880px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 52px;
+  gap: 16px;
+}
+
+nav .nav-brand {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--text);
+  white-space: nowrap;
+}
+
+nav .nav-links {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+nav .nav-links::-webkit-scrollbar { display: none; }
+
+nav .nav-links a {
+  font-size: 13px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 6px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+  transition: background 0.2s, color 0.2s;
+}
+nav .nav-links a:hover { background: var(--bg-card); color: var(--text); }
+
+nav .nav-source {
+  font-size: 13px;
+  color: var(--accent);
+  text-decoration: none;
+  white-space: nowrap;
+  font-weight: 500;
+}
+nav .nav-source:hover { text-decoration: underline; }
+
+/* ── Hero ── */
+.hero {
+  background: var(--bg-hero);
+  border-bottom: 1px solid var(--border-light);
+  padding: 56px 24px 48px;
+}
+
+.hero-inner {
+  max-width: 880px;
+  margin: 0 auto;
+}
+
+.hero-badge {
+  display: inline-block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent);
+  background: rgba(176, 120, 64, 0.1);
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-bottom: 16px;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+}
+
+.hero h1 {
+  font-size: 36px;
+  font-weight: 800;
+  line-height: 1.2;
+  margin-bottom: 16px;
+  color: var(--text);
+}
+
+.hero-subtitle {
+  font-size: 18px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  max-width: 680px;
+  margin-bottom: 24px;
+}
+
+.hero-motto {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+  font-style: italic;
+  margin-bottom: 24px;
+}
+
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.hero-meta span {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Metric Cards ── */
+.metrics {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 16px;
+  margin: 32px 0;
+}
+
+.metric-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+}
+
+.metric-value {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--accent);
+  line-height: 1.1;
+}
+
+.metric-label {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-top: 4px;
+  line-height: 1.4;
+}
+
+/* ── Sections ── */
+section {
+  padding: 48px 0;
+}
+
+section + section {
+  border-top: 1px solid var(--border-light);
+}
+
+.section-title {
+  font-size: 26px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  color: var(--text);
+}
+
+.section-lead {
+  font-size: 16px;
+  color: var(--text-secondary);
+  margin-bottom: 28px;
+  line-height: 1.7;
+}
+
+p { margin-bottom: 16px; }
+
+strong { font-weight: 600; }
+
+/* ── Comparison Panels ── */
+.compare-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+  margin: 28px 0;
+}
+
+.compare-panel {
+  border-radius: 12px;
+  padding: 24px;
+  border: 1px solid var(--border-light);
+}
+
+.compare-panel.old {
+  background: #f5ede0;
+}
+.compare-panel.new {
+  background: #eef0e4;
+  border-color: var(--success);
+}
+
+.compare-panel h4 {
+  font-size: 15px;
+  font-weight: 700;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.compare-panel ul {
+  list-style: none;
+  padding: 0;
+}
+
+.compare-panel li {
+  font-size: 14px;
+  line-height: 1.6;
+  padding: 4px 0;
+  padding-left: 20px;
+  position: relative;
+  color: var(--text-secondary);
+}
+
+.compare-panel li::before {
+  position: absolute;
+  left: 0;
+  font-size: 12px;
+}
+
+.compare-panel.old li::before { content: "✕"; color: #b06040; }
+.compare-panel.new li::before { content: "✓"; color: var(--success); }
+
+/* ── Flow Diagram ── */
+.flow-diagram {
+  margin: 32px 0;
+  overflow-x: auto;
+}
+
+.flow-svg {
+  display: block;
+  margin: 0 auto;
+}
+
+/* ── Expandable Cards ── */
+.card-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 12px;
+  margin: 24px 0;
+}
+
+.expand-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  overflow: hidden;
+  transition: border-color 0.2s;
+}
+
+.expand-card:hover { border-color: var(--border); }
+
+.expand-header {
+  padding: 16px 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  user-select: none;
+}
+
+.expand-header .card-icon {
+  font-size: 20px;
+  flex-shrink: 0;
+  width: 32px;
+  text-align: center;
+}
+
+.expand-header .card-title {
+  font-weight: 600;
+  font-size: 15px;
+  flex: 1;
+}
+
+.expand-header .card-brief {
+  font-size: 13px;
+  color: var(--text-muted);
+  flex: 2;
+}
+
+.expand-header .arrow {
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: transform 0.3s;
+  flex-shrink: 0;
+}
+
+.expand-card.open .arrow { transform: rotate(180deg); }
+
+.expand-body {
+  max-height: 0;
+  overflow: hidden;
+  transition: max-height 0.4s ease, opacity 0.3s;
+  opacity: 0;
+}
+
+.expand-card.open .expand-body {
+  max-height: 1200px;
+  opacity: 1;
+}
+
+.expand-content {
+  padding: 0 20px 20px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+  border-top: 1px solid var(--border-light);
+  padding-top: 16px;
+}
+
+.expand-content p { margin-bottom: 12px; }
+
+/* ── Pipeline Diagram (CSS-based) ── */
+.pipeline {
+  display: flex;
+  align-items: stretch;
+  gap: 0;
+  margin: 32px 0;
+  position: relative;
+}
+
+.pipeline-stage {
+  flex: 1;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  padding: 20px 16px;
+  text-align: center;
+  position: relative;
+}
+
+.pipeline-stage:first-child { border-radius: 12px 0 0 12px; }
+.pipeline-stage:last-child { border-radius: 0 12px 12px 0; }
+
+.pipeline-stage .stage-num {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 6px;
+}
+
+.pipeline-stage h4 {
+  font-size: 14px;
+  font-weight: 700;
+  margin-bottom: 6px;
+}
+
+.pipeline-stage p {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 0;
+  line-height: 1.5;
+}
+
+.pipeline-arrow {
+  display: flex;
+  align-items: center;
+  color: var(--accent);
+  font-size: 20px;
+  padding: 0 2px;
+  flex-shrink: 0;
+}
+
+/* ── Timeline ── */
+.timeline {
+  margin: 28px 0;
+  position: relative;
+  padding-left: 28px;
+}
+
+.timeline::before {
+  content: '';
+  position: absolute;
+  left: 8px;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--border);
+}
+
+.timeline-item {
+  position: relative;
+  margin-bottom: 24px;
+}
+
+.timeline-item::before {
+  content: '';
+  position: absolute;
+  left: -24px;
+  top: 6px;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg);
+}
+
+.timeline-item h4 {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.timeline-item p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 0;
+}
+
+/* ── Code Block ── */
+.code-block {
+  background: #2e2a24;
+  color: #e8dcc7;
+  border-radius: 10px;
+  padding: 20px;
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+  overflow-x: auto;
+  margin: 20px 0;
+}
+
+.code-block .kw { color: #c89660; }
+.code-block .fn { color: #8ead6a; }
+.code-block .cm { color: #7a7060; }
+.code-block .str { color: #b8a070; }
+.code-block .num { color: #d4a060; }
+
+/* ── Quote Block ── */
+.quote-block {
+  border-left: 3px solid var(--accent);
+  padding: 16px 20px;
+  margin: 24px 0;
+  background: var(--bg-card);
+  border-radius: 0 8px 8px 0;
+  font-size: 15px;
+  color: var(--text-secondary);
+  line-height: 1.7;
+}
+
+.quote-block cite {
+  display: block;
+  margin-top: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+  font-style: normal;
+}
+
+/* ── Table ── */
+.table-wrap {
+  overflow-x: auto;
+  margin: 24px 0;
+  border-radius: 12px;
+  border: 1px solid var(--border-light);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+
+thead { background: var(--bg-card); }
+
+th {
+  padding: 10px 14px;
+  font-weight: 600;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+td {
+  padding: 8px 14px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+tr:last-child td { border-bottom: none; }
+
+.highlight-row { background: rgba(176, 120, 64, 0.08); font-weight: 600; }
+
+/* ── Insight Box ── */
+.insight-box {
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin: 24px 0;
+}
+
+.insight-box h4 {
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+
+.insight-box p {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 0;
+}
+
+/* ── Interactive Curriculum Demo ── */
+.curriculum-demo {
+  margin: 32px 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border-light);
+  border-radius: 14px;
+  padding: 28px;
+}
+
+.curriculum-controls {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+
+.stage-btn {
+  padding: 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--bg);
+  cursor: pointer;
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+
+.stage-btn:hover { border-color: var(--accent); color: var(--text); }
+.stage-btn.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.curriculum-visual {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.skill-chip {
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  transition: all 0.4s;
+  border: 1px solid var(--border-light);
+}
+
+.skill-chip.active {
+  background: rgba(176, 120, 64, 0.15);
+  color: var(--accent);
+  border-color: var(--accent-light);
+}
+
+.skill-chip.removed {
+  background: var(--bg);
+  color: var(--text-muted);
+  border-color: var(--border-light);
+  opacity: 0.4;
+  text-decoration: line-through;
+}
+
+.curriculum-info {
+  font-size: 13px;
+  color: var(--text-secondary);
+  padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+}
+
+.curriculum-info strong { color: var(--text); }
+
+/* ── Footer ── */
+footer {
+  border-top: 1px solid var(--border-light);
+  padding: 32px 24px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+footer a { color: var(--accent); text-decoration: none; }
+footer a:hover { text-decoration: underline; }
+
+/* ── Paper Figures ── */
+.paper-figure {
+  margin: 28px 0;
+  background: #fff;
+  border: 1px solid var(--border-light);
+  border-radius: 12px;
+  overflow: hidden;
+}
+
+.paper-figure img {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.paper-figure figcaption {
+  padding: 12px 20px 14px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-secondary);
+  background: var(--bg-card);
+  border-top: 1px solid var(--border-light);
+}
+
+/* ── Responsive ── */
+@media (max-width: 880px) {
+  .hero h1 { font-size: 26px; }
+  .metrics { grid-template-columns: 1fr; }
+  .compare-grid { grid-template-columns: 1fr; }
+  .pipeline { flex-direction: column; }
+  .pipeline-stage:first-child { border-radius: 12px 12px 0 0; }
+  .pipeline-stage:last-child { border-radius: 0 0 12px 12px; }
+  .pipeline-arrow { transform: rotate(90deg); justify-content: center; }
+  .expand-header { flex-wrap: wrap; }
+  .expand-header .card-brief { flex-basis: 100%; padding-left: 44px; }
+  nav .nav-links { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- Navigation -->
+<nav>
+  <div class="nav-inner">
+    <span class="nav-brand">Skill0</span>
+    <div class="nav-links">
+      <a href="#problem">问题</a>
+      <a href="#overview">方法总览</a>
+      <a href="#icrl">ICRL</a>
+      <a href="#curriculum">动态课程</a>
+      <a href="#insights">有趣发现</a>
+      <a href="#results">实验</a>
+    </div>
+    <a class="nav-source" href="https://arxiv.org/abs/2604.02268" target="_blank">原文 ↗</a>
+  </div>
+</nav>
+
+<!-- Hero -->
+<header class="hero">
+  <div class="hero-inner">
+    <span class="hero-badge">arXiv 2604.02268</span>
+    <h1>Skill0：用强化学习把 Agent 技能<br>内化到模型参数里</h1>
+    <p class="hero-subtitle">
+      现有 LLM Agent 在推理时需要从外部技能库检索指令——嘈杂、昂贵、模型从未真正学会。Skill0 提出：在训练时提供技能，在推理时归零，让模型把技能变成自己的能力。
+    </p>
+    <p class="hero-motto">"Skills at training, zero at inference."</p>
+    <div class="hero-meta">
+      <span>Zhengxi Lu 等 · 浙江大学 &amp; 美团 &amp; 清华大学</span>
+      <span>·</span>
+      <span><a href="https://github.com/ZJU-REAL/SkillZero" target="_blank" style="color:var(--accent);">GitHub</a></span>
+    </div>
+
+    <div class="metrics">
+      <div class="metric-card">
+        <div class="metric-value">+9.7%</div>
+        <div class="metric-label">ALFWorld 成功率提升<br><small>vs. AgentOCR baseline</small></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">+6.6%</div>
+        <div class="metric-label">Search-QA 准确率提升<br><small>vs. AgentOCR baseline</small></div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">&lt;0.5k</div>
+        <div class="metric-label">每步 token 消耗<br><small>比 SkillRL 低 5 倍以上</small></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<main>
+
+<!-- Section 1: The Problem -->
+<section id="problem">
+  <div class="container">
+    <h2 class="section-title">为什么需要「技能内化」？</h2>
+    <p class="section-lead">
+      Agent 技能（Skills）是一组结构化的操作指南，教 LLM Agent 怎么用工具、怎么完成多步任务。当前主流做法是在推理时从技能库检索相关技能，注入到 prompt 里。这很有效，但有三个根本性缺陷。
+    </p>
+
+    <figure class="paper-figure">
+      <img src="https://arxiv.org/html/2604.02268v1/x1.png" alt="Figure 1: Skill Augmentation vs Skill Internalization" loading="lazy">
+      <figcaption>原文 Figure 1：(a) 现有 Skill Augmentation 方法在推理时检索技能注入 context；(b) Skill0 的 Skill Internalization 方法在训练时提供技能并逐步撤除，推理时完全 zero-shot。</figcaption>
+    </figure>
+
+    <div class="compare-grid">
+      <div class="compare-panel old">
+        <h4>推理时技能增强 Skill Augmentation</h4>
+        <ul>
+          <li><strong>检索噪声</strong>：检索到不相关或误导性的技能，污染上下文</li>
+          <li><strong>Token 开销</strong>：注入的技能内容在多轮交互中持续累加</li>
+          <li><strong>表面执行</strong>：模型在「执行」技能，不是在「学习」——能力驻留在 context 而非参数里</li>
+        </ul>
+      </div>
+      <div class="compare-panel new">
+        <h4>技能内化 Skill Internalization（Skill0）</h4>
+        <ul>
+          <li><strong>零检索</strong>：推理时不需要任何技能库</li>
+          <li><strong>极低开销</strong>：每步不到 0.5k tokens</li>
+          <li><strong>真正习得</strong>：技能被编码进模型参数，实现 zero-shot 自主行为</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="quote-block">
+      人类学技能也是如此：先照着说明书操作（explicit instruction），然后逐渐不需要说明书，变成肌肉记忆（internalized behavior）。推理时技能增强把 Agent 永远锁在第一阶段。
+      <cite>—— 类比自 Anderson (1982) 的技能习得理论</cite>
+    </div>
+
+    <p>
+      直接用 RL 训练可以吗？作者发现两头都不行：<strong>不给技能</strong>，Agent 缺乏结构化指导，学不会复杂多步行为；<strong>全程给技能</strong>，模型形成依赖，一撤走技能就崩溃。Skill0 的核心思路是设计一个从「有」到「无」的训练过程，把能力从 context 搬到 parameters。
+    </p>
+  </div>
+</section>
+
+<!-- Section 2: Overview -->
+<section id="overview">
+  <div class="container">
+    <h2 class="section-title">Skill0 方法总览</h2>
+    <p class="section-lead">
+      Skill0 包含三个协同工作的组件。它们共同实现「训练时给技能、推理时归零」的目标。
+    </p>
+
+    <figure class="paper-figure">
+      <img src="https://arxiv.org/html/2604.02268v1/x2.png" alt="Figure 2: Overview of Skill0" loading="lazy">
+      <figcaption>原文 Figure 2：Skill0 的完整流程。(a) 按相关性离线分组技能；(b) 训练时将技能 + 交互历史渲染为视觉 context，在 Agent Loop 中执行 ICRL；(c) 动态课程逐阶段评估帮助性、缩减预算，直到技能全部撤除。</figcaption>
+    </figure>
+
+    <p>
+      上图是论文的核心架构图。三个组件的关系可以简要概括为：
+    </p>
+
+    <div class="pipeline">
+      <div class="pipeline-stage">
+        <div class="stage-num">组件 A</div>
+        <h4>相关性驱动的<br>技能分组</h4>
+        <p>按任务类别离线组织技能库，减少检索噪声</p>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-stage">
+        <div class="stage-num">组件 B</div>
+        <h4>上下文强化学习<br>（ICRL）</h4>
+        <p>训练时将技能作为 context，推理时移除，RL 驱动内化</p>
+      </div>
+      <div class="pipeline-arrow">→</div>
+      <div class="pipeline-stage">
+        <div class="stage-num">组件 C</div>
+        <h4>动态课程<br>Dynamic Curriculum</h4>
+        <p>按帮助性逐步撤除技能，直到预算归零</p>
+      </div>
+    </div>
+
+    <p>
+      下面我们逐一展开每个组件。先从技能管理和上下文渲染讲起，再看 ICRL 的训练目标，最后看动态课程如何自适应地「撤除脚手架」。
+    </p>
+  </div>
+</section>
+
+<!-- Section 3: Skill Management + Context Rendering -->
+<section id="icrl">
+  <div class="container">
+    <h2 class="section-title">In-Context 强化学习（ICRL）</h2>
+    <p class="section-lead">
+      ICRL 是 Skill0 的训练核心：在 rollout 时把技能放进 context 让 Agent 参考，但推理时全部移除。RL 的优化目标直接驱动模型把 context 里的知识编码进参数。
+    </p>
+
+    <h3 style="font-size:18px; font-weight:600; margin-bottom:16px;">技能库组织与视觉上下文</h3>
+
+    <p>
+      技能被组织成两层：<strong>通用技能</strong>（如「系统性探索」「拿到就行动」）和<strong>任务特定技能</strong>（如「清洁任务要先去水槽」）。每组技能存在一个 Markdown 文件里，按任务类别 + 技能类别归档。
+    </p>
+
+    <p>
+      为了压缩 token 开销，Skill0 将交互历史 + 技能文本渲染成一张 RGB 图片，由视觉编码器压缩为 visual embedding。模型甚至能自己决定压缩比例——成功完成任务时，更高的压缩率会获得额外奖励。
+    </p>
+
+    <div class="insight-box">
+      <h4>为什么用图片？</h4>
+      <p>
+        纯文本的历史记录和技能描述会让 prompt 越来越长。Skill0 把它们渲染成图片，配合 VLM 的视觉编码器，token 消耗从 2k+ 降到不足 0.5k。颜色编码区分不同信息类型（黑色=任务指令，蓝色=环境观察，红色=执行动作），让视觉编码器能快速分辨信息结构。
+      </p>
+    </div>
+
+    <h3 style="font-size:18px; font-weight:600; margin: 28px 0 16px;">训练目标</h3>
+    <p>
+      ICRL 使用复合奖励，同时优化<strong>任务成功</strong>和<strong>压缩效率</strong>：
+    </p>
+
+    <div class="code-block">
+<span class="cm"># 复合奖励：任务奖励 + 压缩奖励</span>
+<span class="kw">if</span> task_success:
+    r_comp = <span class="fn">ln</span>(compression_ratio)  <span class="cm"># 压缩越多奖励越大，但递减</span>
+<span class="kw">else</span>:
+    r_comp = <span class="num">0</span>
+
+r_total = r_task + λ * r_comp
+
+<span class="cm"># 基于 PPO 的策略优化</span>
+loss = <span class="fn">clip</span>(importance_ratio, advantage, ε) - β * <span class="fn">KL</span>(π_θ ‖ π_ref)
+    </div>
+
+    <p>
+      关键点在于：<strong>技能只在训练 rollout 时存在</strong>。模型在训练时可以参考技能来完成任务、获得奖励，但 RL 的梯度更新迫使它把这些知识固化到参数里。随着动态课程逐步移除技能，模型必须越来越依靠自身能力。
+    </p>
+  </div>
+</section>
+
+<!-- Section 4: Dynamic Curriculum -->
+<section id="curriculum">
+  <div class="container">
+    <h2 class="section-title">动态课程：自适应撤除脚手架</h2>
+    <p class="section-lead">
+      不能一刀切地移除所有技能——有的技能模型已经学会了，有的还没有。动态课程通过衡量每个技能的「帮助性」来决定保留还是移除，搭配线性衰减的总预算。
+    </p>
+
+    <h3 style="font-size:18px; font-weight:600; margin-bottom:16px;">三步过滤策略</h3>
+
+    <div class="timeline">
+      <div class="timeline-item">
+        <h4>Step 1：帮助性评估</h4>
+        <p>
+          对每个技能文件，在验证集上分别测试「有该技能」和「无该技能」时的成功率，差值 &Delta;<sub>k</sub> 即为帮助性。&Delta;<sub>k</sub> &gt; 0 说明模型还需要这个技能，&Delta;<sub>k</sub> &le; 0 说明已经内化了。
+        </p>
+      </div>
+      <div class="timeline-item">
+        <h4>Step 2：过滤 &amp; 排序</h4>
+        <p>
+          丢弃所有 &Delta;<sub>k</sub> &le; 0 的技能（已内化）。剩余技能按帮助性降序排列。
+        </p>
+      </div>
+      <div class="timeline-item">
+        <h4>Step 3：按预算截取</h4>
+        <p>
+          保留排名前 M<sup>(s)</sup> 个技能。M 随训练阶段线性衰减，最终为 0——此时 Agent 完全无技能运行。
+        </p>
+      </div>
+    </div>
+
+    <h3 style="font-size:18px; font-weight:600; margin: 28px 0 16px;">交互演示：技能如何逐步消失</h3>
+
+    <div class="curriculum-demo">
+      <div class="curriculum-controls">
+        <button class="stage-btn active" data-stage="0">阶段 1：全量技能</button>
+        <button class="stage-btn" data-stage="1">阶段 2：部分保留</button>
+        <button class="stage-btn" data-stage="2">阶段 3：Zero-Shot</button>
+      </div>
+      <div class="curriculum-visual" id="curriculum-visual"></div>
+      <div class="curriculum-info" id="curriculum-info"></div>
+    </div>
+
+    <div class="insight-box">
+      <h4>为什么不能固定预算或随机选？</h4>
+      <p>
+        消融实验显示：<strong>不过滤</strong>（跳过 &Delta;<sub>k</sub> &gt; 0 的筛选，直接塞满预算）会引入帮助性为零甚至为负的技能，性能下降 2.7%；<strong>不排序</strong>（通过过滤后不按 &Delta;<sub>k</sub> 降序排列，而是随机选 M 个）更灾难性，可能选到帮助性很低的技能、丢掉最关键的那几个，移除技能后性能暴跌 13.7%。只有「过滤 + 按帮助性排序 + 截取 top-M」三步完整执行，才能在移除技能后反而获得 +1.6% 的提升——这意味着技能真正被内化了。
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- Section 5: Interesting Insights -->
+<section id="insights">
+  <div class="container">
+    <h2 class="section-title">几个有意思的发现</h2>
+    <p class="section-lead">
+      论文中有几个观察值得单独拎出来说。
+    </p>
+
+    <figure class="paper-figure">
+      <img src="https://arxiv.org/html/2604.02268v1/x5.png" alt="Figure 5: Training Dynamics Comparison" loading="lazy">
+      <figcaption>原文 Figure 5：训练动态对比。(a) 带/不带技能验证，不带技能的曲线从低处逐渐追上——内化正在发生；(b) 同等条件下 Skill0 vs AgentOCR；(c) Skill0 vs GRPO/SkillRL，Skill0 持续提升而其他方法早早 plateau。</figcaption>
+    </figure>
+
+    <figure class="paper-figure">
+      <img src="https://arxiv.org/html/2604.02268v1/x6.png" alt="Figure 6: Helpfulness Dynamics" loading="lazy">
+      <figcaption>原文 Figure 6：各子任务的技能帮助性 &Delta;<sub>k</sub> 随训练变化。统一呈现「先升后降」轨迹——技能先被利用，再被内化，最终不再需要。</figcaption>
+    </figure>
+
+    <div class="card-grid">
+
+      <div class="expand-card">
+        <div class="expand-header" onclick="toggleCard(this)">
+          <span class="card-icon">📈</span>
+          <span class="card-title">帮助性的「先升后降」</span>
+          <span class="card-brief">所有子任务的技能帮助性都呈现相同规律</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="expand-body">
+          <div class="expand-content">
+            <p>
+              上面的 Figure 6 清楚地展示了这一点：所有子任务的 &Delta;<sub>k</sub> 都遵循「先升后降」的轨迹。训练初期帮助性低（模型还没学会利用技能提示）；中期快速上升（模型学会了从 context 中提取技能指导）；后期回落到零（技能已被内化进参数）。这个轨迹本身就验证了「技能从 context 迁移到 parameters」的过程确实发生了。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="expand-card">
+        <div class="expand-header" onclick="toggleCard(this)">
+          <span class="card-icon">🔄</span>
+          <span class="card-title">去掉技能反而更好</span>
+          <span class="card-brief">推理时不用技能比用技能成绩还高</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="expand-body">
+          <div class="expand-content">
+            <p>
+              Table 2 的对角线对比令人意外：Skill0 在<strong>不带技能推理</strong>时（87.9%）比<strong>带技能推理</strong>时（86.3%）还高出 1.6%。这说明 Skill0 不仅成功内化了技能，而且避免了技能注入带来的上下文噪声。对比其他配置（如 [6,6,6] 预算），去掉技能后性能暴跌 13.3%，说明它们形成了对外部技能的依赖。Figure 5(a) 也展示了同样的趋势：不带技能的验证曲线从低处起步，但逐渐追上带技能的曲线。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="expand-card">
+        <div class="expand-header" onclick="toggleCard(this)">
+          <span class="card-icon">🏷️</span>
+          <span class="card-title">自适应压缩比</span>
+          <span class="card-brief">模型自己决定信息压缩程度</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="expand-body">
+          <div class="expand-content">
+            <p>
+              一个巧妙的设计：模型在每一步不仅生成动作，还生成一个压缩比 c<sub>t</sub>。成功完成任务时，更高的压缩比（更少的 token）会得到 ln(c<sub>t</sub>) 的额外奖励。这让模型学会了在信息充足时激进压缩、在关键步骤时保留细节——一种「注意力分配」的元能力。
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div class="expand-card">
+        <div class="expand-header" onclick="toggleCard(this)">
+          <span class="card-icon">🎯</span>
+          <span class="card-title">Bamboogle 上的惊人泛化</span>
+          <span class="card-brief">域外多跳推理大幅领先</span>
+          <span class="arrow">▼</span>
+        </div>
+        <div class="expand-body">
+          <div class="expand-content">
+            <p>
+              Skill0 (3B) 在 Bamboogle（一个域外多跳 QA 数据集）上拿到 63.7%，而训练时只用了 NQ 和 HotpotQA 数据。对比 EvolveR 的 32.8% 和 SkillRL 的 58.1%，这一巨大优势暗示内化的技能具有更好的泛化能力——参数化的知识比 prompt 里的指令更灵活。
+            </p>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<!-- Section 6: Results -->
+<section id="results">
+  <div class="container">
+    <h2 class="section-title">实验结果一览</h2>
+    <p class="section-lead">
+      在 ALFWorld（家庭环境任务）和 Search-QA（搜索问答）两个 benchmark 上，Skill0 以极低的 token 成本实现了顶尖性能。
+    </p>
+
+    <h3 style="font-size:18px; font-weight:600; margin-bottom:16px;">ALFWorld 成功率（%）· Qwen2.5-VL-3B</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>方法</th>
+            <th>Pick</th>
+            <th>Look</th>
+            <th>Clean</th>
+            <th>Heat</th>
+            <th>Cool</th>
+            <th>Pick2</th>
+            <th>Avg</th>
+            <th>Token/步</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Zero-Shot</td><td>27.0</td><td>24.3</td><td>4.5</td><td>20.5</td><td>10.2</td><td>0.0</td><td>15.2</td><td>1.21k</td>
+          </tr>
+          <tr>
+            <td>GRPO</td><td>92.6</td><td>85.7</td><td>70.6</td><td>86.6</td><td>79.3</td><td>65.0</td><td>79.9</td><td>1.02k</td>
+          </tr>
+          <tr>
+            <td>AgentOCR</td><td>91.9</td><td>81.8</td><td>76.0</td><td>73.3</td><td>76.1</td><td>70.0</td><td>78.2</td><td>0.38k</td>
+          </tr>
+          <tr>
+            <td>SkillRL</td><td>91.9</td><td>100</td><td>82.9</td><td>87.4</td><td>78.7</td><td>70.0</td><td>82.4</td><td>2.21k</td>
+          </tr>
+          <tr class="highlight-row">
+            <td>Skill0</td><td>95.6</td><td>80.4</td><td><strong>100</strong></td><td>86.7</td><td>78.7</td><td>75.2</td><td><strong>87.9</strong></td><td><strong>0.38k</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="font-size:18px; font-weight:600; margin: 28px 0 16px;">Search-QA 准确率（%）· Qwen2.5-VL-3B</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr>
+            <th>方法</th>
+            <th>NQ</th>
+            <th>TriviaQA</th>
+            <th>PopQA</th>
+            <th>HotpotQA</th>
+            <th>2Wiki</th>
+            <th>MuSiQue</th>
+            <th>Bamboogle</th>
+            <th>Avg</th>
+            <th>Token/步</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>Search-R1</td><td>34.1</td><td>54.5</td><td>37.8</td><td>32.4</td><td>31.9</td><td>10.3</td><td>26.4</td><td>32.5</td><td>—</td>
+          </tr>
+          <tr>
+            <td>EvolveR</td><td>43.4</td><td>58.4</td><td>43.4</td><td>37.3</td><td>38.1</td><td>13.7</td><td>32.8</td><td>38.2</td><td>—</td>
+          </tr>
+          <tr>
+            <td>SkillRL</td><td>38.6</td><td>57.6</td><td>40.3</td><td>33.6</td><td>31.1</td><td>13.3</td><td>58.1</td><td>38.9</td><td>0.87k</td>
+          </tr>
+          <tr class="highlight-row">
+            <td>Skill0</td><td>39.8</td><td>57.5</td><td>42.3</td><td>35.1</td><td>33.7</td><td>13.3</td><td><strong>63.7</strong></td><td><strong>40.8</strong></td><td><strong>0.18k</strong></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p style="margin-top: 24px;">
+      值得注意的是，Skill0 (7B) 在 ALFWorld 上达到 89.8%，大幅超过闭源模型 GPT-4o（48.0%）和 Gemini-2.5-Pro（60.3%），同时也超过各类记忆增强方法如 ExpeL（46.3%）、Mem0（54.7%）。在 Search-QA 上同样全面超过 RAG、Search-R1、ZeroSearch 等检索增强方法。
+    </p>
+
+    <div class="insight-box">
+      <h4>Limitations</h4>
+      <p>
+        Skill0 依赖初始 SkillBank 的质量——技能本身需要提前准备好。同时，离线技能分组在迁移到新任务域时需要重新划分。这意味着它更适合有明确技能体系的任务场景。
+      </p>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<!-- Footer -->
+<footer>
+  <div class="container">
+    <p style="margin-bottom:8px;">
+      原文：<a href="https://arxiv.org/abs/2604.02268" target="_blank">Skill0: In-Context Agentic Reinforcement Learning for Skill Internalization</a> · Zhengxi Lu et al. · arXiv
+    </p>
+    <p>
+      代码：<a href="https://github.com/ZJU-REAL/SkillZero" target="_blank">github.com/ZJU-REAL/SkillZero</a>
+    </p>
+  </div>
+</footer>
+
+<script>
+function toggleCard(header) {
+  var card = header.parentElement;
+  card.classList.toggle('open');
+}
+
+(function initCurriculum() {
+  var skills = [
+    { name: 'Systematic Exploration', cat: 'general' },
+    { name: 'Immediate Acquisition', cat: 'general' },
+    { name: 'Grab When Seen', cat: 'pick' },
+    { name: 'Place Before Search', cat: 'pick' },
+    { name: 'Phase-Ordered Plan', cat: 'clean' },
+    { name: 'Sink First', cat: 'clean' }
+  ];
+
+  var stages = [
+    {
+      budget: 6,
+      active: [0, 1, 2, 3, 4, 5],
+      desc: 'M = 6，所有技能文件都可用。模型在完整技能指导下学习，快速提升早期表现。'
+    },
+    {
+      budget: 3,
+      active: [0, 2, 4],
+      desc: 'M = 3，帮助性评估后只保留 top-3。General Exploration、Grab When Seen、Phase-Ordered Plan 仍有正帮助性；其余三个已被内化，移除后性能不降。'
+    },
+    {
+      budget: 0,
+      active: [],
+      desc: 'M = 0，技能全部撤除。Agent 进入纯 zero-shot 模式。所有行为知识已编码进模型参数——此时性能反而比带技能时更高（+1.6%）。'
+    }
+  ];
+
+  var visual = document.getElementById('curriculum-visual');
+  var info = document.getElementById('curriculum-info');
+  var btns = document.querySelectorAll('.stage-btn');
+
+  function render(stageIdx) {
+    var stage = stages[stageIdx];
+    var html = '';
+    for (var i = 0; i < skills.length; i++) {
+      var isActive = stage.active.indexOf(i) !== -1;
+      var cls = isActive ? 'active' : 'removed';
+      html += '<div class="skill-chip ' + cls + '">' + skills[i].name + '</div>';
+    }
+    visual.innerHTML = html;
+    info.innerHTML = '<strong>预算 M = ' + stage.budget + '</strong>：' + stage.desc;
+  }
+
+  btns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      btns.forEach(function(b) { b.classList.remove('active'); });
+      btn.classList.add('active');
+      render(parseInt(btn.getAttribute('data-stage')));
+    });
+  });
+
+  render(0);
+})();
+</script>
+</body>
+</html>
