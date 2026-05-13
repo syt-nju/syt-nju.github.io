@@ -945,39 +945,47 @@ loss = <span class="fn">clip</span>(importance_ratio, advantage, ε) - β * <spa
   <div class="container">
     <h2 class="section-title">动态课程：自适应撤除脚手架</h2>
     <p class="section-lead">
-      不能一刀切地移除所有技能——有的技能模型已经学会了，有的还没有。动态课程通过衡量每个技能的「帮助性」来决定保留还是移除，搭配线性衰减的总预算。
+      训练被划分为多个阶段，阶段之间预算线性缩减（如 [6, 3, 0]），阶段内部预算固定，每隔 d 步重新评估保留哪些技能。两层逻辑各管一件事：<strong>跨阶段控制「总共还给几个技能」，阶段内控制「给哪几个」。</strong>
     </p>
 
-    <h3 style="font-size:18px; font-weight:600; margin-bottom:16px;">三步过滤策略</h3>
+    <h3 style="font-size:18px; font-weight:600; margin-bottom:16px;">跨阶段：预算线性衰减</h3>
+    <p>
+      训练共 N<sub>S</sub> = 3 个阶段，预算 M 按线性从满额衰减到 0。以 ALFWorld（共 6 个技能文件）为例：阶段 1 预算 M=6，阶段 2 M=3，阶段 3 M=0。这是一条<strong>硬上界</strong>——不管帮助性多高，阶段 3 就是不给任何技能，逼模型纯靠参数做。
+    </p>
+
+    <h3 style="font-size:18px; font-weight:600; margin: 28px 0 16px;">阶段内：每隔 d 步筛选「给哪几个」</h3>
+    <p>
+      每个阶段内部，每隔 d=10 个训练步，在验证集上用当前策略重新评估所有技能的帮助性，然后做三步筛选：
+    </p>
 
     <div class="timeline">
       <div class="timeline-item">
         <h4>Step 1：帮助性评估</h4>
         <p>
-          对每个技能文件，在验证集上分别测试「有该技能」和「无该技能」时的成功率，差值 &Delta;<sub>k</sub> 即为帮助性。&Delta;<sub>k</sub> &gt; 0 说明模型还需要这个技能，&Delta;<sub>k</sub> &le; 0 说明已经内化了。
+          对每个技能文件，分别测试「有该技能」和「无该技能」时的成功率，差值 &Delta;<sub>k</sub> 即为帮助性。&Delta;<sub>k</sub> &gt; 0 说明模型还没学会，需要这个技能；&Delta;<sub>k</sub> &le; 0 说明已经内化，不需要了。
         </p>
       </div>
       <div class="timeline-item">
         <h4>Step 2：过滤 &amp; 排序</h4>
         <p>
-          丢弃所有 &Delta;<sub>k</sub> &le; 0 的技能（已内化）。剩余技能按帮助性降序排列。
+          丢弃所有 &Delta;<sub>k</sub> &le; 0 的技能（已内化），剩余按 &Delta;<sub>k</sub> 降序排列——<strong>排在前面的是模型最需要帮助的技能</strong>。
         </p>
       </div>
       <div class="timeline-item">
         <h4>Step 3：按预算截取</h4>
         <p>
-          保留排名前 M<sup>(s)</sup> 个技能。M 随训练阶段线性衰减，最终为 0——此时 Agent 完全无技能运行。
+          保留排名前 M 个。预算有限时，优先保留模型最薄弱的技能，让 RL 集中火力去内化它们。
         </p>
       </div>
     </div>
 
-    <h3 style="font-size:18px; font-weight:600; margin: 28px 0 16px;">交互演示：技能如何逐步消失</h3>
+    <h3 style="font-size:18px; font-weight:600; margin: 28px 0 16px;">交互演示：多阶段训练中技能如何逐步消失</h3>
 
     <div class="curriculum-demo">
       <div class="curriculum-controls">
-        <button class="stage-btn active" data-stage="0">阶段 1：全量技能</button>
-        <button class="stage-btn" data-stage="1">阶段 2：部分保留</button>
-        <button class="stage-btn" data-stage="2">阶段 3：Zero-Shot</button>
+        <button class="stage-btn active" data-stage="0">阶段 1 · M=6</button>
+        <button class="stage-btn" data-stage="1">阶段 2 · M=3</button>
+        <button class="stage-btn" data-stage="2">阶段 3 · M=0</button>
       </div>
       <div class="curriculum-visual" id="curriculum-visual"></div>
       <div class="curriculum-info" id="curriculum-info"></div>
@@ -986,7 +994,7 @@ loss = <span class="fn">clip</span>(importance_ratio, advantage, ε) - β * <spa
     <div class="insight-box">
       <h4>为什么不能固定预算或随机选？</h4>
       <p>
-        消融实验显示：<strong>不过滤</strong>（跳过 &Delta;<sub>k</sub> &gt; 0 的筛选，直接塞满预算）会引入帮助性为零甚至为负的技能，性能下降 2.7%；<strong>不排序</strong>（通过过滤后不按 &Delta;<sub>k</sub> 降序排列，而是随机选 M 个）更灾难性，可能选到帮助性很低的技能、丢掉最关键的那几个，移除技能后性能暴跌 13.7%。只有「过滤 + 按帮助性排序 + 截取 top-M」三步完整执行，才能在移除技能后反而获得 +1.6% 的提升——这意味着技能真正被内化了。
+        消融实验显示：<strong>不过滤</strong>（跳过 &Delta;<sub>k</sub> &gt; 0 的筛选，直接塞满预算）会引入已经内化的或无用的技能，反而干扰训练，性能下降 2.7%；<strong>不排序</strong>（通过过滤后不按 &Delta;<sub>k</sub> 降序排列，而是随机选 M 个）更灾难性，可能选到帮助性很低的技能、丢掉模型最需要帮助的那几个，移除技能后性能暴跌 13.7%。只有「过滤 + 按帮助性排序 + 截取 top-M」三步完整执行，才能在移除技能后反而获得 +1.6% 的提升——这意味着技能真正被内化了。
       </p>
     </div>
   </div>
@@ -1248,17 +1256,17 @@ function toggleCard(header) {
     {
       budget: 6,
       active: [0, 1, 2, 3, 4, 5],
-      desc: 'M = 6，所有技能文件都可用。模型在完整技能指导下学习，快速提升早期表现。'
+      desc: '预算允许全部 6 个技能文件。阶段内每 10 步重新评估帮助性，但因为预算充足，所有正帮助性技能都能保留。模型在完整技能指导下快速提升。'
     },
     {
       budget: 3,
       active: [0, 2, 4],
-      desc: 'M = 3，帮助性评估后只保留 top-3。General Exploration、Grab When Seen、Phase-Ordered Plan 仍有正帮助性；其余三个已被内化，移除后性能不降。'
+      desc: '预算硬上界降到 3。阶段内筛选时，6 个技能里只有 3 个的 \u0394_k 仍 > 0（模型还需要它们），其余 3 个已被内化（\u0394_k \u2264 0）。即使有正帮助性的技能超过 3 个，也只能保留最薄弱的 top-3，集中火力内化它们。'
     },
     {
       budget: 0,
       active: [],
-      desc: 'M = 0，技能全部撤除。Agent 进入纯 zero-shot 模式。所有行为知识已编码进模型参数——此时性能反而比带技能时更高（+1.6%）。'
+      desc: '预算归零，不管 \u0394_k 多高都不给技能。Agent 被迫纯靠参数做任务——此时性能反而比带技能时更高（+1.6%），说明内化已完成。'
     }
   ];
 
