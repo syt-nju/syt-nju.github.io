@@ -842,7 +842,7 @@ footer a:hover { text-decoration: underline; }
     <div class="insight-box">
       <h4>为什么用图片？</h4>
       <p>
-        纯文本的历史记录和技能描述会让 prompt 越来越长。Skill0 把它们渲染成图片，配合 VLM 的视觉编码器，token 消耗从 2k+ 降到不足 0.5k。颜色编码区分不同信息类型（黑色=任务指令，蓝色=环境观察，红色=执行动作），让视觉编码器能快速分辨信息结构。
+        纯文本的历史记录和技能描述会让 prompt 越来越长。Skill0 把它们渲染成图片，配合 VLM 的视觉编码器，token 消耗从 2k+ 降到不足 0.5k。渲染时用颜色编码区分信息类型（黑色=任务指令，蓝色=环境观察，红色=执行动作）——本质上和文本里的 special token 是同一思路，只是标记载体从 token embedding 换成了 RGB 像素，让视觉编码器扫一眼颜色就能分辨信息结构，而且不额外占 token。
       </p>
     </div>
 
