@@ -1036,14 +1036,17 @@ loss = <span class="fn">clip</span>(importance_ratio, advantage, ε) - β * <spa
       <div class="expand-card">
         <div class="expand-header" onclick="toggleCard(this)">
           <span class="card-icon">🏷️</span>
-          <span class="card-title">自适应压缩比</span>
-          <span class="card-brief">模型自己决定信息压缩程度</span>
+          <span class="card-title">压缩比不是超参，是模型的输出</span>
+          <span class="card-brief">把超参变成可学习决策</span>
           <span class="arrow">▼</span>
         </div>
         <div class="expand-body">
           <div class="expand-content">
             <p>
-              一个巧妙的设计：模型在每一步不仅生成动作，还生成一个压缩比 c<sub>t</sub>。成功完成任务时，更高的压缩比（更少的 token）会得到 ln(c<sub>t</sub>) 的额外奖励。这让模型学会了在信息充足时激进压缩、在关键步骤时保留细节——一种「注意力分配」的元能力。
+              通常图片压缩比 c<sub>t</sub> 是人工设定的超参。Skill0 把它变成了模型在每一步和动作一起生成的输出。Prompt 要求模型在输出动作之外，额外输出一个压缩因子（如 <code>&lt;compression&gt;1.5&lt;/compression&gt;</code>），这个数字会控制下一步渲染历史图片时的压缩程度。
+            </p>
+            <p>
+              怎么让模型学会合理选择？靠 reward 塑形：任务成功时，ln(c<sub>t</sub>) 作为奖励加成——压得越狠奖励越高，但压过头图片质量太差会导致任务失败、拿不到任何奖励。RL 自动找到平衡点，让模型学会在信息充足时激进压缩、在关键步骤时保留细节。
             </p>
           </div>
         </div>
