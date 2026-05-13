@@ -1,0 +1,797 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AlphaEvolve：用进化式编程智能体实现科学与算法发现</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf6ed;--bg-alt:#f0e8d8;--bg-card:#fffbf2;--bg-deep:#e5dac6;
+  --text:#2c2416;--text-2:#5a4d3a;--text-3:#8a7d6a;
+  --accent:#b85a1f;--accent-soft:rgba(184,90,31,.12);
+  --green:#5a8a3c;--green-soft:rgba(90,138,60,.12);
+  --red:#b03a2a;--red-soft:rgba(176,58,42,.1);
+  --purple:#6b5c9a;
+  --border:#ddd0bb;--border-light:#ece3d2;
+  --r:10px;--r-sm:6px;
+  --mono:'JetBrains Mono',monospace;
+  --sans:Inter,'Noto Sans SC',system-ui,sans-serif;
+}
+html{font-size:16px;scroll-behavior:smooth}
+body{font-family:var(--sans);background:var(--bg);color:var(--text);line-height:1.8;-webkit-font-smoothing:antialiased}
+.wrap{max-width:860px;margin:0 auto;padding:0 24px}
+section{padding:56px 0}
+section+section{border-top:1px solid var(--border-light)}
+h1{font-size:2.1rem;font-weight:800;line-height:1.25;letter-spacing:-.02em}
+h2{font-size:1.5rem;font-weight:700;line-height:1.3;margin-bottom:20px}
+h3{font-size:1.1rem;font-weight:600;margin-bottom:10px}
+p{margin-bottom:16px}
+p:last-child{margin-bottom:0}
+a{color:var(--accent);text-decoration:none;transition:opacity .2s}
+a:hover{opacity:.75}
+strong{font-weight:600}
+code{font-family:var(--mono);font-size:.85em;background:var(--bg-alt);padding:2px 6px;border-radius:3px}
+
+.nav{position:sticky;top:0;z-index:100;background:rgba(250,246,237,.9);backdrop-filter:blur(14px);border-bottom:1px solid var(--border-light);padding:10px 0}
+.nav .wrap{display:flex;align-items:center;gap:16px}
+.nav-brand{font-size:.85rem;font-weight:700;white-space:nowrap}
+.nav-items{display:flex;gap:4px;flex-wrap:wrap;margin-left:auto}
+.nav-items a{font-size:.75rem;padding:4px 10px;border-radius:20px;color:var(--text-2);transition:all .2s}
+.nav-items a:hover,.nav-items a.on{background:var(--accent);color:#fff}
+.nav-src{font-size:.75rem;padding:4px 12px;border-radius:20px;background:var(--accent);color:#fff!important;white-space:nowrap}
+
+.hero{padding:72px 0 44px;text-align:center}
+.hero-tag{display:inline-block;padding:4px 14px;border-radius:20px;background:var(--bg-alt);font-size:.78rem;font-weight:500;color:var(--text-2);margin-bottom:16px}
+.hero .sub{font-size:1.05rem;color:var(--text-2);max-width:640px;margin:14px auto 20px}
+.hero .authors{font-size:.8rem;color:var(--text-3)}
+.tldr{background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--r);padding:24px 28px;max-width:700px;margin:0 auto}
+.tldr-tag{font-size:.72rem;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--accent);margin-bottom:8px}
+.tldr p{font-size:.92rem;line-height:1.75}
+
+.callout{border-left:3px solid var(--accent);background:var(--bg-card);padding:14px 20px;border-radius:0 var(--r) var(--r) 0;margin:24px 0;font-size:.92rem;color:var(--text-2);line-height:1.7}
+
+/* approach cards (section 2) */
+.approaches{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin:24px 0}
+.appr{background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--r);padding:20px;display:flex;flex-direction:column}
+.appr-name{font-size:.95rem;font-weight:700;margin-bottom:2px}
+.appr-sub{font-size:.78rem;color:var(--text-3);margin-bottom:12px;line-height:1.4}
+.appr svg{width:100%;height:auto;margin-bottom:12px}
+.appr-limit{font-size:.8rem;color:var(--red);line-height:1.5;padding:10px 12px;background:var(--red-soft);border-radius:var(--r-sm);margin-top:auto}
+.appr-limit strong{font-weight:600}
+.appr-bridge{font-size:.78rem;color:var(--accent);margin-top:10px;font-weight:500;line-height:1.4}
+
+/* paper figure */
+.paper-fig{margin:28px 0;text-align:center}
+.paper-fig img{max-width:100%;height:auto;border-radius:var(--r);border:1px solid var(--border-light)}
+.paper-fig figcaption{font-size:.78rem;color:var(--text-3);margin-top:8px;line-height:1.5;max-width:640px;margin-left:auto;margin-right:auto}
+.paper-fig-row{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;margin:28px 0}
+.paper-fig-row img{max-width:48%;border-radius:var(--r);border:1px solid var(--border-light)}
+
+/* diff demo */
+.diff-box{background:#1e1e1e;border-radius:var(--r);padding:18px 20px;margin:20px 0;overflow-x:auto;font-family:var(--mono);font-size:.78rem;line-height:1.65;color:#d4d4d4}
+.diff-box .rm{color:#f48771;text-decoration:line-through;opacity:.7}
+.diff-box .add{color:#89d185}
+.diff-box .ctx{color:#808080}
+.diff-box .cmt{color:#6a9955}
+
+/* step explainer */
+.step-explain{display:grid;grid-template-columns:44px 1fr;gap:0 14px;margin:24px 0}
+.step-num{width:34px;height:34px;border-radius:50%;background:var(--accent);color:#fff;font-size:.8rem;font-weight:700;display:flex;align-items:center;justify-content:center;margin-top:2px}
+.step-body{padding-bottom:22px;border-left:2px solid var(--border-light);padding-left:18px;margin-left:-17px}
+.step-body:last-child{border-left-color:transparent}
+.step-body h3{margin-bottom:4px;font-size:1rem}
+.step-body p{font-size:.88rem;color:var(--text-2)}
+
+/* expandable card */
+.case{background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--r);margin:16px 0;overflow:hidden}
+.case-head{padding:18px 22px;cursor:pointer;display:flex;gap:12px;align-items:flex-start;user-select:none;transition:background .2s}
+.case-head:hover{background:var(--bg-alt)}
+.case-icon{font-size:1.6rem;line-height:1;flex-shrink:0}
+.case-info{flex:1}
+.case-title{font-size:.95rem;font-weight:600}
+.case-ctx{font-size:.8rem;color:var(--text-2);margin-top:2px;line-height:1.5}
+.case-arrow{font-size:.8rem;color:var(--text-3);transition:transform .25s;line-height:1.8}
+.case.open .case-arrow{transform:rotate(180deg)}
+.case-detail{max-height:0;overflow:hidden;transition:max-height .4s ease}
+.case.open .case-detail{max-height:1400px}
+.case-inner{padding:0 22px 20px;font-size:.86rem;line-height:1.75;color:var(--text-2)}
+.case-inner h4{font-size:.86rem;font-weight:600;color:var(--text);margin:12px 0 4px}
+.case-inner h4:first-child{margin-top:0}
+.case-inner p{margin-bottom:8px}
+.hi{color:var(--accent);font-weight:600}
+
+/* metric strip */
+.mstrip{display:grid;grid-template-columns:repeat(auto-fit,minmax(155px,1fr));gap:14px;margin:24px 0}
+.mcard{background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--r);padding:18px 14px;text-align:center;transition:transform .2s,box-shadow .2s}
+.mcard:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(44,36,22,.08)}
+.mcard .num{font-size:2rem;font-weight:800;color:var(--accent);line-height:1}
+.mcard .unit{font-size:.78rem;font-weight:500;color:var(--text-2);margin-top:2px}
+.mcard .desc{font-size:.72rem;color:var(--text-3);margin-top:5px;line-height:1.35}
+
+/* pros/cons */
+.pc-grid{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:20px 0}
+.pc-box{border-radius:var(--r);padding:20px;font-size:.86rem;line-height:1.7}
+.pc-box.pro{background:var(--green-soft);border:1px solid rgba(90,138,60,.2)}
+.pc-box.con{background:var(--red-soft);border:1px solid rgba(176,58,42,.15)}
+.pc-box h3{font-size:.86rem;margin-bottom:8px}
+.pc-box.pro h3{color:var(--green)}
+.pc-box.con h3{color:var(--red)}
+.pc-box ul{list-style:none}
+.pc-box li{padding:3px 0 3px 16px;position:relative;color:var(--text-2)}
+.pc-box li::before{position:absolute;left:0;font-weight:700}
+.pc-box.pro li::before{content:'+';color:var(--green)}
+.pc-box.con li::before{content:'-';color:var(--red)}
+
+.footer{padding:36px 0;text-align:center;font-size:.78rem;color:var(--text-3);border-top:1px solid var(--border-light)}
+@media(max-width:880px){
+  .wrap{padding:0 16px}
+  h1{font-size:1.5rem}
+  .hero{padding:48px 0 32px}
+  .approaches{grid-template-columns:1fr}
+  .pc-grid{grid-template-columns:1fr}
+  .nav-items{display:none}
+  .step-explain{grid-template-columns:36px 1fr;gap:0 10px}
+}
+</style>
+</head>
+<body>
+
+<nav class="nav">
+  <div class="wrap">
+    <span class="nav-brand">AlphaEvolve</span>
+    <div class="nav-items">
+      <a href="#problem">问题</a>
+      <a href="#prior">已有方案</a>
+      <a href="#method">方法</a>
+      <a href="#insights">有趣的点</a>
+      <a href="#results">结果</a>
+      <a href="#limits">局限</a>
+    </div>
+    <a href="https://arxiv.org/abs/2506.13131" target="_blank" rel="noopener" class="nav-src">原文 ↗</a>
+  </div>
+</nav>
+
+<!-- ====== HERO ====== -->
+<header class="hero">
+  <div class="wrap">
+    <span class="hero-tag">Google DeepMind &middot; 白皮书 &middot; 2025.06</span>
+    <h1>AlphaEvolve<br>让 AI 自己写代码、自己打分、自己进化</h1>
+    <p class="sub">把大语言模型嵌入进化算法循环，不是让 AI 写一次代码就完事，而是让它写上千轮、每轮自动评分反馈，最终进化出人类数十年未能发现的新算法。</p>
+    <p class="authors">Alexander Novikov, Ng&acirc;n Vũ, Marvin Eisenberger 等 18 位作者</p>
+    <div class="tldr">
+      <div class="tldr-tag">一句话版本</div>
+      <p><strong>让 AI 反复写代码、每次自动跑测试打分、只留下跑得更好的版本、再把好版本喂回去让它继续改</strong>——经过上千轮进化，最终代码可以超越人类专家数十年的成果。</p>
+    </div>
+  </div>
+</header>
+
+<!-- ========== S1: PROBLEM ========== -->
+<section id="problem">
+  <div class="wrap">
+    <h2>问题：如何让 AI 自动发现新算法？</h2>
+    <p>发现新算法（比如更快的矩阵乘法、更优的数学构造）需要<strong>反复试错、逐步逼近</strong>。LLM 虽然有创造力，但单次输出不可靠——它无法验证自己的代码是否正确，更无法系统性地搜索巨大的解空间。</p>
+    <div class="callout">核心挑战：如何把 LLM 的创造力变成<strong>可靠的、可验证的</strong>算法发现？</div>
+  </div>
+</section>
+
+<!-- ========== S2: PRIOR APPROACHES ========== -->
+<section id="prior">
+  <div class="wrap">
+    <h2>已有方案：别人怎么做的？</h2>
+    <p>在 AlphaEvolve 之前，已有三类典型方案尝试解决这个问题，但各有明显局限：</p>
+
+    <div class="approaches">
+      <!-- 1. LLM Coding Agent -->
+      <div class="appr">
+        <div class="appr-name">通用 LLM Coding Agent</div>
+        <div class="appr-sub">如 Devin、Cursor Agent 等</div>
+        <svg viewBox="0 0 280 140" xmlns="http://www.w3.org/2000/svg" style="font-family:var(--sans)">
+          <defs><marker id="a1" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#8a7d6a"/></marker></defs>
+          <rect x="10" y="14" width="72" height="36" rx="7" fill="#f0e8d8" stroke="#ddd0bb"/>
+          <text x="46" y="37" text-anchor="middle" font-size="13" font-weight="600" fill="#2c2416">用户</text>
+          <rect x="104" y="14" width="72" height="36" rx="7" fill="var(--accent-soft)" stroke="rgba(184,90,31,.3)"/>
+          <text x="140" y="37" text-anchor="middle" font-size="13" font-weight="600" fill="#b85a1f">LLM</text>
+          <rect x="198" y="14" width="72" height="36" rx="7" fill="#f0e8d8" stroke="#ddd0bb"/>
+          <text x="234" y="37" text-anchor="middle" font-size="13" font-weight="600" fill="#2c2416">代码</text>
+          <line x1="82" y1="32" x2="100" y2="32" stroke="#8a7d6a" stroke-width="1.5" marker-end="url(#a1)"/>
+          <line x1="176" y1="32" x2="194" y2="32" stroke="#8a7d6a" stroke-width="1.5" marker-end="url(#a1)"/>
+          <path d="M234,52 L234,82 L46,82 L46,52" fill="none" stroke="#b03a2a" stroke-width="1.2" stroke-dasharray="5 3" marker-end="url(#a1)"/>
+          <text x="140" y="76" text-anchor="middle" font-size="11" fill="#b03a2a">人工反馈（慢、主观）</text>
+          <rect x="55" y="100" width="170" height="26" rx="5" fill="rgba(176,58,42,.08)"/>
+          <text x="140" y="118" text-anchor="middle" font-size="11" fill="#b03a2a">线性对话，无系统性搜索</text>
+        </svg>
+        <div class="appr-limit"><strong>局限：</strong>依赖人工反馈；对话链无记忆积累；不做系统性探索</div>
+        <div class="appr-bridge">AlphaEvolve &rarr; 用自动评估替代人工反馈</div>
+      </div>
+      <!-- 2. AlphaTensor -->
+      <div class="appr">
+        <div class="appr-name">AlphaTensor</div>
+        <div class="appr-sub">DeepMind 2022，深度强化学习</div>
+        <svg viewBox="0 0 280 140" xmlns="http://www.w3.org/2000/svg" style="font-family:var(--sans)">
+          <defs><marker id="a2" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#8a7d6a"/></marker></defs>
+          <rect x="10" y="14" width="108" height="40" rx="7" fill="var(--accent-soft)" stroke="rgba(184,90,31,.3)"/>
+          <text x="64" y="39" text-anchor="middle" font-size="13" font-weight="600" fill="#b85a1f">RL Agent</text>
+          <rect x="162" y="14" width="108" height="40" rx="7" fill="#f0e8d8" stroke="#ddd0bb"/>
+          <text x="216" y="39" text-anchor="middle" font-size="12" font-weight="600" fill="#2c2416">Environment</text>
+          <line x1="118" y1="26" x2="158" y2="26" stroke="#b85a1f" stroke-width="1.5" marker-end="url(#a2)"/>
+          <text x="138" y="20" text-anchor="middle" font-size="10" fill="#b85a1f">action</text>
+          <line x1="162" y1="46" x2="122" y2="46" stroke="#5a8a3c" stroke-width="1.5" marker-end="url(#a2)"/>
+          <text x="142" y="62" text-anchor="middle" font-size="10" fill="#5a8a3c">state + reward</text>
+          <path d="M64,54 L64,74 L216,74 L216,54" fill="none" stroke="#8a7d6a" stroke-width="1" stroke-dasharray="5 3"/>
+          <text x="140" y="88" text-anchor="middle" font-size="10" fill="#8a7d6a">反复交互数百万步</text>
+          <rect x="30" y="100" width="220" height="26" rx="5" fill="rgba(176,58,42,.08)"/>
+          <text x="140" y="118" text-anchor="middle" font-size="11" fill="#b03a2a">需为每个问题定制 RL 环境</text>
+        </svg>
+        <div class="appr-limit"><strong>局限：</strong>需为每个问题手工设计状态/动作空间；只能做矩阵乘法一类问题</div>
+        <div class="appr-bridge">AlphaEvolve &rarr; 通用框架，同一 pipeline 跨领域</div>
+      </div>
+      <!-- 3. FunSearch -->
+      <div class="appr">
+        <div class="appr-name">FunSearch</div>
+        <div class="appr-sub">DeepMind 2023，AlphaEvolve 前作</div>
+        <svg viewBox="0 0 280 140" xmlns="http://www.w3.org/2000/svg" style="font-family:var(--sans)">
+          <defs><marker id="a3" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#8a7d6a"/></marker></defs>
+          <rect x="72" y="4" width="136" height="34" rx="7" fill="var(--accent-soft)" stroke="rgba(184,90,31,.3)"/>
+          <text x="140" y="26" text-anchor="middle" font-size="13" font-weight="600" fill="#b85a1f">小 LLM</text>
+          <rect x="172" y="50" width="100" height="34" rx="7" fill="#f0e8d8" stroke="#ddd0bb"/>
+          <text x="222" y="67" text-anchor="middle" font-size="11" font-weight="600" fill="#2c2416">单函数</text>
+          <text x="222" y="80" text-anchor="middle" font-size="10" fill="#8a7d6a">10-20 行</text>
+          <rect x="172" y="94" width="100" height="30" rx="7" fill="var(--green-soft)" stroke="rgba(90,138,60,.3)"/>
+          <text x="222" y="114" text-anchor="middle" font-size="12" font-weight="600" fill="#5a8a3c">评估</text>
+          <rect x="8" y="66" width="100" height="30" rx="7" fill="rgba(107,92,154,.1)" stroke="rgba(107,92,154,.3)"/>
+          <text x="58" y="86" text-anchor="middle" font-size="12" font-weight="600" fill="var(--purple)">数据库</text>
+          <line x1="208" y1="21" x2="222" y2="48" stroke="#8a7d6a" stroke-width="1.2" marker-end="url(#a3)"/>
+          <line x1="222" y1="84" x2="222" y2="92" stroke="#8a7d6a" stroke-width="1.2" marker-end="url(#a3)"/>
+          <line x1="172" y1="109" x2="108" y2="90" stroke="#8a7d6a" stroke-width="1.2" marker-end="url(#a3)"/>
+          <line x1="58" y1="66" x2="82" y2="38" stroke="#8a7d6a" stroke-width="1.2" stroke-dasharray="5 3" marker-end="url(#a3)"/>
+          <text x="140" y="136" text-anchor="middle" font-size="10.5" fill="#b03a2a">百万次采样 &middot; 仅 Python &middot; 仅单函数</text>
+        </svg>
+        <div class="appr-limit"><strong>局限：</strong>只能进化单个函数（10-20 行 Python）；需百万次采样；大模型反而没用</div>
+        <div class="appr-bridge">AlphaEvolve &rarr; 进化整个代码文件，千次采样</div>
+      </div>
+    </div>
+
+    <!-- Expandable paper details -->
+    <div class="case" onclick="toggleCase(this)">
+      <div class="case-head">
+        <span class="case-icon">&#128218;</span>
+        <div class="case-info">
+          <div class="case-title">Devin / LLM Coding Agent 详情</div>
+          <div class="case-ctx">Cognition AI, 2024 &middot; 首个被广泛关注的自主编程智能体</div>
+        </div>
+        <span class="case-arrow">&#9660;</span>
+      </div>
+      <div class="case-detail"><div class="case-inner">
+        <h4>它是什么？</h4>
+        <p>Devin 是 2024 年引起轰动的 AI 编程智能体。它有一个完整的开发环境（编辑器 + 终端 + 浏览器），可以自主阅读代码库、写代码、跑测试、修 bug。底层用多个子 agent 协作：代码编辑 agent、命令行 agent、错误处理 agent、浏览器 agent。</p>
+        <h4>核心做法</h4>
+        <p>用户给一个任务描述 &rarr; Devin 扫描代码库 &rarr; 制定计划 &rarr; 用户审批 &rarr; 执行 + 动态调整。如果测试失败，会自动重试修复。本质是<strong>一条对话链上的迭代</strong>，用人工审查和测试反馈来纠错。</p>
+        <h4>关键结果</h4>
+        <p>SWE-bench 上 13.86% 的解决率（此前 SOTA 仅 1.96%）；生产环境中 67% 的 PR 被合并。</p>
+        <h4>与 AlphaEvolve 的本质区别</h4>
+        <p>Devin 是「对话式」的——一次任务一条链，依赖人工审查。<span class="hi">AlphaEvolve 是「进化式」的</span>——数千个候选方案并行评估、优胜劣汰，无需人工参与。Devin 适合日常开发，AlphaEvolve 适合在巨大搜索空间中发现全新算法。</p>
+      </div></div>
+    </div>
+
+    <div class="case" onclick="toggleCase(this)">
+      <div class="case-head">
+        <span class="case-icon">&#128218;</span>
+        <div class="case-info">
+          <div class="case-title">AlphaTensor 论文详情</div>
+          <div class="case-ctx">Fawzi et al., Nature 2022 &middot; <a href="https://www.nature.com/articles/s41586-022-05172-4" target="_blank" onclick="event.stopPropagation()">论文链接</a></div>
+        </div>
+        <span class="case-arrow">&#9660;</span>
+      </div>
+      <div class="case-detail"><div class="case-inner">
+        <h4>它是什么？</h4>
+        <p>AlphaTensor 是 DeepMind 2022 年发表在 Nature 上的工作。它把发现矩阵乘法算法的问题<strong>建模为一个单人博弈游戏</strong>：目标是找到 3D 张量的低秩分解。用 AlphaZero 的方法（蒙特卡洛树搜索 + 深度神经网络）来下这盘棋。</p>
+        <h4>核心做法</h4>
+        <p>把张量分解的每一步（选择一个秩一分量）视为一个「动作」，当前张量残差视为「状态」，分解完成时的秩作为「奖励」。用 Transformer 网络评估局面并指导搜索。还用随机生成的合成数据来做 bootstrap 训练。</p>
+        <h4>关键结果</h4>
+        <p>在多个矩阵规模上超越了已知最优算法，发现了 14,236 个不等价的 4&times;4 矩阵乘法算法。对于 F2（二元域）上的 4&times;4 矩阵乘法找到了 rank-47 的算法。</p>
+        <h4>与 AlphaEvolve 的本质区别</h4>
+        <p>AlphaTensor <strong>只能做张量分解这一个问题</strong>——状态空间、动作空间、奖励函数都是为矩阵乘法量身定制的。换一个问题就要从头设计 RL 环境。<span class="hi">AlphaEvolve 不需要建模问题结构</span>，只要用户提供评估函数就行——同一套系统可以做矩阵乘法、数学证明、调度优化、芯片设计。</p>
+      </div></div>
+    </div>
+
+    <div class="case" onclick="toggleCase(this)">
+      <div class="case-head">
+        <span class="case-icon">&#128218;</span>
+        <div class="case-info">
+          <div class="case-title">FunSearch 论文详情</div>
+          <div class="case-ctx">Romera-Paredes et al., Nature 2024 &middot; <a href="https://www.nature.com/articles/s41586-023-06924-6" target="_blank" onclick="event.stopPropagation()">论文链接</a></div>
+        </div>
+        <span class="case-arrow">&#9660;</span>
+      </div>
+      <div class="case-detail"><div class="case-inner">
+        <h4>它是什么？</h4>
+        <p>FunSearch 是 AlphaEvolve 的直系前作，名字来自「在函数空间中搜索」（Function Search）。它是第一个证明 <strong>LLM + 进化可以做出真正数学发现</strong>的系统——不是从训练数据中检索，而是发现全新的、可验证超越 SOTA 的构造。</p>
+        <h4>核心做法</h4>
+        <p>用小 LLM（如 PaLM 2）反复生成<strong>单个 Python 函数</strong>的变体，用自动评估器打分，高分版本存入进化数据库，再采样给 LLM 继续改。与经典进化算法的区别：用 LLM 代替随机突变，可以做语义级别的修改。</p>
+        <h4>关键结果</h4>
+        <p>在极值组合学的 <strong>cap set 问题</strong>上发现了超越已知最优的新构造；在在线装箱问题（bin packing）上找到了超越经典算法基线的新启发式。这两个结果都发表在 Nature 上。</p>
+        <h4>为什么 AlphaEvolve 是质变？</h4>
+        <p>FunSearch 只能改 10-20 行的单个函数，需要百万次 LLM 调用，用大模型反而没有收益。<span class="hi">AlphaEvolve 能进化整个代码文件（数百行、多函数、多语言），只需数千次调用，且越强的模型效果越好</span>。这使得 AlphaEvolve 能处理真实世界的复杂工程问题，而不仅仅是数学小品。</p>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== S3: ALPHAEVOLVE METHOD ========== -->
+<section id="method">
+  <div class="wrap">
+    <h2>AlphaEvolve 怎么做的？</h2>
+    <p>AlphaEvolve 的核心是一个<strong>进化循环</strong>：LLM 提出代码改动 &rarr; 自动评估器打分 &rarr; 好的方案存入数据库 &rarr; 从数据库采样组装下一轮 prompt &rarr; 重复。先看论文原图，再逐步拆解：</p>
+
+    <!-- Figure 1 -->
+    <figure class="paper-fig">
+      <img src="https://ar5iv.labs.arxiv.org/html/2506.13131/assets/x1.png" alt="AlphaEvolve overview" loading="lazy">
+      <figcaption>论文 Figure 1：AlphaEvolve 整体架构。用户提供初始代码（标注可进化区域）+ 评估函数，系统进入自动进化循环。</figcaption>
+    </figure>
+
+    <!-- Detailed Flowchart SVG -->
+    <h3 style="margin-top:28px">流程图拆解</h3>
+    <div style="overflow-x:auto;margin:16px 0;display:flex;justify-content:center">
+      <svg viewBox="0 0 620 980" xmlns="http://www.w3.org/2000/svg" style="max-width:780px;width:100%;height:auto;font-family:Inter,'Noto Sans SC',sans-serif">
+        <defs>
+          <marker id="ah" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#b85a1f"/></marker>
+          <marker id="ah-g" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#5a8a3c"/></marker>
+          <marker id="ah-r" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto"><path d="M0,0 L8,3 L0,6" fill="#b03a2a"/></marker>
+          <filter id="sh"><feDropShadow dx="0" dy="1" stdDeviation="2" flood-opacity=".08"/></filter>
+        </defs>
+
+        <!-- 0. User Input -->
+        <rect x="140" y="10" width="340" height="50" rx="8" fill="#f0e8d8" stroke="#ddd0bb" stroke-width="1.2" filter="url(#sh)"/>
+        <text x="310" y="30" text-anchor="middle" font-size="12" font-weight="700" fill="#2c2416">用户输入</text>
+        <text x="310" y="47" text-anchor="middle" font-size="10" fill="#8a7d6a">初始代码（标注 EVOLVE-BLOCK）+ evaluate() + 配置</text>
+        <line x1="310" y1="60" x2="310" y2="90" stroke="#b85a1f" stroke-width="1.5" marker-end="url(#ah)"/>
+
+        <!-- 1. Prompt Sampler -->
+        <rect x="120" y="94" width="380" height="96" rx="10" fill="#fffbf2" stroke="#b85a1f" stroke-width="1.5" filter="url(#sh)"/>
+        <text x="310" y="114" text-anchor="middle" font-size="13" font-weight="700" fill="#b85a1f">&#9312; Prompt 采样器</text>
+        <text x="140" y="134" font-size="9.5" fill="#5a4d3a">&#8226; 从数据库挑选高分程序（多个，展示不同优势）</text>
+        <text x="140" y="150" font-size="9.5" fill="#5a4d3a">&#8226; 拼入问题描述、评估反馈、文献上下文</text>
+        <text x="140" y="166" font-size="9.5" fill="#5a4d3a">&#8226; 可选：随机化模板 + meta prompt（自进化的提示词）</text>
+        <text x="140" y="182" font-size="9.5" fill="#5a4d3a">&#8226; 组装完整 prompt：「这几个方案不错，你能改进吗？」</text>
+        <line x1="310" y1="190" x2="310" y2="220" stroke="#b85a1f" stroke-width="1.5" marker-end="url(#ah)"/>
+
+        <!-- 2. LLM Generation -->
+        <rect x="120" y="224" width="380" height="84" rx="10" fill="#fffbf2" stroke="#b85a1f" stroke-width="1.5" filter="url(#sh)"/>
+        <text x="310" y="244" text-anchor="middle" font-size="13" font-weight="700" fill="#b85a1f">&#9313; LLM 生成代码改动</text>
+        <rect x="140" y="256" width="155" height="38" rx="6" fill="rgba(184,90,31,.08)" stroke="rgba(184,90,31,.25)" stroke-width="1"/>
+        <text x="217" y="273" text-anchor="middle" font-size="10" font-weight="600" fill="#b85a1f">Gemini Flash</text>
+        <text x="217" y="287" text-anchor="middle" font-size="8.5" fill="#8a7d6a">高吞吐 &middot; 探索广度</text>
+        <rect x="325" y="256" width="155" height="38" rx="6" fill="rgba(184,90,31,.08)" stroke="rgba(184,90,31,.25)" stroke-width="1"/>
+        <text x="402" y="273" text-anchor="middle" font-size="10" font-weight="600" fill="#b85a1f">Gemini Pro</text>
+        <text x="402" y="287" text-anchor="middle" font-size="8.5" fill="#8a7d6a">高质量 &middot; 探索深度</text>
+        <line x1="310" y1="308" x2="310" y2="338" stroke="#b85a1f" stroke-width="1.5" marker-end="url(#ah)"/>
+
+        <!-- 3. Apply Diffs -->
+        <rect x="170" y="342" width="280" height="42" rx="8" fill="#fffbf2" stroke="#ddd0bb" stroke-width="1.2" filter="url(#sh)"/>
+        <text x="310" y="361" text-anchor="middle" font-size="11.5" font-weight="600" fill="#2c2416">&#9314; 应用 SEARCH/REPLACE diff</text>
+        <text x="310" y="377" text-anchor="middle" font-size="9.5" fill="#8a7d6a">diff 补丁 &rarr; 新候选程序</text>
+        <line x1="310" y1="384" x2="310" y2="414" stroke="#b85a1f" stroke-width="1.5" marker-end="url(#ah)"/>
+
+        <!-- 4. Evaluation Cascade -->
+        <rect x="100" y="418" width="420" height="170" rx="10" fill="#fffbf2" stroke="#5a8a3c" stroke-width="1.5" filter="url(#sh)"/>
+        <text x="310" y="438" text-anchor="middle" font-size="13" font-weight="700" fill="#5a8a3c">&#9315; 自动评估（级联）</text>
+
+        <rect x="130" y="452" width="155" height="32" rx="6" fill="rgba(90,138,60,.08)" stroke="rgba(90,138,60,.25)" stroke-width="1"/>
+        <text x="207" y="466" text-anchor="middle" font-size="9" font-weight="600" fill="#5a8a3c">快速检查</text>
+        <text x="207" y="479" text-anchor="middle" font-size="7.5" fill="#8a7d6a">能跑吗？语法错误？</text>
+        <line x1="285" y1="468" x2="315" y2="468" stroke="#5a8a3c" stroke-width="1" marker-end="url(#ah-g)"/>
+        <polygon points="345,454 375,468 345,482 315,468" fill="#fffbf2" stroke="#5a8a3c" stroke-width="1.2"/>
+        <text x="345" y="471" text-anchor="middle" font-size="7" font-weight="600" fill="#5a8a3c">pass?</text>
+        <line x1="375" y1="468" x2="415" y2="468" stroke="#b03a2a" stroke-width="1" marker-end="url(#ah-r)"/>
+        <text x="430" y="464" font-size="7.5" fill="#b03a2a">&#10008; 丢弃</text>
+        <text x="430" y="476" font-size="7" fill="#8a7d6a">节省算力</text>
+        <line x1="345" y1="482" x2="345" y2="490" stroke="#5a8a3c" stroke-width="1"/>
+
+        <rect x="130" y="490" width="155" height="32" rx="6" fill="rgba(90,138,60,.08)" stroke="rgba(90,138,60,.25)" stroke-width="1"/>
+        <text x="207" y="504" text-anchor="middle" font-size="9" font-weight="600" fill="#5a8a3c">小规模评估</text>
+        <text x="207" y="517" text-anchor="middle" font-size="7.5" fill="#8a7d6a">少量测试 + 少量种子</text>
+        <line x1="285" y1="506" x2="315" y2="506" stroke="#5a8a3c" stroke-width="1" marker-end="url(#ah-g)"/>
+        <polygon points="345,492 375,506 345,520 315,506" fill="#fffbf2" stroke="#5a8a3c" stroke-width="1.2"/>
+        <text x="345" y="509" text-anchor="middle" font-size="7" font-weight="600" fill="#5a8a3c">pass?</text>
+        <line x1="375" y1="506" x2="415" y2="506" stroke="#b03a2a" stroke-width="1" marker-end="url(#ah-r)"/>
+        <text x="430" y="510" font-size="7.5" fill="#b03a2a">&#10008; 丢弃</text>
+        <line x1="345" y1="520" x2="345" y2="530" stroke="#5a8a3c" stroke-width="1"/>
+
+        <rect x="130" y="530" width="155" height="42" rx="6" fill="rgba(90,138,60,.12)" stroke="#5a8a3c" stroke-width="1.2"/>
+        <text x="207" y="546" text-anchor="middle" font-size="9" font-weight="600" fill="#5a8a3c">完整评估</text>
+        <text x="207" y="559" text-anchor="middle" font-size="7.5" fill="#8a7d6a">全量测试 &middot; 并行加速器</text>
+        <text x="207" y="569" text-anchor="middle" font-size="7.5" fill="#8a7d6a">可选：LLM 评审质量</text>
+        <line x1="285" y1="551" x2="335" y2="551" stroke="#5a8a3c" stroke-width="1"/>
+        <rect x="335" y="538" width="145" height="28" rx="5" fill="rgba(90,138,60,.08)" stroke="rgba(90,138,60,.2)" stroke-width="1"/>
+        <text x="407" y="551" text-anchor="middle" font-size="8" fill="#5a4d3a">{score1: 0.87, score2: 0.62}</text>
+        <text x="407" y="562" text-anchor="middle" font-size="7.5" fill="#8a7d6a">多指标联合评估</text>
+
+        <line x1="310" y1="588" x2="310" y2="618" stroke="#b85a1f" stroke-width="1.5" marker-end="url(#ah)"/>
+
+        <!-- 5. Decision -->
+        <polygon points="310,622 376,652 310,682 244,652" fill="#fffbf2" stroke="#b85a1f" stroke-width="1.5" filter="url(#sh)"/>
+        <text x="310" y="648" text-anchor="middle" font-size="10" font-weight="600" fill="#b85a1f">得分足够好？</text>
+        <text x="310" y="662" text-anchor="middle" font-size="8.5" fill="#8a7d6a">优于数据库现有？</text>
+        <line x1="376" y1="652" x2="432" y2="652" stroke="#b03a2a" stroke-width="1.2" marker-end="url(#ah-r)"/>
+        <text x="450" y="648" font-size="9" font-weight="600" fill="#b03a2a">否</text>
+        <text x="450" y="662" font-size="8" fill="#8a7d6a">丢弃，回 &#9312;</text>
+        <line x1="310" y1="682" x2="310" y2="712" stroke="#5a8a3c" stroke-width="1.5" marker-end="url(#ah-g)"/>
+        <text x="322" y="702" font-size="9" font-weight="600" fill="#5a8a3c">是</text>
+
+        <!-- 6. Database -->
+        <rect x="130" y="716" width="360" height="86" rx="10" fill="#fffbf2" stroke="var(--purple)" stroke-width="1.5" filter="url(#sh)"/>
+        <text x="310" y="736" text-anchor="middle" font-size="13" font-weight="700" fill="var(--purple)">&#9316; 进化数据库</text>
+        <text x="150" y="756" font-size="9.5" fill="#5a4d3a">&#8226; 注册新方案及其得分（MAP-Elites + 岛模型）</text>
+        <text x="150" y="772" font-size="9.5" fill="#5a4d3a">&#8226; 每个「生态位」保留多样性最优解（探索）</text>
+        <text x="150" y="788" font-size="9.5" fill="#5a4d3a">&#8226; 高分方案被更频繁采样到下一轮 prompt（利用）</text>
+
+        <!-- Loop-back -->
+        <line x1="130" y1="759" x2="70" y2="759" stroke="var(--purple)" stroke-width="1.5"/>
+        <line x1="70" y1="759" x2="70" y2="142" stroke="var(--purple)" stroke-width="1.5" stroke-dasharray="6 4"/>
+        <line x1="70" y1="142" x2="116" y2="142" stroke="var(--purple)" stroke-width="1.5" marker-end="url(#ah)"/>
+        <text x="56" y="450" text-anchor="middle" font-size="10" font-weight="600" fill="var(--purple)" transform="rotate(-90,56,450)">循环：重复数千轮</text>
+
+        <!-- Output -->
+        <line x1="310" y1="802" x2="310" y2="832" stroke="#b85a1f" stroke-width="1.5" marker-end="url(#ah)"/>
+        <rect x="165" y="836" width="290" height="40" rx="20" fill="#b85a1f" filter="url(#sh)"/>
+        <text x="310" y="855" text-anchor="middle" font-size="11.5" font-weight="700" fill="#fff">输出：进化后的最优程序</text>
+        <text x="310" y="870" text-anchor="middle" font-size="8.5" fill="rgba(255,255,255,.8)">经自动评估验证的可部署代码</text>
+
+        <!-- Legend -->
+        <rect x="145" y="895" width="330" height="44" rx="6" fill="#f0e8d8"/>
+        <circle cx="170" cy="910" r="4.5" fill="#b85a1f"/><text x="182" y="913" font-size="8" fill="#5a4d3a">LLM 步骤</text>
+        <circle cx="260" cy="910" r="4.5" fill="#5a8a3c"/><text x="272" y="913" font-size="8" fill="#5a4d3a">评估步骤</text>
+        <circle cx="350" cy="910" r="4.5" fill="var(--purple)"/><text x="362" y="913" font-size="8" fill="#5a4d3a">进化数据库</text>
+        <rect x="162" y="924" width="7" height="7" rx="1" fill="none" stroke="#b03a2a" stroke-width="1"/><text x="176" y="931" font-size="8" fill="#5a4d3a">不合格方案提前过滤</text>
+        <line x1="300" y1="928" x2="326" y2="928" stroke="var(--purple)" stroke-width="1" stroke-dasharray="4 3"/><text x="334" y="931" font-size="8" fill="#5a4d3a">进化循环回路</text>
+      </svg>
+    </div>
+
+    <!-- Key mechanism: diff format -->
+    <h3>关键机制：Prompt 是怎么拼出来的？</h3>
+    <p>下面用论文 Figure 3 中的图像分类任务作为具体例子，展示 prompt 的完整拼接过程和 LLM 的输出：</p>
+
+    <div class="case" onclick="toggleCase(this)" style="margin-top:16px">
+      <div class="case-head">
+        <span class="case-icon">&#128209;</span>
+        <div class="case-info">
+          <div class="case-title">真实示例：给 LLM 看的完整 Prompt（论文 Figure 3b）</div>
+          <div class="case-ctx">以图像分类任务为例，展开看 prompt 的四个拼接部分</div>
+        </div>
+        <span class="case-arrow">&#9660;</span>
+      </div>
+      <div class="case-detail"><div class="case-inner">
+        <h4>Part 1：系统指令</h4>
+        <div class="diff-box" style="margin:8px 0 14px">
+<span class="ctx">Act as an expert software developer.</span>
+<span class="ctx">Your task is to iteratively improve the</span>
+<span class="ctx">provided codebase. [...]</span>
+        </div>
+
+        <h4>Part 2：历史高分程序（从数据库采样）</h4>
+        <div class="diff-box" style="margin:8px 0 14px">
+<span class="cmt">- Prior programs</span>
+<span class="cmt">Previously we found that the following</span>
+<span class="cmt">programs performed well on the task:</span>
+<br>
+<span class="ctx">top_1_acc: <span class="add">0.796</span>; neg_eval_log_loss: <span class="add">0.230</span></span>
+<span class="ctx">average_score: <span class="add">0.513</span></span>
+<br>
+<span class="ctx">class ConvNet(hk.Module):</span>
+<span class="ctx">  def __init__(self, num_channels=32, ...):</span>
+<span class="ctx">    self._conv1 = hk.Conv2D(num_channels, 3)</span>
+<span class="ctx">    self._conv2 = hk.Conv2D(num_channels*2, 3)</span>
+<span class="ctx">    self._conv3 = hk.Conv2D(num_channels*4, 3)</span>
+<span class="ctx">    [...]</span>
+        </div>
+        <p style="font-size:.82rem;color:var(--text-3)">告诉 LLM：「之前有人用这个简单 CNN，准确率 79.6%」</p>
+
+        <h4>Part 3：当前待改进程序（数据库中更高分的版本）</h4>
+        <div class="diff-box" style="margin:8px 0 14px">
+<span class="cmt">- Current program</span>
+<span class="cmt">Here is the current program we are trying</span>
+<span class="cmt">to improve (you will need to propose a</span>
+<span class="cmt">modification to it below).</span>
+<br>
+<span class="ctx">top_1_acc: <span class="add">0.862</span>; neg_eval_log_loss: <span class="add">0.387</span></span>
+<span class="ctx">average_score: <span class="add">0.624</span></span>
+<br>
+<span class="ctx">class ConvNet(hk.Module):</span>
+<span class="ctx">  def __init__(self, ...):</span>
+<span class="ctx">    self._conv1 = hk.Conv2D(num_channels, 3)</span>
+<span class="ctx">    self._block1 = ResNetBlock(num_channels)</span>
+<span class="ctx">    self._block2 = ResNetBlock(num_channels*2, stride=2)</span>
+<span class="ctx">    self._block3 = ResNetBlock(num_channels*4, stride=2)</span>
+<span class="ctx">    [...]</span>
+        </div>
+        <p style="font-size:.82rem;color:var(--text-3)">告诉 LLM：「有人后来改成了 ResNet，准确率提到了 86.2%，你在这个基础上继续改」</p>
+
+        <h4>Part 4：任务指令 + diff 格式要求</h4>
+        <div class="diff-box" style="margin:8px 0 14px">
+<span class="cmt">SEARCH/REPLACE block rules: [...]</span>
+<br>
+<span class="ctx">Task: Suggest a new idea to improve the</span>
+<span class="ctx">code that is inspired by your expert</span>
+<span class="ctx">knowledge of optimization and ML.</span>
+<span class="ctx">Describe each change with a SEARCH/REPLACE block.</span>
+        </div>
+      </div></div>
+    </div>
+
+    <div class="case" onclick="toggleCase(this)">
+      <div class="case-head">
+        <span class="case-icon">&#128295;</span>
+        <div class="case-info">
+          <div class="case-title">LLM 的输出：代码 diff（论文 Figure 3c）</div>
+          <div class="case-ctx">LLM 先给出改动理由，然后输出精准的 SEARCH/REPLACE 补丁</div>
+        </div>
+        <span class="case-arrow">&#9660;</span>
+      </div>
+      <div class="case-detail"><div class="case-inner">
+        <h4>LLM 的思考</h4>
+        <div class="diff-box" style="margin:8px 0 14px">
+<span class="cmt">The current model uses a simple ResNet with</span>
+<span class="cmt">only three blocks. We can improve by:</span>
+<span class="cmt">1) increasing model capacity (more blocks)</span>
+<span class="cmt">2) adding regularization (weight decay)</span>
+<span class="cmt">3) switching to AdamW optimizer</span>
+        </div>
+
+        <h4>LLM 输出的 diff 补丁</h4>
+        <div class="diff-box" style="margin:8px 0 14px">
+<span class="ctx"><<<<<<< SEARCH</span>
+<span class="rm">self._block1 = ResNetBlock(num_channels)</span>
+<span class="rm">self._block2 = ResNetBlock(num_channels*2, stride=2)</span>
+<span class="rm">self._block3 = ResNetBlock(num_channels*4, stride=2)</span>
+<span class="ctx">=======</span>
+<span class="add">self._block1 = ResNetBlock(num_channels)</span>
+<span class="add">self._block2 = ResNetBlock(num_channels, stride=1)</span>
+<span class="add">self._block3 = ResNetBlock(num_channels*2, stride=2)</span>
+<span class="add">self._block4 = ResNetBlock(num_channels*2, stride=1)</span>
+<span class="add">self._block5 = ResNetBlock(num_channels*4, stride=2)</span>
+<span class="add">self._block6 = ResNetBlock(num_channels*4, stride=1)</span>
+<span class="ctx">>>>>>>> REPLACE</span>
+<br>
+<span class="ctx"><<<<<<< SEARCH</span>
+<span class="rm">def optimizer(self, learning_rate):</span>
+<span class="rm">    return optax.adam(learning_rate)</span>
+<span class="ctx">=======</span>
+<span class="add">def optimizer(self, learning_rate):</span>
+<span class="add">    return optax.adamw(learning_rate, weight_decay=1e-4)</span>
+<span class="ctx">>>>>>>> REPLACE</span>
+        </div>
+        <p style="font-size:.82rem;color:var(--text-3)">这段 diff 会被自动应用到 Part 3 的当前程序上，生成一个新的候选程序，然后送去评估。如果评分比 0.624 高，就会被存入数据库，成为下一轮 prompt 中的「当前程序」。</p>
+      </div></div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ========== S4: INTERESTING INSIGHTS ========== -->
+<section id="insights">
+  <div class="wrap">
+    <h2>三个有趣的设计</h2>
+    <p>除了核心进化循环之外，论文中有几个设计选择特别值得关注：</p>
+
+    <!-- Insight 1: Abstraction levels -->
+    <div class="case" onclick="toggleCase(this)">
+      <div class="case-head">
+        <span class="case-icon">&#127922;</span>
+        <div class="case-info">
+          <div class="case-title">进化什么？抽象层次的选择</div>
+          <div class="case-ctx">同一个问题可以用完全不同的方式攻克——选错了抽象层次，效果天差地别</div>
+        </div>
+        <span class="case-arrow">&#9660;</span>
+      </div>
+      <div class="case-detail"><div class="case-inner">
+        <p>AlphaEvolve 面对同一个问题（比如「找到一个满足某性质的数学对象」），可以选择三种截然不同的进化策略：</p>
+        <svg viewBox="0 0 680 150" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:100%;height:auto;margin:12px auto;display:block;font-family:var(--sans)">
+          <rect x="0" y="0" width="210" height="140" rx="8" fill="#fffbf2" stroke="#ddd0bb"/>
+          <text x="105" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#2c2416">A. 直接进化解</text>
+          <text x="105" y="44" text-anchor="middle" font-size="11" fill="#8a7d6a">进化原始数据表示</text>
+          <rect x="16" y="56" width="178" height="26" rx="4" fill="var(--accent-soft)"/>
+          <text x="105" y="74" text-anchor="middle" font-family="JetBrains Mono" font-size="10.5" fill="#b85a1f">[0, 1, 1, 0, 1, 0, ...]</text>
+          <text x="105" y="100" text-anchor="middle" font-size="10" fill="#8a7d6a">像经典遗传算法</text>
+          <text x="105" y="118" text-anchor="middle" font-size="10" fill="#5a8a3c">适合：小规模问题</text>
+          <text x="105" y="134" text-anchor="middle" font-size="10" fill="#b03a2a">困难：搜索空间爆炸</text>
+
+          <rect x="235" y="0" width="210" height="140" rx="8" fill="#fffbf2" stroke="#ddd0bb"/>
+          <text x="340" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#2c2416">B. 进化构造函数</text>
+          <text x="340" y="44" text-anchor="middle" font-size="11" fill="#8a7d6a">进化一个生成解的函数</text>
+          <rect x="251" y="56" width="178" height="26" rx="4" fill="var(--accent-soft)"/>
+          <text x="340" y="74" text-anchor="middle" font-family="JetBrains Mono" font-size="10.5" fill="#b85a1f">def build(): ...</text>
+          <text x="340" y="100" text-anchor="middle" font-size="10" fill="#8a7d6a">FunSearch 的策略</text>
+          <text x="340" y="118" text-anchor="middle" font-size="10" fill="#5a8a3c">适合：高度对称的解</text>
+          <text x="340" y="134" text-anchor="middle" font-size="10" fill="#b03a2a">困难：非对称解难表达</text>
+
+          <rect x="470" y="0" width="210" height="140" rx="8" fill="#fffbf2" stroke="#b85a1f" stroke-width="1.5"/>
+          <text x="575" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#b85a1f">C. 进化搜索算法</text>
+          <text x="575" y="44" text-anchor="middle" font-size="11" fill="#8a7d6a">进化一个找解的程序</text>
+          <rect x="486" y="56" width="178" height="26" rx="4" fill="var(--accent-soft)"/>
+          <text x="575" y="74" text-anchor="middle" font-family="JetBrains Mono" font-size="10.5" fill="#b85a1f">def search(): ...</text>
+          <text x="575" y="100" text-anchor="middle" font-size="10" fill="#8a7d6a">AlphaEvolve 最强策略</text>
+          <text x="575" y="118" text-anchor="middle" font-size="10" fill="#5a8a3c">适合：复杂、非对称问题</text>
+          <text x="575" y="134" text-anchor="middle" font-size="10" fill="#5a8a3c">可自适应多阶段搜索</text>
+        </svg>
+        <p>在数学发现实验中，策略 C（进化搜索算法）被证明是最强的——AlphaEvolve 会自动发现多阶段搜索策略：早期启发式擅长快速大幅改进，后期启发式擅长精细调优。这种自动发现的多阶段策略人类很难手工设计。</p>
+      </div></div>
+    </div>
+
+    <!-- Insight 2: Meta Prompt -->
+    <div class="case" onclick="toggleCase(this)">
+      <div class="case-head">
+        <span class="case-icon">&#128161;</span>
+        <div class="case-info">
+          <div class="case-title">Meta Prompt 自进化：LLM 自己改进给自己的提示词</div>
+          <div class="case-ctx">不只进化代码，连「怎么提要求」都在进化</div>
+        </div>
+        <span class="case-arrow">&#9660;</span>
+      </div>
+      <div class="case-detail"><div class="case-inner">
+        <p>AlphaEvolve 有两条并行的进化链：</p>
+        <svg viewBox="0 0 540 120" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:100%;height:auto;margin:12px auto;display:block;font-family:var(--sans)">
+          <defs><marker id="am" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#b85a1f"/></marker></defs>
+          <rect x="0" y="4" width="116" height="38" rx="7" fill="var(--accent-soft)" stroke="rgba(184,90,31,.3)"/>
+          <text x="58" y="28" text-anchor="middle" font-size="12" font-weight="600" fill="#b85a1f">代码数据库</text>
+          <line x1="116" y1="23" x2="148" y2="23" stroke="#b85a1f" stroke-width="1.5" marker-end="url(#am)"/>
+          <rect x="152" y="4" width="90" height="38" rx="7" fill="#fffbf2" stroke="#ddd0bb"/>
+          <text x="197" y="28" text-anchor="middle" font-size="12" fill="#2c2416">组装</text>
+          <line x1="242" y1="23" x2="274" y2="23" stroke="#b85a1f" stroke-width="1.5" marker-end="url(#am)"/>
+          <rect x="278" y="4" width="90" height="38" rx="7" fill="var(--accent-soft)" stroke="rgba(184,90,31,.3)"/>
+          <text x="323" y="28" text-anchor="middle" font-size="13" font-weight="600" fill="#b85a1f">LLM</text>
+          <line x1="368" y1="23" x2="400" y2="23" stroke="#b85a1f" stroke-width="1.5" marker-end="url(#am)"/>
+          <rect x="404" y="4" width="130" height="38" rx="7" fill="var(--green-soft)" stroke="rgba(90,138,60,.3)"/>
+          <text x="469" y="20" text-anchor="middle" font-size="11" fill="#5a8a3c">新代码</text>
+          <text x="469" y="36" text-anchor="middle" font-size="11" fill="#5a8a3c">&rarr; 评估 &rarr; 回库</text>
+
+          <rect x="0" y="62" width="116" height="38" rx="7" fill="rgba(107,92,154,.1)" stroke="rgba(107,92,154,.3)"/>
+          <text x="58" y="79" text-anchor="middle" font-size="11" font-weight="600" fill="var(--purple)">Prompt 数据库</text>
+          <text x="58" y="94" text-anchor="middle" font-size="10" fill="#8a7d6a">（独立进化）</text>
+          <line x1="116" y1="81" x2="152" y2="42" stroke="var(--purple)" stroke-width="1.2" stroke-dasharray="5 3" marker-end="url(#am)"/>
+
+          <text x="270" y="112" text-anchor="middle" font-size="11" fill="var(--purple)">Prompt 也在进化：LLM 提出更好的提示词 &rarr; 存入 Prompt 数据库 &rarr; 下一轮使用</text>
+        </svg>
+        <p>代码数据库存储进化中的代码版本，Prompt 数据库存储进化中的提示策略——两者共同进化。这意味着 AlphaEvolve 不仅学会了写更好的代码，还学会了「怎么提更好的要求」，可以超越人类 prompt 工程师的能力。</p>
+      </div></div>
+    </div>
+
+    <!-- Insight 3: Self-improvement -->
+    <div class="case" onclick="toggleCase(this)">
+      <div class="case-head">
+        <span class="case-icon">&#128260;</span>
+        <div class="case-info">
+          <div class="case-title">自我改进循环：AI 优化训练自己的基础设施</div>
+          <div class="case-ctx">Gemini 通过 AlphaEvolve 加速了自己的训练、改进了自己运行的芯片</div>
+        </div>
+        <span class="case-arrow">&#9660;</span>
+      </div>
+      <div class="case-detail"><div class="case-inner">
+        <p>论文中最引人注目的发现之一：AlphaEvolve 的工程成果形成了一个自我改进的正向飞轮：</p>
+        <svg viewBox="0 0 460 240" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:100%;height:auto;margin:12px auto;display:block;font-family:var(--sans)">
+          <defs><marker id="ac" markerWidth="7" markerHeight="5" refX="7" refY="2.5" orient="auto"><path d="M0,0 L7,2.5 L0,5" fill="#b85a1f"/></marker></defs>
+          <rect x="135" y="4" width="190" height="44" rx="9" fill="var(--accent-soft)" stroke="#b85a1f" stroke-width="1.5"/>
+          <text x="230" y="31" text-anchor="middle" font-size="14" font-weight="700" fill="#b85a1f">AlphaEvolve</text>
+
+          <rect x="296" y="86" width="160" height="56" rx="9" fill="#fffbf2" stroke="#ddd0bb"/>
+          <text x="376" y="108" text-anchor="middle" font-size="12" font-weight="600" fill="#2c2416">优化 Gemini 内核</text>
+          <text x="376" y="124" text-anchor="middle" font-size="11" fill="#5a8a3c">+23% 内核速度</text>
+          <text x="376" y="138" text-anchor="middle" font-size="11" fill="#5a8a3c">+1% 训练速度</text>
+
+          <rect x="276" y="170" width="180" height="44" rx="9" fill="#fffbf2" stroke="#ddd0bb"/>
+          <text x="366" y="190" text-anchor="middle" font-size="12" font-weight="600" fill="#2c2416">优化 TPU 电路设计</text>
+          <text x="366" y="207" text-anchor="middle" font-size="11" fill="#5a8a3c">下一代硬件更快</text>
+
+          <rect x="4" y="86" width="160" height="56" rx="9" fill="#fffbf2" stroke="#ddd0bb"/>
+          <text x="84" y="108" text-anchor="middle" font-size="12" font-weight="600" fill="#2c2416">更强的 Gemini</text>
+          <text x="84" y="124" text-anchor="middle" font-size="11" fill="#8a7d6a">= AlphaEvolve 的</text>
+          <text x="84" y="138" text-anchor="middle" font-size="11" fill="#8a7d6a">基础模型更强</text>
+
+          <rect x="4" y="170" width="160" height="44" rx="9" fill="var(--accent-soft)" stroke="#b85a1f" stroke-width="1.5"/>
+          <text x="84" y="197" text-anchor="middle" font-size="13" font-weight="700" fill="#b85a1f">下一代 AlphaEvolve</text>
+
+          <path d="M310,48 L350,84" fill="none" stroke="#b85a1f" stroke-width="1.5" marker-end="url(#ac)"/>
+          <path d="M376,142 L366,168" fill="none" stroke="#8a7d6a" stroke-width="1.2" stroke-dasharray="5 3"/>
+          <path d="M296,114 L164,114" fill="none" stroke="#b85a1f" stroke-width="1.5" marker-end="url(#ac)"/>
+          <path d="M84,142 L84,168" fill="none" stroke="#b85a1f" stroke-width="1.5" marker-end="url(#ac)"/>
+          <path d="M150,48 L100,84" fill="none" stroke="#8a7d6a" stroke-width="1.2" stroke-dasharray="5 3"/>
+        </svg>
+        <p>目前自我改进的反馈周期还以月为单位，但方向清晰：随着基础模型变强、硬件变快，AlphaEvolve 能发现更好的优化 → 基础设施更强 → 下一代 AlphaEvolve 更强。论文将此称为 AI 发现的「正向飞轮」。</p>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<!-- ========== S5: RESULTS (brief) ========== -->
+<section id="results">
+  <div class="wrap">
+    <h2>实验结果速览</h2>
+    <p>以下是关键数字——感兴趣的读者可以看<a href="https://arxiv.org/abs/2506.13131" target="_blank">原文</a>的完整数据表和消融实验：</p>
+    <div class="mstrip">
+      <div class="mcard"><div class="num">48</div><div class="unit">次标量乘法</div><div class="desc">4&times;4 复数矩阵乘法<br>56 年来首次突破 Strassen</div></div>
+      <div class="mcard"><div class="num">0.7%</div><div class="unit">全局算力节省</div><div class="desc">Google 数据中心<br>Borg 调度优化</div></div>
+      <div class="mcard"><div class="num">23%</div><div class="unit">内核加速</div><div class="desc">Gemini 训练内核<br>优化周期从数月到数天</div></div>
+      <div class="mcard"><div class="num">32%</div><div class="unit">FlashAttention 加速</div><div class="desc">直接优化编译器 IR<br>前后处理加速 15%</div></div>
+    </div>
+    <p style="font-size:.88rem;color:var(--text-2)">数学方面：在 50+ 个开放问题中，约 75% 匹配已知最优，约 20% 发现了新的更优构造（包括 Kissing Number、Erdos 最小重叠等经典问题）。所有结果均经过自动验证，数学结果可在 <a href="https://colab.research.google.com/github/google-deepmind/alphaevolve_results/blob/master/mathematical_results.ipynb" target="_blank">Google Colab</a> 中复现。</p>
+
+    <figure class="paper-fig">
+      <img src="https://ar5iv.labs.arxiv.org/html/2506.13131/assets/x4.png" alt="Math discoveries" loading="lazy">
+      <figcaption>论文 Figure 5：AlphaEvolve 在多个数学分支中发现的突破性构造可视化。</figcaption>
+    </figure>
+
+    <div class="paper-fig-row">
+      <img src="https://ar5iv.labs.arxiv.org/html/2506.13131/assets/x7.png" alt="Ablation: tensor" loading="lazy">
+      <img src="https://ar5iv.labs.arxiv.org/html/2506.13131/assets/x8.png" alt="Ablation: kissing" loading="lazy">
+    </div>
+    <p style="font-size:.78rem;color:var(--text-3);text-align:center;max-width:600px;margin:0 auto">论文 Figure 8：消融实验。去掉进化机制损失最大（说明核心价值不只是「让 LLM 多试几次」），去掉 prompt 上下文次之。完整系统（蓝线）始终领先。</p>
+  </div>
+</section>
+
+<!-- ========== S6: LIMITATIONS ========== -->
+<section id="limits">
+  <div class="wrap">
+    <h2>局限与展望</h2>
+    <div class="pc-grid">
+      <div class="pc-box pro">
+        <h3>能做的</h3>
+        <ul>
+          <li>任何有自动评估指标的问题</li>
+          <li>数学、算法、系统优化、编译器、硬件设计</li>
+          <li>所有产出可验证、可部署、可审计</li>
+          <li>代码形式输出，可解释可调试</li>
+          <li>能优化自身基础设施（自我改进）</li>
+        </ul>
+      </div>
+      <div class="pc-box con">
+        <h3>做不了的</h3>
+        <ul>
+          <li>需要实物实验的自然科学</li>
+          <li>没有自动评估指标的主观任务</li>
+          <li>超大规模矩阵（超过 5&times;5&times;5 内存不足）</li>
+          <li>自我改进周期仍以月为单位</li>
+          <li>LLM 辅助评估尚未充分利用</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout" style="margin-top:20px">
+      <strong>更深层的意义：</strong>AlphaEvolve 本质上是一个 test-time compute 放大器——通过进化框架让 LLM 的能力远超重复采样。自然的下一步是将 AlphaEvolve 增强后的性能蒸馏回基础模型，形成正向飞轮。
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="wrap">
+    <p>原文：<a href="https://arxiv.org/abs/2506.13131" target="_blank" rel="noopener">AlphaEvolve: A coding agent for scientific and algorithmic discovery</a></p>
+    <p>Alexander Novikov et al. &middot; Google DeepMind &middot; arXiv:2506.13131 &middot; 2025.06</p>
+    <p style="margin-top:4px">数学结果：<a href="https://colab.research.google.com/github/google-deepmind/alphaevolve_results/blob/master/mathematical_results.ipynb" target="_blank" rel="noopener">Google Colab</a></p>
+  </div>
+</footer>
+
+<script>
+function toggleCase(el){el.classList.toggle('open')}
+document.addEventListener('DOMContentLoaded',function(){
+  var links=document.querySelectorAll('.nav-items a[href^="#"]');
+  var secs=[];
+  links.forEach(function(a){
+    var s=document.getElementById(a.getAttribute('href').slice(1));
+    if(s)secs.push({el:s,link:a});
+  });
+  function mark(){
+    var y=window.scrollY+130,cur=null;
+    secs.forEach(function(s){if(s.el.offsetTop<=y)cur=s});
+    links.forEach(function(a){a.classList.remove('on')});
+    if(cur)cur.link.classList.add('on');
+  }
+  window.addEventListener('scroll',mark,{passive:true});
+  mark();
+  document.querySelectorAll('.paper-fig img, .paper-fig-row img').forEach(function(img){
+    img.onerror=function(){this.style.display='none'};
+  });
+});
+</script>
+</body>
+</html>
