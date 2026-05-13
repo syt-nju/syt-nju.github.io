@@ -899,11 +899,38 @@ footer a:hover { text-decoration: underline; }
       ICRL 是 Skill0 的训练核心：在 rollout 时把技能放进 context 让 Agent 参考，但推理时全部移除。RL 的优化目标直接驱动模型把 context 里的知识编码进参数。
     </p>
 
-    <h3 style="font-size:18px; font-weight:600; margin-bottom:16px;">技能库组织与视觉上下文</h3>
+    <h3 style="font-size:18px; font-weight:600; margin-bottom:16px;">前置：技能分组（Skill Grouping）</h3>
 
     <p>
-      技能被组织成两层：<strong>通用技能</strong>（如「系统性探索」「拿到就行动」）和<strong>任务特定技能</strong>（如「清洁任务要先去水槽」）。每组技能存在一个 Markdown 文件里，按任务类别 + 技能类别归档。
+      在训练开始前，Skill0 先把技能库离线组织好。技能按<strong>任务类型 + 技能类别</strong>分组，每组存成一个 Markdown 文件，形成目录结构：
     </p>
+
+    <div class="code-block">
+skills/
+├── ALFWorld/
+│   ├── general.md          <span class="cm"># 通用策略：系统性探索、拿到就行动…</span>
+│   ├── pick_and_place.md   <span class="cm"># 拿放任务专用</span>
+│   ├── clean.md            <span class="cm"># 清洁任务：先去水槽再放回</span>
+│   ├── heat.md             <span class="cm"># 加热任务：先拿对象再用微波炉</span>
+│   ├── cool.md             <span class="cm"># 冷却任务：先开冰箱</span>
+│   └── look_at_obj_in_light.md
+└── Search/
+    ├── general.md          <span class="cm"># 分解问题再搜索、证据充分才回答</span>
+    ├── direct_retrieval.md <span class="cm"># 直接检索类问题</span>
+    ├── multi_hop_reasoning.md <span class="cm"># 多跳推理</span>
+    ├── entity_attribute_lookup.md
+    └── compare.md          <span class="cm"># 对比类问题</span>
+    </div>
+
+    <p>
+      每个文件里包含若干条结构化的技能规则，格式是「技能名 → 什么时候用 → 具体怎么做」。比如 <code>clean.md</code> 里会写：「Phase-Ordered Plan：执行固定序列 (1) 找到并拿起目标 (2) 去水槽清洗 (3) 导航到目标位置 (4) 放下」。
+    </p>
+
+    <p>
+      这种按文件分组的设计有两个好处：<strong>一是避免了推理时逐条检索的噪声</strong>——不需要语义检索，直接按任务类型选整个文件；<strong>二是动态课程的操作粒度是文件级</strong>，评估帮助性、移除、保留都是以一个 .md 文件为单位，而不是单条技能。ALFWorld 共 6 个文件，Search-QA 共 5 个文件，这就是预算 M 的上界来源。
+    </p>
+
+    <h3 style="font-size:18px; font-weight:600; margin: 28px 0 16px;">视觉上下文渲染</h3>
 
     <p>
       为了压缩 token 开销，Skill0 将交互历史 + 技能文本渲染成一张 RGB 图片，由视觉编码器压缩为 visual embedding。模型甚至能自己决定压缩比例——成功完成任务时，更高的压缩率会获得额外奖励。
