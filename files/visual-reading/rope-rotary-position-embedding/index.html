@@ -1,0 +1,1054 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RoPE：旋转位置编码 · 可视化阅读</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<script>
+window.MathJax = {
+  tex: { inlineMath: [['$','$'], ['\\(','\\)']], displayMath: [['$$','$$'], ['\\[','\\]']] },
+  svg: { fontCache: 'global' }
+};
+</script>
+<script async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+<style>
+:root {
+  --bg: #FBF6EA;
+  --bg-surface: #FFFFFF;
+  --bg-soft: #F5ECD8;
+  --bg-dark: #1A1816;
+  --text: #1A1816;
+  --text-muted: #6B6660;
+  --text-soft: #8C857B;
+  --accent: #C04E2D;
+  --accent-hover: #A8401F;
+  --accent-soft: #F4DCD0;
+  --border: #E8DCC7;
+  --border-strong: #D4C4A6;
+  --shadow-sm: 0 1px 2px rgba(26,24,22,0.04);
+  --shadow-md: 0 4px 14px rgba(26,24,22,0.06);
+  --shadow-lg: 0 16px 40px rgba(26,24,22,0.10);
+  --radius: 10px;
+  --radius-lg: 16px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Inter', 'Noto Sans SC', -apple-system, BlinkMacSystemFont, sans-serif;
+  background: var(--bg); color: var(--text);
+  line-height: 1.72; font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--accent); text-decoration: none; }
+a:hover { color: var(--accent-hover); }
+code, .mono { font-family: 'JetBrains Mono', monospace; }
+
+.container { max-width: 860px; margin: 0 auto; padding: 0 24px; }
+
+/* ---------- Top Bar ---------- */
+.topbar {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(251,246,234,0.82);
+  backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+.topbar-inner {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 24px; max-width: 900px; margin: 0 auto;
+}
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 14px; }
+.brand-logo {
+  width: 26px; height: 26px; border-radius: 6px;
+  background: var(--bg-dark); display: grid; place-items: center;
+  color: var(--accent); font-size: 15px; font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+}
+.topnav { display: flex; gap: 2px; align-items: center; }
+.topnav a {
+  padding: 6px 10px; border-radius: 8px;
+  color: var(--text-muted); font-size: 12.5px; font-weight: 500;
+  transition: color .15s, background .15s;
+}
+.topnav a:hover { color: var(--text); background: var(--accent-soft); }
+.source-link {
+  display: inline-flex; align-items: center; gap: 5px;
+  font-size: 12.5px; color: var(--text-muted);
+  padding: 6px 12px; border-radius: 8px; border: 1px solid var(--border);
+  transition: all .15s; font-weight: 500;
+}
+.source-link:hover { border-color: var(--accent); color: var(--accent); }
+
+/* ---------- Hero ---------- */
+.hero { padding: 64px 0 40px; }
+.hero-label {
+  display: inline-block; font-size: 12px; font-weight: 600;
+  color: var(--accent); background: var(--accent-soft);
+  padding: 4px 12px; border-radius: 20px; margin-bottom: 16px;
+  letter-spacing: .03em; text-transform: uppercase;
+}
+.hero h1 {
+  font-size: clamp(28px, 5vw, 40px); font-weight: 800;
+  line-height: 1.2; letter-spacing: -0.02em; margin-bottom: 12px;
+}
+.hero h1 em { font-style: normal; color: var(--accent); }
+.hero-sub {
+  font-size: 17px; color: var(--text-muted); line-height: 1.6;
+  max-width: 640px; margin-bottom: 24px;
+}
+.hero-meta {
+  display: flex; flex-wrap: wrap; gap: 16px;
+  font-size: 13px; color: var(--text-soft);
+}
+.hero-meta span { display: inline-flex; align-items: center; gap: 5px; }
+
+/* ---------- TL;DR ---------- */
+.tldr {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 28px 32px;
+  margin-bottom: 48px; box-shadow: var(--shadow-sm);
+}
+.tldr-title {
+  font-size: 13px; font-weight: 700; color: var(--accent);
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: 12px;
+}
+.tldr p { font-size: 15.5px; color: var(--text); line-height: 1.7; }
+.tldr ul { margin-top: 12px; padding-left: 20px; }
+.tldr li { font-size: 15px; margin-bottom: 6px; color: var(--text); }
+.tldr li strong { font-weight: 600; }
+
+/* ---------- Sections ---------- */
+.section { margin-bottom: 56px; }
+.section-title {
+  font-size: 24px; font-weight: 700; letter-spacing: -0.015em;
+  margin-bottom: 20px; padding-top: 8px;
+  border-top: 2px solid var(--border); padding-top: 20px;
+}
+.section p { margin-bottom: 16px; font-size: 15.5px; line-height: 1.75; }
+.section p.note {
+  background: var(--bg-soft); border-left: 3px solid var(--border-strong);
+  padding: 14px 18px; border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: 14.5px; color: var(--text-muted);
+}
+
+/* ---------- Comparison Panel ---------- */
+.compare-panel {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 16px;
+  margin: 24px 0;
+}
+.compare-card {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 22px 20px;
+  box-shadow: var(--shadow-sm);
+}
+.compare-card.highlight { border-color: var(--accent); border-width: 2px; }
+.compare-card h4 {
+  font-size: 14px; font-weight: 700; margin-bottom: 10px;
+  display: flex; align-items: center; gap: 8px;
+}
+.compare-card h4 .tag {
+  font-size: 11px; padding: 2px 8px; border-radius: 12px;
+  font-weight: 600;
+}
+.compare-card.highlight h4 .tag { background: var(--accent-soft); color: var(--accent); }
+.compare-card:not(.highlight) h4 .tag { background: var(--bg-soft); color: var(--text-muted); }
+.compare-card p, .compare-card li { font-size: 14px; line-height: 1.65; }
+.compare-card ul { padding-left: 18px; margin-top: 8px; }
+.compare-card li { margin-bottom: 4px; }
+.compare-card .formula {
+  background: var(--bg-soft); padding: 10px 14px;
+  border-radius: 8px; margin-top: 10px; font-size: 14px;
+  overflow-x: auto;
+}
+
+/* ---------- Diagram: Rotation ---------- */
+.rotation-demo {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 28px;
+  margin: 28px 0; box-shadow: var(--shadow-sm);
+  text-align: center;
+}
+.rotation-demo h4 {
+  font-size: 15px; font-weight: 700; margin-bottom: 6px;
+}
+.rotation-demo p.caption {
+  font-size: 13px; color: var(--text-muted); margin-bottom: 16px;
+}
+.rotation-demo canvas {
+  display: block; margin: 0 auto; max-width: 100%;
+}
+.rotation-controls {
+  display: flex; gap: 12px; justify-content: center;
+  align-items: center; margin-top: 16px; flex-wrap: wrap;
+}
+.rotation-controls label {
+  font-size: 13px; font-weight: 500; color: var(--text-muted);
+}
+.rotation-controls input[type="range"] {
+  width: 160px; accent-color: var(--accent);
+}
+.rotation-controls .pos-value {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 14px; font-weight: 600; color: var(--accent);
+  min-width: 36px; text-align: center;
+}
+
+/* ---------- Flow Diagram ---------- */
+.flow-diagram {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 28px;
+  margin: 28px 0; box-shadow: var(--shadow-sm);
+  overflow-x: auto;
+}
+.flow-diagram h4 {
+  font-size: 15px; font-weight: 700; margin-bottom: 16px;
+  text-align: center;
+}
+.flow-row {
+  display: flex; align-items: center; justify-content: center;
+  gap: 0; flex-wrap: nowrap; min-width: 600px;
+  padding: 0 12px;
+}
+.flow-node {
+  background: var(--bg-soft); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px;
+  text-align: center; min-width: 120px; flex-shrink: 0;
+}
+.flow-node.active {
+  background: var(--accent-soft); border-color: var(--accent);
+}
+.flow-node .fn-label {
+  font-size: 11px; font-weight: 600; color: var(--text-soft);
+  text-transform: uppercase; letter-spacing: .04em; margin-bottom: 4px;
+}
+.flow-node .fn-title { font-size: 13.5px; font-weight: 600; }
+.flow-node .fn-desc { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+.flow-arrow {
+  font-size: 18px; color: var(--border-strong); flex-shrink: 0;
+  padding: 0 6px;
+}
+
+/* ---------- Expandable Cards ---------- */
+.expand-group { margin: 24px 0; }
+.expand-card {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius); margin-bottom: 10px;
+  box-shadow: var(--shadow-sm); overflow: hidden;
+}
+.expand-header {
+  padding: 16px 20px; cursor: pointer;
+  display: flex; align-items: center; justify-content: space-between;
+  font-weight: 600; font-size: 15px;
+  transition: background .15s;
+  user-select: none;
+}
+.expand-header:hover { background: var(--bg-soft); }
+.expand-icon {
+  font-size: 18px; color: var(--text-muted);
+  transition: transform .25s ease;
+}
+.expand-card.open .expand-icon { transform: rotate(45deg); }
+.expand-body {
+  max-height: 0; overflow: hidden;
+  transition: max-height .35s ease, padding .25s ease;
+  padding: 0 20px;
+}
+.expand-card.open .expand-body {
+  max-height: 2000px; padding: 0 20px 20px;
+}
+.expand-body p { font-size: 14.5px; margin-bottom: 12px; }
+.expand-body .math-block {
+  background: var(--bg-soft); padding: 14px 18px;
+  border-radius: 8px; margin: 12px 0; overflow-x: auto;
+  font-size: 14px;
+}
+
+/* ---------- Metric Cards ---------- */
+.metrics-row {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 14px; margin: 24px 0;
+}
+.metric-card {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 20px 18px;
+  text-align: center; box-shadow: var(--shadow-sm);
+}
+.metric-card .mv {
+  font-size: 28px; font-weight: 800; color: var(--accent);
+  font-family: 'JetBrains Mono', monospace;
+}
+.metric-card .ml {
+  font-size: 12px; color: var(--text-muted); font-weight: 500;
+  margin-top: 4px;
+}
+.metric-card .md {
+  font-size: 11.5px; color: var(--text-soft); margin-top: 6px;
+  line-height: 1.4;
+}
+
+/* ---------- Table ---------- */
+.data-table-wrap {
+  overflow-x: auto; margin: 20px 0;
+}
+.data-table {
+  width: 100%; border-collapse: collapse;
+  font-size: 14px;
+}
+.data-table th {
+  background: var(--bg-soft); font-weight: 600;
+  text-align: left; padding: 10px 14px;
+  border-bottom: 2px solid var(--border);
+  font-size: 13px; white-space: nowrap;
+}
+.data-table td {
+  padding: 10px 14px; border-bottom: 1px solid var(--border);
+}
+.data-table tr:last-child td { border-bottom: none; }
+.data-table .best { font-weight: 700; color: var(--accent); }
+
+/* ---------- Method Compare Diagram ---------- */
+.method-compare-diagram {
+  background: var(--bg-surface); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: 28px 24px;
+  margin: 24px 0; box-shadow: var(--shadow-sm);
+}
+.method-compare-diagram h4 {
+  font-size: 15px; font-weight: 700; margin-bottom: 18px; text-align: center;
+}
+.method-trio {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
+}
+.method-item {
+  background: var(--bg); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 16px 10px 12px;
+  text-align: center; position: relative;
+}
+.method-item.method-highlight {
+  border-color: var(--accent); border-width: 2px;
+  background: #FFFAF6;
+}
+.method-tag {
+  display: inline-block; font-size: 12px; font-weight: 700;
+  color: var(--text-muted); background: var(--bg-soft);
+  padding: 2px 12px; border-radius: 12px; margin-bottom: 12px;
+}
+.method-tag.accent { color: var(--accent); background: var(--accent-soft); }
+.method-svg { width: 100%; height: auto; max-height: 180px; }
+
+/* ---------- Quote ---------- */
+.quote-block {
+  border-left: 3px solid var(--accent);
+  padding: 16px 20px; margin: 20px 0;
+  background: var(--accent-soft); border-radius: 0 var(--radius) var(--radius) 0;
+}
+.quote-block p { font-size: 15px; font-style: italic; margin: 0; }
+
+/* ---------- Footer ---------- */
+.footer {
+  border-top: 1px solid var(--border);
+  padding: 32px 0; margin-top: 48px;
+  text-align: center; font-size: 13px; color: var(--text-soft);
+}
+.footer a { color: var(--text-muted); }
+
+/* ---------- Responsive ---------- */
+@media (max-width: 880px) {
+  .compare-panel { grid-template-columns: 1fr; }
+  .flow-row { min-width: auto; flex-wrap: wrap; gap: 8px; }
+  .flow-arrow { transform: rotate(90deg); padding: 0; }
+  .topbar-inner { padding: 12px 16px; }
+  .container { padding: 0 16px; }
+  .hero { padding: 48px 0 32px; }
+  .hero h1 { font-size: 26px; }
+  .metrics-row { grid-template-columns: repeat(2, 1fr); }
+  .method-trio { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== Top Bar ===== -->
+<nav class="topbar">
+  <div class="topbar-inner">
+    <div class="brand">
+      <div class="brand-logo">R</div>
+      <span>RoPE 可视化阅读</span>
+    </div>
+    <div class="topnav">
+      <a href="#tldr">TL;DR</a>
+      <a href="#why">为什么需要</a>
+      <a href="#core">核心思想</a>
+      <a href="#general">通用形式</a>
+      <a href="#properties">性质</a>
+      <a href="#experiments">实验</a>
+      <a href="https://arxiv.org/abs/2104.09864" target="_blank" class="source-link">
+        原文 <svg viewBox="0 0 24 24" width="12" height="12" stroke="currentColor" fill="none" stroke-width="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+      </a>
+    </div>
+  </div>
+</nav>
+
+<!-- ===== Hero ===== -->
+<header class="hero">
+  <div class="container">
+    <span class="hero-label">Paper Visual Reading</span>
+    <h1><em>RoPE</em>：用旋转矩阵编码位置</h1>
+    <p class="hero-sub">RoFormer 提出的旋转位置编码（Rotary Position Embedding），用「乘法旋转」取代「加法偏移」，让 Transformer 的注意力内积天然只依赖相对位置差。如今已成为 LLaMA、Qwen 等主流大模型的标配组件。</p>
+    <div class="hero-meta">
+      <span>Jianlin Su 等 · Zhuiyi Technology</span>
+      <span>arXiv: 2104.09864</span>
+      <span>4457 次引用</span>
+      <span>2021 年 4 月</span>
+    </div>
+  </div>
+</header>
+
+<!-- ===== TL;DR ===== -->
+<section id="tldr" class="container">
+  <div class="tldr">
+    <div class="tldr-title">30 秒速览</div>
+    <p>Transformer 需要位置信息，但传统做法是把位置向量<strong>加到</strong>词嵌入上。RoPE 的核心洞察是：把 query 和 key 向量按位置角度<strong>旋转</strong>，内积就自然只取决于相对位置差 $m - n$，无需显式构造相对位置编码。</p>
+    <ul>
+      <li><strong>绝对编码，相对效果</strong>：对每个位置 $m$ 施加旋转角 $m\theta$，但 $q_m^\top k_n$ 只包含 $(m-n)\theta$</li>
+      <li><strong>远程衰减</strong>：相对距离越大，注意力内积上界越小，符合自然语言直觉</li>
+      <li><strong>兼容线性注意力</strong>：不修改 value，不改注意力公式结构，可直接用于 Performer 等线性注意力</li>
+      <li><strong>无长度限制</strong>：旋转矩阵可在任意位置计算，天然支持外推到更长序列</li>
+    </ul>
+  </div>
+</section>
+
+<!-- ===== Section: 为什么需要位置编码 ===== -->
+<section id="why" class="section container">
+  <h2 class="section-title">为什么 Transformer 需要位置编码</h2>
+  <p>与 RNN 的递归和 CNN 的局部窗口不同，Transformer 的自注意力机制对所有位置一视同仁——它是<strong>位置无关的</strong>（position-agnostic）。如果不注入位置信息，「我喜欢你」和「你喜欢我」对模型来说完全一样。</p>
+  <p>因此，我们需要某种方式告诉模型每个 token 在序列中的位置。过去五年，位置编码大致沿两条路线演化：</p>
+
+  <div class="flow-diagram">
+    <h4>位置编码方法演进</h4>
+    <div class="flow-row">
+      <div class="flow-node">
+        <div class="fn-label">2017</div>
+        <div class="fn-title">正弦绝对编码</div>
+        <div class="fn-desc">Transformer 原始方案<br/>$p_i = \sin / \cos$ 加到嵌入</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="fn-label">2018-19</div>
+        <div class="fn-title">可训练绝对编码</div>
+        <div class="fn-desc">BERT / GPT<br/>学习 $p_i$ 向量</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node">
+        <div class="fn-label">2018-20</div>
+        <div class="fn-title">相对位置编码</div>
+        <div class="fn-desc">Shaw / Transformer-XL<br/>改写注意力公式</div>
+      </div>
+      <div class="flow-arrow">→</div>
+      <div class="flow-node active">
+        <div class="fn-label">2021</div>
+        <div class="fn-title">RoPE</div>
+        <div class="fn-desc">旋转编码<br/>乘法 × 旋转矩阵</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 三种方法对比示意图 -->
+  <div class="method-compare-diagram">
+    <h4>三种方法如何编码位置</h4>
+    <div class="method-trio">
+      <div class="method-item">
+        <div class="method-tag">绝对编码</div>
+        <svg viewBox="0 0 220 180" class="method-svg">
+          <!-- x_m box -->
+          <rect x="10" y="12" width="56" height="30" rx="6" fill="#F5ECD8" stroke="#D4C4A6"/>
+          <text x="38" y="32" text-anchor="middle" font-size="13" font-weight="600" fill="#1A1816">$x_m$</text>
+          <!-- p_m box -->
+          <rect x="10" y="56" width="56" height="30" rx="6" fill="#F4DCD0" stroke="#C04E2D" stroke-dasharray="4,2"/>
+          <text x="38" y="76" text-anchor="middle" font-size="13" font-weight="600" fill="#C04E2D">$p_m$</text>
+          <!-- plus circle -->
+          <circle cx="100" cy="42" r="14" fill="none" stroke="#D4C4A6" stroke-width="1.5"/>
+          <text x="100" y="47" text-anchor="middle" font-size="16" font-weight="700" fill="#8C857B">+</text>
+          <!-- arrows to plus -->
+          <line x1="66" y1="27" x2="84" y2="38" stroke="#D4C4A6" stroke-width="1.5" marker-end="url(#arrowGray)"/>
+          <line x1="66" y1="71" x2="84" y2="48" stroke="#D4C4A6" stroke-width="1.5" marker-end="url(#arrowGray)"/>
+          <!-- Wq box -->
+          <rect x="130" y="27" width="40" height="30" rx="6" fill="#F5ECD8" stroke="#D4C4A6"/>
+          <text x="150" y="47" text-anchor="middle" font-size="12" font-weight="600" fill="#1A1816">$W_q$</text>
+          <!-- arrow plus to Wq -->
+          <line x1="114" y1="42" x2="128" y2="42" stroke="#D4C4A6" stroke-width="1.5" marker-end="url(#arrowGray)"/>
+          <!-- q_m result -->
+          <rect x="184" y="27" width="32" height="30" rx="6" fill="#E8DCC7" stroke="#D4C4A6"/>
+          <text x="200" y="47" text-anchor="middle" font-size="12" font-weight="700" fill="#1A1816">$q_m$</text>
+          <line x1="170" y1="42" x2="182" y2="42" stroke="#D4C4A6" stroke-width="1.5" marker-end="url(#arrowGray)"/>
+          <!-- formula -->
+          <text x="110" y="105" text-anchor="middle" font-size="11.5" fill="#6B6660">$q_m = W_q(x_m + p_m)$</text>
+          <!-- 特点 label -->
+          <rect x="30" y="125" width="160" height="40" rx="8" fill="#F5ECD8" stroke="#E8DCC7"/>
+          <text x="110" y="142" text-anchor="middle" font-size="11" fill="#8C857B">位置与内容</text>
+          <text x="110" y="157" text-anchor="middle" font-size="11.5" font-weight="600" fill="#6B6660">先混合，再变换</text>
+          <defs>
+            <marker id="arrowGray" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#D4C4A6"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+      <div class="method-item">
+        <div class="method-tag">相对编码</div>
+        <svg viewBox="0 0 220 180" class="method-svg">
+          <!-- q = Wq xm -->
+          <rect x="10" y="12" width="56" height="30" rx="6" fill="#F5ECD8" stroke="#D4C4A6"/>
+          <text x="38" y="32" text-anchor="middle" font-size="13" font-weight="600" fill="#1A1816">$q_m$</text>
+          <!-- k = Wk xn -->
+          <rect x="10" y="56" width="56" height="30" rx="6" fill="#F5ECD8" stroke="#D4C4A6"/>
+          <text x="38" y="76" text-anchor="middle" font-size="13" font-weight="600" fill="#1A1816">$k_n$</text>
+          <!-- dot product -->
+          <circle cx="100" cy="42" r="14" fill="none" stroke="#D4C4A6" stroke-width="1.5"/>
+          <text x="100" y="46" text-anchor="middle" font-size="11" font-weight="700" fill="#8C857B">dot</text>
+          <line x1="66" y1="27" x2="84" y2="38" stroke="#D4C4A6" stroke-width="1.5" marker-end="url(#arrowGray)"/>
+          <line x1="66" y1="71" x2="84" y2="48" stroke="#D4C4A6" stroke-width="1.5" marker-end="url(#arrowGray)"/>
+          <!-- plus circle for bias -->
+          <circle cx="154" cy="42" r="14" fill="none" stroke="#D4C4A6" stroke-width="1.5"/>
+          <text x="154" y="47" text-anchor="middle" font-size="16" font-weight="700" fill="#8C857B">+</text>
+          <line x1="114" y1="42" x2="138" y2="42" stroke="#D4C4A6" stroke-width="1.5" marker-end="url(#arrowGray)"/>
+          <!-- bias box -->
+          <rect x="130" y="70" width="50" height="26" rx="6" fill="#F4DCD0" stroke="#C04E2D" stroke-dasharray="4,2"/>
+          <text x="155" y="87" text-anchor="middle" font-size="11" font-weight="600" fill="#C04E2D">$b_{m-n}$</text>
+          <line x1="155" y1="70" x2="155" y2="58" stroke="#C04E2D" stroke-width="1.2" stroke-dasharray="3,2" marker-end="url(#arrowRed)"/>
+          <!-- result -->
+          <rect x="182" y="27" width="34" height="30" rx="6" fill="#E8DCC7" stroke="#D4C4A6"/>
+          <text x="199" y="47" text-anchor="middle" font-size="11" font-weight="700" fill="#1A1816">$a_{mn}$</text>
+          <line x1="168" y1="42" x2="180" y2="42" stroke="#D4C4A6" stroke-width="1.5" marker-end="url(#arrowGray)"/>
+          <!-- formula -->
+          <text x="110" y="118" text-anchor="middle" font-size="11.5" fill="#6B6660">$q^\top k + b_{m-n}$</text>
+          <!-- 特点 -->
+          <rect x="30" y="132" width="160" height="40" rx="8" fill="#F5ECD8" stroke="#E8DCC7"/>
+          <text x="110" y="149" text-anchor="middle" font-size="11" fill="#8C857B">先算内积</text>
+          <text x="110" y="164" text-anchor="middle" font-size="11.5" font-weight="600" fill="#6B6660">再加位置偏置</text>
+          <defs>
+            <marker id="arrowRed" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+              <path d="M 0 0 L 10 5 L 0 10 z" fill="#C04E2D"/>
+            </marker>
+          </defs>
+        </svg>
+      </div>
+      <div class="method-item method-highlight">
+        <div class="method-tag accent">RoPE</div>
+        <svg viewBox="0 0 220 180" class="method-svg">
+          <!-- x_m -->
+          <rect x="10" y="24" width="42" height="30" rx="6" fill="#F5ECD8" stroke="#D4C4A6"/>
+          <text x="31" y="44" text-anchor="middle" font-size="12" font-weight="600" fill="#1A1816">$x_m$</text>
+          <!-- Wq -->
+          <rect x="66" y="24" width="36" height="30" rx="6" fill="#F5ECD8" stroke="#D4C4A6"/>
+          <text x="84" y="44" text-anchor="middle" font-size="11" font-weight="600" fill="#1A1816">$W_q$</text>
+          <line x1="52" y1="39" x2="64" y2="39" stroke="#D4C4A6" stroke-width="1.5" marker-end="url(#arrowGray)"/>
+          <!-- Rotation circle (key visual) -->
+          <circle cx="144" cy="39" r="18" fill="#F4DCD0" stroke="#C04E2D" stroke-width="2"/>
+          <text x="144" y="35" text-anchor="middle" font-size="10" font-weight="700" fill="#C04E2D">$R_m$</text>
+          <text x="144" y="48" text-anchor="middle" font-size="9" fill="#C04E2D">旋转</text>
+          <line x1="102" y1="39" x2="124" y2="39" stroke="#D4C4A6" stroke-width="1.5" marker-end="url(#arrowGray)"/>
+          <!-- small rotation arrow on circle -->
+          <path d="M 156 25 A 15 15 0 0 1 160 38" fill="none" stroke="#C04E2D" stroke-width="1.5" marker-end="url(#arrowRed)"/>
+          <!-- q_m result -->
+          <rect x="178" y="24" width="34" height="30" rx="6" fill="#F4DCD0" stroke="#C04E2D"/>
+          <text x="195" y="44" text-anchor="middle" font-size="12" font-weight="700" fill="#C04E2D">$q_m$</text>
+          <line x1="162" y1="39" x2="176" y2="39" stroke="#C04E2D" stroke-width="1.5" marker-end="url(#arrowRed)"/>
+          <!-- formula -->
+          <text x="110" y="92" text-anchor="middle" font-size="11.5" fill="#6B6660">$q_m = R(m\theta) \cdot W_q x_m$</text>
+          <!-- 特点 -->
+          <rect x="20" y="106" width="180" height="62" rx="8" fill="#FFF8F0" stroke="#C04E2D" stroke-width="1"/>
+          <text x="110" y="124" text-anchor="middle" font-size="11" fill="#C04E2D">先变换，再旋转</text>
+          <text x="110" y="142" text-anchor="middle" font-size="11" font-weight="600" fill="#1A1816">$q_m^\top k_n$ 自动只含 $m - n$</text>
+          <text x="110" y="158" text-anchor="middle" font-size="10.5" fill="#8C857B">不改注意力公式结构</text>
+        </svg>
+      </div>
+    </div>
+  </div>
+
+  <p>前两种方法都是「<strong>加法</strong>」——把位置信息加到词嵌入或注意力分数上。RoPE 走了一条不同的路——用「<strong>乘法（旋转）</strong>」来编码位置，从而让位置信息自然地融入注意力计算。</p>
+</section>
+
+<!-- ===== Section: 加法 vs 旋转 ===== -->
+<section id="core" class="section container">
+  <h2 class="section-title">核心思想：从加法到旋转</h2>
+  <p>传统方法的做法是：先把位置向量 $p_m$ 加到词嵌入 $x_m$ 上，再做线性变换得到 query 和 key：</p>
+  <p class="note">传统：$q_m = W_q(x_m + p_m)$，位置信息通过加法混入嵌入</p>
+  <p>RoPE 的做法完全不同——先做线性变换，然后把结果向量按位置角度<strong>旋转</strong>：</p>
+  <p class="note">RoPE：$q_m = R_m \cdot W_q x_m$，位置信息通过旋转矩阵乘法编码</p>
+  <p>这个看似简单的改动带来了一个关键优势：当你计算 $q_m^\top k_n$ 时，两个旋转矩阵相乘自动变成 $R_{n-m}$，内积天然只取决于相对位置差。</p>
+
+  <div class="compare-panel">
+    <div class="compare-card">
+      <h4>传统方法：加法编码 <span class="tag">Additive</span></h4>
+      <p>把位置向量加到嵌入上，然后在注意力公式中展开，手动提取相对位置项。</p>
+      <ul>
+        <li>$q_m^\top k_n$ 展开后有 4 项，需逐项处理</li>
+        <li>改动注意力计算公式</li>
+        <li>不兼容线性注意力</li>
+      </ul>
+      <div class="formula">
+        $q_m^\top k_n = x_m^\top W_q^\top W_k x_n + x_m^\top W_q^\top W_k p_n + \cdots$
+      </div>
+    </div>
+    <div class="compare-card highlight">
+      <h4>RoPE：旋转编码 <span class="tag">Rotary</span></h4>
+      <p>对 query/key 施加位置相关的旋转，内积自动只包含相对位置。</p>
+      <ul>
+        <li>$q_m^\top k_n$ 天然只含 $m - n$</li>
+        <li>不改注意力公式结构</li>
+        <li>兼容线性注意力</li>
+      </ul>
+      <div class="formula">
+        $q_m^\top k_n = (R_m W_q x_m)^\top (R_n W_k x_n) = x_m^\top W_q^\top R_{n-m} W_k x_n$
+      </div>
+    </div>
+  </div>
+
+  <h3 style="font-size:18px; font-weight:700; margin:32px 0 16px;">从 2D 平面建立直觉</h3>
+  <p>为了理解为什么旋转能编码位置，我们先看最简单的二维情况。在 2D 平面上，把一个向量旋转角度 $\theta$ 就是左乘旋转矩阵：</p>
+  <p style="text-align:center; margin: 16px 0;">
+    $R(\theta) = \begin{pmatrix} \cos\theta & -\sin\theta \\ \sin\theta & \cos\theta \end{pmatrix}$
+  </p>
+  <p>RoPE 的做法是：位置 $m$ 的 token，其 query/key 被旋转 $m\theta$。那么位置 $m$ 的 query 和位置 $n$ 的 key 做内积时：</p>
+  <p style="text-align:center; margin: 16px 0;">
+    $q_m^\top k_n = (R(m\theta) \cdot q)^\top (R(n\theta) \cdot k) = q^\top R((n-m)\theta) \cdot k$
+  </p>
+  <p>结果只取决于 $n - m$，即相对位置差。这是因为旋转矩阵是正交矩阵，$R(a)^\top R(b) = R(b-a)$。</p>
+
+  <!-- Interactive rotation demo -->
+  <div class="rotation-demo">
+    <h4>交互演示：2D 旋转位置编码</h4>
+    <p class="caption">拖动滑块改变位置 $m$，观察 query 向量如何随位置旋转。右侧显示 $q$ 与固定的 $k$（位置 0）的夹角变化。</p>
+    <canvas id="rotationCanvas" width="520" height="280"></canvas>
+    <div class="rotation-controls">
+      <label>位置 m：</label>
+      <input type="range" id="posSlider" min="0" max="24" value="0" step="1" />
+      <span class="pos-value" id="posValue">0</span>
+      <span style="font-size:12px; color:var(--text-soft); margin-left:12px;">
+        旋转角 = <span class="mono" id="angleValue">0°</span>
+      </span>
+    </div>
+  </div>
+
+  <p>论文通过复数域的推导严格证明了这个解的唯一性：设 $q = W_q x_m$ 在复数域表示为 $|q|e^{i\theta_q}$，要求内积 $\langle f_q(x_m, m), f_k(x_n, n)\rangle = g(x_m, x_n, m-n)$，则解必须是 $f_q(x_m, m) = (W_q x_m) e^{im\theta}$——即乘以一个纯旋转。</p>
+</section>
+
+<!-- ===== Section: General Form ===== -->
+<section id="general" class="section container">
+  <h2 class="section-title">从 2D 到高维：通用旋转矩阵</h2>
+  <p>实际模型的维度 $d$ 远大于 2。RoPE 的做法是把 $d$ 维空间拆成 $d/2$ 个独立的 2D 子空间，每个子空间用不同的旋转频率 $\theta_i$：</p>
+
+  <div class="expand-group">
+    <div class="expand-card">
+      <div class="expand-header" onclick="toggleExpand(this)">
+        <span>旋转矩阵 $R^d_{\Theta,m}$ 的完整形式</span>
+        <span class="expand-icon">+</span>
+      </div>
+      <div class="expand-body">
+        <div class="math-block">
+          $$R^d_{\Theta,m} = \begin{pmatrix} \cos m\theta_1 & -\sin m\theta_1 & 0 & 0 & \cdots \\ \sin m\theta_1 & \cos m\theta_1 & 0 & 0 & \cdots \\ 0 & 0 & \cos m\theta_2 & -\sin m\theta_2 & \cdots \\ 0 & 0 & \sin m\theta_2 & \cos m\theta_2 & \cdots \\ \vdots & \vdots & \vdots & \vdots & \ddots \end{pmatrix}$$
+        </div>
+        <p>这是一个分块对角矩阵，每个 $2 \times 2$ 块都是一个标准旋转矩阵。频率参数 $\theta_i = 10000^{-2(i-1)/d}$，与 Transformer 原始正弦编码的频率设置一致。</p>
+      </div>
+    </div>
+    <div class="expand-card">
+      <div class="expand-header" onclick="toggleExpand(this)">
+        <span>高效实现：避免矩阵乘法</span>
+        <span class="expand-icon">+</span>
+      </div>
+      <div class="expand-body">
+        <p>直接做矩阵乘法太浪费（旋转矩阵大部分是 0）。论文给出了等价的逐元素实现：</p>
+        <div class="math-block">
+          $$R^d_{\Theta,m} x = x \otimes \cos(m\Theta) + \text{rotate\_half}(x) \otimes \sin(m\Theta)$$
+        </div>
+        <p>其中 $\text{rotate\_half}$ 把相邻元素交换并取反：$(x_1, x_2, x_3, x_4, \ldots) \to (-x_2, x_1, -x_4, x_3, \ldots)$。这个操作只需要逐元素乘法和加法，计算开销几乎可以忽略。</p>
+      </div>
+    </div>
+    <div class="expand-card">
+      <div class="expand-header" onclick="toggleExpand(this)">
+        <span>自注意力中的应用</span>
+        <span class="expand-icon">+</span>
+      </div>
+      <div class="expand-body">
+        <p>在自注意力计算中，RoPE 作用于 query 和 key，但不作用于 value：</p>
+        <div class="math-block">
+          $$q_m = R^d_{\Theta,m} W_q x_m, \quad k_n = R^d_{\Theta,n} W_k x_n, \quad v_n = W_v x_n$$
+        </div>
+        <p>注意力分数变为：</p>
+        <div class="math-block">
+          $$q_m^\top k_n = x_m^\top W_q^\top R^d_{\Theta,n-m} W_k x_n$$
+        </div>
+        <p>其中 $R^d_{\Theta,n-m} = (R^d_{\Theta,m})^\top R^d_{\Theta,n}$，只取决于相对位置 $n - m$。</p>
+      </div>
+    </div>
+  </div>
+
+  <p>每个 2D 子空间对应一个不同的旋转频率。低频维度捕获远程依赖，高频维度捕获近距离关系——就像傅里叶变换中不同频率分量各自负责不同尺度的信号。</p>
+
+  <!-- Multi-frequency diagram -->
+  <div class="rotation-demo">
+    <h4>多频率旋转：不同子空间的旋转速度</h4>
+    <p class="caption">每个 2D 子空间按不同频率 $\theta_i$ 旋转。低维旋转快（捕获近距离），高维旋转慢（捕获远距离）。</p>
+    <canvas id="multiFreqCanvas" width="520" height="220"></canvas>
+    <div class="rotation-controls">
+      <label>位置 m：</label>
+      <input type="range" id="freqSlider" min="0" max="48" value="0" step="1" />
+      <span class="pos-value" id="freqPosValue">0</span>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Section: Properties ===== -->
+<section id="properties" class="section container">
+  <h2 class="section-title">RoPE 的三大性质</h2>
+  <p>RoPE 不只是数学上优雅，它还具备三个实际优势，这些性质让它成为现代大模型的首选位置编码方案。</p>
+
+  <div class="expand-group">
+    <div class="expand-card open">
+      <div class="expand-header" onclick="toggleExpand(this)">
+        <span>性质一：远程衰减（Long-term Decay）</span>
+        <span class="expand-icon">+</span>
+      </div>
+      <div class="expand-body">
+        <p>当 $\theta_i = 10000^{-2i/d}$ 时，注意力内积的上界随相对距离 $|m - n|$ 增大而衰减。论文通过 Abel 变换证明了：</p>
+        <div class="math-block">
+          $$\left|\sum_{i=0}^{d/2-1} q_{[2i:2i+1]} k_{[2i:2i+1]}^* e^{i(m-n)\theta_i}\right| \leq C \cdot \sum_{i=1}^{d/2} |S_i|$$
+        </div>
+        <p>其中 $\frac{1}{d/2}\sum|S_i|$ 随 $|m-n|$ 单调递减。这意味着距离越远的 token 对，注意力权重的上界越低——符合自然语言中「近邻更相关」的直觉。</p>
+      </div>
+    </div>
+    <div class="expand-card">
+      <div class="expand-header" onclick="toggleExpand(this)">
+        <span>性质二：兼容线性注意力</span>
+        <span class="expand-icon">+</span>
+      </div>
+      <div class="expand-body">
+        <p>线性注意力把 $\text{sim}(q, k) = \phi(q)^\top \phi(k)$ 替换 softmax，从而实现 $O(N)$ 复杂度。但此时注意力的计算顺序变了，传统的加法式相对位置编码无法嵌入。</p>
+        <p>RoPE 不修改 value，不改变注意力公式的结构——它只是在 query 和 key 上做旋转变换。因此可以直接用于 Performer 等线性注意力架构，这在其他相对位置编码方法中是做不到的。</p>
+      </div>
+    </div>
+    <div class="expand-card">
+      <div class="expand-header" onclick="toggleExpand(this)">
+        <span>性质三：序列长度灵活性</span>
+        <span class="expand-icon">+</span>
+      </div>
+      <div class="expand-body">
+        <p>旋转矩阵 $R^d_{\Theta,m}$ 可以为任意位置 $m$ 即时计算（只需 sin/cos），不需要预先存储位置嵌入表。这意味着模型天然支持推理时遇到比训练时更长的序列——这也是为什么 RoPE 被广泛用于长上下文大模型中。</p>
+        <p>后续工作（如 NTK-aware RoPE、YaRN 等）进一步通过调整频率基数来增强 RoPE 的外推能力。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Section: Experiments ===== -->
+<section id="experiments" class="section container">
+  <h2 class="section-title">实验结果</h2>
+  <p>论文在机器翻译、预训练语言模型、GLUE 微调和中文长文本任务上验证了 RoPE 的有效性。</p>
+
+  <h3 style="font-size:17px; font-weight:700; margin: 24px 0 12px;">机器翻译（WMT 2014 En-De）</h3>
+  <div class="metrics-row">
+    <div class="metric-card">
+      <div class="mv">27.5</div>
+      <div class="ml">BLEU</div>
+      <div class="md">RoFormer</div>
+    </div>
+    <div class="metric-card">
+      <div class="mv" style="color: var(--text-muted);">27.3</div>
+      <div class="ml">BLEU</div>
+      <div class="md">Transformer 基线</div>
+    </div>
+  </div>
+
+  <h3 style="font-size:17px; font-weight:700; margin: 28px 0 12px;">GLUE 微调结果</h3>
+  <p>预训练 100k 步后，在 GLUE 基准上微调对比 BERT：</p>
+  <div class="data-table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>模型</th><th>MRPC (F1)</th><th>SST-2</th><th>QNLI</th><th>STS-B</th><th>QQP (F1)</th><th>MNLI</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>BERT</td><td>88.9</td><td class="best">93.5</td><td class="best">90.5</td><td>85.8</td><td>71.2</td><td class="best">84.6</td>
+        </tr>
+        <tr>
+          <td>RoFormer</td><td class="best">89.5</td><td>90.7</td><td>88.0</td><td class="best">87.0</td><td class="best">86.4</td><td>80.2</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+  <p>RoFormer 在 MRPC、STS-B 和 QQP 上显著优于 BERT；在 SST-2、QNLI 和 MNLI 上 BERT 略胜——这可能与预训练步数有限（仅 100k 步）以及任务类型差异有关。</p>
+
+  <h3 style="font-size:17px; font-weight:700; margin: 28px 0 12px;">中文长文本：CAIL2019 相似案例匹配</h3>
+  <p>这是论文最能体现 RoPE 长文本优势的实验——文档长度普遍超过 512 字符：</p>
+  <div class="data-table-wrap">
+    <table class="data-table">
+      <thead>
+        <tr><th>模型</th><th>验证集 (Acc)</th><th>测试集 (Acc)</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>BERT-512</td><td>64.13%</td><td>67.77%</td></tr>
+        <tr><td>WoBERT-512</td><td>64.07%</td><td>68.10%</td></tr>
+        <tr><td>RoFormer-512</td><td>64.13%</td><td>68.29%</td></tr>
+        <tr><td>RoFormer-1024</td><td class="best">66.07%</td><td class="best">69.79%</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <p>当截断长度为 512 时，RoFormer 与 WoBERT 持平。但当长度扩展到 1024 时，RoFormer 获得了 <strong>+1.5%</strong> 的绝对提升——这正是 RoPE 序列长度灵活性的体现。</p>
+
+  <div class="quote-block">
+    <p>RoPE 的真正影响力远超这篇论文本身的实验。在 2023-2024 年间，几乎所有主流开源大模型——LLaMA、Mistral、Qwen、DeepSeek——都采用了 RoPE 作为位置编码。它成为了 Transformer 长上下文建模的事实标准。</p>
+  </div>
+</section>
+
+<!-- ===== Section: Summary ===== -->
+<section class="section container">
+  <h2 class="section-title">总结与启示</h2>
+  <p>RoPE 的成功揭示了一个深层道理：<strong>好的归纳偏置不需要复杂的机制</strong>。用旋转代替加法，这个简洁的改动同时解决了绝对/相对位置编码的统一、长序列外推、线性注意力兼容三个问题。</p>
+  <p>论文也坦诚地指出了两个未解之谜：为什么旋转编码比加法编码收敛更快，以及远程衰减为什么能带来如此显著的长文本优势——这些理论分析仍然是开放问题。</p>
+
+  <div class="expand-group">
+    <div class="expand-card">
+      <div class="expand-header" onclick="toggleExpand(this)">
+        <span>RoPE 之后的发展</span>
+        <span class="expand-icon">+</span>
+      </div>
+      <div class="expand-body">
+        <p>RoPE 发表后，后续研究主要聚焦于增强其长度外推能力：</p>
+        <ul style="padding-left: 18px; font-size: 14.5px;">
+          <li><strong>Position Interpolation (PI)</strong>：线性缩放位置索引，使模型适应更长上下文</li>
+          <li><strong>NTK-aware RoPE</strong>：调整频率基数而非位置索引，保留高频信息</li>
+          <li><strong>YaRN</strong>：结合 NTK 缩放和注意力温度调整</li>
+          <li><strong>Code LLaMA</strong>：通过长序列微调扩展到 100k+ 上下文</li>
+        </ul>
+        <p>这些工作证明 RoPE 的旋转框架有足够的灵活性来适应不断增长的上下文需求。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== Footer ===== -->
+<footer class="footer">
+  <div class="container">
+    <p>原文：<a href="https://arxiv.org/abs/2104.09864" target="_blank">RoFormer: Enhanced Transformer with Rotary Position Embedding</a> · Jianlin Su 等 · arXiv:2104.09864</p>
+    <p style="margin-top: 8px;">GitHub: <a href="https://github.com/ZhuiyiTechnology/roformer" target="_blank">ZhuiyiTechnology/roformer</a> · HuggingFace: <a href="https://huggingface.co/docs/transformers/model_doc/roformer" target="_blank">RoFormer Docs</a></p>
+  </div>
+</footer>
+
+<script>
+function toggleExpand(header) {
+  var card = header.parentElement;
+  card.classList.toggle('open');
+}
+
+// ===== 2D Rotation Canvas =====
+(function() {
+  var canvas = document.getElementById('rotationCanvas');
+  var ctx = canvas.getContext('2d');
+  var slider = document.getElementById('posSlider');
+  var posVal = document.getElementById('posValue');
+  var angleVal = document.getElementById('angleValue');
+  var theta = Math.PI / 6;
+
+  function draw(pos) {
+    var W = canvas.width, H = canvas.height;
+    var dpr = window.devicePixelRatio || 1;
+    canvas.style.width = W + 'px';
+    canvas.style.height = H + 'px';
+
+    ctx.clearRect(0, 0, W, H);
+
+    var cx1 = W * 0.28, cy1 = H * 0.52;
+    var cx2 = W * 0.72, cy2 = H * 0.52;
+    var r = Math.min(W * 0.18, H * 0.38);
+
+    // Left: query rotation
+    drawCircle(cx1, cy1, r, 'Query 向量旋转');
+    var angle = pos * theta;
+    // Original vector
+    drawVector(cx1, cy1, r * 0.85, 0, '#D4C4A6', 'q (原始)');
+    // Rotated vector
+    drawVector(cx1, cy1, r * 0.85, angle, '#C04E2D', 'q_m (旋转后)');
+    // Arc
+    if (pos > 0) {
+      ctx.beginPath();
+      ctx.arc(cx1, cy1, r * 0.4, 0, -angle, angle > 0);
+      ctx.strokeStyle = 'rgba(192,78,45,0.3)';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      ctx.fillStyle = '#C04E2D';
+      ctx.font = '12px JetBrains Mono';
+      ctx.textAlign = 'center';
+      ctx.fillText(Math.round(angle * 180 / Math.PI) + '\u00B0', cx1 + r * 0.5 * Math.cos(-angle / 2), cy1 - r * 0.5 * Math.sin(angle / 2) + 4);
+    }
+
+    // Right: inner product
+    drawCircle(cx2, cy2, r, '\u5185\u79EF = q_m\u1D40 k_0');
+    // k at position 0
+    drawVector(cx2, cy2, r * 0.85, Math.PI / 5, '#6B6660', 'k_0');
+    // q_m rotated
+    drawVector(cx2, cy2, r * 0.85, angle, '#C04E2D', 'q_m');
+    // Angle between them
+    var kAngle = Math.PI / 5;
+    var diff = Math.abs(angle - kAngle);
+    ctx.beginPath();
+    var startA = Math.min(-angle, -kAngle);
+    var endA = Math.max(-angle, -kAngle);
+    ctx.arc(cx2, cy2, r * 0.35, startA, endA);
+    ctx.strokeStyle = 'rgba(192,78,45,0.25)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+
+    // Bottom label
+    ctx.fillStyle = '#6B6660';
+    ctx.font = '13px Inter, Noto Sans SC';
+    ctx.textAlign = 'center';
+    ctx.fillText('\u76F8\u5BF9\u4F4D\u7F6E\u5DEE m - n = ' + pos + ' - 0 = ' + pos, W / 2, H - 12);
+  }
+
+  function drawCircle(cx, cy, r, label) {
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.strokeStyle = '#E8DCC7';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    // Axes
+    ctx.beginPath();
+    ctx.moveTo(cx - r - 8, cy); ctx.lineTo(cx + r + 8, cy);
+    ctx.moveTo(cx, cy + r + 8); ctx.lineTo(cx, cy - r - 8);
+    ctx.strokeStyle = '#E8DCC7';
+    ctx.lineWidth = 1;
+    ctx.stroke();
+    // Label
+    ctx.fillStyle = '#8C857B';
+    ctx.font = '12px Inter, Noto Sans SC';
+    ctx.textAlign = 'center';
+    ctx.fillText(label, cx, cy - r - 14);
+  }
+
+  function drawVector(cx, cy, len, angle, color, label) {
+    var ex = cx + len * Math.cos(-angle);
+    var ey = cy + len * Math.sin(-angle);
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.lineTo(ex, ey);
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2.5;
+    ctx.stroke();
+    // Arrowhead
+    var headLen = 8;
+    var a = Math.atan2(cy - ey, cx - ex);
+    ctx.beginPath();
+    ctx.moveTo(ex, ey);
+    ctx.lineTo(ex + headLen * Math.cos(a + 0.4), ey + headLen * Math.sin(a + 0.4));
+    ctx.lineTo(ex + headLen * Math.cos(a - 0.4), ey + headLen * Math.sin(a - 0.4));
+    ctx.closePath();
+    ctx.fillStyle = color;
+    ctx.fill();
+    // Label
+    var lx = cx + (len + 16) * Math.cos(-angle);
+    var ly = cy + (len + 16) * Math.sin(-angle);
+    ctx.fillStyle = color;
+    ctx.font = '11px JetBrains Mono';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, lx, ly);
+  }
+
+  slider.addEventListener('input', function() {
+    var v = parseInt(this.value);
+    posVal.textContent = v;
+    angleVal.textContent = Math.round(v * theta * 180 / Math.PI) + '\u00B0';
+    draw(v);
+  });
+
+  draw(0);
+})();
+
+// ===== Multi-frequency Canvas =====
+(function() {
+  var canvas = document.getElementById('multiFreqCanvas');
+  var ctx = canvas.getContext('2d');
+  var slider = document.getElementById('freqSlider');
+  var posVal = document.getElementById('freqPosValue');
+
+  var freqs = [
+    { label: '\u03B8\u2081 (\u9AD8\u9891)', theta: Math.PI / 4, color: '#C04E2D' },
+    { label: '\u03B8\u2082', theta: Math.PI / 10, color: '#8C6B3E' },
+    { label: '\u03B8\u2083', theta: Math.PI / 24, color: '#5A7A6B' },
+    { label: '\u03B8\u2084 (\u4F4E\u9891)', theta: Math.PI / 60, color: '#6B6660' },
+  ];
+
+  function draw(pos) {
+    var W = canvas.width, H = canvas.height;
+    ctx.clearRect(0, 0, W, H);
+
+    var spacing = W / (freqs.length + 1);
+    var r = Math.min(spacing * 0.35, H * 0.35);
+
+    for (var i = 0; i < freqs.length; i++) {
+      var f = freqs[i];
+      var cx = spacing * (i + 1);
+      var cy = H * 0.5;
+      var angle = pos * f.theta;
+
+      // Circle
+      ctx.beginPath();
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+      ctx.strokeStyle = '#E8DCC7';
+      ctx.lineWidth = 1;
+      ctx.stroke();
+
+      // Axes
+      ctx.beginPath();
+      ctx.moveTo(cx - r, cy); ctx.lineTo(cx + r, cy);
+      ctx.moveTo(cx, cy + r); ctx.lineTo(cx, cy - r);
+      ctx.strokeStyle = '#E8DCC7';
+      ctx.lineWidth = 0.5;
+      ctx.stroke();
+
+      // Vector
+      var ex = cx + r * 0.8 * Math.cos(-angle);
+      var ey = cy + r * 0.8 * Math.sin(-angle);
+      ctx.beginPath();
+      ctx.moveTo(cx, cy); ctx.lineTo(ex, ey);
+      ctx.strokeStyle = f.color;
+      ctx.lineWidth = 2.5;
+      ctx.stroke();
+
+      // Dot
+      ctx.beginPath();
+      ctx.arc(ex, ey, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = f.color;
+      ctx.fill();
+
+      // Label
+      ctx.fillStyle = f.color;
+      ctx.font = '12px Inter, Noto Sans SC';
+      ctx.textAlign = 'center';
+      ctx.fillText(f.label, cx, cy + r + 20);
+
+      // Angle text
+      var degText = (Math.round(angle * 180 / Math.PI) % 360) + '\u00B0';
+      ctx.fillStyle = '#8C857B';
+      ctx.font = '11px JetBrains Mono';
+      ctx.fillText(degText, cx, cy - r - 8);
+    }
+  }
+
+  slider.addEventListener('input', function() {
+    var v = parseInt(this.value);
+    posVal.textContent = v;
+    draw(v);
+  });
+
+  draw(0);
+})();
+</script>
+
+</body>
+</html>

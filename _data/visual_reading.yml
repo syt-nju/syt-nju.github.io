@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: rope-rotary-position-embedding
+    title: "RoPE 介绍"
+    date: 2026-05-13
+    source_type: paper
+    source_url: "https://arxiv.org/abs/2104.09864"
   - slug: post-training-distributional-view
     title: "用分布几何看 SFT、RL、OPD 三种 post-training 怎么推模型"
     date: 2026-05-11
