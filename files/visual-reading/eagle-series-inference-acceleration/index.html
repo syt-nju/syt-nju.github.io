@@ -1,0 +1,626 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>EAGLE-3：用 Training-Time Test 让 LLM 推理加速 Scaling Up</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#faf6ee;--bg-card:#f4ead7;--bg-card-alt:#ede2cc;--bg-dark:#e8dcc7;
+  --text:#2c2417;--text-secondary:#5a4e3a;--text-muted:#8a7d6a;
+  --accent:#b85c2f;--accent-light:#d4916a;
+  --border:#ddd1bc;--border-light:#e8dcc7;
+  --radius:10px;--radius-sm:6px;
+  --font-sans:'Inter','Noto Sans SC',system-ui,sans-serif;
+  --font-mono:'JetBrains Mono','Fira Code',monospace;
+  --max-w:860px;
+}
+html{font-size:16px;scroll-behavior:smooth}
+body{
+  font-family:var(--font-sans);color:var(--text);background:var(--bg);
+  line-height:1.8;-webkit-font-smoothing:antialiased;
+}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid transparent;transition:border .2s}
+a:hover{border-bottom-color:var(--accent)}
+
+/* ── NAV ── */
+.top-nav{
+  position:sticky;top:0;z-index:100;background:rgba(250,246,238,.92);
+  backdrop-filter:blur(10px);border-bottom:1px solid var(--border-light);
+  padding:0 24px;
+}
+.top-nav-inner{max-width:var(--max-w);margin:0 auto;display:flex;align-items:center;justify-content:space-between;height:52px}
+.nav-title{font-weight:700;font-size:.95rem;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:50%}
+.nav-links{display:flex;gap:20px;font-size:.82rem;font-weight:500;color:var(--text-secondary)}
+.nav-links a{border:none}
+.nav-links a:hover{color:var(--accent)}
+.source-link{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:.82rem;font-weight:600;color:var(--accent);
+  border:1px solid var(--accent);border-radius:var(--radius-sm);padding:3px 10px;
+  transition:background .2s,color .2s;
+}
+.source-link:hover{background:var(--accent);color:#fff;border-bottom-color:var(--accent)}
+
+/* ── MAIN ── */
+.container{max-width:var(--max-w);margin:0 auto;padding:40px 24px 80px}
+
+/* ── HERO ── */
+.hero{margin-bottom:48px}
+.hero h1{font-size:1.9rem;font-weight:800;line-height:1.35;margin-bottom:12px;letter-spacing:-.02em}
+.hero .meta{font-size:.85rem;color:var(--text-muted);margin-bottom:24px}
+.hero .meta a{color:var(--text-secondary)}
+
+/* ── TL;DR ── */
+.tldr{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:24px 28px;margin-bottom:48px;
+}
+.tldr-label{font-size:.75rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--accent);margin-bottom:10px}
+.tldr p{font-size:1.02rem;line-height:1.75;color:var(--text)}
+.tldr ul{margin:10px 0 0 18px;font-size:.95rem;color:var(--text-secondary)}
+.tldr li{margin-bottom:4px}
+
+/* ── SECTIONS ── */
+.section{margin-bottom:48px}
+.section h2{font-size:1.35rem;font-weight:700;margin-bottom:16px;padding-bottom:8px;border-bottom:2px solid var(--border)}
+.section h3{font-size:1.1rem;font-weight:600;margin:24px 0 10px;color:var(--text)}
+.section p{margin-bottom:14px;font-size:.97rem;color:var(--text-secondary)}
+
+/* ── FIGURE ── */
+.figure{
+  margin:28px 0;text-align:center;
+}
+.figure img{
+  max-width:100%;border-radius:var(--radius);border:1px solid var(--border-light);
+  background:#fff;
+}
+.figure-caption{font-size:.82rem;color:var(--text-muted);margin-top:8px;line-height:1.5}
+
+/* ── METRIC CARDS ── */
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0}
+.metric-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:18px 16px;text-align:center;
+}
+.metric-value{font-size:1.8rem;font-weight:800;color:var(--accent);line-height:1.1}
+.metric-label{font-size:.78rem;color:var(--text-muted);margin-top:6px;line-height:1.4}
+
+/* ── EXPANDABLE CARDS ── */
+.card-grid{display:grid;grid-template-columns:1fr;gap:12px;margin:20px 0}
+.expand-card{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  overflow:hidden;transition:box-shadow .2s;
+}
+.expand-card:hover{box-shadow:0 2px 12px rgba(0,0,0,.06)}
+.card-header{
+  padding:16px 20px;cursor:pointer;display:flex;align-items:center;justify-content:space-between;
+  user-select:none;
+}
+.card-header h4{font-size:.95rem;font-weight:600;color:var(--text);margin:0}
+.card-header .tag{
+  font-size:.72rem;font-weight:600;background:var(--accent);color:#fff;
+  padding:2px 8px;border-radius:12px;white-space:nowrap;margin-left:10px;
+}
+.card-arrow{
+  width:20px;height:20px;transition:transform .25s;flex-shrink:0;margin-left:12px;color:var(--text-muted);
+}
+.card-body{
+  max-height:0;overflow:hidden;transition:max-height .35s ease,padding .35s;
+  padding:0 20px;
+}
+.card-body.open{max-height:2000px;padding:0 20px 20px}
+.expand-card.active .card-arrow{transform:rotate(180deg)}
+.card-body p{font-size:.92rem;color:var(--text-secondary);margin-bottom:10px}
+.card-body .figure{margin:14px 0}
+
+/* ── COMPARISON TABLE ── */
+.compare-table{width:100%;border-collapse:collapse;margin:20px 0;font-size:.85rem}
+.compare-table th{
+  background:var(--bg-card-alt);font-weight:600;text-align:left;padding:10px 14px;
+  border-bottom:2px solid var(--border);color:var(--text);
+}
+.compare-table td{padding:10px 14px;border-bottom:1px solid var(--border-light);color:var(--text-secondary)}
+.compare-table tr:last-child td{border-bottom:none}
+.compare-table .highlight{font-weight:700;color:var(--accent)}
+
+/* ── PIPELINE STEPS ── */
+.pipeline{display:flex;flex-direction:column;gap:0;margin:24px 0}
+.pipe-step{
+  display:flex;gap:16px;position:relative;padding-bottom:28px;
+}
+.pipe-step:last-child{padding-bottom:0}
+.pipe-step::before{
+  content:'';position:absolute;left:17px;top:36px;bottom:0;width:2px;
+  background:var(--border);
+}
+.pipe-step:last-child::before{display:none}
+.pipe-num{
+  width:36px;height:36px;border-radius:50%;background:var(--accent);color:#fff;
+  display:flex;align-items:center;justify-content:center;font-weight:700;font-size:.85rem;
+  flex-shrink:0;position:relative;z-index:1;
+}
+.pipe-content{flex:1}
+.pipe-content h4{font-size:.95rem;font-weight:600;margin-bottom:4px;color:var(--text)}
+.pipe-content p{font-size:.9rem;color:var(--text-secondary);margin:0}
+
+/* ── DUAL PANEL ── */
+.dual-panel{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin:20px 0}
+.panel{
+  background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);
+  padding:20px;
+}
+.panel-title{font-size:.85rem;font-weight:700;margin-bottom:10px;color:var(--text)}
+.panel ul{margin-left:16px;font-size:.88rem;color:var(--text-secondary)}
+.panel li{margin-bottom:6px}
+
+/* ── CALLOUT ── */
+.callout{
+  border-left:3px solid var(--accent);background:var(--bg-card);
+  padding:16px 20px;border-radius:0 var(--radius) var(--radius) 0;
+  margin:20px 0;font-size:.92rem;color:var(--text-secondary);
+}
+
+/* ── FOOTER ── */
+.footer{
+  text-align:center;padding:40px 24px;border-top:1px solid var(--border-light);
+  font-size:.82rem;color:var(--text-muted);
+}
+.footer a{color:var(--accent)}
+
+/* ── RESPONSIVE ── */
+@media(max-width:880px){
+  .metrics{grid-template-columns:1fr}
+  .dual-panel{grid-template-columns:1fr}
+  .nav-links{display:none}
+  .hero h1{font-size:1.45rem}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══ NAV ═══ -->
+<nav class="top-nav">
+  <div class="top-nav-inner">
+    <span class="nav-title">EAGLE-3 论文解读</span>
+    <div class="nav-links">
+      <a href="#baselines">方案</a>
+      <a href="#evolution">演变</a>
+      <a href="#problem">问题</a>
+      <a href="#method">方法</a>
+      <a href="#pipeline">推理管线</a>
+      <a href="#scaling">Scaling Law</a>
+      <a href="#results">实验</a>
+    </div>
+    <a class="source-link" href="https://arxiv.org/abs/2503.01840" target="_blank" rel="noopener">原文 ↗</a>
+  </div>
+</nav>
+
+<!-- ═══ MAIN ═══ -->
+<div class="container">
+
+<!-- ── HERO ── -->
+<header class="hero">
+  <h1>EAGLE-3：用 Training-Time Test 让 LLM 推理加速 Scaling Up</h1>
+  <div class="meta">
+    Yuhui Li · Fangyun Wei · Chao Zhang · Hongyang Zhang &nbsp;|&nbsp;
+    <a href="https://arxiv.org/abs/2503.01840" target="_blank">arXiv:2503.01840</a> &nbsp;|&nbsp;
+    Peking University · Microsoft Research · University of Waterloo &nbsp;|&nbsp;
+    <a href="https://github.com/SafeAILab/EAGLE" target="_blank">GitHub</a>
+  </div>
+</header>
+
+<!-- ── TL;DR ── -->
+<div class="tldr">
+  <div class="tldr-label">TL;DR</div>
+  <p>
+    EAGLE 系列通过「先猜后验」加速 LLM 推理，但旧版 EAGLE 的草稿模型受限于 feature 预测约束，<strong>堆再多训练数据也不涨点</strong>。
+    EAGLE-3 做了两个关键改动：<strong>放弃 feature 预测、改为直接预测 token</strong>（配合 training-time test 解决训练-推理分布不一致），以及<strong>用多层特征融合替代仅用顶层特征</strong>。
+    这让草稿模型第一次展现出推理加速领域的 scaling law——数据越多，加速比越高，最高可达 <strong>6.5x</strong>。
+  </p>
+</div>
+
+<!-- ── KEY METRICS ── -->
+<div class="metrics">
+  <div class="metric-card">
+    <div class="metric-value">6.5x</div>
+    <div class="metric-label">最大加速比<br>(Vicuna 13B · HumanEval · T=0)</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-value">~1.4x</div>
+    <div class="metric-label">相比 EAGLE-2 的延迟提升<br>(batch size = 1)</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-value">+38%</div>
+    <div class="metric-label">SGLang 吞吐提升<br>(batch size = 64 · H100)</div>
+  </div>
+</div>
+
+<!-- ═══ 0. 已有方案 ═══ -->
+<section class="section" id="baselines">
+  <h2>已有方案速览</h2>
+  <p>在进入 EAGLE 系列之前，先了解 speculative sampling 领域的几条主要技术路线——它们的做法和局限，是理解 EAGLE 系列设计动机的前提。</p>
+
+  <div class="card-grid">
+    <!-- Card: Vanilla SpS -->
+    <div class="expand-card" id="card-sps">
+      <div class="card-header" onclick="toggleCard('card-sps')">
+        <div style="display:flex;align-items:center"><h4>Vanilla Speculative Sampling</h4><span class="tag">独立小模型</span></div>
+        <svg class="card-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="card-body">
+        <p>最早的 speculative decoding 范式（Leviathan et al., 2023; Chen et al., 2023）。基本思路：用同系列的小模型（如 Vicuna-68M，仅 68M 参数）自回归生成 k 个候选 token，同时记录每个 token 的概率；然后大模型一次前向并行验证这 k 个 token，按 min(1, p/q) 的概率决定是否接受。被拒绝的 token 后面的候选全部丢弃。数学上可以证明这个过程与直接用大模型自回归生成等价——所以是严格无损的。</p>
+        <p><strong>局限：</strong>小模型参数少、训练数据和大模型不一致，导致小模型分布与大模型差距大，接受率低。典型加速比仅 1.6x–1.9x。而且链式草稿一旦某个 token 被拒绝，后续全部浪费。</p>
+      </div>
+    </div>
+    <!-- Card: Medusa/Hydra -->
+    <div class="expand-card" id="card-medusa">
+      <div class="card-header" onclick="toggleCard('card-medusa')">
+        <div style="display:flex;align-items:center"><h4>Medusa / Hydra</h4><span class="tag">多解码头</span></div>
+        <svg class="card-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="card-body">
+        <p>Medusa 不做自回归，而是在目标模型顶部加多个独立的 MLP 解码头，每个头负责预测未来某个位置的 token（如 Head 1 预测 t+1，Head 2 预测 t+2）。所有头只依赖同一个顶层 feature，彼此独立、互不通信。优点是一次前向同时出多个位置的候选，再用树状验证。Hydra 在 Medusa 基础上引入了头之间的序列依赖关系。各方法的草稿生成对比可参考下方演变部分的四种方法对比图。</p>
+        <p><strong>局限：</strong>各头独立预测，缺少位置间的序列依赖关系，预测准确度不如 EAGLE 的自回归方式（Medusa 准确度约 0.6，EAGLE 约 0.8）。且 Medusa 在非贪心设置（temperature &gt; 0）下放松了接受条件，不保证无损加速。</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="figure">
+    <img src="https://ar5iv.labs.arxiv.org/html/2503.01840/assets/x3.png" alt="Speedup ratios comparison" loading="lazy">
+    <div class="figure-caption">EAGLE-3 原论文 Figure 2：各方法在 4 个目标模型上的加速比对比（temperature=0）。柱状图直观显示 EAGLE-3 在所有模型上大幅领先：Vicuna 13B 上达到 5.5x（SpS 仅 1.9x，EAGLE-2 为 4.2x），LLaMA-Instruct 3.1 8B 上达到 4.4x，甚至在 70B 大模型和 DeepSeek-R1 推理模型上也分别达到 4.1x 和 4.2x。</div>
+  </div>
+</section>
+
+<!-- ═══ 1. EAGLE 系列演变 ═══ -->
+<section class="section" id="evolution">
+  <h2>EAGLE 系列演变：从 feature 自回归到 scaling law</h2>
+  <p>理解 EAGLE-3 的设计动机，需要先看 EAGLE 系列三代分别在解决什么问题。每一代都站在上一代暴露的瓶颈之上。</p>
+
+  <!-- ── EAGLE ── -->
+  <h3>EAGLE（ICML 2024）：在 feature 层做自回归</h3>
+  <p>
+    传统 speculative sampling 用独立的小 LLM 当草稿模型，小模型和大模型之间的分布差距决定了加速比天花板。EAGLE 的核心洞察是：<strong>与其用独立小模型去猜 token，不如直接借用目标模型的中间特征</strong>。具体来说，EAGLE 复用目标模型 LM head 之前的顶层特征（second-to-top-layer），在 feature 层面做自回归预测，然后用目标模型的 LM head 把 feature 转成 token 分布。
+  </p>
+
+  <p>
+    但 feature 层自回归面临一个独特的挑战：采样过程引入的不确定性。如下图所示，token「I」之后可能是「always」也可能是「am」——这两种情况对应完全不同的 feature 序列。仅靠 feature 序列无法知道采样结果，导致预测不准。EAGLE 的解决办法是额外输入一个<strong>前移一步的 token 序列</strong>（即上一步的采样结果），消除不确定性。
+  </p>
+
+  <div class="figure">
+    <img src="https://ar5iv.labs.arxiv.org/html/2401.15077/assets/x3.png" alt="Feature uncertainty in EAGLE" loading="lazy">
+    <div class="figure-caption">EAGLE 原论文 Figure 3：Feature 序列中的不确定性。给定 f<sub>I</sub>（token「I」对应的 feature），下一个 feature 可能是 f<sub>always</sub> 也可能是 f<sub>am</sub>——取决于采样「I」之后实际生成了哪个 token。这两个 feature 差距很大，仅靠 f<sub>I</sub> 无法确定，这就是 feature 层自回归的核心挑战。EAGLE 的解决方案是额外输入上一步的采样结果（token embedding），消除这个分支不确定性。</div>
+  </div>
+
+  <p>
+    下图展示了 EAGLE 与其他方法在草稿生成阶段的对比：标准 speculative sampling 和 Lookahead 在 token 层面预测；Medusa 用多个独立解码头从 feature 并行预测多个位置的 token；而 EAGLE 在 feature 层自回归，同时输入 feature 和前移 token 序列。
+  </p>
+
+  <div class="figure">
+    <img src="https://ar5iv.labs.arxiv.org/html/2401.15077/assets/x5.png" alt="Comparison of drafting methods" loading="lazy">
+    <div class="figure-caption">EAGLE 原论文 Figure 5：四种草稿方法如何生成第 4、第 5 个 token（t<sub>4</sub> 和 t<sub>5</sub>）。蓝色方块=token，橙色方块=feature，红框=草稿模型预测。<strong>Speculative Sampling</strong>：独立小模型在 token 层自回归。<strong>Lookahead</strong>：用 n-gram + Jacobi 迭代在 token 层预测。<strong>Medusa</strong>：从 f<sub>2</sub> 独立预测 t<sub>4</sub> 和 t<sub>5</sub>，各头不通信。<strong>EAGLE</strong>：用 (f<sub>1</sub>,f<sub>2</sub>) + 前移 token 序列 (t<sub>2</sub>,t<sub>3</sub>) 自回归预测 f<sub>3</sub>→t<sub>4</sub>，再用 f<sub>3</sub>+t<sub>4</sub> 预测 f<sub>4</sub>→t<sub>5</sub>。</div>
+  </div>
+
+  <p>完整的 EAGLE 管线如下：草稿模型由 Embedding 层、FC 降维层、单层 Decoder 和目标模型的 LM Head 组成。Feature 序列和前移 token embedding 拼接后降维，经 Decoder 预测下一个 feature，再由 LM Head 转成 token。整个过程用树状结构生成草稿，tree attention 并行验证。</p>
+
+  <div class="figure">
+    <img src="https://ar5iv.labs.arxiv.org/html/2401.15077/assets/x6.png" alt="EAGLE pipeline" loading="lazy">
+    <div class="figure-caption">EAGLE 原论文 Figure 6：EAGLE 完整管线。上半部分是计算流程，下半部分是对应的生成结果。<strong>图例：</strong>绿色方块=token embedding（来自目标模型的 Embedding 层），橙色方块=feature（来自目标模型的倒数第二层），红框=草稿模型的预测输出，带雪花图标的蓝色模块=复用目标模型参数（冻结，不训练）。<strong>关键流程：</strong>每一步将 feature 和前移 token embedding 拼接→FC 降维→单层 Decoder→预测下一个 feature→LM Head 采样得到 token。通过树状展开，仅 3 次前向就生成了 10 个 token 的草稿树。</div>
+  </div>
+
+  <!-- ── EAGLE-2 ── -->
+  <h3>EAGLE-2（EMNLP 2024）：动态草稿树</h3>
+  <p>
+    EAGLE 和 Medusa 使用的是<strong>静态草稿树</strong>——不管上下文难不难，树的形状都一样。但现实中不同位置的预测难度差异很大：有的 token 几乎必中（如「10+2=」后面跟「1」），有的 token 很难猜。静态树对简单位置浪费了节点，对困难位置又分配不够。
+  </p>
+
+  <div class="figure">
+    <img src="https://ar5iv.labs.arxiv.org/html/2406.16858/assets/x5.png" alt="Static vs dynamic draft tree" loading="lazy">
+    <div class="figure-caption">EAGLE-2 原论文 Figure 4：静态树 vs 动态树的具体例子。<strong>左（EAGLE，静态树）：</strong>不管上下文如何，每个位置固定分配 2 个候选。当 query 是「10+2=」时，下一个 token 几乎确定是「1」，但仍浪费一个候选在概率极低的「3」上。<strong>右（EAGLE-2，动态树）：</strong>根据置信度调整。「10+2=」后只分配 1 个候选「1」（因为置信度极高），省下的节点分配给更难预测的位置（如「10+2」后面），增加那里的广度。</div>
+  </div>
+
+  <p>
+    EAGLE-2 的关键发现是：<strong>草稿模型的置信度（输出概率）与实际接受率高度正相关</strong>。下图展示了这种校准性——置信度低于 0.05 的 token 接受率约 0.04，置信度高于 0.95 的接受率约 0.98。这意味着可以用置信度实时估计每个候选的接受概率，据此动态调整草稿树结构。
+  </p>
+
+  <div class="figure">
+    <img src="https://ar5iv.labs.arxiv.org/html/2406.16858/assets/x8.png" alt="Draft model calibration" loading="lazy">
+    <div class="figure-caption">EAGLE-2 原论文 Figure 6：草稿模型的校准性验证（Vicuna 7B · Alpaca）。横轴是草稿模型对某个 token 的输出概率（置信度），纵轴是该 token 实际被目标模型接受的比例。红色虚线是理想校准线（置信度 = 接受率）。可以看到各柱状条非常贴近虚线——置信度 0.05 以下的 token 接受率约 0.04，置信度 0.95 以上的接受率约 0.98。这意味着<strong>无需额外调用目标模型就能用草稿模型置信度估计接受率</strong>，为动态草稿树提供了零成本的质量信号。</div>
+  </div>
+
+  <p>
+    光看校准性还不够——如果所有上下文的接受率差不多，静态树也够用了。下图直接展示了问题所在：在草稿树的 6 个位置（P1 靠近树根，P6 靠近树叶），每个 query 的接受率用一个点表示。可以看到<strong>同一位置的接受率方差极大</strong>（P1 位置的点从 0.2 分布到 1.0），说明草稿难度不仅取决于位置，更取决于当前上下文。这就是动态草稿树的必要性：同一位置，简单 query 只需 1 个候选，困难 query 可能需要 5 个。
+  </p>
+
+  <div class="figure">
+    <img src="https://ar5iv.labs.arxiv.org/html/2406.16858/assets/x7.png" alt="Position-dependent acceptance rates" loading="lazy">
+    <div class="figure-caption">EAGLE-2 原论文 Figure 5b：草稿树各位置（P1–P6）的接受率散点图（Vicuna 7B · Alpaca）。每个点是一个 query 在该位置的接受率。同一位置方差大，证明接受率与上下文高度相关。</div>
+  </div>
+
+  <!-- ── EAGLE-3 ── -->
+  <h3>EAGLE-3（2025）：打破 scaling 瓶颈</h3>
+  <p>
+    EAGLE-2 在草稿树调度上做到了极致，但草稿模型本身的架构没变——仍然是 feature 层自回归 + 顶层特征。当作者尝试用更多数据训练草稿模型时，发现加速比几乎不涨（见下方 scaling 曲线图）。EAGLE-3 的两个改动正是为了打破这个瓶颈，后面会详细展开。
+  </p>
+
+  <div class="callout">
+    <strong>演进逻辑：</strong>EAGLE 解决了「怎么借大模型信息猜得更准」→ EAGLE-2 解决了「怎么把计算预算分配得更聪明」→ EAGLE-3 解决了「怎么让草稿模型从更多数据中持续受益」。
+  </div>
+</section>
+
+<!-- ═══ 1. 问题 ═══ -->
+<section class="section" id="problem">
+  <h2>为什么需要 EAGLE-3</h2>
+
+  <p>
+    LLM 的自回归生成是串行的——每生成一个 token 都要跑一遍全部参数。Speculative sampling（投机采样）通过「小模型先猜、大模型并行验」来部分并行化生成，显著降低延迟。EAGLE 系列是其中效果最好的方案之一：它不用独立的小 LLM 当草稿模型，而是<strong>复用目标模型的顶层特征</strong>，在 feature 层面做自回归。
+  </p>
+  <p>
+    但当作者尝试用更多数据训练 EAGLE 的草稿模型时，发现了一个令人意外的现象：<strong>数据量翻 8 倍，加速比几乎不涨</strong>。问题出在哪？
+  </p>
+
+  <div class="figure">
+    <img src="https://ar5iv.labs.arxiv.org/html/2503.01840/assets/x1.png" alt="Scaling law comparison" loading="lazy">
+    <div class="figure-caption">EAGLE-3 原论文 Figure 1：数据 scaling 曲线（LLaMA-Instruct 3.1 8B · MT-bench）。横轴是训练数据量相对于 ShareGPT 的倍数，纵轴是加速比。<strong>EAGLE 和 EAGLE-2</strong>（绿/橙线）：数据量从 1x 增加到 8x，加速比几乎不变，曲线趋于平坦。<strong>EAGLE-3</strong>（蓝线）：加速比随数据量持续上升，首次在 speculative sampling 领域展现出 scaling law 行为。这是 EAGLE-3 最关键的贡献——证明去掉 feature 约束后，草稿模型真正能从更多数据中受益。</div>
+  </div>
+
+  <h3>EAGLE 的 feature 预测约束</h3>
+  <p>
+    EAGLE 的草稿模型训练有两个 loss：feature 预测 loss（Smooth L1，让输出逼近目标模型的顶层特征 <em>f</em>）和 token 预测 loss（Cross Entropy）。Feature 预测 loss 让草稿模型在训练时只看第 1 步就能泛化到多步推理，但同时也构成了一个<strong>额外约束</strong>——草稿模型只有 1 层 Decoder，容量非常有限，而 feature loss 迫使模型把大量容量花在几何拟合上（让输出向量在空间中接近目标模型的 feature），而不是花在「怎么预测 token 最准」这个最终目标上。
+  </p>
+  <p>
+    这就是 scaling 失效的根本原因：数据变多能帮助模型学到更丰富的 token 预测模式，但如果输出空间被 feature loss 锁死在目标模型的特征空间里，多出来的数据只能帮模型把 f̂ 拟合得更像 f——这件事本身已经接近极限了。<strong>Feature 预测是一个过强的正则化：数据少时帮助泛化，数据多时变成枷锁。</strong>
+  </p>
+  <p>
+    此外，feature 预测约束还间接锁定了输入端：草稿模型必须用顶层特征做输入（否则 feature loss 没有意义）。而顶层特征和 next-token logits 是一一对应的（LM head 全秩），信息高度特化于下一个 token 的预测。去掉 feature 约束后，输入端也获得了自由度——可以改用多层融合特征，获取更丰富的上下文信息。
+  </p>
+</section>
+
+<!-- ═══ 3. 方法 ═══ -->
+<section class="section" id="method">
+  <h2>EAGLE-3 的核心创新</h2>
+  <p>EAGLE-3 的改进可以拆成两个互相配合的设计决策。两者缺一不可——光做其中一个都会遇到问题。</p>
+
+  <!-- Innovation 1 -->
+  <h3>创新一：放弃 feature 预测，用 Training-Time Test 做直接 token 预测</h3>
+
+  <p>
+    EAGLE 的草稿模型要同时满足两个目标：在几何上拟合目标模型的 feature（Smooth L1 loss）、在语义上预测对 token（Cross Entropy loss）。EAGLE-3 的核心洞察是：<strong>feature 预测是手段，不是目的</strong>——它的作用只是让单步训练能泛化到多步推理，但代价是过度约束了草稿模型的输出空间，挤占了有限的模型容量。如果能找到另一种方式保证多步泛化能力，这个约束就可以丢掉，释放全部容量给 token 预测。
+  </p>
+
+  <p>
+    但直接丢掉 feature 预测会出问题。下图中间的方案展示了这种情况：去掉 feature 约束后，第 1 步的接受率（0-α）确实大幅提升，但草稿模型输出的向量 <em>a</em> 与真实 feature <em>f</em> 差距很大，导致第 2 步输入偏离训练分布，接受率（1-α）暴跌。
+  </p>
+
+  <div class="figure">
+    <img src="https://ar5iv.labs.arxiv.org/html/2503.01840/assets/x4.png" alt="Training-time test illustration" loading="lazy">
+    <div class="figure-caption">EAGLE-3 原论文 Figure 3：三种草稿模型架构对比（f=feature, t=token, a=无约束向量, 带 hat 的是模型预测值）。<strong>上（EAGLE）：</strong>输入 feature 序列 f，预测下一个 feature（有 feature loss 约束），再过 LM Head 得到 token。Step 2 用自己预测的 feature 做输入。<strong>中（去掉 feature 约束）：</strong>不约束输出逼近 f，直接预测 token。Step 1 效果好，但 Step 2 输入的向量 a 偏离训练分布，导致崩塌。<strong>下（EAGLE-3）：</strong>去掉 feature 约束 + training-time test——训练时把 Step 1 的输出 a 喂回 Step 2 继续训练，让模型学会处理自身输出作为输入的情况。</div>
+  </div>
+
+  <p>
+    解决方案就是 <strong>Training-Time Test</strong>：在训练时模拟推理过程。第 1 步正常前向，得到输出 <em>a</em>；然后把 <em>a</em> 喂回草稿模型做第 2 步、第 3 步……每一步都计算 token 预测 loss。这样草稿模型在训练时就学会了处理「自身输出作为输入」的场景，推理时不再出现分布偏移。
+  </p>
+
+  <div class="figure">
+    <img src="https://ar5iv.labs.arxiv.org/html/2503.01840/assets/x5.png" alt="Acceptance rates comparison - step 0" loading="lazy">
+    <div class="figure-caption">EAGLE-3 原论文 Figure 4（上）：<strong>第一步接受率（0-α）</strong>随训练数据量的变化。0-α 指输入全部来自目标模型真实 feature 时，第一个草稿 token 被接受的概率。三种方案中，去掉 feature 约束的两个方案（橙色、蓝色）都明显优于 EAGLE（绿色），说明 feature 约束确实限制了第一步的预测能力。数据越多，蓝色线（EAGLE-3）持续上升。</div>
+  </div>
+  <div class="figure">
+    <img src="https://ar5iv.labs.arxiv.org/html/2503.01840/assets/x6.png" alt="Acceptance rates comparison - step 1" loading="lazy">
+    <div class="figure-caption">EAGLE-3 原论文 Figure 4（下）：<strong>第二步接受率（1-α）</strong>随训练数据量的变化。1-α 指输入中包含 1 个草稿模型自身输出时，下一个草稿 token 被接受的概率。这里暴露了关键差异：橙色线（去掉 feature 约束但不做 training-time test）的接受率远低于 EAGLE，因为自身输出的分布偏移导致第二步崩塌。而蓝色线（EAGLE-3，有 training-time test）保持高位且随数据稳步上升——证明 training-time test 有效解决了分布偏移问题。</div>
+  </div>
+
+  <div class="callout">
+    为什么叫「Training-Time Test」？因为它的核心思想是<strong>在训练阶段模拟测试（推理）时的多步自回归过程</strong>——把草稿模型自己的输出当作下一步输入，闭环训练。这让训练分布和推理分布对齐。Training-time test 取代了 feature prediction loss 在 EAGLE 中的角色（保证多步泛化），但不像 feature loss 那样过度约束输出空间——模型的输出向量 a 可以自由选择最有利于 token 预测的表示形式。
+  </div>
+
+  <!-- Innovation 2 -->
+  <h3>创新二：多层特征融合替代顶层特征</h3>
+
+  <p>
+    去掉 feature 预测约束后，草稿模型的输入不再被锁定在顶层特征上——它可以自由选择使用目标模型的哪些信息。EAGLE-3 利用这个自由度，将目标模型的<strong>低层、中层、高层特征</strong>拼接后通过 FC 层融合为一个向量 <em>g</em>。
+  </p>
+
+  <div class="dual-panel">
+    <div class="panel">
+      <div class="panel-title">EAGLE：仅顶层特征</div>
+      <ul>
+        <li>被 feature loss 锁定，只能用顶层特征</li>
+        <li>信息高度特化于 next-token，上下文多样性有限</li>
+        <li>模型容量被 feature 拟合挤占</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <div class="panel-title">EAGLE-3：多层融合特征</div>
+      <ul>
+        <li>低层 → 表面语法 / 词法信息</li>
+        <li>中层 → 句法 / 局部语义</li>
+        <li>高层 → 全局语义 / 推理信息</li>
+        <li>融合后信息更丰富，利于多步预测</li>
+      </ul>
+    </div>
+  </div>
+
+  <h3>消融实验：两个改进各贡献多少</h3>
+
+  <table class="compare-table">
+    <thead>
+      <tr><th>方法</th><th>MT-bench 加速比</th><th>MT-bench τ</th><th>GSM8K 加速比</th><th>GSM8K τ</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>EAGLE-2（基线）</td><td>3.16x</td><td>4.05</td><td>3.39x</td><td>4.24</td></tr>
+      <tr><td>+ 去掉 feature 约束</td><td>3.82x</td><td>5.37</td><td>3.77x</td><td>5.22</td></tr>
+      <tr><td class="highlight">+ 多层融合（EAGLE-3）</td><td class="highlight">4.40x</td><td class="highlight">6.13</td><td class="highlight">4.48x</td><td class="highlight">6.23</td></tr>
+    </tbody>
+  </table>
+  <p>两个改进各自贡献显著：去掉 feature 约束让加速比从 3.16x 跳到 3.82x，再加上多层融合进一步提升到 4.40x。</p>
+</section>
+
+<!-- ═══ 4. 推理管线 ═══ -->
+<section class="section" id="pipeline">
+  <h2>EAGLE-3 推理管线详解</h2>
+  <p>和其他 speculative sampling 方法一样，EAGLE-3 在「草稿生成」和「验证」之间交替。以下以「How can I do it」为例，展示草稿生成的三步过程。</p>
+
+  <div class="figure">
+    <img src="https://ar5iv.labs.arxiv.org/html/2503.01840/assets/x7.png" alt="EAGLE-3 inference pipeline" loading="lazy">
+    <div class="figure-caption">EAGLE-3 原论文 Figure 5：推理管线三步示意图。<strong>图例：</strong>l / m / h = 目标模型的低层 / 中层 / 高层 feature，三者拼接后过 FC 层融合为 g；e = token embedding。<strong>Step 1：</strong>用目标模型的真实融合特征 g 和采样 token 的 embedding 作为输入。<strong>Step 2 起：</strong>目标模型尚未验证新 token，无法获取其真实 g，于是用上一步草稿模型的输出 a 替代——这正是 training-time test 训练草稿模型学会处理的场景。</div>
+  </div>
+
+  <div class="pipeline">
+    <div class="pipe-step">
+      <div class="pipe-num">1</div>
+      <div class="pipe-content">
+        <h4>特征融合 + 第一步草稿</h4>
+        <p>目标模型对前缀「How can」做前向，生成 token「I」。同时记录低/中/高层特征 l、m、h，拼接后过 FC 层得到融合特征 g。将 g 与采样结果「I」的 embedding 拼接，输入单层 Decoder，得到输出 a。a 过 LM head 采样得到草稿 token「do」。</p>
+      </div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">2</div>
+      <div class="pipe-content">
+        <h4>用自身输出替代缺失特征</h4>
+        <p>第 2 步需要「I」的融合特征 g<sub>I</sub>，但「I」尚未被目标模型验证，无法获取真实特征。于是用上一步的输出 a<sub>I</sub> 替代 g<sub>I</sub>，与「do」的 embedding 拼接后输入 Decoder，采样得到「it」。</p>
+      </div>
+    </div>
+    <div class="pipe-step">
+      <div class="pipe-num">3</div>
+      <div class="pipe-content">
+        <h4>持续自回归</h4>
+        <p>同理，第 3 步用 a<sub>do</sub> 替代 g<sub>do</sub>，与 e<sub>it</sub> 拼接输入 Decoder。后续步骤以此类推。最终生成的树状草稿送给目标模型并行验证。</p>
+      </div>
+    </div>
+  </div>
+
+  <h3>训练时的 Attention Mask 设计</h3>
+  <p>
+    Training-time test 需要在训练时模拟多步推理。关键技巧在于 attention mask 的设计：第 1 步（原始训练数据）用标准下三角 mask；第 2 步起，草稿模型的输出与原始序列形成树状依赖关系，attention mask 变成对角阵（每个预测 token 只看自己对应的父节点），只在与原始训练数据交互时保持因果关系。实现上用向量点积替代矩阵乘法，避免计算浪费。
+  </p>
+
+  <div class="callout">
+    <strong>Attention mask 要点：</strong>第 1 步（原始训练数据「How can I」）用标准下三角因果 mask。第 2 步输入第 1 轮预测（「are we do」），每个预测 token 只 attend 到自己对应的父节点，预测 token 之间互不可见（对角 mask）。第 3 步同理——每个第 2 轮预测只看自己的第 1 轮父节点。这种稀疏结构实现上用向量点积替代完整矩阵乘法，避免计算浪费。
+  </div>
+</section>
+
+<!-- ═══ 5. Scaling Law ═══ -->
+<section class="section" id="scaling">
+  <h2>推理加速领域的 Scaling Law</h2>
+  <p>
+    这是 EAGLE-3 最令人兴奋的发现：在新架构下，草稿模型的训练数据量和加速比之间呈现出清晰的 <strong>scaling law</strong>。这在之前的 speculative sampling 方法中从未被观察到。
+  </p>
+  <p>
+    原因很直观：去掉 feature 预测约束后，草稿模型的输出空间不再被锁死在目标模型的特征空间里，全部容量都释放给 token 预测。数据越多，模型能学到越丰富的 token 预测模式——而不是像以前那样，多出来的数据只能把 feature 拟合得更精确（一件收益递减的事）。容量释放 + 数据充足，scaling 自然生效。
+  </p>
+  <p>
+    作者用了约 8 倍于 EAGLE 的训练数据（ShareGPT + UltraChat-200K，约 53 万条数据），且为推理模型 DeepSeek-R1-Distill-LLaMA 8B 额外加入了 OpenThoughts-114k-math 数据集。他们预期更大的数据量还能带来进一步的提升。
+  </p>
+
+  <div class="figure">
+    <img src="https://ar5iv.labs.arxiv.org/html/2503.01840/assets/x9.png" alt="Acceptance rate EAGLE vs EAGLE-3" loading="lazy">
+    <div class="figure-caption">EAGLE-3 原论文 Figure 7：EAGLE 与 EAGLE-3 的逐步接受率对比（LLaMA-Instruct 3.1 8B · MT-bench）。横轴 n-α 表示输入中包含 n 个草稿模型自身输出时的接受率。<strong>EAGLE</strong>（红色）：0-α ≈ 0.8，但 1-α 降到 ~0.65，2-α 降到 ~0.55——误差累积导致步数越深接受率越低。<strong>EAGLE-3</strong>（蓝色）：0-α ≈ 0.85，且 1-α、2-α、3-α 几乎没有衰减——training-time test 让草稿模型在多步推理时始终稳定。这种稳定性正是 EAGLE-3 能把草稿树深度从 6 增加到 8、实现更高加速比的基础。</div>
+  </div>
+</section>
+
+<!-- ═══ 6. 实验 ═══ -->
+<section class="section" id="results">
+  <h2>实验结论</h2>
+
+  <p>
+    EAGLE-3 在 4 个目标模型（Vicuna 13B、LLaMA-Instruct 3.1 8B、LLaMA-Instruct 3.3 70B、DeepSeek-R1-Distill-LLaMA 8B）× 5 个任务上全面领先。几个关键数字：
+  </p>
+
+  <div class="metrics">
+    <div class="metric-card">
+      <div class="metric-value">5.51x</div>
+      <div class="metric-label">Vicuna 13B 平均加速比<br>(T=0，5 个任务)</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value">7.54</div>
+      <div class="metric-label">最高平均接受长度 τ<br>(Vicuna 13B · HumanEval)</div>
+    </div>
+    <div class="metric-card">
+      <div class="metric-value">373</div>
+      <div class="metric-label">tokens/s 吞吐<br>(SGLang + H100 · bs=1)</div>
+    </div>
+  </div>
+
+  <h3>生产级框架中的大 batch 吞吐</h3>
+  <p>
+    Speculative sampling 通常被认为在大 batch 下会降低吞吐（因为计算冗余减少）。EAGLE 在 SGLang 中 batch=24 时吞吐已低于基线，而 EAGLE-3 得益于更高的接受率，在 <strong>batch=64 时仍有 38% 的吞吐提升</strong>。
+  </p>
+
+  <table class="compare-table">
+    <thead>
+      <tr><th>方法</th><th>bs=2</th><th>bs=8</th><th>bs=16</th><th>bs=32</th><th>bs=64</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>EAGLE (SGLang)</td><td>1.40x</td><td>1.23x</td><td>1.02x</td><td>0.94x</td><td>0.99x</td></tr>
+      <tr><td class="highlight">EAGLE-3 (SGLang)</td><td class="highlight">1.81x</td><td class="highlight">1.62x</td><td class="highlight">1.48x</td><td class="highlight">1.32x</td><td class="highlight">1.38x</td></tr>
+    </tbody>
+  </table>
+
+  <h3>与 HASS 的区别</h3>
+  <p>
+    HASS 也在训练时模拟多步推理，但其动机和做法不同：HASS 仍然做 feature 预测、仍然依赖顶层特征，目的是缓解 EAGLE 的误差累积问题。而 EAGLE-3 从根本上放弃了 feature 预测，输入自由选择多层融合特征，表达能力更强。实验中 EAGLE-3 的加速比显著优于 HASS。
+  </p>
+</section>
+
+<!-- ═══ 7. 有意思的点 ═══ -->
+<section class="section" id="insights">
+  <h2>值得注意的细节</h2>
+
+  <div class="card-grid">
+    <div class="expand-card" id="card-ds">
+      <div class="card-header" onclick="toggleCard('card-ds')">
+        <div><h4>与 DeepSeek-V3 的互相启发</h4></div>
+        <svg class="card-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="card-body">
+        <p>EAGLE 的 feature 层自回归启发了 DeepSeek-V3 预训练中的 multi-token prediction 技术，而 DeepSeek-V3 的这一设计又反过来启发了 EAGLE-3 的架构改进。这是一个有趣的技术思想互相激荡的例子。</p>
+      </div>
+    </div>
+    <div class="expand-card" id="card-tree">
+      <div class="card-header" onclick="toggleCard('card-tree')">
+        <div><h4>更深的草稿树</h4></div>
+        <svg class="card-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="card-body">
+        <p>由于接受率显著提升，EAGLE-3 可以把草稿树深度从 EAGLE-2 的 6 层增加到 8 层，同时节点总数不变。更深的树意味着单次验证能接受更长的 token 序列，进一步拉大加速比。</p>
+      </div>
+    </div>
+    <div class="expand-card" id="card-lossless">
+      <div class="card-header" onclick="toggleCard('card-lossless')">
+        <div><h4>严格无损加速</h4></div>
+        <svg class="card-arrow" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="card-body">
+        <p>EAGLE-3 不修改目标模型权重，使用严格的 speculative sampling 接受条件，数学上保证生成分布与原始自回归解码完全一致。加速不以牺牲任何生成质量为代价。</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+</div><!-- .container -->
+
+<!-- ═══ FOOTER ═══ -->
+<footer class="footer">
+  <p>
+    原文：<a href="https://arxiv.org/abs/2503.01840" target="_blank">EAGLE-3: Scaling up Inference Acceleration of Large Language Models via Training-Time Test</a> · arXiv:2503.01840
+  </p>
+  <p style="margin-top:4px">
+    代码：<a href="https://github.com/SafeAILab/EAGLE" target="_blank">github.com/SafeAILab/EAGLE</a>
+  </p>
+</footer>
+
+<script>
+function toggleCard(id) {
+  var card = document.getElementById(id);
+  var body = card.querySelector('.card-body');
+  card.classList.toggle('active');
+  body.classList.toggle('open');
+}
+</script>
+</body>
+</html>
