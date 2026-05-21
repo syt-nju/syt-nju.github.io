@@ -1,0 +1,2811 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Agent 记忆综述：从上下文到经验再到技能</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-primary: #faf6ee;
+  --bg-secondary: #f4ead7;
+  --bg-tertiary: #ede2ce;
+  --bg-card: #fff8ec;
+  --bg-white: #fffdf8;
+  --text-primary: #2c2416;
+  --text-secondary: #5a4d3a;
+  --text-tertiary: #8a7d6a;
+  --accent: #b8733a;
+  --accent-light: #d4a06a;
+  --accent-bg: #f9efe2;
+  --border: #e0d5c3;
+  --border-light: #ece3d3;
+  --shadow-sm: 0 1px 3px rgba(44,36,22,.06);
+  --shadow-md: 0 4px 12px rgba(44,36,22,.08);
+  --radius: 10px;
+  --radius-lg: 16px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Inter','Noto Sans SC',sans-serif;background:var(--bg-primary);color:var(--text-primary);line-height:1.8;font-size:16px;-webkit-font-smoothing:antialiased}
+.container{max-width:820px;margin:0 auto;padding:0 24px}
+.top-nav{position:sticky;top:0;z-index:100;background:rgba(250,246,238,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--border-light);padding:12px 0}
+.top-nav .container{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.nav-title{font-size:14px;font-weight:600;color:var(--text-secondary);white-space:nowrap}
+.nav-links{display:flex;gap:8px;flex-shrink:0}
+.nav-links a{font-size:13px;color:var(--accent);text-decoration:none;padding:4px 10px;border-radius:6px;transition:background .2s}
+.nav-links a:hover{background:var(--accent-bg)}
+.hero{padding:64px 0 48px;text-align:center}
+.hero-label{display:inline-block;font-size:12px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);margin-bottom:16px}
+.hero h1{font-size:clamp(28px,5vw,40px);font-weight:700;line-height:1.25;margin-bottom:20px}
+.hero-sub{font-size:17px;color:var(--text-secondary);max-width:640px;margin:0 auto 28px;line-height:1.7}
+.hero-meta{font-size:13px;color:var(--text-tertiary);display:flex;justify-content:center;gap:20px;flex-wrap:wrap}
+.hero-meta a{color:var(--accent);text-decoration:none}
+section{padding:48px 0 24px}
+section h2{font-size:26px;font-weight:700;margin-bottom:20px}
+section h3{font-size:20px;font-weight:600;margin:36px 0 14px}
+section p{margin-bottom:16px;color:var(--text-secondary)}
+section p strong{color:var(--text-primary);font-weight:600}
+.tldr{background:var(--bg-white);border:1px solid var(--border);border-radius:var(--radius-lg);padding:32px;margin-bottom:32px}
+.tldr-title{font-size:14px;font-weight:600;letter-spacing:1px;text-transform:uppercase;color:var(--accent);margin-bottom:16px}
+.tldr ul{list-style:none;padding:0}
+.tldr li{padding:8px 0 8px 24px;position:relative;color:var(--text-secondary);font-size:15px;line-height:1.7}
+.tldr li::before{content:'';position:absolute;left:0;top:16px;width:8px;height:8px;border-radius:50%;background:var(--accent-light)}
+.quote-block{border-left:3px solid var(--accent-light);padding:16px 24px;margin:24px 0;background:var(--accent-bg);border-radius:0 var(--radius) var(--radius) 0;font-style:italic;color:var(--text-secondary)}
+.flow-container{margin:32px 0;padding:28px 24px;background:var(--bg-white);border:1px solid var(--border);border-radius:var(--radius-lg)}
+.flow-title{font-size:14px;font-weight:600;color:var(--text-tertiary);text-align:center;margin-bottom:20px}
+.flow-row{display:flex;align-items:center;justify-content:center;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+.flow-node{padding:10px 20px;border-radius:var(--radius);font-size:14px;font-weight:500;text-align:center;white-space:nowrap}
+.flow-arrow{color:var(--text-tertiary);font-size:18px;flex-shrink:0}
+.flow-node.s1{background:#f0e6d4;color:#7a6540;border:1px solid #ddd0b8}
+.flow-node.s2{background:#e8ddc7;color:#5a4d3a;border:1px solid #d4c8b0}
+.flow-node.s3{background:#dcd0b8;color:#3d3425;border:1px solid #c8baa0;font-weight:600}
+.card-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:16px;margin:24px 0}
+.card{background:var(--bg-white);border:1px solid var(--border);border-radius:var(--radius);padding:24px;cursor:pointer;transition:box-shadow .2s,border-color .2s}
+.card:hover{box-shadow:var(--shadow-md);border-color:var(--accent-light)}
+.card-icon{font-size:28px;margin-bottom:12px}
+.card-title{font-size:16px;font-weight:600;margin-bottom:8px}
+.card-brief{font-size:14px;color:var(--text-secondary);line-height:1.6}
+.card-detail{max-height:0;overflow:hidden;transition:max-height .4s ease,opacity .3s ease;opacity:0;margin-top:0}
+.card.open .card-detail{max-height:800px;opacity:1;margin-top:12px}
+.card-detail-inner{padding-top:12px;border-top:1px solid var(--border-light);font-size:14px;color:var(--text-secondary);line-height:1.7}
+.card-expand-hint{font-size:12px;color:var(--text-tertiary);margin-top:8px}
+.card.open .card-expand-hint{display:none}
+.figure-block{margin:28px 0;text-align:center}
+.figure-block img{max-width:100%;border-radius:var(--radius);border:1px solid var(--border)}
+.figure-caption{font-size:13px;color:var(--text-tertiary);margin-top:12px;line-height:1.6}
+.fig-toggle{display:inline-block;margin-top:8px;font-size:13px;color:var(--accent);cursor:pointer;user-select:none}
+.fig-toggle:hover{text-decoration:underline}
+.figure-detail{max-height:0;overflow:hidden;transition:max-height .4s ease,opacity .3s ease;opacity:0;text-align:left;font-size:14px;color:var(--text-secondary);line-height:1.7;margin-top:8px;padding:0 16px}
+.figure-detail.active{max-height:2000px;opacity:1}
+.figure-detail ul{list-style:disc;padding-left:20px;margin:8px 0}
+.figure-detail li{margin-bottom:6px}
+.metric-row{display:flex;gap:16px;margin:24px 0;flex-wrap:wrap}
+.metric-card{flex:1;min-width:140px;background:var(--bg-white);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center}
+.metric-num{font-size:28px;font-weight:700;color:var(--accent);line-height:1.2}
+.metric-label{font-size:12px;color:var(--text-tertiary);margin-top:4px}
+.expand-section{margin:16px 0;border:1px solid var(--border-light);border-radius:var(--radius);overflow:hidden}
+.expand-header{display:flex;align-items:center;justify-content:space-between;padding:16px 20px;background:var(--bg-card);cursor:pointer;user-select:none;transition:background .2s;gap:12px}
+.expand-header:hover{background:var(--accent-bg)}
+.expand-header .expand-title-group{flex:1;min-width:0}
+.expand-header h4{font-size:15px;font-weight:600;margin:0}
+.expand-header .expand-desc{font-size:13px;color:var(--text-tertiary);font-weight:400;margin-top:4px;line-height:1.4}
+.expand-chevron{width:20px;height:20px;transition:transform .3s;color:var(--text-tertiary)}
+.expand-section.open .expand-chevron{transform:rotate(180deg)}
+.expand-body{max-height:0;overflow:hidden;transition:max-height .4s ease}
+.expand-section.open .expand-body{max-height:3000px}
+.expand-body-inner{padding:20px;font-size:14px;color:var(--text-secondary);line-height:1.7}
+.expand-body-inner p{margin-bottom:12px}
+.comparison-table-wrap{margin:24px 0;overflow-x:auto}
+.comparison-table{width:100%;border-collapse:collapse;font-size:13px}
+.comparison-table th{text-align:left;padding:10px 14px;background:var(--bg-tertiary);font-weight:600;border-bottom:2px solid var(--border);white-space:nowrap}
+.comparison-table td{padding:10px 14px;border-bottom:1px solid var(--border-light);color:var(--text-secondary);vertical-align:top}
+.comparison-table tr:hover td{background:var(--accent-bg)}
+.paper-tag{display:inline-block;font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px;background:var(--bg-secondary);color:var(--text-tertiary);margin-left:8px;vertical-align:middle}
+.timeline{position:relative;margin:32px 0;padding-left:32px}
+.timeline::before{content:'';position:absolute;left:11px;top:0;bottom:0;width:2px;background:var(--border)}
+.timeline-item{position:relative;margin-bottom:24px}
+.timeline-item::before{content:'';position:absolute;left:-32px;top:6px;width:12px;height:12px;border-radius:50%;border:2px solid var(--accent-light);background:var(--bg-primary)}
+.timeline-item.active::before{background:var(--accent);border-color:var(--accent)}
+.timeline-label{font-size:12px;font-weight:600;color:var(--accent);margin-bottom:4px}
+.timeline-content{font-size:15px;color:var(--text-secondary);line-height:1.7}
+.timeline-content strong{color:var(--text-primary)}
+pre{background:var(--bg-white);border:1px solid var(--border);border-radius:var(--radius);padding:16px 20px;overflow-x:auto;margin:16px 0;font-size:13px;line-height:1.6}
+code{font-family:'JetBrains Mono',monospace;font-size:.88em;background:var(--bg-secondary);padding:2px 6px;border-radius:4px}
+pre code{background:none;padding:0}
+.toc{margin:32px 0;padding:24px;background:var(--bg-white);border:1px solid var(--border);border-radius:var(--radius-lg)}
+.toc-title{font-size:14px;font-weight:600;color:var(--text-tertiary);margin-bottom:12px}
+.toc-list{list-style:none;display:flex;flex-wrap:wrap;gap:8px}
+.toc-list a{display:inline-block;padding:6px 14px;font-size:13px;font-weight:500;color:var(--text-secondary);text-decoration:none;border-radius:20px;background:var(--bg-secondary);transition:background .2s,color .2s}
+.toc-list a:hover{background:var(--accent-bg);color:var(--accent)}
+.footer{padding:48px 0 32px;border-top:1px solid var(--border);margin-top:48px}
+.footer p{font-size:13px;color:var(--text-tertiary);text-align:center;line-height:1.6}
+.footer a{color:var(--accent);text-decoration:none}
+@media(max-width:880px){.container{padding:0 16px}.hero{padding:40px 0 32px}.hero h1{font-size:26px}.card-grid{grid-template-columns:1fr}.metric-row{flex-direction:column}.nav-links{display:none}}
+.example-details{margin:0 0 16px;border:1px solid var(--border-light);border-radius:var(--radius);overflow:hidden}
+.example-details summary{padding:12px 16px;font-size:13.5px;font-weight:500;color:var(--accent);cursor:pointer;user-select:none;list-style:none;background:var(--bg-card);transition:background .2s}
+.example-details summary::-webkit-details-marker{display:none}
+.example-details summary::before{content:'▸ ';font-size:12px}
+.example-details[open] summary::before{content:'▾ '}
+.example-details summary:hover{background:var(--bg-hover)}
+.example-details .example-content{padding:4px 16px 16px;font-size:14px;color:var(--text-secondary);line-height:1.7}
+</style>
+</head>
+<body>
+
+<nav class="top-nav"><div class="container">
+  <span class="nav-title">LLM Agent 记忆综述</span>
+  <div class="nav-links">
+    <a href="#taxonomy">分类</a>
+    <a href="#working">工作上下文</a>
+    <a href="#episodic">情节经验</a>
+    <a href="#personalized">个性化</a>
+    <a href="https://arxiv.org/abs/2604.08224" target="_blank">参考综述 ↗</a>
+  </div>
+</div></nav>
+
+<header class="hero"><div class="container">
+  <span class="hero-label">研究综述 · 可视化阅读</span>
+  <h1>LLM Agent 的记忆<br>从上下文管理到经验学习</h1>
+  <p class="hero-sub">记忆的三个层次——工作上下文、情节经验、个性化记忆。重点追踪情节经验方向从 Reflection 到 Skill 范式的演化。</p>
+  <div class="hero-meta">
+    <a href="https://arxiv.org/abs/2604.08224" target="_blank">参考: Externalization in LLM Agents (2026)</a>
+  </div>
+</div></header>
+
+<main class="container">
+
+<!-- ===================== TAXONOMY ===================== -->
+<section id="taxonomy">
+<div class="card-grid" style="grid-template-columns:repeat(3,1fr)">
+  <div class="card" style="cursor:default"><div class="card-icon">📋</div><div class="card-title">工作上下文</div><div class="card-brief">Agent 当前能看到的环境状态切片。</div></div>
+  <div class="card" style="cursor:default"><div class="card-icon">📚</div><div class="card-title">情节经验</div><div class="card-brief">从历史轨迹中提炼的可复用知识。</div></div>
+  <div class="card" style="cursor:default"><div class="card-icon">👤</div><div class="card-title">个性化记忆</div><div class="card-brief">特定用户的偏好、习惯、隐私约束。</div></div>
+</div>
+</section>
+
+<!-- ===================== WORKING CONTEXT ===================== -->
+<section id="working">
+<h2>工作上下文：有限窗口感知外部状态变化</h2>
+
+<p>LLM 是一个<strong>参数固定的 machine</strong>——训练结束后权重不再变化；而外部环境是一个<strong>不断变化的 state machine</strong>——文件在被编辑、终端有新输出、浏览器页面在刷新。核心问题是：如何让模型在有限的上下文窗口内实时感知外部 state 的变化，并据此做出正确决策？</p>
+
+<h3>问题拆解</h3>
+
+<div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-icon">🔍</div>
+    <div class="card-title">接口设计</div>
+    <div class="card-brief">环境给 Agent 的信息太多太杂，需要设计专用接口过滤噪声，让 Agent 每步只看到精炼的状态切片。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-icon">📦</div>
+    <div class="card-title">历史压缩</div>
+    <div class="card-brief">上下文随步数线性增长，窗口满了需要压缩/外化历史状态。</div>
+  </div>
+</div>
+
+<!-- ===== 观察什么 ===== -->
+<h3>观察什么：为 Agent 设计状态接口</h3>
+
+<!-- SWE-agent -->
+<div class="expand-section">
+  <div class="expand-header"><div class="expand-title-group"><h4>SWE-agent：Agent-Computer Interface <span class="paper-tag">NeurIPS 2024</span></h4><p class="expand-desc">为 LM Agent 专门设计文件编辑/搜索/导航接口，用 100 行窗口 + linter 护栏替代原生 shell</p></div><svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg></div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<p>SWE-agent 定义了 5 个核心命令（<code>open</code> / <code>edit</code> / <code>search_file</code> / <code>find_file</code> / <code>scroll</code>），设计原则是<strong>操作原子化 + 即时反馈 + 护栏防错</strong>。与原生 shell 的关键区别：</p>
+<ul style="margin:8px 0 16px 20px;color:var(--text-secondary);font-size:15px;line-height:1.7">
+  <li><strong>100 行窗口视图</strong>：文件打开不 dump 全文，只显示以目标行为中心的 100 行窗口，附带上下文行数指示器</li>
+  <li><strong>Edit + Linter 即时反馈</strong>：编辑后自动展示更新内容并运行语法检查，无效编辑被拒绝并要求重试</li>
+  <li><strong>搜索结果限额</strong>：搜索返回摘要式结果（上限 50 条），过多时要求 Agent 细化查询，防止上下文被淹没</li>
+  <li><strong>Last-5 观察压缩</strong>：仅保留最近 5 步的完整输出，更早的观察折叠为单行摘要，上下文不随步数线性膨胀</li>
+</ul>
+
+<details class="example-details">
+<summary>查看示例：原生 shell vs ACI 定制接口的交互对比</summary>
+<div class="example-content">
+<p style="margin-bottom:8px"><strong>ACI 核心命令接口定义：</strong></p>
+<pre><code>open &lt;path&gt; [&lt;line_number&gt;]      # 打开文件，显示以 line_number 为中心的 100 行窗口
+edit &lt;start&gt;:&lt;end&gt; &lt;&lt;EOF ... EOF  # 替换指定行范围，自动触发 linter
+search_file &lt;query&gt; [&lt;path&gt;]     # 在文件中搜索，返回行号+片段摘要
+find_file &lt;name&gt; [&lt;dir&gt;]         # 按名查找文件，返回路径列表
+scroll_up / scroll_down           # 在当前文件中翻页（±100 行）</code></pre>
+
+<p style="margin:20px 0 8px"><strong>Before — 原生 shell（无 ACI）：</strong></p>
+<pre><code>$ cat -n src/utils.py | head -50
+[50 行输出淹没上下文，大量 token 浪费在无关代码上...]
+
+$ sed -i '23s/old_code/new_code/' src/utils.py
+[无反馈，不知道改对没有，可能引入语法错误]
+
+$ cat -n src/utils.py | sed -n '20,26p'
+[再花 token 确认结果，仍无 linter 检查]</code></pre>
+
+<p style="margin:20px 0 8px"><strong>After — SWE-agent ACI：</strong></p>
+<pre><code>$ open src/utils.py 23
+[File: src/utils.py (200 lines total)]
+(13 lines above)
+23| old_code
+24| ...
+(177 lines below)
+
+$ edit 23:23
+new_code
+end_of_edit
+[File updated. Linter: No issues.]
+[File: src/utils.py (200 lines total)]
+23| new_code   ← 自动显示更新后内容</code></pre>
+
+<div class="figure-caption"><strong>关键差异：</strong>token 消耗大幅降低（100 行窗口 vs 全文件 dump）、操作即时反馈（edit 后自动展示结果）、内置 linter 护栏（语法错误立刻暴露而非静默传播）。</div>
+</div>
+</details>
+
+<p><a href="https://arxiv.org/abs/2410.03859" target="_blank">SWE-agent</a>（Yang et al., 2024）的核心洞察：<strong>Agent 的表现瓶颈不在 LLM 能力，而在它与环境的交互接口设计</strong>。裸 shell 输出噪声大、信息密度低，Agent 往往淹没在冗余状态中。SWE-agent 为此设计了专用的 <strong>ACI（Agent-Computer Interface）</strong>，通过四大组件精确控制每步进入上下文的状态片段：<strong>File Viewer</strong>（100 行滑动窗口取代全文 dump）、<strong>File Editor</strong>（edit + linter 即时反馈取代盲改）、<strong>Search/Navigation</strong>（摘要式搜索结果限制条目数）、<strong>Context Management</strong>（Last-5 观察窗口，旧观察折叠为单行摘要）。</p>
+
+<p>实验证明 ACI 设计<strong>显著优于直接使用原生 shell</strong>，且窗口大小和压缩策略的选择确实影响表现——过大噪声多、过小信息不足。<strong>局限</strong>在于 ACI 是为代码编辑场景专门设计的，泛化到其他 Agent 场景（如 Web 浏览、数据分析）需要重新设计接口。<strong>综述定位：</strong>SWE-agent 定义了「状态选择」这个问题维度——不是把所有环境状态塞进窗口，而是设计接口让 Agent 每步只看到最相关的投影。</p>
+
+  </div></div>
+</div>
+
+
+<!-- ===== 历史压缩 ===== -->
+<h3>历史压缩：上下文线性增长怎么办</h3>
+
+<p>Agent 每执行一步就产生新的 action + observation，上下文线性增长。8k 窗口大约 140 条消息就满了，200k 窗口跑复杂任务也撑不过几个小时。满了怎么办？核心是三个工程问题：<strong>压缩后保留什么</strong>、<strong>原文能否复原</strong>、<strong>需要时怎么召回</strong>。</p>
+
+<!-- MemGPT vs Claude compact 对比 -->
+<div class="expand-section">
+  <div class="expand-header"><div class="expand-title-group"><h4>MemGPT：LLM 自主管理虚拟上下文</h4><p class="expand-desc">让 LLM 自主 page-in/page-out 管理记忆，模拟操作系统的虚拟内存机制</p></div><svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg></div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<div class="figure-block">
+  <img src="https://research.memgpt.ai/assets/img/memgpt-system-diagram.png" alt="MemGPT memory hierarchy" loading="lazy">
+  <div class="figure-caption"><strong>MemGPT 分层内存架构</strong>：Main Context（类比 RAM）分为 System Instructions + Working Context + FIFO Queue；External Context（类比 Disk）包含 Archival Storage 和 Recall Storage。</div>
+  <span class="fig-toggle" onclick="toggleFigDetail(this, event)">展开说明 ▸</span>
+  <div class="figure-detail">
+    <ul>
+      <li><strong>Main Context 三区：</strong>System Instructions（固定不驱逐）+ Working Context（可编辑 scratchpad）+ FIFO Queue（先进先出消息队列）。</li>
+      <li><strong>External Context 两库：</strong>Archival Storage（向量检索的事实库）+ Recall Storage（按时间检索的完整对话历史）。</li>
+      <li><strong>自主 page-in/page-out：</strong>LLM 通过 function calls 自行决定何时存档、何时召回，窗口满时自动驱逐 + 递归摘要。</li>
+    </ul>
+    <p style="margin:14px 0 6px;font-weight:600;color:var(--text-primary)">MemGPT 工程细节补充</p>
+    <ul>
+      <li><strong>archival_memory_search 是向量检索：</strong>embedding 使用 <code>text-embedding-ada-002</code>，底层基于 pgvector 做 cosine similarity 搜索，返回最相关的文档片段。</li>
+      <li><strong>Archival Storage 写入依赖模型主动调用：</strong>LLM 通过 <code>archival_memory_insert</code> function call 决定存什么；memory pressure 警告会暗示模型保存信息，但最终是否存档完全由 LLM 自主决策。</li>
+      <li><strong>conversation_search 返回原始完整消息：</strong>结果是 role + content + timestamp 的原始记录（非摘要），默认返回约 5-10 条匹配消息。</li>
+      <li><strong>Recall Storage 支持两种检索模式：</strong>原始版本仅支持关键词匹配（substring match on message content）；当前版本升级为 hybrid search，结合关键词匹配 + embedding 向量检索。</li>
+    </ul>
+  </div>
+</div>
+
+<h4 style="margin:24px 0 12px">FIFO Queue 驱逐机制</h4>
+<div id="fifo-demo">
+<style>
+#fifo-demo .fifo-layout{display:flex;gap:14px;align-items:flex-start}
+#fifo-demo .fifo-main{flex:1;min-width:0;background:var(--bg-white);border:2px solid var(--border);border-radius:var(--radius);padding:14px;transition:border-color .4s,background .4s}
+#fifo-demo .fifo-main.pressure{background:#fffbf0}
+#fifo-demo .fifo-main.warning{border-color:var(--accent)}
+#fifo-demo .fifo-store{width:180px;flex-shrink:0;background:var(--bg-secondary);border-radius:var(--radius);padding:14px}
+#fifo-demo .fifo-hdr{font-size:12px;font-weight:600;color:var(--text-tertiary);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center}
+#fifo-demo .fifo-cap{font-weight:700;font-size:13px;color:var(--text-primary);transition:color .3s}
+#fifo-demo .fifo-cap.warn{color:var(--accent)}
+#fifo-demo .fifo-queue{min-height:200px;position:relative}
+#fifo-demo .fifo-limit{margin-top:6px;padding-top:6px;border-top:2px dashed var(--border);font-size:11px;color:var(--text-tertiary);text-align:center;letter-spacing:.5px}
+#fifo-demo .fifo-item{max-height:0;opacity:0;overflow:hidden;padding:0 10px;margin:0;font-size:12.5px;line-height:1.5;background:var(--bg-card);border:1px solid transparent;border-radius:6px;color:var(--text-secondary);transition:max-height .4s,opacity .4s,padding .35s,margin .35s,transform .4s,border-color .3s;transform:translateX(0)}
+#fifo-demo .fifo-item.vis{max-height:38px;opacity:1;padding:7px 10px;margin:4px 0;border-color:var(--border-light)}
+#fifo-demo .fifo-item.entering{animation:fifoEnter .4s ease}
+@keyframes fifoEnter{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:translateY(0)}}
+#fifo-demo .fifo-item.evicting{opacity:0!important;transform:translateX(60px)}
+#fifo-demo .fifo-summary{font-style:italic;border-style:dashed!important;border-color:var(--accent-light)!important;background:var(--accent-bg);color:var(--accent)}
+#fifo-demo .fifo-lbl{font-weight:600;color:var(--accent);margin-right:6px;font-size:11px}
+#fifo-demo .fifo-recall-item.vis{border-color:var(--border);background:var(--bg-card)}
+#fifo-demo .fifo-empty{font-size:11px;color:var(--text-tertiary);font-style:italic;padding:8px 0;text-align:center;transition:opacity .3s,max-height .3s;max-height:30px}
+#fifo-demo .fifo-empty.hidden{opacity:0;max-height:0;overflow:hidden;padding:0}
+#fifo-demo .fifo-ctrl{display:flex;align-items:center;gap:10px;margin-top:14px}
+#fifo-demo .fifo-btn{padding:6px 16px;border-radius:6px;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);transition:background .2s,opacity .2s;font-family:inherit}
+#fifo-demo .fifo-btn:hover{background:var(--accent-bg)}
+#fifo-demo .fifo-btn-pri{background:var(--accent);color:#fff;border-color:var(--accent)}
+#fifo-demo .fifo-btn-pri:hover{opacity:.88}
+#fifo-demo .fifo-btn:disabled{opacity:.45;cursor:default}
+#fifo-demo .fifo-step{font-size:11px;color:var(--text-tertiary);margin-left:auto}
+#fifo-demo .fifo-desc{margin-top:10px;font-size:12.5px;color:var(--text-secondary);line-height:1.6;padding:8px 12px;background:var(--bg-card);border-radius:6px;border:1px solid var(--border-light)}
+@media(max-width:600px){#fifo-demo .fifo-layout{flex-direction:column}#fifo-demo .fifo-store{width:100%}}
+</style>
+<div class="fifo-layout">
+  <div class="fifo-main" id="fifoMain">
+    <div class="fifo-hdr">Main Context · FIFO Queue<span class="fifo-cap" id="fifoCap">3/6</span></div>
+    <div class="fifo-queue">
+      <div class="fifo-item fifo-summary" id="fifoSum">📋 Summary: msg1‑3 递归摘要</div>
+      <div class="fifo-item" id="fm1"><span class="fifo-lbl">msg1</span>你好！</div>
+      <div class="fifo-item" id="fm2"><span class="fifo-lbl">msg2</span>我是 AI 助手。</div>
+      <div class="fifo-item" id="fm3"><span class="fifo-lbl">msg3</span>能记住对话吗？</div>
+      <div class="fifo-item" id="fm4"><span class="fifo-lbl">msg4</span>在上下文内可以。</div>
+      <div class="fifo-item" id="fm5"><span class="fifo-lbl">msg5</span>太长了怎么办？</div>
+      <div class="fifo-item" id="fm6"><span class="fifo-lbl">msg6</span>触发记忆驱逐。</div>
+      <div class="fifo-item" id="fm7"><span class="fifo-lbl">msg7</span>新问题来了</div>
+    </div>
+    <div class="fifo-limit">── context window limit（6 slots）──</div>
+  </div>
+  <div class="fifo-store">
+    <div class="fifo-hdr">Recall Storage 💾</div>
+    <div>
+      <div class="fifo-item fifo-recall-item" id="fr1"><span class="fifo-lbl">msg1</span>你好！</div>
+      <div class="fifo-item fifo-recall-item" id="fr2"><span class="fifo-lbl">msg2</span>我是 AI 助手。</div>
+      <div class="fifo-item fifo-recall-item" id="fr3"><span class="fifo-lbl">msg3</span>能记住对话吗？</div>
+      <div class="fifo-empty" id="fifoEmpty">暂无驱逐消息</div>
+    </div>
+  </div>
+</div>
+<div class="fifo-ctrl">
+  <button class="fifo-btn fifo-btn-pri" id="fifoNext">下一步 →</button>
+  <button class="fifo-btn" id="fifoReset">重置</button>
+  <span class="fifo-step" id="fifoStep">初始 · 0/5</span>
+</div>
+<div class="fifo-desc" id="fifoDesc">队列中有 3 条消息（msg1, msg2, msg3），容量 3/6，一切正常。</div>
+</div>
+<script>
+(function(){
+  var step=0,maxS=5;
+  var $=function(id){return document.getElementById(id)};
+  var mainEl=$('fifoMain'),capEl=$('fifoCap'),descEl=$('fifoDesc'),stepEl=$('fifoStep'),nextBtn=$('fifoNext'),resetBtn=$('fifoReset'),emptyEl=$('fifoEmpty');
+  var qIds=['fm1','fm2','fm3','fm4','fm5','fm6','fm7'],rIds=['fr1','fr2','fr3'];
+  var S=[
+    {q:['fm1','fm2','fm3'],r:[],sum:false,cap:'3/6',warn:false,pres:false,ent:null,lbl:'初始 · 0/5',desc:'队列中有 3 条消息（msg1, msg2, msg3），容量 3/6，一切正常。'},
+    {q:['fm1','fm2','fm3','fm4'],r:[],sum:false,cap:'4/6',warn:false,pres:false,ent:'fm4',lbl:'Step 1 · 1/5',desc:'Step 1：msg4 从底部进入队列，容量 4/6。'},
+    {q:['fm1','fm2','fm3','fm4','fm5'],r:[],sum:false,cap:'5/6',warn:false,pres:true,ent:'fm5',lbl:'Step 2 · 2/5',desc:'Step 2：msg5 进入，容量 5/6。接近 ~70% 阈值，队列背景变暖提示 memory pressure 即将触发。'},
+    {q:['fm1','fm2','fm3','fm4','fm5','fm6'],r:[],sum:false,cap:'6/6 ⚠️',warn:true,pres:true,ent:'fm6',lbl:'Step 3 · 3/5',desc:'Step 3：msg6 进入，容量 6/6 ⚠️ Memory Pressure! 队列已满，边框变为警告色，即将驱逐。'},
+    {q:['fm4','fm5','fm6'],r:['fr1','fr2','fr3'],sum:true,cap:'4/6 ✓',warn:false,pres:false,ent:null,lbl:'Step 4 · 4/5',desc:'Step 4（驱逐）：最旧的 msg1‑3 被驱逐到 Recall Storage；递归摘要放在队列顶部；容量恢复 4/6。'},
+    {q:['fm4','fm5','fm6','fm7'],r:['fr1','fr2','fr3'],sum:true,cap:'5/6',warn:false,pres:false,ent:'fm7',lbl:'Step 5 · 5/5',desc:'Step 5：msg7 正常进入队列，容量 5/6。FIFO 驱逐 + 递归摘要让对话可以无限延续。'}
+  ];
+  function apply(s){
+    var st=S[s];
+    qIds.forEach(function(id){
+      var e=$(id);
+      if(st.q.indexOf(id)>=0){e.classList.add('vis');e.classList.remove('evicting');if(st.ent===id){e.classList.remove('entering');void e.offsetWidth;e.classList.add('entering')}}
+      else{e.classList.remove('vis','entering','evicting')}
+    });
+    var sumEl=$('fifoSum');
+    if(st.sum){sumEl.classList.add('vis');if(s===4){sumEl.classList.remove('entering');void sumEl.offsetWidth;sumEl.classList.add('entering')}}
+    else{sumEl.classList.remove('vis','entering')}
+    rIds.forEach(function(id){var e=$(id);if(st.r.indexOf(id)>=0){e.classList.add('vis')}else{e.classList.remove('vis')}});
+    emptyEl.classList.toggle('hidden',st.r.length>0);
+    capEl.textContent=st.cap;capEl.classList.toggle('warn',st.warn);
+    mainEl.classList.toggle('warning',st.warn);mainEl.classList.toggle('pressure',st.pres);
+    descEl.textContent=st.desc;stepEl.textContent=st.lbl;
+    nextBtn.disabled=(s>=maxS);
+  }
+  nextBtn.addEventListener('click',function(){
+    if(step>=maxS)return;step++;
+    if(step===4){
+      nextBtn.disabled=true;
+      ['fm1','fm2','fm3'].forEach(function(id){$(id).classList.add('evicting')});
+      descEl.textContent='驱逐中… msg1‑3 转移到 Recall Storage';
+      mainEl.classList.remove('warning');capEl.textContent='…';capEl.classList.remove('warn');
+      setTimeout(function(){apply(step)},450);
+    }else{apply(step)}
+  });
+  resetBtn.addEventListener('click',function(){step=0;apply(0)});
+  apply(0);
+})();
+</script>
+
+<h4 style="margin:24px 0 12px">MemGPT vs Claude Code /compact 对比</h4>
+
+<table class="compare-table" style="width:100%;border-collapse:collapse;font-size:13px;line-height:1.6">
+<thead><tr style="background:var(--bg-secondary)">
+  <th style="padding:8px 10px;text-align:left;border-bottom:2px solid var(--border);width:16%">维度</th>
+  <th style="padding:8px 10px;text-align:left;border-bottom:2px solid var(--border);width:42%"><a href="https://arxiv.org/abs/2310.08560" target="_blank">MemGPT</a> (Packer 2023)</th>
+  <th style="padding:8px 10px;text-align:left;border-bottom:2px solid var(--border);width:42%">Claude Code /compact</th>
+</tr></thead>
+<tbody>
+<tr><td style="padding:8px 10px;border-bottom:1px solid var(--border-light);font-weight:600">压缩触发</td>
+    <td style="padding:8px 10px;border-bottom:1px solid var(--border-light)">FIFO 队列达 ~70% 发警告，100% 自动驱逐</td>
+    <td style="padding:8px 10px;border-bottom:1px solid var(--border-light)">上下文达 ~83.5% 自动触发；也可手动 /compact</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid var(--border-light);font-weight:600">压缩方式</td>
+    <td style="padding:8px 10px;border-bottom:1px solid var(--border-light)">驱逐最旧 ~50% 消息 → LLM 递归摘要放在队首</td>
+    <td style="padding:8px 10px;border-bottom:1px solid var(--border-light)">分级裁剪：工具输出预算 → Microcompact → Auto-Compact（LLM 摘要）</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid var(--border-light);font-weight:600">能否复原</td>
+    <td style="padding:8px 10px;border-bottom:1px solid var(--border-light)">✅ 原始消息完整存入 Recall Storage，可按需召回</td>
+    <td style="padding:8px 10px;border-bottom:1px solid var(--border-light)">❌ 不可逆，原始 token 丢弃</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid var(--border-light);font-weight:600">召回方式</td>
+    <td style="padding:8px 10px;border-bottom:1px solid var(--border-light)">LLM 自主调 conversation_search / archival_memory_search</td>
+    <td style="padding:8px 10px;border-bottom:1px solid var(--border-light)">无主动召回；依赖摘要质量 + CLAUDE.md 手动持久化</td></tr>
+<tr><td style="padding:8px 10px;border-bottom:1px solid var(--border-light);font-weight:600">跨会话持久化</td>
+    <td style="padding:8px 10px;border-bottom:1px solid var(--border-light)">✅ 两库均跨会话保持</td>
+    <td style="padding:8px 10px;border-bottom:1px solid var(--border-light)">❌ 会话结束丢失（除非写入 CLAUDE.md）</td></tr>
+</tbody>
+</table>
+
+<div style="margin-top:16px;padding:10px 14px;background:var(--bg-card);border-radius:var(--radius);border:1px solid var(--border-light);font-size:13px;line-height:1.7">
+<p style="margin:0 0 6px"><strong>MemGPT 路线：</strong>牺牲推理速度（多一次 function call 延迟），换取原文可复原 + 跨会话持久化 + LLM 自主决策。</p>
+<p style="margin:0"><strong>Claude compact 路线：</strong>牺牲原文（压缩不可逆），换取零额外延迟 + 简单可靠 + 不依赖 LLM 的召回能力。</p>
+<p style="margin:8px 0 0;font-size:14px;color:var(--text-tertiary)"><strong>背后的分歧：</strong>有无外部存储决定了压缩可以多激进。MemGPT 有 Recall Storage 兜底（原文永远可召回），所以摘要可以更激进地压缩；Claude Code 无外存，压缩不可逆，所以 summary prompt 必须在摘要中保留更多原始内容（如逐字保留所有用户消息）。两者独立演进后 prompt 结构趋同（都走向结构化分段摘要），但压缩力度因架构差异而分化。</p>
+</div>
+
+<details class="example-details">
+<summary>查看对比：同一段对话，两种压缩 prompt 各自要求保留什么</summary>
+<div class="example-content">
+<p style="margin-bottom:12px"><strong>假设原始对话包含：</strong>用户说「帮我重构 src/utils.py 的 parse 函数，要求兼容 Python 3.8」→ Agent 读了文件 → 改了代码 → 跑了测试 → 报错 → 修了 bug → 测试通过。</p>
+
+<p style="margin:16px 0 8px"><strong>MemGPT 的摘要 prompt（早期 V1 风格）：</strong></p>
+<pre><code>「请将以下对话压缩为 100 词以内的摘要，保留关键信息。」
+
+→ 输出：「用户要求重构 utils.py 的 parse 函数兼容 3.8。过程中遇到类型注解兼容问题，已修复。测试通过。」
+→ 原文全部存入 Recall Storage，随时可通过 conversation_search 按关键词调回。</code></pre>
+
+<p style="margin:16px 0 8px"><strong>Claude Code 的摘要 prompt（9 段式结构化）：</strong></p>
+<pre><code>要求生成的摘要必须覆盖：
+1. Intent: 用户要求重构 src/utils.py 的 parse 函数，兼容 Python 3.8
+2. Technical: 类型注解语法兼容、Union 替代 | 语法
+3. Files: src/utils.py（完整修改后代码片段）、tests/test_parse.py
+4. Errors: TypeError on Python 3.8 due to X | Y syntax → 改为 Union[X, Y]
+5. Problem Solving: 先尝试 from __future__ 方案失败，最终用 typing.Union
+6. User Messages:「帮我重构...兼容 Python 3.8」（逐字保留）
+7. Pending: 无
+8. Current: 重构已完成，测试通过
+9. Next: 可能需要更新 type stubs
+
+→ 原文不保留，摘要本身就是唯一记录。丢失的：中间调试细节、完整错误栈、Agent 的推理过程。</code></pre>
+
+<p style="margin-top:12px"><strong>核心差异：</strong>MemGPT 的摘要可以很短（反正原文在 Recall Storage 里），Claude Code 的摘要必须足够详细（因为这是唯一的记录，压缩后无法复原）。</p>
+</div>
+</details>
+</div>
+
+<h4 style="margin:24px 0 12px">Claude Code 压缩管线步进演示</h4>
+<div id="compact-demo">
+<style>
+#compact-demo .cd-wrap{background:var(--bg-white);border:2px solid var(--border);border-radius:var(--radius-lg);padding:20px}
+#compact-demo .cd-bar-row{display:flex;align-items:center;gap:12px;margin-bottom:14px}
+#compact-demo .cd-bar-label{font-size:12px;font-weight:600;color:var(--text-tertiary);white-space:nowrap}
+#compact-demo .cd-bar-track{flex:1;height:22px;background:var(--bg-secondary);border-radius:11px;overflow:hidden}
+#compact-demo .cd-bar-fill{height:100%;border-radius:11px;transition:width .6s ease,background .4s;background:var(--accent-light)}
+#compact-demo .cd-bar-fill.high{background:#d4763a}
+#compact-demo .cd-bar-fill.critical{background:#c0392b}
+#compact-demo .cd-bar-pct{font-size:13px;font-weight:700;color:var(--text-primary);min-width:44px;text-align:right}
+#compact-demo .cd-level{font-size:12px;font-weight:600;color:var(--accent);background:var(--accent-bg);padding:4px 12px;border-radius:12px;display:inline-block;margin-bottom:12px;transition:opacity .3s;min-height:24px}
+#compact-demo .cd-level.hidden{opacity:0;pointer-events:none}
+#compact-demo .cd-msgs{max-height:320px;overflow-y:auto;border:1px solid var(--border-light);border-radius:var(--radius);padding:6px;margin-bottom:14px;background:var(--bg-primary)}
+#compact-demo .cd-msg{display:flex;align-items:flex-start;gap:8px;padding:5px 8px;border-radius:6px;margin:3px 0;font-size:12.5px;line-height:1.5;transition:opacity .4s,background .3s;border:1px solid transparent}
+#compact-demo .cd-msg-role{flex-shrink:0;font-size:10.5px;font-weight:600;padding:1px 6px;border-radius:4px;white-space:nowrap;margin-top:1px}
+#compact-demo .cd-msg-text{color:var(--text-secondary);min-width:0}
+#compact-demo .cd-role-sys{background:#e8e0d0;color:#6b5e4c}
+#compact-demo .cd-role-user{background:#d4e8d4;color:#2d5a2d}
+#compact-demo .cd-role-asst{background:#d4dce8;color:#3a4f6b}
+#compact-demo .cd-role-tool{background:#e8d8c8;color:#7a5e3a}
+#compact-demo .cd-role-sum{background:#b8e0d0;color:#1a5040}
+#compact-demo .cd-msg.large{background:#fff3d0;border-color:#ecd060}
+#compact-demo .cd-msg.truncated{background:var(--accent-bg);border:1px dashed var(--accent-light)}
+#compact-demo .cd-msg.greyed{opacity:.4}
+#compact-demo .cd-msg.cleared{opacity:.5;font-style:italic;border:1px dashed var(--border)}
+#compact-demo .cd-msg.kept{border-left:3px solid #4caf50}
+#compact-demo .cd-msg.sum-msg{background:#e8f5e9;border:1px solid #a5d6a7}
+#compact-demo .cd-ctrl{display:flex;align-items:center;gap:10px}
+#compact-demo .cd-btn{padding:6px 16px;border-radius:6px;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);transition:background .2s,opacity .2s;font-family:inherit}
+#compact-demo .cd-btn:hover{background:var(--accent-bg)}
+#compact-demo .cd-btn-pri{background:var(--accent);color:#fff;border-color:var(--accent)}
+#compact-demo .cd-btn-pri:hover{opacity:.88}
+#compact-demo .cd-btn:disabled{opacity:.45;cursor:default}
+#compact-demo .cd-step-lbl{font-size:11px;color:var(--text-tertiary);margin-left:auto}
+#compact-demo .cd-desc{margin-top:10px;font-size:12.5px;color:var(--text-secondary);line-height:1.6;padding:8px 12px;background:var(--bg-card);border-radius:6px;border:1px solid var(--border-light)}
+#compact-demo .cd-rules{margin-top:14px;padding:14px 16px;background:var(--bg-card);border:1px solid var(--border-light);border-radius:var(--radius);font-size:13px;line-height:1.9;display:none}
+#compact-demo .cd-rules-title{font-weight:600;font-size:13px;color:var(--text-primary);margin-bottom:6px}
+#compact-demo .cd-rules ul{list-style:none;padding:0;margin:0}
+#compact-demo .cd-rules li{padding:1px 0;color:var(--text-secondary)}
+</style>
+
+<div class="cd-wrap">
+  <div class="cd-bar-row">
+    <span class="cd-bar-label">上下文使用量</span>
+    <div class="cd-bar-track"><div class="cd-bar-fill" id="cdBarFill" style="width:30%"></div></div>
+    <span class="cd-bar-pct" id="cdBarPct">30%</span>
+  </div>
+  <div class="cd-level hidden" id="cdLevel">&nbsp;</div>
+  <div class="cd-msgs" id="cdMsgs"></div>
+  <div class="cd-ctrl">
+    <button class="cd-btn cd-btn-pri" id="cdNext">下一步 →</button>
+    <button class="cd-btn" id="cdReset">重置</button>
+    <span class="cd-step-lbl" id="cdStepLbl">初始 · 0/5</span>
+  </div>
+  <div class="cd-desc" id="cdDesc"></div>
+  <div class="cd-rules" id="cdRules">
+    <div class="cd-rules-title">Auto-Compact 保留规则</div>
+    <ul>
+      <li>✅ System prompt + CLAUDE.md（从磁盘重载，不受压缩影响）</li>
+      <li>✅ 所有用户消息（逐字保留在摘要中）</li>
+      <li>✅ 最近 3 个工具结果（硬保护）</li>
+      <li>✅ 当前任务 + 待办事项</li>
+      <li>❌ 早期工具输出原文（已被占位符替代）</li>
+      <li>❌ 中间推理过程（仅保留结论）</li>
+      <li>❌ 图片/文档原始内容</li>
+    </ul>
+  </div>
+</div>
+</div>
+<script>
+(function(){
+  var rl={sys:'SYS',user:'USER',asst:'ASST',tool:'TOOL',sum:'SUMMARY'};
+  var rc={sys:'cd-role-sys',user:'cd-role-user',asst:'cd-role-asst',tool:'cd-role-tool',sum:'cd-role-sum'};
+  function m(role,text,state){return{r:role,t:text,s:state||''}}
+  var S=[
+    {pct:30,level:'',lbl:'初始 · 0/5',
+     desc:'对话刚开始：几条消息 + 一个大型工具输出（Read 返回 2000 行文件），上下文占 30%。',
+     rules:false,msgs:[
+      m('sys','System prompt + CLAUDE.md','fixed'),
+      m('user','帮我读取 config.ts 文件'),
+      m('asst','好的，让我读取文件…'),
+      m('tool','📄 Read config.ts → 2000 行完整输出 (1.2MB)','large'),
+      m('asst','文件包含数据库配置，第 42 行是连接字符串…'),
+      m('user','修改第 42 行的 timeout 为 30s')
+    ]},
+    {pct:25,level:'L1 工具输出预算',lbl:'Step 1 · 1/5',
+     desc:'Step 1 — 工具输出预算：大型工具输出超过 token 限额，被截断为 2KB 预览 + 「完整内容已写入磁盘」提示。bar 略降。',
+     rules:false,msgs:[
+      m('sys','System prompt + CLAUDE.md','fixed'),
+      m('user','帮我读取 config.ts 文件'),
+      m('asst','好的，让我读取文件…'),
+      m('tool','📄 Read config.ts → [2KB 预览] …完整内容已写入磁盘','truncated'),
+      m('asst','文件包含数据库配置，第 42 行是连接字符串…'),
+      m('user','修改第 42 行的 timeout 为 30s')
+    ]},
+    {pct:70,level:'',lbl:'Step 2 · 2/5',
+     desc:'Step 2 — 继续对话：多轮编辑 + 搜索 + 测试，上下文增长到 70%。早期工具结果开始变灰（即将被清理）。',
+     rules:false,msgs:[
+      m('sys','System prompt + CLAUDE.md','fixed'),
+      m('user','帮我读取 config.ts 文件'),
+      m('asst','好的，让我读取文件…'),
+      m('tool','📄 Read config.ts → [2KB 预览]','greyed'),
+      m('asst','文件包含数据库配置…'),
+      m('user','修改第 42 行的 timeout 为 30s'),
+      m('asst','已修改，让我搜索相关引用…'),
+      m('tool','🔍 grep "timeout" → 3 处匹配','greyed'),
+      m('asst','找到 3 处 timeout 配置…'),
+      m('user','运行测试确认'),
+      m('tool','🧪 npm test → 47 passed, 2 failed'),
+      m('asst','测试结果：47 通过，2 失败…'),
+      m('user','修复失败的测试')
+    ]},
+    {pct:55,level:'L2 Microcompact',lbl:'Step 3 · 3/5',
+     desc:'Step 3 — Microcompact 触发：上下文接近 80% 阈值，旧工具结果（保留最近 3 个）被替换为 [已清除] 占位符，bar 回落到 55%。',
+     rules:false,msgs:[
+      m('sys','System prompt + CLAUDE.md','fixed'),
+      m('user','帮我读取 config.ts 文件'),
+      m('asst','好的，让我读取文件…'),
+      m('tool','[已清除]','cleared'),
+      m('asst','文件包含数据库配置…'),
+      m('user','修改第 42 行的 timeout 为 30s'),
+      m('asst','已修改，让我搜索相关引用…'),
+      m('tool','[已清除]','cleared'),
+      m('asst','找到 3 处 timeout 配置…'),
+      m('user','运行测试确认'),
+      m('tool','🧪 npm test → 47 passed, 2 failed'),
+      m('asst','测试结果：47 通过，2 失败…'),
+      m('user','修复失败的测试')
+    ]},
+    {pct:90,level:'',lbl:'Step 4 · 4/5',
+     desc:'Step 4 — 继续大量操作：读文件、编辑、测试…上下文逼近 90%，即将触发完整的 Auto-Compact 压缩。',
+     rules:false,msgs:[
+      m('sys','System prompt + CLAUDE.md','fixed'),
+      m('user','帮我读取 config.ts 文件'),
+      m('asst','好的，让我读取文件…'),
+      m('tool','[已清除]','cleared'),
+      m('asst','文件包含数据库配置…'),
+      m('user','修改第 42 行的 timeout 为 30s'),
+      m('asst','已修改…'),
+      m('tool','[已清除]','cleared'),
+      m('asst','找到 3 处 timeout 配置…'),
+      m('user','运行测试确认'),
+      m('tool','[已清除]','cleared'),
+      m('asst','47 通过，2 失败…'),
+      m('user','修复失败的测试'),
+      m('asst','分析失败原因…'),
+      m('tool','📄 Read test.spec.ts → [2KB 预览]'),
+      m('asst','发现 mock 过期，修复中…'),
+      m('tool','✏️ Edit test.spec.ts → 已更新 mock'),
+      m('asst','修复完成，重新运行测试…'),
+      m('tool','🧪 npm test → 49 passed ✓'),
+      m('asst','全部测试通过！'),
+      m('user','提交这些改动')
+    ]},
+    {pct:30,level:'L3 Auto-Compact (LLM 摘要)',lbl:'Step 5 · 5/5',
+     desc:'Step 5 — Auto-Compact 触发：LLM 生成完整摘要替换所有旧对话，仅保留 system prompt（磁盘重载）+ 摘要 + 最近几条消息。bar 大幅回落到 ~30%。',
+     rules:true,msgs:[
+      m('sys','System prompt + CLAUDE.md（从磁盘重载）','fixed'),
+      m('sum','📋 Session Summary: 用户请求修改 config.ts 第 42 行 timeout 为 30s。已完成修改并修复 2 个失败测试（mock 过期），全部 49 个测试通过。待办：提交改动。','sum-msg'),
+      m('tool','🧪 npm test → 49 passed ✓','kept'),
+      m('asst','全部测试通过！'),
+      m('user','提交这些改动')
+    ]}
+  ];
+  var step=0,maxStep=S.length-1;
+  var msgsEl=document.getElementById('cdMsgs');
+  var barEl=document.getElementById('cdBarFill');
+  var pctEl=document.getElementById('cdBarPct');
+  var levelEl=document.getElementById('cdLevel');
+  var descEl=document.getElementById('cdDesc');
+  var stepLbl=document.getElementById('cdStepLbl');
+  var rulesEl=document.getElementById('cdRules');
+  var nextBtn=document.getElementById('cdNext');
+  var resetBtn=document.getElementById('cdReset');
+
+  function render(s){
+    var st=S[s];
+    barEl.style.width=st.pct+'%';
+    barEl.className='cd-bar-fill'+(st.pct>=85?' critical':st.pct>=65?' high':'');
+    pctEl.textContent=st.pct+'%';
+    if(st.level){levelEl.textContent=st.level;levelEl.classList.remove('hidden')}
+    else{levelEl.classList.add('hidden')}
+    msgsEl.innerHTML='';
+    st.msgs.forEach(function(msg){
+      var d=document.createElement('div');
+      d.className='cd-msg'+(msg.s?' '+msg.s:'');
+      var rs=document.createElement('span');
+      rs.className='cd-msg-role '+(rc[msg.r]||'');
+      rs.textContent=rl[msg.r]||msg.r;
+      var ts=document.createElement('span');
+      ts.className='cd-msg-text';
+      ts.textContent=msg.t;
+      d.appendChild(rs);d.appendChild(ts);
+      msgsEl.appendChild(d);
+    });
+    msgsEl.scrollTop=msgsEl.scrollHeight;
+    descEl.textContent=st.desc;
+    stepLbl.textContent=st.lbl;
+    rulesEl.style.display=st.rules?'block':'none';
+    nextBtn.disabled=(s>=maxStep);
+  }
+  nextBtn.addEventListener('click',function(){if(step<maxStep){step++;render(step)}});
+  resetBtn.addEventListener('click',function(){step=0;render(0)});
+  render(0);
+})();
+</script>
+
+  </div></div>
+</div>
+
+</section>
+
+<!-- ===================== EPISODIC EXPERIENCE ===================== -->
+<section id="episodic">
+<h2>情节经验：从反思到技能（重点）</h2>
+
+<p>情节经验记录先前运行中发生了什么——决策、失败、反思。核心问题是：<strong>怎么利用这些经验让 Agent 下次做得更好？</strong>可以拆为三个维度：<strong>存什么</strong>（经验以什么形式保留）、<strong>怎么更新</strong>（新经验如何创建和迭代）、<strong>怎么召回</strong>（需要时如何加载到上下文）。这三个维度各自独立演化，共同驱动了从 Reflexion 到 Skill 范式的转变。</p>
+
+
+<h3>早期探索：文本形式的经验记忆</h3>
+
+<!-- ===== REFLEXION ===== -->
+<div class="expand-section">
+  <div class="expand-header">
+    <div class="expand-title-group">
+      <h4>Reflexion：语义梯度 <span class="paper-tag">NeurIPS 2023</span></h4>
+      <p class="expand-desc">用自然语言反思代替梯度更新，失败后生成 semantic gradient 存入滑动窗口指导下次重试</p>
+    </div>
+    <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+  </div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<p><a href="https://arxiv.org/abs/2303.11366" target="_blank">Reflexion</a>（Shinn et al., 2023）提出用<strong>自然语言反思代替梯度更新</strong>——Agent 失败后不调权重，而是生成一段自然语言反思（semantic gradient），注入下轮 prompt 来改变行为。这是情节经验方向的起点，三个维度都处于最早期形态。</p>
+
+<h4 style="margin:24px 0 12px">执行→评估→反思 闭环</h4>
+
+<p>系统由三个模块协作：<strong>Actor</strong>（LLM 策略模型）接收环境观察 + 当前轨迹 + 历史反思，输出动作；<strong>Evaluator</strong> 将执行结果转化为二元成功/失败信号；失败后 <strong>Self-Reflection</strong> 接收完整轨迹 + 评估信号，生成一段具体的、可操作的反思文本（如「应该先找台灯再找杯子」）。反思需要具体的失败信号才能有针对性——所以 Self-Reflection 只在失败时触发。</p>
+
+<details class="example-details">
+<summary>Evaluator 在不同场景下的实现方式</summary>
+<div class="example-content">
+<p>Evaluator 的核心职责是把模糊的「做得好不好」转化为二元信号，但在三种场景下实现方式完全不同：</p>
+<ul style="margin:8px 0 0 20px;list-style:disc">
+  <li><strong>推理任务（HotpotQA）：</strong>精确匹配——答案对了就是成功，二元信号，无歧义</li>
+  <li><strong>决策任务（AlfWorld）：</strong>启发式规则——环境返回的 reward 信号判断是否达成目标状态</li>
+  <li><strong>编程任务（HumanEval）：</strong>LLM 自生成单元测试——Agent 先为任务写测试用例，再用测试结果作为评估信号。评估标准本身也由 LLM 生成，是最有意思的设计</li>
+</ul>
+</div>
+</details>
+
+<div class="figure-block">
+  <img src="https://arxiv.org/html/2303.11366v4/x2.png" alt="Reflexion architecture" loading="lazy">
+  <div class="figure-caption"><strong>Reflexion 系统架构</strong>：(a) Actor + Evaluator + Self-Reflection 三模块 + Memory 交互；(b) 类 RL 循环但更新发生在语言层。</div>
+  <span class="fig-toggle" onclick="toggleFigDetail(this, event)">展开说明 ▸</span>
+  <div class="figure-detail">
+    <ul>
+      <li><strong>Actor：</strong>LLM 策略模型，接收环境观察 + 短期记忆（当前轨迹）+ 长期记忆（历史反思），输出动作。</li>
+      <li><strong>Evaluator：</strong>将模糊的执行质量转化为二元成功/失败信号。三种场景三种实现：推理任务用精确匹配、决策任务用环境 reward、编程任务用 LLM 自生成的单元测试——评估标准本身也由 LLM 创建。</li>
+      <li><strong>Self-Reflection：</strong>失败时接收完整轨迹 + 评估信号，生成一段具体的、可操作的反思。比如「应该先找台灯再找杯子」。</li>
+      <li><strong>Memory：</strong>滑动窗口，仅保留最近 1-3 条反思。最简单的 episodic memory。</li>
+      <li><strong>关键区别于 RL：</strong>不产生梯度，而是产出一段语言总结（semantic gradient），通过 in-context injection 影响行为。</li>
+    </ul>
+  </div>
+</div>
+
+<h4 style="margin:24px 0 12px">滑动窗口驱逐机制</h4>
+
+<div class="quote-block" style="font-style:normal">
+  <p style="margin:0 0 8px"><strong>Memory = 滑动窗口（最多 3 条反思）</strong></p>
+  <ul style="margin:0 0 0 20px;font-size:14px;line-height:1.8;list-style:disc">
+    <li>窗口<strong>有界</strong>：最多保留最近 <strong>3 条</strong>反思，不会无限增长</li>
+    <li><strong>FIFO 驱逐</strong>：满了后最旧的反思被丢弃——反思并非只进不出，而是先进先出</li>
+    <li><strong>无优先级</strong>：不区分反思重要性，纯按时间淘汰</li>
+    <li><strong>全量注入</strong>：窗口内所有反思强制注入 prompt，3 条是 token 预算与信息量的权衡——多了消耗上下文，少了信息不足</li>
+  </ul>
+</div>
+
+<h4 style="margin:24px 0 12px">三维度定位</h4>
+
+<div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">存什么</div>
+    <div class="card-brief">自然语言反思（如「应该先定位台灯再拿杯子」），存入滑动窗口（1-3 条）。最朴素的经验形态。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么更新</div>
+    <div class="card-brief">单任务 retry 循环——失败 → LLM 生成反思 → 下轮重试。经验只在同一任务内累积。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么召回</div>
+    <div class="card-brief">最简单的硬加载——所有反思全量强制注入 prompt，无检索、无筛选。</div>
+  </div>
+</div>
+
+<p><strong>关键数据：</strong>HumanEval pass@1 从 80.1% → 91.0%；AlfWorld 完成率 108/134 → 130/134。<strong>局限：</strong>滑动窗口无法积累大量经验；反思与具体任务强耦合、难以迁移；全量插入消耗上下文——三个维度都有改进空间。</p>
+
+  </div></div>
+</div>
+
+<!-- ===== ExpeL ===== -->
+<div class="expand-section">
+  <div class="expand-header">
+    <div class="expand-title-group">
+      <h4>ExpeL：跨任务迁移的经验洞察 <span class="paper-tag">ICLR 2024</span></h4>
+      <p class="expand-desc">从多任务轨迹对比中提炼可迁移的 insights，实现跨任务零样本迁移</p>
+    </div>
+    <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+  </div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<p><strong>「存什么」前进一步：从个案反思到跨任务抽象 insights。</strong>更新方式也从单任务 retry 升级为多任务对比归纳。</p>
+
+<p><a href="https://arxiv.org/abs/2308.10144" target="_blank">ExpeL</a>（Zhao et al., 2023）解决 Reflexion 的迁移问题：不只从单个失败中反思，而是从<strong>多个任务的成功/失败对比中提炼通用 insights</strong>。三个维度的变化：</p>
+<ul style="margin:8px 0 16px 20px;color:var(--text-secondary);font-size:15px;line-height:1.7">
+  <li><strong>存什么：</strong>从轨迹中提炼的 insights——不再是个案反思，而是跨任务的抽象规则（如「先确认物品位置再行动」）。经 ADD/UPVOTE/DOWNVOTE 投票机制筛选质量</li>
+  <li><strong>怎么更新：</strong>GPT-4 做两类分析——(A) 对比同任务的成功/失败轨迹找关键差异；(B) 归纳多个成功轨迹的共性模式。从 retry 迭代升级为<strong>多任务归纳</strong></li>
+  <li><strong>怎么召回：</strong>所有 insights 仍全量注入 + FAISS 检索 top-k 相关成功轨迹作为 few-shot。召回方式<strong>开始引入向量检索</strong>，但 insights 本身还是硬加载</li>
+</ul>
+
+<div class="figure-block">
+  <img src="https://arxiv.org/html/2308.10144v2/extracted/5299485/figures/expel.png" alt="ExpeL architecture" loading="lazy">
+  <div class="figure-caption"><strong>ExpeL 系统架构</strong>：训练阶段收集经验 + 提炼 insights，推理阶段用 insights + 检索轨迹辅助一次性决策。</div>
+  <span class="fig-toggle" onclick="toggleFigDetail(this, event)">展开说明 ▸</span>
+  <div class="figure-detail">
+    <ul>
+      <li><strong>Experience Gathering：</strong>对训练集任务用 Reflexion 机制重试，成功/失败轨迹都存入经验池。</li>
+      <li><strong>Insight Extraction（核心创新）：</strong>GPT-4 做两类分析——(A) 对比同任务的成功/失败轨迹，找出关键差异；(B) 归纳多个成功轨迹的共性模式。产出的 insights 经 ADD/UPVOTE/DOWNVOTE 投票机制筛选质量。</li>
+      <li><strong>Task Inference：</strong>所有 insights 全量注入 prompt + FAISS 检索 top-k 相关成功轨迹作为 few-shot。Agent 一次尝试即可。</li>
+      <li><strong>vs Reflexion：</strong>单任务重试 → 跨任务迁移；临时反思 → 持久化通用规则。</li>
+    </ul>
+  </div>
+</div>
+
+<p><strong>关键数据：</strong>HotpotQA 34% → 39%；ALFWorld 48.5% → 59%。<strong>仍然的局限：</strong>experience 召回用完整轨迹（上下文开销大），insights 又全量注入 prompt——两者共同挤压上下文预算，限制了 insights 能积累的数量和每条的粒度。</p>
+
+<div class="quote-block">Reflexion 和 ExpeL 的经验都是自然语言文本。同期的 Voyager（实际发表更早，2023.05）走了另一条路——把经验存为可执行代码，开启了 skill 范式的雏形。</div>
+
+  </div></div>
+</div>
+
+
+<h3>课程式探索：Agent 自主发现 Skill</h3>
+
+<!-- ===== VOYAGER ===== -->
+<div class="expand-section">
+  <div class="expand-header">
+    <div class="expand-title-group">
+      <h4>Voyager：可执行的技能库 <span class="paper-tag">TMLR 2023</span></h4>
+      <p class="expand-desc">经验存储为可执行 JS 代码，向量检索 top-k 按需加载，技能可组合形成复合能力</p>
+    </div>
+    <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+  </div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<p><strong>「存什么」迈出关键一步：从文本到可执行代码，开启 skill 范式雏形。「怎么召回」也前进一步：从硬加载全量注入到按需向量检索 top-k。</strong></p>
+
+<p><a href="https://arxiv.org/abs/2305.16291" target="_blank">Voyager</a>（Wang et al., 2023）是第一个把经验存储为<strong>可执行代码</strong>的 LLM Agent。在 Minecraft 开放世界中，三个维度的定位：</p>
+<ul style="margin:8px 0 16px 20px;color:var(--text-secondary);font-size:15px;line-height:1.7">
+  <li><strong>存什么：</strong>可执行 JS 函数——验证通过的代码存入向量数据库，新技能可调用已有技能，能力以组合方式指数增长</li>
+  <li><strong>怎么更新：</strong>验证通过即入库（只增不改）——Iterative Prompting 不是整体重试，而是逐步调试：生成代码 → 执行 → 三路反馈（环境状态 diff 告诉「做了什么」/ JS 错误告诉「哪里炸了」/ LLM self-verification 判断「目标达到没」）→ 在上一版代码基础上修改，最多 4 轮。通过即存入 skill library，4 轮都没过就丢弃</li>
+  <li><strong>怎么召回：</strong>向量相似度 top-k——用任务描述 embedding 检索最相关的 5 个技能作为 few-shot，不再全量注入</li>
+</ul>
+
+<div class="figure-block">
+  <img src="https://arxiv.org/html/2305.16291v2/x1.png" alt="Voyager system overview" loading="lazy">
+  <div class="figure-caption"><strong>Voyager 系统全景</strong>：Automatic Curriculum 提出目标 → Iterative Prompting 生成和修正代码 → 验证通过的代码存入 Skill Library → Library 帮助解决更难目标。</div>
+  <span class="fig-toggle" onclick="toggleFigDetail(this, event)">展开说明 ▸</span>
+  <div class="figure-detail">
+    <ul>
+      <li><strong>Automatic Curriculum（左）：</strong>GPT-4 根据 Agent 当前状态（背包、位置、已完成任务）提出难度递增的目标。是「好奇心引擎」。</li>
+      <li><strong>Iterative Prompting（中）：</strong>更像开发者调 bug 而非考试重试——GPT-4 生成 JS 代码 → 执行 → 三路反馈同时返回（环境状态 diff / JS 执行错误堆栈 / LLM self-verification 判断目标是否达成）→ 在上一版代码基础上针对性修改，最多 4 轮。</li>
+      <li><strong>Skill Library（右）：</strong>验证通过的代码存入向量数据库（key=描述 embedding，value=代码）。新任务时检索 top-5 相关技能作为 few-shot 参考。</li>
+      <li><strong>复合增长：</strong>新技能可以调用已有技能函数，能力以组合方式指数增长。彻底解决灾难性遗忘。</li>
+    </ul>
+  </div>
+</div>
+
+<div class="figure-block">
+  <img src="https://arxiv.org/html/2305.16291v2/x3.png" alt="Voyager skill library mechanism" loading="lazy">
+  <div class="figure-caption"><strong>技能库存取机制</strong>：上 — 新技能通过描述 embedding 索引入库；下 — 新任务时用计划+反馈作为 query 检索 top-5。</div>
+  <span class="fig-toggle" onclick="toggleFigDetail(this, event)">展开说明 ▸</span>
+  <div class="figure-detail">
+    <ul>
+      <li><strong>存入：</strong>代码 → GPT-3.5 生成自然语言描述 → text-embedding-ada-002 编码 → 向量数据库。用描述做 key 是因为检索时 query 是自然语言。</li>
+      <li><strong>取出：</strong>新任务 → GPT-3.5 生成解决建议 → 合并环境反馈作为 query → cosine similarity 检索 top-5 → 注入代码生成 prompt。Top-5 准确率 96.5%。</li>
+      <li><strong>可组合性：</strong><code>craftWoodenPlanks()</code> 内部调用 <code>mineWoodLog()</code>，复杂技能站在简单技能肩膀上。50 个基础技能可组合出数百种行为。</li>
+    </ul>
+  </div>
+</div>
+
+  </div></div>
+</div>
+
+<!-- ===== SKILLWEAVER ===== -->
+<div class="expand-section">
+  <div class="expand-header">
+    <div class="expand-title-group">
+      <h4>SkillWeaver：自驱动技能发现与 API 合成 <span class="paper-tag">COLM 2025</span></h4>
+      <p class="expand-desc">Agent 自主探索网站、练习操作、把成功经验蒸馏成可复用的 Python API，形成不断扩展的技能库</p>
+    </div>
+    <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+  </div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<p><a href="https://arxiv.org/abs/2504.07079" target="_blank">SkillWeaver</a>（Zheng et al., 2025）跟 Voyager 思路很像——都是让 Agent 自驱动探索环境、把成功经验蒸馏为可执行代码、存入不断增长的技能库。但 SkillWeaver 把这套范式从 Minecraft 搬到了<strong>真实网页环境</strong>，并在三个地方做了针对性改进：</p>
+
+<ul style="margin:8px 0 16px 20px;color:var(--text-secondary);font-size:15px;line-height:1.7">
+  <li><strong>探索更主动：</strong>Voyager 靠 Automatic Curriculum 提目标，SkillWeaver 让 LLM 直接扫描网页截图和 accessibility tree 自主提出技能任务，且显式去重保证探索多样性</li>
+  <li><strong>验证更严格：</strong>Voyager 的 self-verification 是 LLM 自判，SkillWeaver 额外加了单元测试——合成的 API 必须跑通测试才入库，失败的进入 debug 循环修复</li>
+  <li><strong>技能可跨 Agent 迁移：</strong>产出的是标准 Playwright Python API（函数签名 + docstring），强模型合成的 API 直接插给弱模型用，弱模型在 WebArena 上最高获 +133% 相对提升</li>
+</ul>
+
+<p>三阶段流程：<strong>Skill Proposal</strong>（LLM 扫描网页提出技能任务）→ <strong>Skill Synthesis</strong>（执行任务 + 成功轨迹蒸馏为 Python 函数）→ <strong>Skill Honing</strong>（单元测试 + debug 修复）。多轮迭代后会自动涌现组合 API（一个 API 调用多个子 API）。跟 Voyager 一样是<strong>只增不改</strong>——没有遗忘或迭代更新机制，且技能跟具体网站绑定，换站需要重新探索。</p>
+
+<div id="sw-demo">
+<style>
+#sw-demo { padding: 1.2rem; border-radius: 12px; background: var(--bg-white); border: 1px solid var(--border); margin: 1.5rem 0; }
+#sw-demo .sw-stage { display: flex; flex-direction: column; gap: 0.7rem; align-items: center; }
+#sw-demo .sw-phase-row { display: flex; gap: 0.6rem; width: 100%; max-width: 600px; justify-content: center; }
+#sw-demo .sw-phase { flex: 1; border: 1.5px solid var(--border); border-radius: 8px; padding: 0.6rem; text-align: center; font-size: 0.8rem; transition: all 0.4s ease; opacity: 0.4; min-height: 60px; display: flex; flex-direction: column; justify-content: center; }
+#sw-demo .sw-phase.active { opacity: 1; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 6%, transparent); }
+#sw-demo .sw-phase.done { opacity: 1; border-color: #4caf50; background: #e8f5e9; }
+#sw-demo .sw-phase-title { font-weight: 700; font-size: 0.82rem; margin-bottom: 0.3rem; }
+#sw-demo .sw-webpage { border: 1.5px solid var(--border); border-radius: 10px; padding: 0.8rem; width: 100%; max-width: 600px; transition: all 0.4s ease; }
+#sw-demo .sw-webpage-bar { display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.5rem; font-size: 0.75rem; color: var(--text-light); }
+#sw-demo .sw-webpage-dot { width: 8px; height: 8px; border-radius: 50%; }
+#sw-demo .sw-webpage-content { font-family: monospace; font-size: 0.78rem; line-height: 1.7; min-height: 80px; }
+#sw-demo .sw-skill-lib { border: 2px dashed var(--border); border-radius: 10px; padding: 0.7rem; width: 100%; max-width: 600px; transition: all 0.4s ease; }
+#sw-demo .sw-skill-lib.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 4%, transparent); }
+#sw-demo .sw-lib-title { font-weight: 700; font-size: 0.82rem; margin-bottom: 0.4rem; text-align: center; }
+#sw-demo .sw-lib-items { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: center; }
+#sw-demo .sw-lib-item { border: 1.5px solid var(--border); border-radius: 6px; padding: 0.25rem 0.6rem; font-family: monospace; font-size: 0.75rem; opacity: 0; transform: scale(0.9); transition: all 0.35s ease; }
+#sw-demo .sw-lib-item.visible { opacity: 1; transform: scale(1); }
+#sw-demo .sw-lib-item.new { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 10%, transparent); font-weight: 600; }
+#sw-demo .sw-lib-item.combo { border-color: #7b1fa2; background: color-mix(in srgb, #7b1fa2 8%, transparent); color: #7b1fa2; font-weight: 600; }
+#sw-demo .sw-arrow { text-align: center; font-size: 0.95rem; color: var(--text-light); opacity: 0; transition: opacity 0.3s ease; }
+#sw-demo .sw-arrow.visible { opacity: 1; }
+#sw-demo .sw-test-badge { display: inline-block; font-size: 0.72rem; padding: 0.15rem 0.5rem; border-radius: 4px; margin-top: 0.3rem; font-weight: 600; opacity: 0; transition: all 0.3s ease; }
+#sw-demo .sw-test-badge.visible { opacity: 1; }
+#sw-demo .sw-test-badge.pass { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+#sw-demo .sw-test-badge.fail { background: #fce4ec; color: #c62828; border: 1px solid #ef9a9a; }
+#sw-demo .sw-test-badge.fixed { background: #e8f5e9; color: #2e7d32; border: 1px solid #a5d6a7; }
+#sw-demo .sw-controls { display: flex; align-items: center; gap: 0.8rem; margin-top: 1rem; flex-wrap: wrap; }
+#sw-demo .sw-btn { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-white); cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
+#sw-demo .sw-btn:hover { background: color-mix(in srgb, var(--accent) 10%, var(--bg-white)); }
+#sw-demo .sw-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+#sw-demo .sw-btn.primary:hover { opacity: 0.9; }
+#sw-demo .sw-step-ind { font-size: 0.8rem; color: var(--text-light); }
+#sw-demo .sw-desc { margin-top: 0.6rem; font-size: 0.85rem; color: var(--text-light); padding: 0.5rem 0.8rem; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 4%, transparent); border-radius: 0 6px 6px 0; min-height: 2.2em; transition: opacity 0.3s; }
+@media (max-width: 600px) {
+  #sw-demo .sw-phase-row { flex-direction: column; align-items: center; }
+  #sw-demo .sw-phase { min-width: 90%; }
+}
+</style>
+
+<div class="sw-stage">
+  <!-- 三阶段指示 -->
+  <div class="sw-phase-row">
+    <div class="sw-phase" id="sw-p1"><div class="sw-phase-title">① Proposal</div>LLM 扫描网页提出技能任务</div>
+    <div class="sw-phase" id="sw-p2"><div class="sw-phase-title">② Synthesis</div>执行任务 → 蒸馏为 Python API</div>
+    <div class="sw-phase" id="sw-p3"><div class="sw-phase-title">③ Honing</div>单元测试 + debug 修复<br><span class="sw-test-badge" id="sw-badge1"></span></div>
+  </div>
+
+  <!-- 网页区域 -->
+  <div class="sw-webpage" id="sw-webpage">
+    <div class="sw-webpage-bar">
+      <div class="sw-webpage-dot" style="background:#f44336"></div>
+      <div class="sw-webpage-dot" style="background:#ff9800"></div>
+      <div class="sw-webpage-dot" style="background:#4caf50"></div>
+      <span id="sw-url">gitlab.example.com</span>
+    </div>
+    <div class="sw-webpage-content" id="sw-web-content">
+      <span style="color:var(--text-light)">LLM 扫描截图 + accessibility tree…</span>
+    </div>
+  </div>
+
+  <div class="sw-arrow" id="sw-arrow1">↓</div>
+
+  <!-- 技能库 -->
+  <div class="sw-skill-lib" id="sw-lib">
+    <div class="sw-lib-title">Skill Library（GitLab）</div>
+    <div class="sw-lib-items">
+      <div class="sw-lib-item" id="sw-sk1">create_issue(title, desc)</div>
+      <div class="sw-lib-item" id="sw-sk2">search_repo(query)</div>
+      <div class="sw-lib-item" id="sw-sk3">open_merge_request(src, dst)</div>
+      <div class="sw-lib-item combo" id="sw-sk4">review_and_merge(mr_id)</div>
+    </div>
+  </div>
+</div>
+
+<!-- 控制栏 -->
+<div class="sw-controls">
+  <button class="sw-btn primary" id="sw-next-btn" onclick="swNext()">下一步 →</button>
+  <button class="sw-btn" onclick="swReset()">重置</button>
+  <span class="sw-step-ind" id="sw-step-ind">步骤 0 / 6</span>
+</div>
+<div class="sw-desc" id="sw-desc">初始状态：Agent 面对一个 GitLab 网站，准备自主探索并发现可复用技能。</div>
+
+<script>
+(function(){
+  var step = 0;
+  var descs = [
+    '初始状态：Agent 面对一个 GitLab 网站，准备自主探索并发现可复用技能。',
+    'Skill Proposal：LLM 扫描网页截图和 accessibility tree，提出第一个技能任务——「创建一个 Issue」。显式检查与已有技能不重复。',
+    'Skill Synthesis：Agent 执行任务成功，成功轨迹蒸馏为 Playwright Python 函数 create_issue(title, desc)，含 docstring 和 usage log。',
+    'Skill Honing：合成的 API 跑单元测试——测试失败！Agent 进入 debug 循环，发现选择器太模糊，修复后重新测试通过，入库。',
+    '第二轮探索：Agent 继续提出新技能任务（search_repo、open_merge_request），每个都经历 Proposal → Synthesis → Honing 三阶段，逐步充实技能库。',
+    '迭代涌现：多轮后自动产生组合 API——review_and_merge() 内部调用 search_repo() + open_merge_request()，体现层次化抽象。',
+    '最终技能库可直接迁移给弱模型使用——强模型合成的 API 插给弱模型，弱模型在 WebArena 上获得 +133% 相对提升。'
+  ];
+
+  function apply(){
+    var p1 = document.getElementById('sw-p1');
+    var p2 = document.getElementById('sw-p2');
+    var p3 = document.getElementById('sw-p3');
+    var badge = document.getElementById('sw-badge1');
+    var webContent = document.getElementById('sw-web-content');
+    var arrow = document.getElementById('sw-arrow1');
+
+    // Reset phases
+    [p1,p2,p3].forEach(function(p){ p.classList.remove('active','done'); });
+    badge.classList.remove('visible','pass','fail','fixed');
+    badge.textContent = '';
+    arrow.classList.remove('visible');
+
+    // Reset skills
+    ['sw-sk1','sw-sk2','sw-sk3','sw-sk4'].forEach(function(id){
+      var el = document.getElementById(id);
+      el.classList.remove('visible','new');
+    });
+
+    document.getElementById('sw-lib').classList.remove('active');
+
+    if(step === 0) {
+      webContent.innerHTML = '<span style="color:var(--text-light)">LLM 扫描截图 + accessibility tree…</span>';
+    }
+
+    if(step >= 1) {
+      p1.classList.add('active');
+      webContent.innerHTML = '<strong>提议任务：</strong>「在 GitLab 上创建一个 Issue」<br><span style="color:var(--text-light)">✓ 与已有技能不重复</span>';
+    }
+    if(step >= 2) {
+      p1.classList.remove('active'); p1.classList.add('done');
+      p2.classList.add('active');
+      arrow.classList.add('visible');
+      webContent.innerHTML = '<strong>执行成功 → 蒸馏轨迹：</strong><br>click(\'New Issue\') → fill(\'Title\', title) → fill(\'Desc\', desc) → click(\'Submit\')<br>↓<br><strong style="color:var(--accent)">def create_issue(title, desc):</strong>';
+    }
+    if(step >= 3) {
+      p2.classList.remove('active'); p2.classList.add('done');
+      p3.classList.add('active');
+      badge.classList.add('visible','fixed');
+      badge.textContent = '✗ FAIL → debug → ✓ PASS';
+      document.getElementById('sw-sk1').classList.add('visible','new');
+      document.getElementById('sw-lib').classList.add('active');
+      webContent.innerHTML = '<strong>单元测试：</strong><span style="color:#c62828">✗ 选择器 #btn 匹配多个元素</span><br><strong>Debug 修复：</strong>收窄为 dialog#new-issue #btn<br><strong style="color:#2e7d32">重测通过 ✓ → 入库</strong>';
+    }
+    if(step >= 4) {
+      p3.classList.remove('active'); p3.classList.add('done');
+      [p1,p2,p3].forEach(function(p){ p.classList.add('done'); });
+      badge.classList.remove('fail','fixed'); badge.classList.add('pass');
+      badge.textContent = '✓ ALL PASS';
+      document.getElementById('sw-sk1').classList.remove('new');
+      document.getElementById('sw-sk2').classList.add('visible','new');
+      document.getElementById('sw-sk3').classList.add('visible','new');
+      webContent.innerHTML = '<strong>第 2–3 轮探索…</strong><br>→ search_repo(query) <span style="color:#2e7d32">✓</span><br>→ open_merge_request(src, dst) <span style="color:#2e7d32">✓</span>';
+    }
+    if(step >= 5) {
+      document.getElementById('sw-sk2').classList.remove('new');
+      document.getElementById('sw-sk3').classList.remove('new');
+      document.getElementById('sw-sk4').classList.add('visible');
+      webContent.innerHTML = '<strong>组合 API 涌现：</strong><br><span style="color:#7b1fa2;font-weight:600">def review_and_merge(mr_id):</span><br>&nbsp;&nbsp;search_repo(mr_id)<br>&nbsp;&nbsp;open_merge_request(...)  <br><span style="color:var(--text-light)">→ 高层 API 调用底层 API</span>';
+    }
+    if(step >= 6) {
+      webContent.innerHTML = '<strong>跨 Agent 迁移：</strong><br>强模型 (GPT-4) 合成的 Skill Library<br>→ 直接插给弱模型 (Llama-3) 使用<br><span style="color:#2e7d32;font-weight:600">WebArena 成功率 +133% ↑</span>';
+    }
+
+    document.getElementById('sw-desc').textContent = descs[step];
+    document.getElementById('sw-step-ind').textContent = '步骤 ' + step + ' / 6';
+    document.getElementById('sw-next-btn').textContent = step >= 6 ? '✓ 完成' : '下一步 →';
+  }
+
+  window.swNext = function(){ if(step < 6) { step++; apply(); } };
+  window.swReset = function(){ step = 0; apply(); };
+  apply();
+})();
+</script>
+</div>
+
+<div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">存什么</div>
+    <div class="card-brief">可执行的 Playwright Python API（函数签名 + docstring + usage log + 前置条件），按网站分组存储。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么更新</div>
+    <div class="card-brief">三阶段自驱动：提议 → 练习蒸馏 → 单元测试 debug。只增不改，无遗忘机制；多轮后涌现组合 API。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么召回</div>
+    <div class="card-brief">API 按网站分组，作为可调用工具扩展 Agent 的 action space，Agent 在 prompt 中看到可用 API 列表后自主选择调用。</div>
+  </div>
+</div>
+
+<p><strong>局限：</strong>技能跟具体网站绑定，跨网站泛化依赖重新探索；对 accessibility tree 解析失败的网站无能为力。</p>
+
+  </div></div>
+</div>
+
+
+<h3>Skill 表示与验证</h3>
+
+<!-- ===== AWM ===== -->
+<div class="expand-section">
+  <div class="expand-header">
+    <div class="expand-title-group">
+      <h4>AWM：参数化 Workflow 记忆 <span class="paper-tag">ICML 2025</span></h4>
+      <p class="expand-desc">从成功轨迹归纳参数化 workflow 子程序，作为 context guidance 注入 prompt，支持 offline 批量 + online 滚雪球两种模式</p>
+    </div>
+    <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+  </div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<p>假设你让 Agent 在某个电商网站下单——Agent 磕磕绊绊地完成了。下次遇到类似任务时，它能不能把「搜索商品 → 加入购物车 → 结账」这个流程记下来复用？<a href="https://arxiv.org/abs/2409.07429" target="_blank">AWM</a>（Wang et al., 2024）做的就是这件事：<strong>从成功经验中提炼出可复用的操作流程（workflow）</strong>，下次遇到同类任务时作为行动参考。</p>
+
+<p>具体来说，每个 workflow 是一段<strong>带占位符的步骤序列</strong>——比如「在搜索框输入 <code>{product-name}</code> → 点击第一个结果 → 加入购物车」。占位符让同一个流程可以套用到不同商品上。但 AWM 不会让 Agent 机械地执行这些步骤（动态网页环境太复杂，弹个窗就卡住了），而是把 workflow 作为<strong>参考指南</strong>放在 prompt 里，Agent 自己决定要不要跟着走。两种使用模式：<strong>Offline</strong> 从历史数据一次性总结；<strong>Online</strong> 边做边学——每完成一个任务就提炼新 workflow，简单流程叠加出复杂流程，产生滚雪球效应。</p>
+
+<p><strong>召回方式很朴素：</strong>workflow 按网站分组存储（Amazon 的流程、GitLab 的流程各一组），Agent 访问哪个网站就把该网站的<strong>所有 workflow 一股脑塞进 prompt</strong>。不做语义检索、不做相关性过滤——因为每个网站总共也就 7 个左右 workflow，全塞进去 token 开销可控。Agent 拿到这组 workflow 后自主判断当前任务跟哪个流程匹配，决定是否参照执行。这比 Voyager 的向量检索简单得多，但也意味着 workflow 数量一旦增长，全量注入就不可持续。</p>
+
+<details class="example-details">
+<summary>查看示例：AWM 归纳出的 workflow（来自原论文）</summary>
+<div class="example-content">
+<p style="margin-bottom:8px"><strong>目标：</strong>在 Amazon 上搜索商品并按指定方式排序结果（Mind2Web 电商场景）</p>
+<pre><code>[textbox] Search Amazon  → TYPE: {search-term}
+[button]  Go              → CLICK
+[span]    Sort by:        → CLICK
+[option]  {sort-option}   → CLICK</code></pre>
+<p style="margin-bottom:8px"><strong>目标：</strong>计算两地之间的出行时间与距离（WebArena 地图场景）</p>
+<pre><code>fill('158', '{FROM_LOCATION}')
+fill('163', '{TO_LOCATION}')
+select_option('166', '{MODE_OF_TRANSPORTATION}')
+click('171')
+send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DISTANCE} and the estimated travel time is {TIME}.')</code></pre>
+<div class="figure-caption"><strong>说明：</strong>花括号占位符（如 <code>{search-term}</code>、<code>{FROM_LOCATION}</code>）将任务特定值抽象为通用变量，使同一 workflow 可复用于「搜索任意商品」或「查询任意两地距离」等不同具体任务。</div>
+</div>
+</details>
+
+<div class="figure-block">
+  <img src="https://arxiv.org/html/2409.07429v1/x2.png" alt="AWM pipeline" loading="lazy">
+  <div class="figure-caption"><strong>AWM pipeline 架构</strong>：agent 执行任务 → 归纳 workflow（NL 目标 + 参数化步骤）→ 整合到 memory → 指导后续任务。</div>
+  <span class="fig-toggle" onclick="toggleFigDetail(this, event)">展开说明 ▸</span>
+  <div class="figure-detail">
+    <ul>
+      <li><strong>Workflow Induction：</strong>从成功轨迹中提取子程序，将任务特定值替换为通用占位符（如 {product-name}），保证可复用性。</li>
+      <li><strong>Memory Integration：</strong>workflow 集合加入 agent 的 text-based memory，按网站分组。</li>
+      <li><strong>Memory Utilization：</strong>agent 执行新任务时参考 memory 中的 workflow 作为行动指导，自行决定是否遵循某个 workflow。</li>
+      <li><strong>关键：</strong>workflow 作为 context guidance 而非直接执行的 action——动态环境下预定义动作序列太脆弱。</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">存什么</div>
+    <div class="card-brief">参数化 workflow（NL 目标 + 步骤序列 + 占位符），比 insights 更结构化但不是代码。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么更新</div>
+    <div class="card-brief">成功轨迹归纳（offline 批量 / online 滚雪球），只增不减，无遗忘机制。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么召回</div>
+    <div class="card-brief">按网站分组，访问哪个站就把该站所有 workflow 全量塞进 prompt（每站 ~7 个，token 可控）。Agent 自主判断用哪个。</div>
+  </div>
+</div>
+
+<p><strong>局限：</strong>workflow 只增不减，无遗忘机制；全量注入依赖 workflow 数量少的假设；仅验证于网页导航场景。</p>
+
+  </div></div>
+</div>
+
+<!-- ===== ASI ===== -->
+<div class="expand-section">
+  <div class="expand-header">
+    <div class="expand-title-group">
+      <h4>ASI：可验证的程序化技能归纳 <span class="paper-tag">COLM 2025</span></h4>
+      <p class="expand-desc">从成功轨迹中归纳可执行 Python 程序作为技能，通过执行验证保证正确性，直接扩展动作空间而非仅做 prompt 参考</p>
+    </div>
+    <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+  </div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<p><a href="https://arxiv.org/abs/2504.06821" target="_blank">ASI</a>（Wang et al., 2025）是前面 AWM 同一第一作者（Zijun Wang）的后续工作，延续了在线归纳技能的框架，但对存储形式做了根本性升级：AWM 把技能存为自由文本 workflow，只能放进 prompt 做参考，Agent 可能不遵循，也<strong>无法被执行验证</strong>；ASI 则用<strong>可执行的 Python 程序</strong>来表示技能，并新增三重验证机制。程序形式带来两个关键优势：一是可以通过实际执行来验证技能的正确性，过滤掉有问题的归纳结果；二是技能作为函数直接<strong>扩展 Agent 的动作空间</strong>（而非仅作为记忆参考），Agent 调用一次函数就能精确执行多步原子操作，既减少低层出错，也提升效率。</p>
+
+<p>具体做法分三步：① <strong>归纳</strong>——从成功 episode 中，LM 归纳出一个或多个 Python 函数（如 <code>search_product(name)</code>），把多步原子操作（click/fill/scroll）封装为高层调用；② <strong>验证（核心）</strong>——分三个环节：首先<strong>轨迹重写</strong>，把原始的 click/fill/scroll 操作替换为对新技能函数的调用，生成一个「使用技能的轨迹前缀」；然后<strong>截断尾部</strong>，去掉轨迹末尾直接给出答案的步骤（如 <code>send_msg_to_user('答案是2')</code>）——这一步至关重要，否则 Agent 从重写轨迹继续执行时直接就到了答案步骤，什么技能都没用就"通过"了验证（假阳性）；最后<strong>重跑检查</strong>，让 Agent 从截断后的前缀继续执行，同时检查三件事：任务是否完成（技能有效性）、Agent 是否真的调用了新技能（防止绕开技能用原始操作完成）、技能调用是否引起了环境变化（防止空调用）；③ <strong>入库</strong>——三项全过才加入 skill library，下次 Agent 可直接调用这些函数作为动作。</p>
+
+<div class="figure-block">
+  <img src="https://arxiv.org/html/2504.06821v2/x1.png" alt="ASI framework overview" loading="lazy">
+  <div class="figure-caption"><strong>ASI vs 文本技能对比</strong>：上方 AWM 将技能作为文本参考注入 memory；下方 ASI 将技能作为可执行程序直接扩展 action space，Agent 可以像调用 click() 一样调用 search_product()。</div>
+  <span class="fig-toggle" onclick="toggleFigDetail(this, event)">展开说明 ▸</span>
+  <div class="figure-detail">
+    <ul>
+      <li><strong>文本技能（上）：</strong>workflow 只能放在 prompt 里做参考，Agent 自行决定是否遵循，容易偏离或遗忘。</li>
+      <li><strong>程序技能（下）：</strong>技能是可执行函数，Agent 一旦选择调用就会精确执行封装好的步骤序列，减少低层错误。</li>
+      <li><strong>关键区别：</strong>从「记忆增强」变成「动作空间扩展」——不是多了一条参考信息，而是多了一个新能力。</li>
+    </ul>
+  </div>
+</div>
+
+<div id="asi-demo">
+<style>
+#asi-demo { padding: 1.2rem; border-radius: 12px; background: var(--bg-white); border: 1px solid var(--border); margin: 1.5rem 0; }
+#asi-demo .asi-stage { display: flex; flex-direction: column; gap: 0.8rem; }
+#asi-demo .asi-traj { border: 1.5px solid var(--border); border-radius: 8px; padding: 0.7rem 0.9rem; font-family: monospace; font-size: 0.8rem; line-height: 1.8; background: var(--bg); transition: all 0.4s ease; }
+#asi-demo .asi-traj-title { font-weight: 700; font-size: 0.85rem; margin-bottom: 0.4rem; font-family: inherit; }
+#asi-demo .asi-step { display: block; padding: 0.15rem 0.4rem; border-radius: 4px; transition: all 0.4s ease; }
+#asi-demo .asi-step.rewritten { background: color-mix(in srgb, var(--accent) 12%, transparent); border-left: 2px solid var(--accent); padding-left: 0.6rem; }
+#asi-demo .asi-step.cut { text-decoration: line-through; opacity: 0.35; }
+#asi-demo .asi-step.highlight { background: #e8f5e9; border-left: 2px solid #4caf50; padding-left: 0.6rem; }
+#asi-demo .asi-skill-box { border: 2px dashed var(--border); border-radius: 10px; padding: 0.7rem 0.9rem; text-align: center; opacity: 0; transform: translateY(8px); transition: all 0.45s ease; }
+#asi-demo .asi-skill-box.visible { opacity: 1; transform: translateY(0); border-color: var(--accent); background: color-mix(in srgb, var(--accent) 5%, transparent); }
+#asi-demo .asi-skill-fn { font-family: monospace; font-size: 0.82rem; font-weight: 600; }
+#asi-demo .asi-checks { display: flex; gap: 0.6rem; flex-wrap: wrap; justify-content: center; margin-top: 0.5rem; }
+#asi-demo .asi-check { border: 1.5px solid var(--border); border-radius: 6px; padding: 0.35rem 0.7rem; font-size: 0.78rem; opacity: 0; transition: all 0.4s ease; display: flex; align-items: center; gap: 0.3rem; }
+#asi-demo .asi-check.visible { opacity: 1; }
+#asi-demo .asi-check.pass { border-color: #4caf50; color: #2e7d32; background: #e8f5e9; }
+#asi-demo .asi-result { text-align: center; font-weight: 700; font-size: 0.9rem; opacity: 0; transition: all 0.4s ease; margin-top: 0.3rem; }
+#asi-demo .asi-result.visible { opacity: 1; }
+#asi-demo .asi-result.pass { color: #2e7d32; }
+#asi-demo .asi-controls { display: flex; align-items: center; gap: 0.8rem; margin-top: 1rem; flex-wrap: wrap; }
+#asi-demo .asi-btn { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-white); cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
+#asi-demo .asi-btn:hover { background: color-mix(in srgb, var(--accent) 10%, var(--bg-white)); }
+#asi-demo .asi-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+#asi-demo .asi-btn.primary:hover { opacity: 0.9; }
+#asi-demo .asi-step-ind { font-size: 0.8rem; color: var(--text-light); }
+#asi-demo .asi-desc { margin-top: 0.6rem; font-size: 0.85rem; color: var(--text-light); padding: 0.5rem 0.8rem; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 4%, transparent); border-radius: 0 6px 6px 0; min-height: 2.2em; transition: opacity 0.3s; }
+#asi-demo .asi-arrow { text-align: center; font-size: 1rem; color: var(--text-light); opacity: 0; transition: opacity 0.4s ease; }
+#asi-demo .asi-arrow.visible { opacity: 1; }
+@media (max-width: 600px) {
+  #asi-demo .asi-checks { flex-direction: column; align-items: center; }
+}
+</style>
+
+<div class="asi-stage">
+  <!-- 原始轨迹 -->
+  <div class="asi-traj" id="asi-traj">
+    <div class="asi-traj-title" id="asi-traj-title">原始轨迹（成功 episode）</div>
+    <span class="asi-step" id="asi-s1">click('[link] Marketing Reviews')</span>
+    <span class="asi-step" id="asi-s2">click('[link] Pending Reviews')</span>
+    <span class="asi-step" id="asi-s3">fill('[input] Search', 'pricing')</span>
+    <span class="asi-step" id="asi-s4">click('[button] Search')</span>
+    <span class="asi-step" id="asi-s5">send_msg_to_user('<strong>2</strong>')</span>
+  </div>
+
+  <!-- 归纳箭头 -->
+  <div class="asi-arrow" id="asi-arrow1">↓ LM 归纳</div>
+
+  <!-- 归纳出的技能 -->
+  <div class="asi-skill-box" id="asi-skill-box">
+    <div class="asi-skill-fn">def open_reviews():<br>&nbsp;&nbsp;click('[link] Marketing Reviews')<br>&nbsp;&nbsp;click('[link] Pending Reviews')</div>
+    <div class="asi-skill-fn" style="margin-top:0.5rem">def search_reviews(term):<br>&nbsp;&nbsp;fill('[input] Search', term)<br>&nbsp;&nbsp;click('[button] Search')</div>
+  </div>
+
+  <!-- 验证箭头 -->
+  <div class="asi-arrow" id="asi-arrow2">↓ 重写 + 截断 + 重跑</div>
+
+  <!-- 三重检查 -->
+  <div class="asi-checks">
+    <div class="asi-check" id="asi-c1">✓ 任务完成</div>
+    <div class="asi-check" id="asi-c2">✓ 调用了新技能</div>
+    <div class="asi-check" id="asi-c3">✓ 环境发生变化</div>
+  </div>
+
+  <!-- 结果 -->
+  <div class="asi-result" id="asi-result">✅ 三项全过 → 技能入库，注册为 Agent 新动作</div>
+</div>
+
+<!-- 控制栏 -->
+<div class="asi-controls">
+  <button class="asi-btn primary" id="asi-next-btn" onclick="asiNext()">下一步 →</button>
+  <button class="asi-btn" onclick="asiReset()">重置</button>
+  <span class="asi-step-ind" id="asi-step-ind">步骤 0 / 5</span>
+</div>
+<div class="asi-desc" id="asi-desc">初始状态：Agent 完成了一个任务，留下一条成功轨迹（5 步原子操作）。</div>
+
+<script>
+(function(){
+  var step = 0;
+  var descs = [
+    '初始状态：Agent 完成了一个任务，留下一条成功轨迹（5 步原子操作）。',
+    '归纳：LM 从操作序列中提取两个 Python 函数——open_reviews() 和 search_reviews(term)。',
+    '轨迹重写：把原始的 click/fill 操作替换为对新函数的调用，生成「技能使用轨迹」。',
+    '截断尾部：去掉直接给出答案的 send_msg_to_user(\'2\')——否则 Agent 不用技能也能"通过"验证（假阳性）。',
+    '重跑验证：Agent 从截断的前缀继续执行。三项检查：任务完成 ✓、技能被调用 ✓、环境变化 ✓。',
+    '三项全过！技能入库，注册为 Agent 可直接调用的新动作。下次遇到类似任务可一步到位。'
+  ];
+
+  function apply(){
+    // Step 1: show induction
+    document.getElementById('asi-arrow1').classList.toggle('visible', step >= 1);
+    document.getElementById('asi-skill-box').classList.toggle('visible', step >= 1);
+
+    // Step 2: rewrite trajectory
+    var s1 = document.getElementById('asi-s1');
+    var s2 = document.getElementById('asi-s2');
+    var s3 = document.getElementById('asi-s3');
+    var s4 = document.getElementById('asi-s4');
+    if(step >= 2) {
+      s1.innerHTML = '<strong>open_reviews()</strong>';
+      s1.classList.add('rewritten');
+      s2.style.display = 'none';
+      s3.innerHTML = '<strong>search_reviews(\'pricing\')</strong>';
+      s3.classList.add('rewritten');
+      s4.style.display = 'none';
+      document.getElementById('asi-traj-title').textContent = '重写后的轨迹';
+    } else {
+      s1.innerHTML = "click('[link] Marketing Reviews')";
+      s1.classList.remove('rewritten');
+      s2.style.display = '';
+      s3.innerHTML = "fill('[input] Search', 'pricing')";
+      s3.classList.remove('rewritten');
+      s4.style.display = '';
+      document.getElementById('asi-traj-title').textContent = '原始轨迹（成功 episode）';
+    }
+
+    // Step 3: truncate tail
+    var s5 = document.getElementById('asi-s5');
+    s5.classList.toggle('cut', step >= 3);
+
+    // Step 4: show checks
+    document.getElementById('asi-arrow2').classList.toggle('visible', step >= 4);
+    ['asi-c1','asi-c2','asi-c3'].forEach(function(id){
+      var el = document.getElementById(id);
+      el.classList.toggle('visible', step >= 4);
+      el.classList.toggle('pass', step >= 4);
+    });
+
+    // Step 5: result
+    document.getElementById('asi-result').classList.toggle('visible', step >= 5);
+    document.getElementById('asi-result').classList.toggle('pass', step >= 5);
+
+    // Highlight rewritten steps at step 4
+    if(step >= 4) {
+      s1.classList.add('highlight'); s1.classList.remove('rewritten');
+      s3.classList.add('highlight'); s3.classList.remove('rewritten');
+    } else if(step >= 2) {
+      s1.classList.add('rewritten'); s1.classList.remove('highlight');
+      s3.classList.add('rewritten'); s3.classList.remove('highlight');
+    } else {
+      s1.classList.remove('highlight','rewritten');
+      s3.classList.remove('highlight','rewritten');
+    }
+
+    document.getElementById('asi-desc').textContent = descs[step];
+    document.getElementById('asi-step-ind').textContent = '步骤 ' + step + ' / 5';
+    document.getElementById('asi-next-btn').textContent = step >= 5 ? '✓ 完成' : '下一步 →';
+  }
+
+  window.asiNext = function(){ if(step < 5) { step++; apply(); } };
+  window.asiReset = function(){ step = 0; apply(); };
+  apply();
+})();
+</script>
+</div>
+
+<div class="card-grid" style="margin-top:18px;">
+  <div class="card" style="border-left:3.5px solid var(--accent)">
+    <strong>存什么</strong><br>可执行 Python 函数——封装多步原子操作为高层 API（如 <code>search_product(name)</code>），直接注册为 Agent 新增动作
+  </div>
+  <div class="card" style="border-left:3.5px solid var(--accent)">
+    <strong>怎么更新</strong><br>三重执行验证——轨迹重写 + 尾部截断 + 重跑检查（任务正确性 × 技能被调用 × 环境变化），全过才入库；按网站分库管理
+  </div>
+  <div class="card" style="border-left:3.5px solid var(--accent)">
+    <strong>怎么召回</strong><br>动作空间直接集成——技能函数注册在 action space 中，Agent 生成动作时直接可选，无需额外检索步骤
+  </div>
+</div>
+
+<p style="margin-top:14px;color:var(--text-secondary);font-size:14px;"><strong>局限：</strong>验证依赖 LLM-based evaluator 判断正确性（非 ground-truth reward），且技能粒度和稳定性仍需进一步研究。</p>
+
+  </div></div>
+</div>
+
+<!-- ===== POLYSKILL ===== -->
+<div class="expand-section" id="polyskill">
+  <div class="expand-header">
+    <div class="expand-title-group">
+      <h4>PolySkill：多态抽象的跨域泛化 <span class="paper-tag">ICLR 2026</span></h4>
+      <p class="expand-desc">借鉴 OOP 多态思想，将技能分为抽象类接口和具体子类实现，解决 skill library 的跨网站泛化问题</p>
+    </div>
+    <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+  </div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<p>Agent 在 Amazon 上学会了「搜索 → 加购物车 → 结账」的操作技能，但换到 Target 网站就完全不会了——按钮位置不同、交互流程有差异、DOM 结构全变了。这是 Voyager 式 skill library 的核心瓶颈：<strong>技能跟具体环境绑死了，换个环境就废了</strong>。<a href="https://arxiv.org/abs/2510.15863" target="_blank">PolySkill</a>（Yu et al., 2025）的解法很直觉：虽然 Amazon 和 Target 的具体操作不同，但「购物」这件事的<strong>流程骨架是一样的</strong>——都需要搜索、加购物车、结账。能不能把流程骨架和具体操作分开？</p>
+
+<p>PolySkill 借鉴了编程中的<strong>接口与实现分离</strong>：先定义一个「购物网站」的通用接口（需要实现哪些方法：<code>search()</code>、<code>add_to_cart()</code>、<code>checkout()</code>），再为每个具体网站填充实现细节。组合流程（如「下单 = 搜索 → 加购物车 → 结账」）只需在接口层定义一次，所有网站自动继承。遇到没见过的新网站时，Agent 至少知道<strong>需要学什么</strong>（实现这些接口方法），而不是从零开始盲目探索。技能生成后还要过一道验证：用新技能重做原任务，LLM Judge 判定成功才入库。</p>
+
+<div class="quote-block" style="font-style:normal">
+  <p style="margin:0 0 8px"><strong>与个性化记忆 IFRAgent 的对照（多态轴不同）</strong></p>
+  <p style="margin:0 0 8px">PolySkill 把多态用在<strong>环境</strong>：Amazon / Target 共用「购物」流程骨架（抽象类），各站填具体实现（子类）。情节经验里的 <a href="#ifragent">IFRAgent</a> 把同一套思路用在<strong>用户</strong>：同一 App 下「点外卖」的 SOP 骨架相近（显式流 + RAG 继承相似 demonstration），每位用户用隐式习惯库 <code>h<sub>i</sub></code> + Query Rewriter 填偏好槽位（相当于 per-user 的「子类实现」），差异在文本改写而非可执行代码。</p>
+  <ul style="margin:0 0 0 20px;font-size:14px;line-height:1.7;list-style:disc">
+    <li><strong>相同：</strong>骨架与实例分离；新实例（新站 / 新用户）检索继承模板，再填充特化细节</li>
+    <li><strong>不同：</strong>PolySkill 是 OOP 式抽象类 + 代码子类；IFRAgent 是检索式 SOP + 自然语言习惯，不扩展 action space</li>
+  </ul>
+</div>
+
+<details class="example-details">
+<summary>查看示例：PolySkill 的抽象类与具体实现（来自原论文）</summary>
+<div class="example-content">
+<p style="margin-bottom:8px"><strong>抽象类（领域级接口）：</strong></p>
+<pre><code>class AbstractShoppingSite(ABC):
+    """购物网站的通用技能接口"""
+
+    @abstractmethod
+    def search_product(self, query: str, filter: str = None):
+        """在网站上搜索商品"""
+        pass
+
+    @abstractmethod
+    def add_to_cart(self, item: str):
+        """将商品加入购物车"""
+        pass
+
+    @abstractmethod
+    def checkout(self):
+        """完成结账流程"""
+        pass
+
+    # 组合技能：在抽象层定义一次，所有子类自动继承
+    def place_order(self, query: str, filter: str = None):
+        """下单 = 搜索 → 加购物车 → 结账"""
+        item = self.search_product(query, filter)
+        self.add_to_cart(item)
+        self.checkout()</code></pre>
+
+<p style="margin:16px 0 8px"><strong>具体子类（Amazon 实现）：</strong></p>
+<pre><code>class AmazonWebsite(AbstractShoppingSite):
+    """Amazon 网站的具体技能实现"""
+
+    def search_product(self, query, filter=None):
+        click(id="twotabsearchtextbox")
+        type(query)
+        if filter:
+            click(id="searchDropdownBox")
+            select(filter)
+        click(id="nav-search-submit-button")
+        return get_first_result()
+
+    def add_to_cart(self, item):
+        click(item)
+        click(id="add-to-cart-button")
+
+    def checkout(self):
+        click(id="nav-cart")
+        click(id="sc-buy-box-ptc-button")  # Proceed to checkout
+        click(name="placeYourOrder1")</code></pre>
+
+<div class="figure-caption"><strong>说明：</strong>抽象类定义「购物网站需要哪些能力」，具体子类填充「在这个网站上怎么做」。换到 Target 网站时，只需新增一个 <code>TargetWebsite</code> 子类实现同样的接口，组合流程（如 <code>place_order()</code>）自动继承。</div>
+</div>
+</details>
+
+<div id="polyskill-demo">
+<style>
+#polyskill-demo { padding: 1.2rem; border-radius: 12px; background: var(--bg-white); border: 1px solid var(--border); margin: 1.5rem 0; }
+#polyskill-demo .ps-stage { position: relative; min-height: 260px; display: flex; flex-direction: column; align-items: center; gap: 1rem; }
+#polyskill-demo .ps-abstract { border: 2px solid var(--text); border-radius: 10px; padding: 0.8rem 1.2rem; width: 100%; max-width: 520px; text-align: center; background: var(--bg-white); }
+#polyskill-demo .ps-abstract-title { font-weight: 700; margin-bottom: 0.5rem; font-size: 0.95rem; }
+#polyskill-demo .ps-slots { display: flex; gap: 0.5rem; justify-content: center; flex-wrap: wrap; }
+#polyskill-demo .ps-slot { border: 2px dashed var(--border); border-radius: 6px; padding: 0.3rem 0.7rem; font-size: 0.82rem; font-family: monospace; transition: all 0.4s ease; }
+#polyskill-demo .ps-slot.filled { border-style: solid; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 8%, transparent); }
+#polyskill-demo .ps-compose { margin-top: 0.4rem; font-size: 0.82rem; opacity: 0; transform: translateY(-6px); transition: all 0.4s ease; font-family: monospace; color: var(--accent); }
+#polyskill-demo .ps-compose.visible { opacity: 1; transform: translateY(0); }
+#polyskill-demo .ps-arrows { display: flex; justify-content: center; gap: 2rem; margin: 0.3rem 0; font-size: 1.1rem; color: var(--text-light); }
+#polyskill-demo .ps-arrow { opacity: 0; transition: opacity 0.4s ease; }
+#polyskill-demo .ps-arrow.visible { opacity: 1; }
+#polyskill-demo .ps-subclasses { display: flex; gap: 0.8rem; justify-content: center; flex-wrap: wrap; }
+#polyskill-demo .ps-sub { border: 2px solid var(--border); border-left: 4px solid var(--accent); border-radius: 8px; padding: 0.6rem 0.8rem; min-width: 140px; opacity: 0; transform: translateY(12px); transition: all 0.45s ease; }
+#polyskill-demo .ps-sub.visible { opacity: 1; transform: translateY(0); }
+#polyskill-demo .ps-sub.new-site { border-style: dashed; border-left-style: dashed; }
+#polyskill-demo .ps-sub-title { font-weight: 700; font-size: 0.85rem; margin-bottom: 0.3rem; }
+#polyskill-demo .ps-sub-methods { font-size: 0.78rem; font-family: monospace; line-height: 1.6; }
+#polyskill-demo .ps-sub-methods span { display: block; }
+#polyskill-demo .ps-controls { display: flex; align-items: center; gap: 0.8rem; margin-top: 1rem; flex-wrap: wrap; }
+#polyskill-demo .ps-btn { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-white); cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
+#polyskill-demo .ps-btn:hover { background: color-mix(in srgb, var(--accent) 10%, var(--bg-white)); }
+#polyskill-demo .ps-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+#polyskill-demo .ps-btn.primary:hover { opacity: 0.9; }
+#polyskill-demo .ps-step-ind { font-size: 0.8rem; color: var(--text-light); }
+#polyskill-demo .ps-desc { margin-top: 0.6rem; font-size: 0.85rem; color: var(--text-light); padding: 0.5rem 0.8rem; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 4%, transparent); border-radius: 0 6px 6px 0; min-height: 2.2em; transition: opacity 0.3s; }
+@media (max-width: 600px) {
+  #polyskill-demo .ps-subclasses { flex-direction: column; align-items: center; }
+  #polyskill-demo .ps-sub { min-width: 90%; }
+  #polyskill-demo .ps-slots { flex-direction: column; align-items: center; }
+}
+</style>
+
+<div class="ps-stage">
+  <!-- 抽象类 -->
+  <div class="ps-abstract">
+    <div class="ps-abstract-title">ShoppingSite（抽象接口）</div>
+    <div class="ps-slots">
+      <div class="ps-slot" id="ps-slot-search">search()</div>
+      <div class="ps-slot" id="ps-slot-cart">add_to_cart()</div>
+      <div class="ps-slot" id="ps-slot-checkout">checkout()</div>
+    </div>
+    <div class="ps-compose" id="ps-compose">purchase() = search → add_to_cart → checkout</div>
+  </div>
+  <!-- 继承箭头 -->
+  <div class="ps-arrows">
+    <span class="ps-arrow" id="ps-arrow-amazon">↓ 继承</span>
+    <span class="ps-arrow" id="ps-arrow-target">↓ 继承</span>
+    <span class="ps-arrow" id="ps-arrow-walmart">↓ 继承(new!)</span>
+  </div>
+  <!-- 子类 -->
+  <div class="ps-subclasses">
+    <div class="ps-sub" id="ps-sub-amazon">
+      <div class="ps-sub-title">Amazon</div>
+      <div class="ps-sub-methods">
+        <span>search: 输入搜索栏</span>
+        <span>cart: 点击 Add to Cart</span>
+        <span>checkout: Proceed to Checkout</span>
+      </div>
+    </div>
+    <div class="ps-sub" id="ps-sub-target">
+      <div class="ps-sub-title">Target</div>
+      <div class="ps-sub-methods">
+        <span>search: 点击搜索图标</span>
+        <span>cart: 选规格后加购</span>
+        <span>checkout: Ship It 按钮</span>
+      </div>
+    </div>
+    <div class="ps-sub new-site" id="ps-sub-walmart">
+      <div class="ps-sub-title">Walmart 🆕</div>
+      <div class="ps-sub-methods">
+        <span>search: ?</span>
+        <span>cart: ?</span>
+        <span>checkout: ?</span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- 控制栏 -->
+<div class="ps-controls">
+  <button class="ps-btn primary" id="ps-next-btn" onclick="polySkillNext()">下一步 →</button>
+  <button class="ps-btn" onclick="polySkillReset()">重置</button>
+  <span class="ps-step-ind" id="ps-step-ind">步骤 0 / 4</span>
+</div>
+<div class="ps-desc" id="ps-desc">初始状态：ShoppingSite 抽象接口定义了 3 个待实现的方法槽位。</div>
+
+<script>
+(function(){
+  var step = 0;
+  var descs = [
+    '初始状态：ShoppingSite 抽象接口定义了 3 个待实现的方法槽位。',
+    'Agent 完成 Amazon 任务后，归纳出具体实现 → Amazon 子类填充 3 个方法。',
+    'Agent 完成 Target 任务后，归纳出 Target 的实现 → Target 子类出现。',
+    '在抽象层定义组合技能 purchase()，Amazon 和 Target 自动继承该流程。',
+    '新网站 Walmart 出现，抽象类 blueprint 告诉 Agent「你需要实现这 3 个方法」。'
+  ];
+
+  function apply(){
+    var slots = document.querySelectorAll('#polyskill-demo .ps-slot');
+    slots.forEach(function(s){ s.classList.toggle('filled', step >= 3); });
+    document.getElementById('ps-sub-amazon').classList.toggle('visible', step >= 1);
+    document.getElementById('ps-arrow-amazon').classList.toggle('visible', step >= 1);
+    document.getElementById('ps-sub-target').classList.toggle('visible', step >= 2);
+    document.getElementById('ps-arrow-target').classList.toggle('visible', step >= 2);
+    document.getElementById('ps-compose').classList.toggle('visible', step >= 3);
+    document.getElementById('ps-sub-walmart').classList.toggle('visible', step >= 4);
+    document.getElementById('ps-arrow-walmart').classList.toggle('visible', step >= 4);
+    document.getElementById('ps-desc').textContent = descs[step];
+    document.getElementById('ps-step-ind').textContent = '步骤 ' + step + ' / 4';
+    document.getElementById('ps-next-btn').textContent = step >= 4 ? '✓ 完成' : '下一步 →';
+  }
+
+  window.polySkillNext = function(){
+    if(step < 4) { step++; apply(); }
+  };
+  window.polySkillReset = function(){
+    step = 0; apply();
+  };
+  apply();
+})();
+</script>
+</div>
+
+<div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">存什么</div>
+    <div class="card-brief">层次化代码技能库——抽象类（领域级接口）+ 具体子类（网站级实现）+ 组合技能（抽象层编排）。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么更新</div>
+    <div class="card-brief">Online Continual Induction——成功 → 归纳 → 验证 → 写入子类。新领域自动初始化抽象类，已有领域仅更新子类。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么召回</div>
+    <div class="card-brief">基于网站类别识别 → 检索对应领域抽象类 → 查找具体子类实现，action space 动态扩展。</div>
+  </div>
+</div>
+
+<p><strong>局限：</strong>抽象类初始化质量敏感（初始抽象若捕获表面 UI 相似性，所有子类继承该缺陷）；对长尾/跨领域融合网站效果减弱。</p>
+
+  </div></div>
+</div>
+
+
+<h3>Skill 库自进化</h3>
+
+<!-- ===== MEMENTO-SKILLS ===== -->
+<div class="expand-section">
+  <div class="expand-header">
+    <div class="expand-title-group">
+      <h4>Memento-Skills：技能自迭代进化 <span class="paper-tag">arXiv 2026</span></h4>
+      <p class="expand-desc">结构化 skill 文件夹通过 Read-Write 循环持续自进化，行为对齐路由替代语义检索</p>
+    </div>
+    <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+  </div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<p>LLM 参数一旦冻结，所有适应都只能发生在输入侧——prompt、context、或外部 memory。<a href="https://arxiv.org/abs/2603.18743" target="_blank">Memento-Skills</a>（Memento-Team, 2026）的核心命题是：<strong>让 agent 自己设计 agent</strong>——一个通用 agent 通过 Read-Write Reflective Learning 循环，自主构建、适配和迭代面向特定任务的 skill，实现无需参数更新的 continual learning。</p>
+
+<p>具体来说，Memento-Skills 从少量基础 skill（如 Web 搜索、终端操作）起步，通过反复的「读取 skill → 执行任务 → 反馈归因 → 改写 skill」闭环不断扩展能力边界。在三个关键维度上做出了推进：</p>
+<ul style="margin:8px 0 16px 20px;color:var(--text-secondary);font-size:15px;line-height:1.7">
+  <li><strong>存什么：</strong>结构化 skill 文件夹（SKILL.md + prompts + scripts + <strong>tests</strong>）——既包含声明式知识（prompts 引导 LLM），又包含程序性知识（scripts 直接执行），还自带质量保证（<strong>tests</strong> 防退化）。比 Voyager 的纯函数更完整</li>
+  <li><strong>怎么更新：</strong>失败归因 + 原地优化/发现——Judge 定位失败归因到具体 skill 后，根据该 skill 的 <strong>utility</strong>（历史成功率 = 成功次数 / 总使用次数）决定策略：<strong>Optimise</strong>（utility ≥ δ，说明 skill 整体还行只是本次出错，靶向修补）、<strong>Discover</strong>（utility &lt; δ，说明 skill 方向本身就不对，新建替代）、<strong>Unit Test Gate</strong>（门控回滚防退化）</li>
+  <li><strong>怎么召回：</strong>行为对齐路由——传统检索（如 Voyager）用语义 embedding 找「描述最像」的 skill，但「密码重置」和「退款处理」的语义相似度可达 0.91，选错却是灾难性的。Memento 用 <strong>InfoNCE 对比学习 + 离线 RL</strong> 训练 embedding：正样本 = 用了这个 skill 后任务成功的 (task, skill) 对，负样本 = 同领域但行为不匹配的对。这样 embedding 空间优化的是「选了这个 skill 后成功的概率」而非「文本描述相似度」</li>
+</ul>
+
+<div id="ms-demo">
+<style>
+#ms-demo { padding: 1.2rem; border-radius: 12px; background: var(--bg-white); border: 1px solid var(--border); margin: 1.5rem 0; }
+#ms-demo .ms-stage { display: flex; flex-direction: column; gap: 0.7rem; align-items: center; }
+#ms-demo .ms-loop { display: flex; gap: 0.4rem; width: 100%; max-width: 650px; justify-content: center; }
+#ms-demo .ms-step { flex: 1; border: 1.5px solid var(--border); border-radius: 8px; padding: 0.45rem 0.3rem; text-align: center; font-size: 0.75rem; transition: all 0.4s ease; opacity: 0.35; min-height: 52px; display: flex; flex-direction: column; justify-content: center; }
+#ms-demo .ms-step.active { opacity: 1; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+#ms-demo .ms-step.done { opacity: 1; border-color: #4caf50; background: #e8f5e9; }
+#ms-demo .ms-step.fail { opacity: 1; border-color: #c62828; background: #fce4ec; }
+#ms-demo .ms-step-name { font-weight: 700; font-size: 0.8rem; margin-bottom: 0.15rem; }
+#ms-demo .ms-skill-lib { border: 2px dashed var(--border); border-radius: 10px; padding: 0.7rem; width: 100%; max-width: 650px; transition: all 0.4s ease; }
+#ms-demo .ms-skill-lib.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 4%, transparent); }
+#ms-demo .ms-skill-lib.write { border-color: #e65100; background: color-mix(in srgb, #e65100 5%, transparent); }
+#ms-demo .ms-lib-title { font-weight: 700; font-size: 0.82rem; margin-bottom: 0.4rem; text-align: center; }
+#ms-demo .ms-lib-counter { font-size: 0.72rem; color: var(--text-light); font-weight: 400; }
+#ms-demo .ms-skills { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: center; }
+#ms-demo .ms-sk { border: 1.5px solid var(--border); border-radius: 6px; padding: 0.2rem 0.55rem; font-size: 0.73rem; transition: all 0.35s ease; opacity: 0.5; }
+#ms-demo .ms-sk.visible { opacity: 1; }
+#ms-demo .ms-sk.selected { border-color: #1565c0; background: color-mix(in srgb, #1565c0 10%, transparent); font-weight: 600; }
+#ms-demo .ms-sk.fixing { border-color: #e65100; background: color-mix(in srgb, #e65100 10%, transparent); border-style: dashed; }
+#ms-demo .ms-sk.fixed { border-color: #2e7d32; background: color-mix(in srgb, #2e7d32 10%, transparent); font-weight: 600; }
+#ms-demo .ms-sk.newsk { border-color: #7b1fa2; background: color-mix(in srgb, #7b1fa2 8%, transparent); font-weight: 600; border-style: dashed; }
+#ms-demo .ms-sk.newsk.solid { border-style: solid; }
+#ms-demo .ms-detail { border: 1.5px solid var(--border); border-radius: 8px; padding: 0.6rem 0.8rem; width: 100%; max-width: 650px; font-size: 0.8rem; line-height: 1.65; opacity: 0; transform: translateY(6px); transition: all 0.4s ease; min-height: 60px; }
+#ms-demo .ms-detail.visible { opacity: 1; transform: translateY(0); }
+#ms-demo .ms-arrow { text-align: center; font-size: 0.95rem; color: var(--text-light); opacity: 0; transition: opacity 0.3s; }
+#ms-demo .ms-arrow.visible { opacity: 1; }
+#ms-demo .ms-controls { display: flex; align-items: center; gap: 0.8rem; margin-top: 1rem; flex-wrap: wrap; }
+#ms-demo .ms-btn { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-white); cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
+#ms-demo .ms-btn:hover { background: color-mix(in srgb, var(--accent) 10%, var(--bg-white)); }
+#ms-demo .ms-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+#ms-demo .ms-btn.primary:hover { opacity: 0.9; }
+#ms-demo .ms-step-ind { font-size: 0.8rem; color: var(--text-light); }
+#ms-demo .ms-desc { margin-top: 0.6rem; font-size: 0.85rem; color: var(--text-light); padding: 0.5rem 0.8rem; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 4%, transparent); border-radius: 0 6px 6px 0; min-height: 2.2em; transition: opacity 0.3s; }
+@media (max-width: 600px) {
+  #ms-demo .ms-loop { flex-wrap: wrap; }
+  #ms-demo .ms-step { min-width: 45%; }
+}
+</style>
+
+<div class="ms-stage">
+  <!-- 五步循环 -->
+  <div class="ms-loop">
+    <div class="ms-step" id="ms-s1"><div class="ms-step-name">Observe</div>接收任务</div>
+    <div class="ms-step" id="ms-s2"><div class="ms-step-name">Read</div>路由选 skill</div>
+    <div class="ms-step" id="ms-s3"><div class="ms-step-name">Act</div>执行任务</div>
+    <div class="ms-step" id="ms-s4"><div class="ms-step-name">Feedback</div>Judge 评估</div>
+    <div class="ms-step" id="ms-s5"><div class="ms-step-name">Write</div>进化 skill</div>
+  </div>
+
+  <div class="ms-arrow" id="ms-arr1">↕</div>
+
+  <!-- Skill Memory -->
+  <div class="ms-skill-lib" id="ms-lib">
+    <div class="ms-lib-title">Skill Memory <span class="ms-lib-counter" id="ms-counter">(5 skills)</span></div>
+    <div class="ms-skills">
+      <div class="ms-sk visible" id="ms-k1">web-search</div>
+      <div class="ms-sk visible" id="ms-k2">terminal-cmd</div>
+      <div class="ms-sk visible" id="ms-k3">file-reader</div>
+      <div class="ms-sk visible" id="ms-k4">code-exec</div>
+      <div class="ms-sk visible" id="ms-k5">pdf-parser</div>
+      <div class="ms-sk" id="ms-k6" style="display:none">multi-hop-QA</div>
+    </div>
+  </div>
+
+  <div class="ms-arrow" id="ms-arr2">↓</div>
+
+  <!-- 详情区 -->
+  <div class="ms-detail" id="ms-detail"></div>
+</div>
+
+<!-- 控制栏 -->
+<div class="ms-controls">
+  <button class="ms-btn primary" id="ms-next-btn" onclick="msNext()">下一步 →</button>
+  <button class="ms-btn" onclick="msReset()">重置</button>
+  <span class="ms-step-ind" id="ms-step-ind">步骤 0 / 8</span>
+</div>
+<div class="ms-desc" id="ms-desc">初始状态：Agent 从 5 个基础 skill 出发（web-search、terminal-cmd 等），通过 Read-Write 循环自主扩展能力。</div>
+
+<script>
+(function(){
+  var step = 0, total = 8;
+  var descs = [
+    '初始状态：Agent 从 5 个基础 skill 出发（web-search、terminal-cmd 等），通过 Read-Write 循环自主扩展能力。',
+    'Observe：新任务到达——"Stephen Hawking 的博士论文提交于哪一年？"。需要搜索 + 文档解析组合能力。',
+    'Read（行为对齐路由）：普通检索按语义相似度选 skill——「密码重置」和「退款处理」描述很像（cos=0.91）但行为完全不同。Memento 的路由器用 InfoNCE 对比学习训练 embedding：正样本 = 用了这个 skill 任务成功的 (task, skill) 对，负样本 = 同领域但行为不匹配的对。embedding 空间优化的不是「描述像不像」，而是「选了它之后能不能成功」。→ 选中 web-search。',
+    'Act：冻结 LLM 加载 web-search 的 SKILL.md + prompts + scripts 执行任务。搜索到了维基百科页面，但提取答案时出错——把「Properties of Expanding Universes」的发表年份和提交年份搞混了。',
+    'Feedback（Judge 失败归因 + utility 计算）：Judge 判定 ✗ 失败。归因分析：web-search 已用 11 次，成功 8 次 → utility = 8/11 = 0.73。utility ≥ δ（0.5）说明这个 skill 方向没问题，本次失败的根因是「缺少多来源交叉验证能力」——现有 skill 集合里没有能覆盖这个行为的。',
+    'Write — Discover：因为不是已有 skill 的问题（web-search utility 够高），而是缺少全新能力，触发 Discover 策略——新建 skill 文件夹 multi-hop-QA/。如果某个 skill 的 utility 掉到 < δ（比如连续失败导致成功率很低），则触发 Optimise 策略（靶向修补原有 skill 而非新建）。',
+    'Unit Test Gate（门控回滚）：新 skill 必须过 tests/test.py ——在 held-out 样本上测试通过 ✓，正式入库。如果测试失败，自动回滚到创建前状态，防止退化。',
+    '持续进化：多轮循环后 Skill Memory 从 5 扩展到 235。路由器也同步更新——新的成功/失败经验被蒸馏进 embedding，路由精度越来越高。GAIA +26.2%、HLE +116.2%。'
+  ];
+
+  function apply(){
+    var steps = [document.getElementById('ms-s1'), document.getElementById('ms-s2'), document.getElementById('ms-s3'), document.getElementById('ms-s4'), document.getElementById('ms-s5')];
+    var detail = document.getElementById('ms-detail');
+    var arr1 = document.getElementById('ms-arr1'), arr2 = document.getElementById('ms-arr2');
+    var lib = document.getElementById('ms-lib');
+    var sks = ['ms-k1','ms-k2','ms-k3','ms-k4','ms-k5'].map(function(id){ return document.getElementById(id); });
+    var newSk = document.getElementById('ms-k6');
+    var counter = document.getElementById('ms-counter');
+
+    steps.forEach(function(s){ s.classList.remove('active','done','fail'); });
+    sks.forEach(function(s){ s.classList.remove('selected','fixing','fixed'); s.classList.add('visible'); });
+    newSk.style.display = 'none'; newSk.classList.remove('newsk','solid','visible');
+    lib.classList.remove('active','write');
+    detail.classList.remove('visible'); detail.innerHTML = '';
+    arr1.classList.remove('visible'); arr2.classList.remove('visible');
+    counter.textContent = '(5 skills)';
+
+    if(step >= 1) {
+      steps[0].classList.add('active');
+      detail.classList.add('visible');
+      detail.innerHTML = '<strong>任务：</strong>"Stephen Hawking 的博士论文提交于哪一年？"<br><span style="color:var(--text-light)">需要搜索 + 文档解析 + 交叉验证</span>';
+    }
+    if(step >= 2) {
+      steps[0].classList.remove('active'); steps[0].classList.add('done');
+      steps[1].classList.add('active');
+      arr1.classList.add('visible');
+      lib.classList.add('active');
+      sks[0].classList.add('selected');
+      detail.innerHTML = '<strong>行为对齐路由器 vs 语义路由器：</strong><br><div style="display:flex;gap:0.8rem;margin:0.4rem 0;flex-wrap:wrap"><div style="flex:1;min-width:180px;border:1px solid #ef9a9a;border-radius:6px;padding:0.4rem;font-size:0.75rem"><strong style="color:#c62828">❌ 语义路由（Voyager 等）</strong><br>「密码重置」和「退款处理」<br>cos_sim = 0.91 → 会选错</div><div style="flex:1;min-width:180px;border:1px solid #a5d6a7;border-radius:6px;padding:0.4rem;font-size:0.75rem"><strong style="color:#2e7d32">✓ 行为路由（Memento）</strong><br>正样本 = (task, skill) 成功对<br>负样本 = 同领域但行为不匹配</div></div>📎 <strong>训练方式：</strong>InfoNCE 对比学习——把「用了之后成功」的 (task, skill) 拉近，「描述像但行为不匹配」的推远。等价于单步 MDP 的软 Q-function<br>🏆 web-search 行为匹配度最高 → 选中';
+    }
+    if(step >= 3) {
+      steps[1].classList.remove('active'); steps[1].classList.add('done');
+      steps[2].classList.add('active');
+      detail.innerHTML = '<strong>执行：</strong>加载 web-search/ 文件夹<br><code>SKILL.md</code> → 规范搜索流程<br><code>prompts/main.md</code> → 引导 LLM 构造 query<br><code>scripts/search.py</code> → 调用搜索 API<br><br>⚠️ 搜索到维基百科页面，但把论文「发表年份 1966」和「提交年份 1965」搞混了<br><span style="color:#c62828">→ 答案：1966（错误）</span>';
+    }
+    if(step >= 4) {
+      steps[2].classList.remove('active'); steps[2].classList.add('fail');
+      steps[3].classList.add('active');
+      detail.innerHTML = '<strong>Judge 失败归因 + utility 计算：</strong><br>❌ 答案错误（正确：1965）<br><br>📋 <strong>utility 公式：</strong><code>U(skill) = 成功次数 / 总使用次数</code><br><div style="margin:0.3rem 0;padding:0.3rem 0.6rem;background:#f5f5f5;border-radius:5px;font-size:0.76rem">web-search 历史：用了 11 次，成功 8 次<br><strong>U(web-search) = 8/11 = 0.73</strong> ≥ δ(0.5) → 这个 skill 方向没问题</div>📋 <strong>归因分析：</strong>搜索能力本身正常，根因 = 缺少「多来源交叉验证」能力<br>→ <strong style="color:#7b1fa2">触发 Discover 策略（新建 skill 而非修补 web-search）</strong>';
+    }
+    if(step >= 5) {
+      steps[3].classList.remove('active'); steps[3].classList.add('done');
+      steps[4].classList.add('active');
+      lib.classList.remove('active'); lib.classList.add('write');
+      newSk.style.display = ''; newSk.classList.add('newsk','visible');
+      detail.innerHTML = '<strong>Write — Discover：</strong>创建新 skill 文件夹<br><pre style="margin:0.4rem 0;font-size:0.75rem;line-height:1.5"><code>multi-hop-QA/\n├── SKILL.md          # 多来源交叉验证规范\n├── prompts/main.md   # query decomposition 引导\n├── scripts/verify.py # 自动化搜索编排 + 对比\n└── tests/test.py     # 回归测试用例</code></pre><div style="margin:0.3rem 0;padding:0.3rem 0.6rem;background:#f5f5f5;border-radius:5px;font-size:0.76rem"><strong>Discover vs Optimise 判定：</strong><br>• utility ≥ δ → <strong>Optimise</strong>：skill 方向对，只是本次出错 → 靶向修补（改 SKILL.md / scripts）<br>• utility &lt; δ → <strong>Discover</strong>：skill 方向本身不对 → 新建替代 skill 或重构</div>';
+    }
+    if(step >= 6) {
+      steps[4].classList.remove('active'); steps[4].classList.add('done');
+      newSk.classList.add('solid');
+      detail.innerHTML = '<strong>Unit Test Gate（门控回滚）：</strong><br>🧪 运行 tests/test.py 对 held-out 样本集：<br>• 测试 1: "Alan Turing 的出生地？" → ✅ 正确<br>• 测试 2: "DNA 结构发现论文的期刊？" → ✅ 正确<br>• 测试 3: "量子力学哥本哈根诠释提出年份？" → ✅ 正确<br><br><span style="color:#2e7d32">✓ 3/3 通过 → 正式入库！</span><br><span style="color:var(--text-light)">如果失败 → 自动回滚到创建前状态，防止退化</span>';
+      newSk.classList.remove('newsk'); newSk.classList.add('fixed');
+      counter.textContent = '(6 skills)';
+    }
+    if(step >= 7) {
+      lib.classList.remove('write');
+      counter.textContent = '(5 → 235 skills)';
+      sks.forEach(function(s){ s.classList.remove('selected'); });
+      detail.innerHTML = '<strong>持续进化效果：</strong><br>🔄 多轮 Read-Write 循环后 Skill Memory: <strong>5 → 235</strong><br>📈 路由器同步更新：新经验蒸馏进 embedding，路由精度 ↑<br><br><div style="display:flex;gap:1rem;flex-wrap:wrap;margin-top:0.3rem"><div style="text-align:center"><div style="font-size:1.1rem;font-weight:700;color:#2e7d32">+26.2%</div><div style="font-size:0.72rem;color:var(--text-light)">GAIA 相对提升</div></div><div style="text-align:center"><div style="font-size:1.1rem;font-weight:700;color:#2e7d32">+116.2%</div><div style="font-size:0.72rem;color:var(--text-light)">HLE 相对提升</div></div><div style="text-align:center"><div style="font-size:1.1rem;font-weight:700;color:#1565c0">47×</div><div style="font-size:0.72rem;color:var(--text-light)">Skill 库增长</div></div></div>';
+    }
+
+    document.getElementById('ms-desc').textContent = descs[step];
+    document.getElementById('ms-step-ind').textContent = '步骤 ' + step + ' / ' + total;
+    document.getElementById('ms-next-btn').textContent = step >= total ? '✓ 完成' : '下一步 →';
+  }
+
+  window.msNext = function(){ if(step < total) { step++; apply(); } };
+  window.msReset = function(){ step = 0; apply(); };
+  apply();
+})();
+</script>
+</div>
+
+<div class="expand-section" style="margin:1.5rem 0">
+  <div class="expand-header">
+    <div class="expand-title-group">
+      <h4 style="font-size:0.95rem;margin:0">Memento-Qwen：行为对齐路由器的训练流程</h4>
+      <p class="expand-desc">Skill 召回 ≠ 文档检索——语义近不代表行为匹配，这是个独立的难题</p>
+    </div>
+    <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+  </div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<p>Skill 召回看似简单（不就是检索吗？），实则很难——skill 之间的<strong>语义描述</strong>高度相似，但<strong>行为</strong>完全不同。比如「密码重置」和「退款处理」的文本相似度可达 0.91，但选错一个就是灾难。Memento-Qwen 的训练分三步：</p>
+
+<p><strong>① 爬取种子 skill：</strong>从 GitHub 爬取 ~8K 个开源 skill（stars > 500），去重后取 ~3K 作为训练种子。每个 skill 有完整的 SKILL.md 描述。</p>
+
+<p><strong>② 合成对比训练数据：</strong>对每个种子 skill，用 LLM 生成两类 query：</p>
+<ul style="margin:4px 0 8px 20px;font-size:0.9rem;line-height:1.6">
+  <li><strong style="color:#2e7d32">正样本</strong>——「用了这个 skill 后任务能成功」的 (task, skill) 对</li>
+  <li><strong style="color:#c62828">Hard negative</strong>——「关键词/术语高度重叠，但实际需要另一个 skill」的 query。LLM Judge 进一步过滤低质量样本</li>
+</ul>
+
+<p><strong>③ InfoNCE 对比训练：</strong>基于 Qwen3-Embedding-0.6B 微调。Multi-Positive InfoNCE loss 把成功的 (task, skill) 对在 embedding 空间拉近，hard negative 推远。等价于单步 MDP 的软 Q-function：<code>π(skill|query) ∝ exp(Q(query, skill) / τ)</code>。推理时走 BM25 + dense embedding 双路召回 → Reciprocal Rank Fusion 合并。</p>
+
+<div class="comparison-table-wrap" style="margin:1rem 0">
+  <table class="comparison-table" style="font-size:0.82rem">
+    <thead><tr><th>路由方式</th><th>Recall@1</th><th>Recall@10</th><th>Judge 成功率</th></tr></thead>
+    <tbody>
+      <tr><td>BM25（纯关键词）</td><td>0.32</td><td>—</td><td>0.50</td></tr>
+      <tr><td>Qwen3-Embedding（通用语义）</td><td>0.54</td><td>—</td><td>0.79</td></tr>
+      <tr><td><strong>Memento-Qwen（行为对齐）</strong></td><td><strong>0.60</strong></td><td><strong>0.90</strong></td><td><strong>0.80</strong></td></tr>
+    </tbody>
+  </table>
+</div>
+
+<p style="font-size:0.88rem;color:var(--text-light)">Recall@1 从 0.32 到 0.60——翻了近一倍但也才六成，说明<strong>从数百个 skill 中精确选出「行为最匹配」的那一个</strong>本身就是当前的开放难题。提升幅度虽然不大（0.54→0.60），但结合 Judge 成功率（0.79→0.80）的平稳提升，说明数据和指标是可信的。</p>
+
+  </div></div>
+</div>
+
+<p>每个 Skill 是一个<strong>结构化文件夹</strong>而非单段代码：</p>
+<pre><code>my_skill/
+├── SKILL.md          # 声明式规范：做什么、何时触发
+├── prompts/main.md   # 引导 LLM 的提示词
+├── scripts/helper.py # 可执行逻辑
+└── tests/test.py     # 门控回滚的单元测试</code></pre>
+
+<div class="metric-row">
+  <div class="metric-card"><div class="metric-num">+26.2%</div><div class="metric-label">GAIA 相对提升</div></div>
+  <div class="metric-card"><div class="metric-num">+116.2%</div><div class="metric-label">HLE 相对提升</div></div>
+  <div class="metric-card"><div class="metric-num">5→235</div><div class="metric-label">Skill 库增长</div></div>
+</div>
+
+  </div></div>
+</div>
+
+<!-- ===== TRACE2SKILL ===== -->
+<div class="expand-section">
+  <div class="expand-header">
+    <div class="expand-title-group">
+      <h4>Trace2Skill：像人类专家一样写 Skill <span class="paper-tag">arXiv 2026</span></h4>
+      <p class="expand-desc">先广泛分析经验，再蒸馏为一份综合性指南——并行分析 + 归纳合并，无需检索模块</p>
+    </div>
+    <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+  </div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<p>前面介绍的方法（Voyager、Memento-Skills 等）都是<strong>在线逐条演化</strong>——每遇到一条新轨迹就立刻更新 skill。这就像一个新手边看第一页教材边写总结，写完第一页的理解后再看第二页，但第二页可能推翻第一页的结论——结果每次更新都在改变后续分析的基础，产生<strong>「顺序漂移」</strong>。而且 skill 越改越碎片化：每条轨迹产生一个窄 skill，最终技能库爆炸到需要复杂的检索系统。</p>
+
+<p>人类专家怎么写操作指南？不是边做边改，而是<strong>先广泛积累经验，再一次性蒸馏为一份综合指南</strong>。<a href="https://arxiv.org/abs/2603.25158" target="_blank">Trace2Skill</a>（Ni et al., 2026）就是模仿这个过程：一次性并行分析大量轨迹，从中归纳出系统性模式，蒸馏为一份完整的 skill document——不需要检索模块，直接注入 system prompt 就能用。</p>
+
+<!-- 三阶段动画 -->
+<div id="t2s-demo">
+<style>
+#t2s-demo { padding: 1.2rem; border-radius: 12px; background: var(--bg-white); border: 1px solid var(--border); margin: 1.5rem 0; }
+#t2s-demo .t2s-stage { display: flex; flex-direction: column; gap: 0.7rem; align-items: center; }
+#t2s-demo .t2s-phases { display: flex; gap: 0.5rem; width: 100%; max-width: 660px; justify-content: center; }
+#t2s-demo .t2s-phase { flex: 1; border: 1.5px solid var(--border); border-radius: 8px; padding: 0.5rem 0.3rem; text-align: center; font-size: 0.78rem; transition: all 0.4s ease; opacity: 0.35; min-height: 56px; display: flex; flex-direction: column; justify-content: center; }
+#t2s-demo .t2s-phase.active { opacity: 1; border-color: var(--accent); background: color-mix(in srgb, var(--accent) 7%, transparent); }
+#t2s-demo .t2s-phase.done { opacity: 1; border-color: #4caf50; background: #e8f5e9; }
+#t2s-demo .t2s-phase-name { font-weight: 700; font-size: 0.82rem; margin-bottom: 0.15rem; }
+#t2s-demo .t2s-pool { border: 2px dashed var(--border); border-radius: 10px; padding: 0.6rem; width: 100%; max-width: 660px; transition: all 0.4s ease; }
+#t2s-demo .t2s-pool.active { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 4%, transparent); }
+#t2s-demo .t2s-pool-title { font-weight: 700; font-size: 0.82rem; margin-bottom: 0.4rem; text-align: center; }
+#t2s-demo .t2s-items { display: flex; gap: 0.35rem; flex-wrap: wrap; justify-content: center; }
+#t2s-demo .t2s-item { border: 1.5px solid var(--border); border-radius: 6px; padding: 0.15rem 0.5rem; font-size: 0.72rem; transition: all 0.35s ease; opacity: 0.4; }
+#t2s-demo .t2s-item.visible { opacity: 1; }
+#t2s-demo .t2s-item.fail { border-color: #c62828; color: #c62828; }
+#t2s-demo .t2s-item.succ { border-color: #2e7d32; color: #2e7d32; }
+#t2s-demo .t2s-item.patch { border-color: #e65100; background: color-mix(in srgb, #e65100 8%, transparent); }
+#t2s-demo .t2s-item.merged { border-color: #1565c0; background: color-mix(in srgb, #1565c0 8%, transparent); font-weight: 600; }
+#t2s-demo .t2s-item.dead { opacity: 0.2; text-decoration: line-through; }
+#t2s-demo .t2s-skill-doc { border: 2px solid var(--accent); border-radius: 10px; padding: 0.7rem; width: 100%; max-width: 660px; text-align: center; font-size: 0.8rem; transition: all 0.4s ease; opacity: 0.3; }
+#t2s-demo .t2s-skill-doc.active { opacity: 1; background: color-mix(in srgb, var(--accent) 6%, transparent); }
+#t2s-demo .t2s-skill-doc.final { opacity: 1; border-color: #2e7d32; background: #e8f5e9; }
+#t2s-demo .t2s-arrow { text-align: center; font-size: 0.95rem; color: var(--text-light); opacity: 0; transition: opacity 0.3s; }
+#t2s-demo .t2s-arrow.visible { opacity: 1; }
+#t2s-demo .t2s-detail { border: 1.5px solid var(--border); border-radius: 8px; padding: 0.6rem 0.8rem; width: 100%; max-width: 660px; font-size: 0.8rem; line-height: 1.65; opacity: 0; transform: translateY(6px); transition: all 0.4s ease; min-height: 60px; }
+#t2s-demo .t2s-detail.visible { opacity: 1; transform: translateY(0); }
+#t2s-demo .t2s-controls { display: flex; align-items: center; gap: 0.8rem; margin-top: 1rem; flex-wrap: wrap; }
+#t2s-demo .t2s-btn { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-white); cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
+#t2s-demo .t2s-btn:hover { background: color-mix(in srgb, var(--accent) 10%, var(--bg-white)); }
+#t2s-demo .t2s-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+#t2s-demo .t2s-btn.primary:hover { opacity: 0.9; }
+#t2s-demo .t2s-step-ind { font-size: 0.8rem; color: var(--text-light); }
+#t2s-demo .t2s-desc { margin-top: 0.6rem; font-size: 0.85rem; color: var(--text-light); padding: 0.5rem 0.8rem; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 4%, transparent); border-radius: 0 6px 6px 0; min-height: 2.2em; transition: opacity 0.3s; }
+@media (max-width: 600px) {
+  #t2s-demo .t2s-phases { flex-direction: column; align-items: center; }
+  #t2s-demo .t2s-phase { min-width: 90%; }
+}
+</style>
+
+<div class="t2s-stage">
+  <!-- 三阶段指示 -->
+  <div class="t2s-phases">
+    <div class="t2s-phase" id="t2s-p1"><div class="t2s-phase-name">Stage 1</div>轨迹生成</div>
+    <div class="t2s-phase" id="t2s-p2"><div class="t2s-phase-name">Stage 2</div>并行 Patch 提议</div>
+    <div class="t2s-phase" id="t2s-p3"><div class="t2s-phase-name">Stage 3</div>层级归纳合并</div>
+  </div>
+
+  <div class="t2s-arrow" id="t2s-arr1">↓</div>
+
+  <!-- 轨迹池 / Patch 池 -->
+  <div class="t2s-pool" id="t2s-pool">
+    <div class="t2s-pool-title" id="t2s-pool-title">轨迹池</div>
+    <div class="t2s-items" id="t2s-items">
+      <div class="t2s-item fail" id="t2s-t1">τ₁ ✗</div>
+      <div class="t2s-item succ" id="t2s-t2">τ₂ ✓</div>
+      <div class="t2s-item fail" id="t2s-t3">τ₃ ✗</div>
+      <div class="t2s-item fail" id="t2s-t4">τ₄ ✗</div>
+      <div class="t2s-item succ" id="t2s-t5">τ₅ ✓</div>
+      <div class="t2s-item fail" id="t2s-t6">τ₆ ✗</div>
+      <div class="t2s-item succ" id="t2s-t7">τ₇ ✓</div>
+      <div class="t2s-item fail" id="t2s-t8">τ₈ ✗</div>
+    </div>
+  </div>
+
+  <div class="t2s-arrow" id="t2s-arr2">↓</div>
+
+  <!-- 最终 Skill -->
+  <div class="t2s-skill-doc" id="t2s-skill">
+    <strong>Skill Document</strong>（SKILL.md + scripts + references）
+  </div>
+
+  <div class="t2s-arrow" id="t2s-arr3">↓</div>
+  <div class="t2s-detail" id="t2s-detail"></div>
+</div>
+
+<!-- 控制栏 -->
+<div class="t2s-controls">
+  <button class="t2s-btn primary" id="t2s-next-btn" onclick="t2sNext()">下一步 →</button>
+  <button class="t2s-btn" onclick="t2sReset()">重置</button>
+  <span class="t2s-step-ind" id="t2s-step-ind">步骤 0 / 7</span>
+</div>
+<div class="t2s-desc" id="t2s-desc">初始状态：有一个初始 Skill S₀（可以是人写的，也可以是 LLM 从参数知识草拟的），准备通过轨迹经验来进化。</div>
+
+<script>
+(function(){
+  var step = 0, total = 7;
+  var descs = [
+    '初始状态：有一个初始 Skill S₀（可以是人写的，也可以是 LLM 从参数知识草拟的），准备通过轨迹经验来进化。',
+    'Stage 1 — 轨迹生成：冻结 agent（参数不变、skill 不变）并行在 200 个任务上跑，产出标注轨迹池。失败轨迹 T⁻ 和成功轨迹 T⁺ 分开。200 条轨迹 < 2 GPU-hours。',
+    'Stage 2 — 错误分析师：每个失败轨迹分配一个独立的 Error Analyst（ReAct 多轮 agentic 循环）。它可以回看完整执行过程、检查输入输出文件、对比 ground truth，逐步定位根因后才提出 patch。无法验证因果关系的轨迹直接丢弃——这是质量门控。',
+    'Stage 2 — 成功分析师：每个成功轨迹分配一个 Success Analyst（单次调用即可）。提取可泛化的行为模式（而非特定答案），作为正面 patch。所有分析师基于 S₀ 的冻结副本工作，互相不可见——保留最大多样性。',
+    'Stage 3 — 层级归纳合并：所有 patch 进入 log₂N 层的层级合并。每层把 32 个 patch 合并为 1 个：去重、消解冲突、保留跨轨迹反复出现的系统性模式（prevalence-weighted），丢弃仅出现一次的孤立观察。三道编程式护栏：(1) 引用不存在文件的 patch 被拒；(2) 同一行范围的冲突编辑被标记暂停；(3) 格式校验器验证最终 skill。',
+    '去检索化注入：进化后的 Skill S* 直接作为 system prompt 前置注入——不需要 embedding、不需要检索索引、不需要路由器。天然兼容任何 agent harness，零部署成本。',
+    '跨模型迁移：35B 模型在自己的轨迹上演化出的 skill，直接给 122B 模型用——WikiTQ 上 +57.65pp。说明蒸馏出的是领域通用的 SOP，不是模型特定的 quirk。比 ReasoningBank（检索式 baseline）高 13.8pp。'
+  ];
+
+  function apply(){
+    var phases = [document.getElementById('t2s-p1'), document.getElementById('t2s-p2'), document.getElementById('t2s-p3')];
+    var pool = document.getElementById('t2s-pool');
+    var poolTitle = document.getElementById('t2s-pool-title');
+    var items = document.getElementById('t2s-items');
+    var skill = document.getElementById('t2s-skill');
+    var detail = document.getElementById('t2s-detail');
+    var arr1 = document.getElementById('t2s-arr1'), arr2 = document.getElementById('t2s-arr2'), arr3 = document.getElementById('t2s-arr3');
+
+    phases.forEach(function(p){ p.classList.remove('active','done'); });
+    pool.classList.remove('active');
+    skill.classList.remove('active','final');
+    detail.classList.remove('visible'); detail.innerHTML = '';
+    arr1.classList.remove('visible'); arr2.classList.remove('visible'); arr3.classList.remove('visible');
+
+    items.innerHTML = '<div class="t2s-item fail" id="t2s-t1">τ₁ ✗</div><div class="t2s-item succ" id="t2s-t2">τ₂ ✓</div><div class="t2s-item fail" id="t2s-t3">τ₃ ✗</div><div class="t2s-item fail" id="t2s-t4">τ₄ ✗</div><div class="t2s-item succ" id="t2s-t5">τ₅ ✓</div><div class="t2s-item fail" id="t2s-t6">τ₆ ✗</div><div class="t2s-item succ" id="t2s-t7">τ₇ ✓</div><div class="t2s-item fail" id="t2s-t8">τ₈ ✗</div>';
+    poolTitle.textContent = '轨迹池';
+    var allItems = items.querySelectorAll('.t2s-item');
+    allItems.forEach(function(el){ el.classList.remove('visible','patch','merged','dead'); });
+
+    if(step >= 1) {
+      phases[0].classList.add('active');
+      arr1.classList.add('visible');
+      pool.classList.add('active');
+      allItems.forEach(function(el){ el.classList.add('visible'); });
+      detail.classList.add('visible');
+      detail.innerHTML = '<strong>Stage 1 — 冻结 agent 生成轨迹：</strong><br>• Agent 参数 θ 冻结，使用初始 skill S₀<br>• 200 个任务并行跑，产出 T⁻（失败）和 T⁺（成功）<br>• 每条轨迹记录完整的 ReAct 步骤：reasoning → tool call → observation → ...';
+    }
+    if(step >= 2) {
+      phases[0].classList.remove('active'); phases[0].classList.add('done');
+      phases[1].classList.add('active');
+      poolTitle.textContent = 'Patch 池（错误分析）';
+      items.innerHTML = '<div class="t2s-item fail visible patch">p₁: 公式解析需先检测合并单元格</div><div class="t2s-item fail visible patch">p₃: 日期格式需统一为 ISO-8601</div><div class="t2s-item fail visible dead">p₄: ✗ 无法定位根因，丢弃</div><div class="t2s-item fail visible patch">p₆: 跨 sheet 引用需绝对路径</div><div class="t2s-item fail visible patch">p₈: 大文件分块读取避免 OOM</div>';
+      detail.innerHTML = '<strong>Error Analyst（多轮 agentic 循环）：</strong><br>📋 每个失败轨迹 → 一个独立 Error Analyst<br>🔍 可交互式检查：回看执行 trace、读输入/输出文件、比对 ground truth<br>🔬 逐步定位根因 → 提出针对性 patch<br><br>⚡ <strong>质量门控：</strong>τ₄ 无法验证因果关系 → 直接排除，不进 patch 池<br><span style="color:var(--text-light)">vs 先前方法（ReasoningBank）用单次 LLM 调用提 insight——不验证因果，质量无保证</span>';
+    }
+    if(step >= 3) {
+      poolTitle.textContent = 'Patch 池（完整）';
+      items.innerHTML = '<div class="t2s-item fail visible patch">p₁: 公式解析需先检测合并单元格</div><div class="t2s-item fail visible patch">p₃: 日期格式需统一为 ISO-8601</div><div class="t2s-item fail visible dead">p₄: ✗ 丢弃</div><div class="t2s-item fail visible patch">p₆: 跨 sheet 引用需绝对路径</div><div class="t2s-item fail visible patch">p₈: 大文件分块读取避免 OOM</div><div class="t2s-item succ visible patch" style="border-color:#2e7d32">p₂: 先 schema inspection 再操作</div><div class="t2s-item succ visible patch" style="border-color:#2e7d32">p₅: 结果 sanity check 模式</div><div class="t2s-item succ visible patch" style="border-color:#2e7d32">p₇: 分步验证中间结果</div>';
+      detail.innerHTML = '<strong>Success Analyst（单次调用）：</strong><br>✅ 每个成功轨迹 → 一个 Success Analyst（单次调用即可，不需要交互诊断）<br>📝 提取可泛化的行为模式（如「先检查 schema 再操作」）<br><br>🔒 <strong>关键设计：</strong>所有分析师拿到的是 S₀ 的<em>冻结副本</em>，互相不可见<br>→ 防止 patch 之间相互影响，保留最大多样性';
+    }
+    if(step >= 4) {
+      phases[1].classList.remove('active'); phases[1].classList.add('done');
+      phases[2].classList.add('active');
+      arr2.classList.add('visible');
+      poolTitle.textContent = '层级归纳合并';
+      items.innerHTML = '<div class="t2s-item visible merged">合并: 公式/日期/引用 → 「数据读取预检 SOP」</div><div class="t2s-item visible merged">合并: schema inspection + sanity check → 「验证优先工作流」</div><div class="t2s-item visible dead">丢弃: 大文件分块（仅 1 例，非系统性）</div>';
+      detail.innerHTML = '<strong>Stage 3 — 层级归纳合并（log₂N 层）：</strong><br>📊 每层把 ≤32 个 patch 合并为 1 个（去重 + 消解冲突 + 归纳）<br><br><strong>归纳逻辑（prevalence-weighted）：</strong><br>• p₁(合并单元格) + p₃(日期) + p₆(跨 sheet) → 都是数据读取问题 → 合并为「数据读取预检 SOP」<br>• p₈(大文件分块) 仅出现 1 次 → 判定为孤立观察 → <strong>丢弃</strong><br><br>🛡️ <strong>三道编程式护栏：</strong><br>① 引用不存在文件的 patch → 拒绝<br>② 同一行范围的冲突编辑 → 标记暂停<br>③ 格式校验器验证最终输出';
+    }
+    if(step >= 5) {
+      phases[2].classList.remove('active'); phases[2].classList.add('done');
+      skill.classList.add('active');
+      poolTitle.textContent = '归纳完成';
+      items.innerHTML = '<div class="t2s-item visible merged">「数据读取预检 SOP」</div><div class="t2s-item visible merged">「验证优先工作流」</div>';
+      detail.innerHTML = '<strong>去检索化注入：</strong><br>进化后的 S* 直接前置到 system prompt——<strong>不需要 embedding、不需要检索索引、不需要路由器</strong><br><br>为什么能这样做？<br>• Trace2Skill 产出的是<strong>一份综合性 skill document</strong>（不是碎片化的几百条 insight）<br>• 内容经过归纳压缩，长度可控<br>• 天然兼容任何 agent harness，零部署成本<br><span style="color:var(--text-light)">vs Memento-Skills 需要 InfoNCE 路由器，vs ReasoningBank 需要检索索引</span>';
+    }
+    if(step >= 6) {
+      skill.classList.remove('active'); skill.classList.add('final');
+      arr3.classList.add('visible');
+      detail.innerHTML = '<strong>跨模型迁移（最惊人的发现）：</strong><br><div style="display:flex;gap:1rem;flex-wrap:wrap;margin:0.4rem 0"><div style="text-align:center;flex:1;min-width:120px"><div style="font-size:1.1rem;font-weight:700;color:#2e7d32">+57.65pp</div><div style="font-size:0.72rem;color:var(--text-light)">35B 演化 skill<br>→ 122B 用（WikiTQ）</div></div><div style="text-align:center;flex:1;min-width:120px"><div style="font-size:1.1rem;font-weight:700;color:#1565c0">+13.8pp</div><div style="font-size:0.72rem;color:var(--text-light)">vs ReasoningBank<br>检索式 baseline</div></div><div style="text-align:center;flex:1;min-width:120px"><div style="font-size:1.1rem;font-weight:700;color:#e65100">20×</div><div style="font-size:0.72rem;color:var(--text-light)">效率提升<br>~3min vs ~60min</div></div></div><br>说明蒸馏出的是<strong>领域通用的 SOP</strong>，不是模型特定的 quirk——小模型的失败教训对大模型同样有价值。';
+    }
+
+    document.getElementById('t2s-desc').textContent = descs[step];
+    document.getElementById('t2s-step-ind').textContent = '步骤 ' + step + ' / ' + total;
+    document.getElementById('t2s-next-btn').textContent = step >= total ? '✓ 完成' : '下一步 →';
+  }
+
+  window.t2sNext = function(){ if(step < total) { step++; apply(); } };
+  window.t2sReset = function(){ step = 0; apply(); };
+  apply();
+})();
+</script>
+</div>
+
+<div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">存什么</div>
+    <div class="card-brief">结构化 skill directory（SKILL.md + 辅助脚本 + 领域参考文件），一个领域一份综合性文档而非碎片 insight。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么更新</div>
+    <div class="card-brief">三阶段批量：冻结 agent 生成轨迹 → 128 并行分析师提 patch → 层级归纳合并（prevalence-weighted）。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么召回</div>
+    <div class="card-brief">无召回/无检索——skill 直接前置注入 system prompt，天然兼容任何 agent。</div>
+  </div>
+</div>
+
+<p><strong>局限：</strong>仅验证于 spreadsheet/math/VQA 三个领域；单轮演化未探索迭代；依赖可验证任务（需 ground truth 划分成功/失败）。人写的 xlsx skill 让 122B 提升 +20pp，但同一份 skill 反而让 35B 下降——说明 skill 与模型的适配性是个未解问题。</p>
+
+  </div></div>
+</div>
+
+
+<h3>RL 驱动的参数化进化</h3>
+
+<!-- ===== SKILLRL ===== -->
+<div class="expand-section">
+  <div class="expand-header">
+    <div class="expand-title-group">
+      <h4>SkillRL：RL 驱动的技能递归进化 <span class="paper-tag">arXiv 2026</span></h4>
+      <p class="expand-desc">经验蒸馏构建层次化 SkillBank，GRPO 强化学习中技能库与策略共同进化</p>
+    </div>
+    <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+  </div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<p>回顾前面的方法——无论是 Voyager/SkillWeaver 的课程式探索，还是 AWM/ASI 的轨迹归纳，本质都是 <strong>rollout 探索环境 → 将经验记忆化为技能</strong>。但技能建好之后，agent 怎么用它们？全靠 prompt 注入后的 in-context learning，agent 本身的参数没有因此变强。既然构建技能库的过程本身就需要大量 rollout，<strong>为什么不在 rollout 的同时用 RL 训练 agent 更好地利用这些技能？</strong>（<em>编者注：这一视角并非原文论述，原文的出发点是批评 Reflexion/ExpeL 等 memory 方法存储原始轨迹过于冗余，主张通过「经验→技能的抽象蒸馏」来提升信息密度。</em>）</p>
+
+<p><a href="https://arxiv.org/abs/2602.08234" target="_blank">SkillRL</a>（Xia et al., 2026）做的正是这件事：先把原始轨迹蒸馏为结构化技能（解决信息密度问题），再通过 RL 让 agent 学会利用这些技能，并在训练过程中让技能库与策略<strong>共同进化</strong>。</p>
+
+<p>具体方案分三步。<strong>第一步，经验蒸馏：</strong>用 teacher model 把原始轨迹压缩成结构化 skill——成功轨迹提取战略模式（关键决策点、可泛化规律），失败轨迹提炼反面教训（失败点、错误推理、应有做法）。这步实现 10–20× 的 token 压缩。<strong>第二步，层次化技能库（SkillBank）：</strong>分为「通用 skill」（跨所有任务类别的策略原则，如系统性探索、状态验证）和「任务特定 skill」（某类任务的专属 heuristics），检索时通用 skill 全量注入 + 任务 skill 向量 top-K 召回。<strong>第三步，递归进化：</strong>先用 teacher 生成 skill-augmented 示范做 cold-start SFT（让 agent 学会「用 skill」），再跑 GRPO 强化学习；每个 validation epoch 后，对成功率低于阈值的类别收集失败轨迹，teacher 分析缺口并生成新 skill 补入库——形成「策略提升 → 遇到新挑战 → 技能库扩展 → 进一步提升」的良性循环。</p>
+
+<div class="figure-block">
+  <img src="https://arxiv.org/html/2602.08234v1/x2.png" alt="SkillRL framework overview" loading="lazy">
+  <div class="figure-caption"><strong>SkillRL 框架总览</strong>：base model 采集轨迹 → 经验蒸馏为层次化 SkillBank → cold-start SFT 教会 agent 使用 skill → GRPO 强化学习 + 验证失败驱动 skill 递归进化。</div>
+  <span class="fig-toggle" onclick="toggleFigDetail(this, event)">展开说明 ▸</span>
+  <div class="figure-detail">
+    <ul>
+      <li><strong>经验蒸馏：</strong>成功轨迹 → 战略模式（关键决策 + 可泛化规律）；失败轨迹 → 反面教训（失败点 + 应做什么 + 预防原则）。10–20× token 压缩。</li>
+      <li><strong>SkillBank 层次化组织：</strong>General Skills（环境通用策略）+ Task-Specific Skills（按任务类别分组的专属 heuristics），每个 skill 含 name / principle / when_to_apply。</li>
+      <li><strong>Cold-start SFT：</strong>teacher 生成 skill-augmented reasoning traces，微调 base model 使其学会检索、理解和应用 skill。</li>
+      <li><strong>递归进化循环：</strong>GRPO 训练中，每个 validation epoch 对低成功率类别做失败轨迹分析 → teacher 发现 skill 盲区 → 生成新 skill 补入 SkillBank。</li>
+    </ul>
+  </div>
+</div>
+
+<div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">存什么</div>
+    <div class="card-brief">层次化 SkillBank——General Skills（跨任务通用策略）+ Task-Specific Skills（按类别的专属 heuristics）。每个 skill 含 name / principle / when_to_apply。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么更新</div>
+    <div class="card-brief">递归进化——RL 训练中 validation 失败触发 teacher 分析缺口，生成新 skill 补入库；技能库与策略共同进化，而非静态只读。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么召回</div>
+    <div class="card-brief">General Skills 全量注入 + Task-Specific Skills 向量 top-K 召回（基于 task description 与 skill 的 embedding 相似度）。</div>
+  </div>
+</div>
+
+<p><strong>局限：</strong>技能进化依赖 teacher model 的分析质量；cold-start SFT + RL 训练成本较高（单次实验约 30 小时）。</p>
+
+  </div></div>
+</div>
+
+<!-- ===== ARISE ===== -->
+<div class="expand-section">
+  <div class="expand-header">
+    <div class="expand-title-group">
+      <h4>ARISE：RL 驱动的技能共进化 <span class="paper-tag">arXiv 2026</span></h4>
+      <p class="expand-desc">将 skill library 内嵌为策略状态的一部分，通过参数共享让技能选择与策略优化间接耦合、协同进化</p>
+    </div>
+    <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+  </div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<p>SkillRL 用 teacher model 在 RL 训练外围补充新 skill，但技能选择仍靠外部检索器——策略本身对「该用哪个技能」没有学习信号。<a href="https://arxiv.org/abs/2603.16060" target="_blank">ARISE</a>（Li et al., 2026）更进一步：<strong>把 skill library 从外挂模块变成策略内生状态</strong>，技能选择由策略自身参数（log-prob 打分）驱动，而非依赖独立的检索模块。虽然选择步骤本身是非可微的（ε-greedy），但因为 Manager 和 Worker 共享同一个 θ，GRPO 训练 Worker 时对 θ 的更新会间接改变 Manager 的选择偏好。</p>
+
+<div class="quote-block" style="font-style:normal">
+<strong>SkillRL vs ARISE 核心差异：</strong>两者都用 GRPO 训练 Worker「怎么用 skill」，差异在技能选择和技能库进化的机制。<strong>技能选择：</strong>SkillRL 靠外部检索器（通用 skill 全量注入 + 任务 skill 向量 top-K），检索器固定不可训练；ARISE 用策略自身的 log-prob 给技能打分 + ε-greedy 选择——虽然也没有直接的 loss 训练选择过程，但因为和 Worker 共享参数 θ，选择偏好会随 Worker 训练间接改善。<strong>技能库进化：</strong>SkillRL 由 teacher model 在 RL 外围分析失败、生成新 skill；ARISE 由策略自身蒸馏正 advantage 轨迹为新 skill，并通过 Cache-Reservoir 五操作（Add/Update/Evict/Load/Delete）持续维护质量。
+</div>
+
+<p>整个系统只有<strong>一个模型 π<sub>θ</sub></strong>，身兼两职：<strong>选技能（Manager）</strong>——把题目和每个候选技能文档拼在一起做 forward pass，用技能文档部分的 log-prob 总和打分，一次 batched forward 处理所有候选；softmax 归一化后 ε-greedy 选最高分的，若最高分未过置信度门槛（δ=0.35）则不注入任何技能。<strong>做题（Worker）</strong>——选中的技能以 <code>SKILL:{JSON}</code> 前缀注入 prompt，π<sub>θ</sub> 在此条件下生成解答。GRPO 训练时奖励分三档：注入技能且正确=2，正确但未注入技能=1，错误=0（判定标准是 skill 是否被注入 prompt，而非推理中是否引用）。当均值 μ>1 时，r=1 的 advantage 为负——模型被惩罚绕开技能。</p>
+
+<p><strong>选技能的能力怎么提升？</strong>GRPO 的 loss 只作用在 Worker 解答 token 上，选技能的 forward pass 不参与反向传播。但因为 Manager 和 Worker 共享同一个 θ，Worker 在"题目+有用技能"上下文下训练后 θ 的表征改变，同一个 θ 再去做 scoring 时对有用技能的 log-prob 打分自然偏高——这是<strong>参数共享带来的隐式耦合</strong>，不是计算图上的梯度回传（原文称 end-to-end，严格来说是间接的）。</p>
+
+<p>训练分两阶段：<strong>Phase I（暖启动）</strong>关闭技能选择，策略用标准 GRPO + 二元奖励训练基础推理能力，同时把成功轨迹蒸馏为技能文档"静默填充"入库（避免低质量技能在早期引入噪声）；<strong>Phase II</strong> 激活完整管线——Manager 选技能、Worker 做题（奖励升级为三档）、成功轨迹继续蒸馏新技能入库。技能库采用<strong>两层 Cache-Reservoir 架构</strong>（活跃池 + 归档池），通过 Add/Update/Evict/Load/Delete 五操作持续维护质量，每个技能携带 utility 指标经 EMA 更新。</p>
+
+<div id="arise-demo">
+<style>
+#arise-demo { padding: 1.2rem; border-radius: 12px; background: var(--bg-white); border: 1px solid var(--border); margin: 1.5rem 0; }
+#arise-demo .ar-stage { display: flex; flex-direction: column; gap: 0.6rem; align-items: center; }
+#arise-demo .ar-row { display: flex; gap: 0.8rem; width: 100%; max-width: 660px; align-items: stretch; justify-content: center; }
+#arise-demo .ar-cache-box { border: 1.5px solid var(--text); border-radius: 8px; padding: 0.6rem; flex: 1; transition: all 0.4s ease; }
+#arise-demo .ar-cache-box.reservoir { border-style: dashed; border-color: #9e9e9e; background: color-mix(in srgb, #9e9e9e 4%, transparent); }
+#arise-demo .ar-box-title { font-weight: 700; font-size: 0.8rem; margin-bottom: 0.4rem; }
+#arise-demo .ar-skill { display: flex; align-items: center; justify-content: space-between; padding: 0.25rem 0.5rem; border-radius: 5px; font-size: 0.75rem; font-family: monospace; margin-bottom: 0.25rem; border: 1px solid var(--border); transition: all 0.4s ease; position: relative; }
+#arise-demo .ar-skill .ar-uval { font-size: 0.7rem; color: var(--text-light); }
+#arise-demo .ar-skill .ar-score-detail { font-size: 0.68rem; color: var(--text-light); opacity: 0; transition: opacity 0.3s; margin-left: 0.3rem; }
+#arise-demo .ar-skill.scored .ar-score-detail { opacity: 1; }
+#arise-demo .ar-skill.selected { border-color: #1565c0; background: color-mix(in srgb, #1565c0 12%, transparent); font-weight: 600; }
+#arise-demo .ar-skill.highlight-update { border-color: #ff9800; background: color-mix(in srgb, #ff9800 12%, transparent); }
+#arise-demo .ar-skill.new-added { border-color: #4caf50; border-style: dashed; background: color-mix(in srgb, #4caf50 8%, transparent); }
+#arise-demo .ar-skill.evicted { opacity: 0.3; text-decoration: line-through; border-style: dashed; }
+#arise-demo .ar-skill.loaded { border-color: #1565c0; background: color-mix(in srgb, #1565c0 8%, transparent); border-style: dashed; }
+#arise-demo .ar-skill.deleted { opacity: 0.15; text-decoration: line-through; border-color: #c62828; }
+#arise-demo .ar-scoring { border: 1.5px solid var(--border); border-radius: 8px; padding: 0.6rem 0.8rem; width: 100%; max-width: 660px; font-size: 0.78rem; font-family: monospace; line-height: 1.8; opacity: 0; transition: all 0.4s ease; }
+#arise-demo .ar-scoring.visible { opacity: 1; }
+#arise-demo .ar-scoring .ar-sc-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
+#arise-demo .ar-scoring .ar-sc-row.best { font-weight: 600; color: #1565c0; }
+#arise-demo .ar-solution { border: 1.5px solid var(--border); border-radius: 8px; padding: 0.6rem 0.8rem; width: 100%; max-width: 660px; font-size: 0.8rem; font-family: monospace; line-height: 1.6; opacity: 0; transform: translateY(6px); transition: all 0.4s ease; }
+#arise-demo .ar-solution.visible { opacity: 1; transform: translateY(0); }
+#arise-demo .ar-reward { display: flex; gap: 0.6rem; justify-content: center; flex-wrap: wrap; }
+#arise-demo .ar-reward-item { border: 1.5px solid var(--border); border-radius: 6px; padding: 0.3rem 0.7rem; font-size: 0.78rem; opacity: 0; transition: all 0.35s ease; }
+#arise-demo .ar-reward-item.visible { opacity: 1; }
+#arise-demo .ar-reward-item.active { border-color: #4caf50; background: #e8f5e9; color: #2e7d32; font-weight: 600; }
+#arise-demo .ar-reward-item.dim { opacity: 0.35; }
+#arise-demo .ar-arrow { text-align: center; font-size: 0.95rem; color: var(--text-light); opacity: 0; transition: opacity 0.3s; }
+#arise-demo .ar-arrow.visible { opacity: 1; }
+#arise-demo .ar-controls { display: flex; align-items: center; gap: 0.8rem; margin-top: 1rem; flex-wrap: wrap; }
+#arise-demo .ar-btn { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-white); cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
+#arise-demo .ar-btn:hover { background: color-mix(in srgb, var(--accent) 10%, var(--bg-white)); }
+#arise-demo .ar-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+#arise-demo .ar-btn.primary:hover { opacity: 0.9; }
+#arise-demo .ar-step-ind { font-size: 0.8rem; color: var(--text-light); }
+#arise-demo .ar-desc { margin-top: 0.6rem; font-size: 0.85rem; color: var(--text-light); padding: 0.5rem 0.8rem; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 4%, transparent); border-radius: 0 6px 6px 0; min-height: 2.2em; transition: opacity 0.3s; }
+@media (max-width: 600px) {
+  #arise-demo .ar-row { flex-direction: column; align-items: center; }
+}
+</style>
+
+<div class="ar-stage">
+  <!-- Cache + Reservoir -->
+  <div class="ar-row">
+    <div class="ar-cache-box" id="ar-cache">
+      <div class="ar-box-title">Cache（活跃池，容量 3）</div>
+      <div class="ar-skill" id="ar-sk1"><span>skill_1 奇偶性分析</span><span class="ar-uval" id="ar-u1">u=0.65</span><span class="ar-score-detail" id="ar-sd1"></span></div>
+      <div class="ar-skill" id="ar-sk2"><span>skill_2 数学归纳法</span><span class="ar-uval" id="ar-u2">u=0.40</span><span class="ar-score-detail" id="ar-sd2"></span></div>
+      <div class="ar-skill" id="ar-sk3"><span>skill_3 反证法</span><span class="ar-uval" id="ar-u3">u=0.12</span><span class="ar-score-detail" id="ar-sd3"></span></div>
+      <div class="ar-skill" id="ar-sk-new" style="display:none"><span>skill_4 连续整数乘积法</span><span class="ar-uval" id="ar-u-new">u=0</span></div>
+      <div class="ar-skill" id="ar-sk-loaded" style="display:none"><span>skill_X 极值原理</span><span class="ar-uval" id="ar-u-loaded">u=0.45</span></div>
+    </div>
+    <div class="ar-cache-box reservoir" id="ar-reservoir">
+      <div class="ar-box-title">Reservoir（归档池）</div>
+      <div class="ar-skill" id="ar-rx"><span>skill_X 极值原理</span><span class="ar-uval">u=0.45</span></div>
+      <div class="ar-skill" id="ar-ry"><span>skill_Y 枚举法</span><span class="ar-uval">u=0.03</span></div>
+      <div class="ar-skill" id="ar-sk3-evicted" style="display:none"><span>skill_3 反证法</span><span class="ar-uval">u=0.12</span></div>
+    </div>
+  </div>
+
+  <!-- Scoring 区域 -->
+  <div class="ar-scoring" id="ar-scoring">
+    <div style="font-weight:600;margin-bottom:0.3rem;">📐 Scoring：[题目] + [技能doc] → log-prob → softmax</div>
+    <div class="ar-sc-row best" id="ar-scr1">[求证 n²+n 是偶数] + [奇偶性分析] → score=-8.7 → <strong>p=0.72</strong></div>
+    <div class="ar-sc-row" id="ar-scr2">[求证 n²+n 是偶数] + [数学归纳法] → score=-12.3 → p=0.18</div>
+    <div class="ar-sc-row" id="ar-scr3">[求证 n²+n 是偶数] + [反证法] → score=-15.1 → p=0.10</div>
+    <div style="margin-top:0.3rem;font-size:0.76rem;color:var(--text-light)" id="ar-gate">p_max=0.72 &gt; δ=0.35 → ✅ 选中 skill_1「奇偶性分析」</div>
+  </div>
+
+  <div class="ar-arrow" id="ar-arrow1">↓ SKILL:{奇偶性分析} 注入 prompt</div>
+
+  <!-- 解答 -->
+  <div class="ar-solution" id="ar-solution">
+    <strong>[SKILL:{奇偶性分析}]</strong><br>
+    n(n+1) 中 n 和 n+1 一奇一偶 → 乘积必为偶数 ✓
+  </div>
+
+  <!-- 奖励 -->
+  <div class="ar-arrow" id="ar-arrow2">↓ 层次化奖励</div>
+  <div class="ar-reward">
+    <div class="ar-reward-item" id="ar-r0">r₀ = 0（错误）</div>
+    <div class="ar-reward-item" id="ar-r1">r₁ = 1（正确，未注入技能）</div>
+    <div class="ar-reward-item" id="ar-r2">r₂ = 2（正确 + 注入了技能）</div>
+  </div>
+</div>
+
+<!-- 控制栏 -->
+<div class="ar-controls">
+  <button class="ar-btn primary" id="ar-next-btn" onclick="ariseNext()">下一步 →</button>
+  <button class="ar-btn" onclick="ariseReset()">重置</button>
+  <span class="ar-step-ind" id="ar-step-ind">步骤 0 / 7</span>
+</div>
+<div class="ar-desc" id="ar-desc">初始状态：Cache 有 3 个活跃技能（各有 utility 分数），Reservoir 有 2 个归档技能（灰色虚线）。</div>
+
+<script>
+(function(){
+  var step = 0, maxStep = 7;
+  var descs = [
+    '初始状态：Cache 有 3 个活跃技能（各有 utility 分数），Reservoir 有 2 个归档技能（灰色虚线）。',
+    'Scoring：对每个 Cache 技能，把 [题目 token] + [技能doc token] 拼在一起做 forward pass，算技能文档部分的 log-prob 总和作为 score，softmax 归一化得到概率。p_max=0.72 > δ=0.35 → 选中 skill_1「奇偶性分析」。',
+    'Worker 做题：SKILL:{奇偶性分析} 以 JSON 前缀注入 prompt 开头，π_θ 在此条件下生成解答 → n(n+1) 一奇一偶，乘积必偶。答案正确 ✓',
+    '奖励：r₂=2（正确 + 注入了技能）。三档奖励——2（正确+注入技能）、1（正确未注入技能）、0（错误）。判定标准是 skill 是否被注入 prompt，不检测模型推理中是否引用。当均值 μ>1 时，r₁ 的 advantage 为负，惩罚绕开技能。',
+    'Update：skill_1 的 utility 通过 EMA 更新：u ← 0.9×0.65 + 0.1×2 = 0.785。Utility 越高说明该技能越有用。',
+    'Add：成功轨迹蒸馏为新技能「连续整数乘积法」（u=0），加入 Cache。现在 Cache 有 4 个技能，超出容量。',
+    'Evict：Cache 超容量，utility 最低的 skill_3（u=0.12）被踢到 Reservoir。Cache 恢复为 3 个技能。',
+    'Load+Delete：Reservoir 中 skill_X（u=0.45）比 Cache 最低的更优 → 换入 Cache；skill_Y（u=0.03，低于 10th percentile 且 zero usage）被永久删除。'
+  ];
+
+  function apply(){
+    var sk1=document.getElementById('ar-sk1'), sk2=document.getElementById('ar-sk2'), sk3=document.getElementById('ar-sk3');
+    var skNew=document.getElementById('ar-sk-new'), skLoaded=document.getElementById('ar-sk-loaded');
+    var rx=document.getElementById('ar-rx'), ry=document.getElementById('ar-ry'), sk3e=document.getElementById('ar-sk3-evicted');
+    var scoring=document.getElementById('ar-scoring');
+    var u1=document.getElementById('ar-u1'), u3=document.getElementById('ar-u3');
+
+    // Full reset
+    [sk1,sk2,sk3].forEach(function(el){ el.style.display=''; el.classList.remove('scored','selected','highlight-update','new-added','evicted','loaded','deleted'); });
+    skNew.style.display='none'; skNew.classList.remove('new-added');
+    skLoaded.style.display='none'; skLoaded.classList.remove('loaded');
+    [rx,ry].forEach(function(el){ el.style.display=''; el.classList.remove('loaded','deleted','evicted'); });
+    sk3e.style.display='none';
+    scoring.classList.remove('visible');
+    document.getElementById('ar-arrow1').classList.remove('visible');
+    document.getElementById('ar-arrow2').classList.remove('visible');
+    document.getElementById('ar-solution').classList.remove('visible');
+    u1.textContent='u=0.65'; u3.textContent='u=0.12';
+    ['ar-sd1','ar-sd2','ar-sd3'].forEach(function(id){ document.getElementById(id).textContent=''; });
+    var r0=document.getElementById('ar-r0'), r1=document.getElementById('ar-r1'), r2=document.getElementById('ar-r2');
+    [r0,r1,r2].forEach(function(el){ el.classList.remove('visible','active','dim'); });
+
+    // Step 1: Scoring
+    if(step >= 1) {
+      scoring.classList.add('visible');
+      [sk1,sk2,sk3].forEach(function(el){ el.classList.add('scored'); });
+      document.getElementById('ar-sd1').textContent='score=-8.7 → p=0.72';
+      document.getElementById('ar-sd2').textContent='score=-12.3 → p=0.18';
+      document.getElementById('ar-sd3').textContent='score=-15.1 → p=0.10';
+      sk1.classList.add('selected');
+    }
+
+    // Step 2: Worker
+    if(step >= 2) {
+      document.getElementById('ar-arrow1').classList.add('visible');
+      document.getElementById('ar-solution').classList.add('visible');
+    }
+
+    // Step 3: Reward
+    if(step >= 3) {
+      document.getElementById('ar-arrow2').classList.add('visible');
+      [r0,r1,r2].forEach(function(el){ el.classList.add('visible'); });
+      r2.classList.add('active');
+      r0.classList.add('dim');
+      r1.classList.add('dim');
+    }
+
+    // Step 4: Update utility
+    if(step >= 4) {
+      sk1.classList.add('highlight-update');
+      u1.textContent='u=0.785';
+    }
+
+    // Step 5: Add new skill
+    if(step >= 5) {
+      sk1.classList.remove('highlight-update');
+      skNew.style.display='';
+      skNew.classList.add('new-added');
+    }
+
+    // Step 6: Evict skill_3
+    if(step >= 6) {
+      skNew.classList.remove('new-added');
+      sk3.classList.add('evicted');
+      sk3e.style.display='';
+    }
+
+    // Step 7: Load + Delete
+    if(step >= 7) {
+      sk3.style.display='none';
+      rx.classList.add('loaded');
+      rx.style.display='none';
+      skLoaded.style.display='';
+      skLoaded.classList.add('loaded');
+      ry.classList.add('deleted');
+    }
+
+    document.getElementById('ar-desc').textContent = descs[step];
+    document.getElementById('ar-step-ind').textContent = '步骤 ' + step + ' / ' + maxStep;
+    document.getElementById('ar-next-btn').textContent = step >= maxStep ? '✓ 完成' : '下一步 →';
+  }
+
+  window.ariseNext = function(){ if(step < maxStep) { step++; apply(); } };
+  window.ariseReset = function(){ step = 0; apply(); };
+  apply();
+})();
+</script>
+</div>
+
+<div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">存什么</div>
+    <div class="card-brief">结构化 skill 文档（name + problem type + key insight + method + verification），统一 schema 保证 log-prob 打分可比。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么更新</div>
+    <div class="card-brief">RL 训练中持续生成——每步额外 rollout 蒸馏正 advantage 轨迹，五操作维护 Cache-Reservoir 两层池。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么召回</div>
+    <div class="card-brief">策略内生选择——用同一策略的条件 log-prob 打分 + ε-greedy + 置信度门控，通过参数共享间接优化。</div>
+  </div>
+</div>
+
+<p><strong>局限：</strong>仅验证于数学推理场景（竞赛数学 + Omni-MATH），对开放式 agent 任务的适用性未知。此外，奖励判定只看 skill 是否被注入 prompt（confidence gate 是否通过），不检测模型推理时是否真正引用了技能内容——模型可能忽略注入的技能自己硬算，但仍拿到 r=2。</p>
+
+  </div></div>
+</div>
+
+<!-- ===== SKILL0 ===== -->
+<div class="expand-section">
+  <div class="expand-header">
+    <div class="expand-title-group">
+      <h4>Skill0：内化式路径——把 Skill 写进模型参数 <span class="paper-tag">另一条路</span></h4>
+      <p class="expand-desc">前面所有方法都是「外化」——skill 存在模型外部，靠 prompt 注入。Skill0 反过来：把 skill 内化到模型权重里</p>
+    </div>
+    <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+  </div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<p>前面介绍的所有工作——Reflexion、Voyager、Memento-Skills、Trace2Skill——都是<strong>外化式记忆</strong>：skill 以文本、代码或文件夹的形式存在模型外部，通过 prompt 注入来使用。模型参数始终冻结，所有学习都发生在「输入侧」。</p>
+
+<p>但这条路有天花板：context window 有限，skill 越多 prompt 越长；检索质量不完美（Memento-Qwen Recall@1 才 0.60）；外部 skill 与模型的适配性也是问题（Trace2Skill 发现同一份 skill 让 122B 提升但让 35B 下降）。</p>
+
+<p><strong>Skill0 走的是另一条路：把 skill 直接内化到模型参数里。</strong>不是挂在 prompt 外面，而是通过训练让模型「学会」这些能力——不再需要检索、不占 context、不存在适配性问题。这是外化和内化两条路径的互补视角。</p>
+
+<p style="margin-top:1rem"><a href="https://syt-nju.github.io/files/visual-reading/skill0-internalization/" target="_blank" style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.5rem 1.2rem;background:var(--accent);color:#fff;border-radius:8px;text-decoration:none;font-size:0.9rem;font-weight:600;transition:opacity 0.2s" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">→ 查看 Skill0 详细解读</a></p>
+
+  </div></div>
+</div>
+
+
+</section>
+
+
+<!-- ===================== PERSONALIZED ===================== -->
+<section id="personalized">
+<h2>个性化记忆：适配特定用户</h2>
+<p>核心问题：用户特定痕迹有不同的保留、检索和<strong>隐私规则</strong>，不应混入通用知识。跨会话对话记忆是这一层最典型的场景——需要从冗长历史中抽取、合并、检索与用户相关的 salient facts，而不是每次把全文塞进上下文。</p>
+
+<!-- ===== Mem0 ===== -->
+<div class="expand-section">
+  <div class="expand-header">
+    <div class="expand-title-group">
+      <h4>Mem0：生产级长期对话记忆 <span class="paper-tag">ECAI 2025</span></h4>
+      <p class="expand-desc">增量抽取对话 salient facts，经 ADD/UPDATE/DELETE/NOOP 维护记忆库，查询时向量检索注入——LOCOMO 上比 OpenAI 记忆高 26% J 分，p95 延迟约为 full-context 的 1/10</p>
+    </div>
+    <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+  </div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<p><a href="https://arxiv.org/abs/2504.19413" target="_blank">Mem0</a>（Chhikara et al., 2025）面向<strong>多轮 / 跨会话对话</strong>中 LLM 固定上下文窗口带来的连贯性断裂：不把整段历史当 RAG 文档切块检索，也不依赖 full-context 每次读完全部对话，而是维护一个<strong>持续更新的外部记忆库</strong>——从每条新消息对中抽取关键事实，与已有记忆比对后增删改，回答问题时只检索相关记忆注入 prompt。</p>
+
+<p>系统按<strong>增量处理</strong>运行：每来一轮交互 <code>(m<sub>t-1</sub>, m<sub>t</sub>)</code> 就触发一次 pipeline，无需离线批处理整段对话。与 MemGPT 让 LLM 自主 page-in/page-out 不同，Mem0 把「写什么进记忆库」交给专门的抽取 + 更新两阶段，检索侧只做向量相似度匹配，工程上更易部署为独立 memory 服务。</p>
+
+<h4 style="margin:24px 0 12px">抽取 → 更新 两阶段</h4>
+
+<ul style="margin:8px 0 16px 20px;color:var(--text-secondary);font-size:15px;line-height:1.7">
+  <li><strong>抽取（Extraction）：</strong>输入 = 全局对话摘要 <code>S</code>（异步后台周期性刷新）+ 最近 <code>m=10</code> 条消息 + 当前消息对。LLM 函数 <code>φ(P)</code> 只从本轮交换中提炼候选事实集 Ω，同时感知更长程语境</li>
+  <li><strong>更新（Update）：</strong>对每条候选事实，用 embedding 检索库内 top-<code>s=10</code> 相似记忆，再通过 LLM tool call 在四种操作中选一：<strong>ADD</strong>（新事实）、<strong>UPDATE</strong>（补充/替换更丰富的表述）、<strong>DELETE</strong>（新信息与旧记忆矛盾）、<strong>NOOP</strong>（已存在或无关）</li>
+  <li><strong>查询（Inference）：</strong>问题到来时向量检索相关记忆条目，作为紧凑上下文送入答题 LLM——记忆 token 约 1764，远低于 full-context 的 ~26031</li>
+</ul>
+
+<h4 style="margin:24px 0 12px">步进演示：一轮对话如何写入记忆库</h4>
+
+<div id="mem0-demo">
+<style>
+#mem0-demo{padding:20px;background:var(--bg-white);border:1px solid var(--border);border-radius:var(--radius-lg);margin:24px 0}
+#mem0-demo .m0-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+#mem0-demo .m0-panel{border:1px solid var(--border-light);border-radius:var(--radius);padding:14px;background:var(--bg-card);transition:border-color .35s,background .35s,box-shadow .35s}
+#mem0-demo .m0-panel.active{border-color:var(--accent-light);background:var(--accent-bg);box-shadow:var(--shadow-sm)}
+#mem0-demo .m0-hdr{font-size:12px;font-weight:600;color:var(--text-tertiary);margin-bottom:10px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+#mem0-demo .m0-badge{font-size:10px;font-weight:700;padding:2px 8px;border-radius:4px;background:var(--bg-secondary);color:var(--text-tertiary);letter-spacing:.3px;transition:background .3s,color .3s}
+#mem0-demo .m0-badge.on{background:var(--accent);color:#fff}
+#mem0-demo .m0-msg{font-size:12.5px;line-height:1.55;padding:8px 10px;border-radius:6px;margin-bottom:6px;border:1px solid var(--border-light);background:var(--bg-white);color:var(--text-secondary);max-height:0;opacity:0;overflow:hidden;transition:max-height .4s,opacity .35s,padding .35s,margin .35s}
+#mem0-demo .m0-msg.vis{max-height:80px;opacity:1;padding:8px 10px;margin-bottom:6px}
+#mem0-demo .m0-msg.user{border-left:3px solid var(--accent-light)}
+#mem0-demo .m0-msg.bot{border-left:3px solid var(--border)}
+#mem0-demo .m0-ctx{font-size:11.5px;color:var(--text-tertiary);line-height:1.5;padding:6px 8px;border-radius:5px;background:var(--bg-white);border:1px dashed var(--border);margin-bottom:6px;max-height:0;opacity:0;overflow:hidden;transition:max-height .4s,opacity .35s,padding .35s,margin .35s}
+#mem0-demo .m0-ctx.vis{max-height:60px;opacity:1;padding:6px 8px;margin-bottom:6px}
+#mem0-demo .m0-cand{font-size:12.5px;padding:8px 10px;border-radius:6px;border:1.5px dashed var(--accent);background:var(--bg-white);color:var(--text-primary);max-height:0;opacity:0;overflow:hidden;transition:max-height .4s,opacity .35s}
+#mem0-demo .m0-cand.vis{max-height:60px;opacity:1}
+#mem0-demo .m0-arrow{text-align:center;font-size:16px;color:var(--text-tertiary);margin:6px 0;max-height:0;opacity:0;transition:max-height .3s,opacity .3s}
+#mem0-demo .m0-arrow.vis{max-height:24px;opacity:1}
+#mem0-demo .m0-mem{font-size:12px;padding:7px 10px;border-radius:6px;border:1px solid var(--border-light);background:var(--bg-white);margin-bottom:5px;color:var(--text-secondary);transition:opacity .4s,border-color .35s,background .35s,transform .35s,max-height .4s,padding .35s,margin .35s;max-height:60px;opacity:1}
+#mem0-demo .m0-mem.dim{opacity:.35}
+#mem0-demo .m0-mem.hit{border-color:var(--accent-light);background:var(--accent-bg)}
+#mem0-demo .m0-mem.del{opacity:0;max-height:0;padding:0 10px;margin:0;border-width:0;transform:translateX(20px)}
+#mem0-demo .m0-mem.new{border-style:dashed;border-color:#7a9e6a;background:color-mix(in srgb,#7a9e6a 10%,var(--bg-white))}
+#mem0-demo .m0-mem.retrieved{border-color:var(--accent);background:var(--accent-bg);font-weight:500}
+#mem0-demo .m0-op{display:inline-block;font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;margin-left:6px;vertical-align:middle;max-width:0;opacity:0;overflow:hidden;transition:max-width .3s,opacity .3s,margin .3s}
+#mem0-demo .m0-op.vis{max-width:80px;opacity:1;margin-left:6px}
+#mem0-demo .m0-op.add{background:#e8f0e4;color:#4a6b3a}
+#mem0-demo .m0-op.del{background:#f5ebe8;color:#8b5a44}
+#mem0-demo .m0-op.noop{background:var(--bg-secondary);color:var(--text-tertiary)}
+#mem0-demo .m0-query{font-size:13px;padding:10px 12px;border-radius:var(--radius);border:1.5px solid var(--border);background:var(--bg-white);color:var(--text-primary);max-height:0;opacity:0;overflow:hidden;transition:max-height .4s,opacity .35s,margin .35s}
+#mem0-demo .m0-query.vis{max-height:50px;opacity:1;margin-top:8px}
+#mem0-demo .m0-ans{font-size:12.5px;padding:10px 12px;border-radius:var(--radius);border-left:3px solid var(--accent);background:var(--bg-card);color:var(--text-secondary);line-height:1.6;max-height:0;opacity:0;overflow:hidden;transition:max-height .5s,opacity .4s,margin .35s}
+#mem0-demo .m0-ans.vis{max-height:100px;opacity:1;margin-top:8px}
+#mem0-demo .m0-ctrl{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+#mem0-demo .m0-btn{padding:6px 16px;border-radius:6px;font-size:12.5px;font-weight:500;cursor:pointer;border:1px solid var(--border);background:var(--bg-card);color:var(--text-primary);font-family:inherit;transition:background .2s,opacity .2s}
+#mem0-demo .m0-btn:hover{background:var(--accent-bg)}
+#mem0-demo .m0-btn-pri{background:var(--accent);color:#fff;border-color:var(--accent)}
+#mem0-demo .m0-btn-pri:hover{opacity:.88}
+#mem0-demo .m0-btn:disabled{opacity:.45;cursor:default}
+#mem0-demo .m0-step{font-size:11px;color:var(--text-tertiary);margin-left:auto}
+#mem0-demo .m0-desc{margin-top:10px;font-size:12.5px;color:var(--text-secondary);line-height:1.65;padding:10px 12px;background:var(--bg-card);border-radius:6px;border-left:3px solid var(--accent-light)}
+@media(max-width:600px){#mem0-demo .m0-grid{grid-template-columns:1fr}}
+</style>
+
+<div class="m0-grid">
+  <div class="m0-panel" id="m0Pipe">
+    <div class="m0-hdr">处理管线 <span class="m0-badge" id="m0BadgeExt">抽取</span></div>
+    <div class="m0-ctx" id="m0CtxS">📋 摘要 S：Alice 与助手讨论饮食偏好</div>
+    <div class="m0-ctx" id="m0CtxR">💬 近期：…上次提到喜欢中餐</div>
+    <div class="m0-msg user" id="m0MsgU"><strong>用户</strong> 我改吃素了，以后不吃肉。</div>
+    <div class="m0-msg bot" id="m0MsgB"><strong>助手</strong> 好的，已记录你的饮食变化。</div>
+    <div class="m0-arrow" id="m0Arr1">↓ LLM 抽取 φ(P)</div>
+    <div class="m0-cand" id="m0Cand">候选事实 ω：「Alice 是素食主义者」</div>
+    <div class="m0-arrow" id="m0Arr2">↓ 检索 top-10 相似 + Tool Call</div>
+    <div style="font-size:12px;color:var(--text-tertiary);max-height:0;opacity:0;overflow:hidden;transition:max-height .4s,opacity .35s" id="m0OpLine">判定：<span class="m0-op del" id="m0OpDel">DELETE</span> 旧记忆矛盾 → <span class="m0-op add" id="m0OpAdd">ADD</span> 新条目</div>
+  </div>
+  <div class="m0-panel" id="m0Store">
+    <div class="m0-hdr">向量记忆库 <span class="m0-badge" id="m0BadgeDb">0 条</span></div>
+    <div class="m0-mem" id="m0M1"><span style="color:var(--text-tertiary);font-size:10px">M1 ·</span> Alice 喜欢中餐</div>
+    <div class="m0-mem new" id="m0M2" style="max-height:0;opacity:0;padding:0;margin:0;border-width:0"><span style="color:var(--text-tertiary);font-size:10px">M2 ·</span> Alice 是素食主义者</div>
+    <div class="m0-query" id="m0Q">❓ 推荐今晚吃什么？</div>
+    <div class="m0-ans" id="m0A">检索到 M2 → 生成：「你是素食主义者，推荐素食餐厅或沙拉吧。」</div>
+  </div>
+</div>
+<div class="m0-ctrl">
+  <button class="m0-btn m0-btn-pri" id="m0Next">下一步 →</button>
+  <button class="m0-btn" id="m0Reset">重置</button>
+  <span class="m0-step" id="m0Step">步骤 0 / 6</span>
+</div>
+<div class="m0-desc" id="m0Desc">初始：记忆库中有一条旧事实「喜欢中餐」。新一轮对话尚未进入 pipeline。</div>
+</div>
+<script>
+(function(){
+  var step=0,maxS=6;
+  var pipe=document.getElementById('m0Pipe'),store=document.getElementById('m0Store');
+  var badgeExt=document.getElementById('m0BadgeExt'),badgeDb=document.getElementById('m0BadgeDb');
+  var desc=document.getElementById('m0Desc'),stepEl=document.getElementById('m0Step');
+  var nextBtn=document.getElementById('m0Next'),resetBtn=document.getElementById('m0Reset');
+  var ids=['m0CtxS','m0CtxR','m0MsgU','m0MsgB','m0Arr1','m0Cand','m0Arr2','m0OpLine','m0Q','m0A'];
+  var m1=document.getElementById('m0M1'),m2=document.getElementById('m0M2');
+  var opDel=document.getElementById('m0OpDel'),opAdd=document.getElementById('m0OpAdd');
+
+  var S=[
+    {pipe:false,ext:false,upd:false,qry:false,m1:'',m2:'',cnt:'1 条',desc:'初始：记忆库中有一条旧事实「喜欢中餐」。新一轮对话尚未进入 pipeline。'},
+    {pipe:true,ext:false,upd:false,qry:false,m1:'',m2:'',cnt:'1 条',desc:'Step 1：新消息对 (mₜ₋₁, mₜ) 进入。用户声明改吃素——这是触发 pipeline 的完整交互单元。'},
+    {pipe:true,ext:true,upd:false,qry:false,m1:'',m2:'',cnt:'1 条',desc:'Step 2【抽取】：组装 prompt P = 摘要 S + 近期 10 条 + 消息对。LLM 只从本轮交换提炼候选事实 ω，同时感知全局语境。'},
+    {pipe:true,ext:true,upd:false,qry:false,m1:'',m2:'',cnt:'1 条',desc:'Step 3：抽取结果——候选事实「Alice 是素食主义者」。尚未写入库。'},
+    {pipe:true,ext:false,upd:true,qry:false,m1:'hit',m2:'',cnt:'1 条',desc:'Step 4【更新】：embedding 检索到相似旧记忆 M1（喜欢中餐）。LLM tool call 判定矛盾 → DELETE M1。'},
+    {pipe:false,ext:false,upd:true,qry:false,m1:'del',m2:'show',cnt:'1 条',desc:'Step 5：DELETE 完成后 ADD 新记忆 M2。库内保持精简的事实条目，而非堆积原始 transcript。'},
+    {pipe:false,ext:false,upd:false,qry:true,m1:'del',m2:'retrieved',cnt:'1 条',desc:'Step 6【查询】：用户问「推荐吃什么？」→ 向量检索命中 M2 → 仅 ~1.7k memory tokens 注入 prompt 生成回答。无需读完全部对话历史。'}
+  ];
+
+  function vis(id,on){var e=document.getElementById(id);if(e)e.classList.toggle('vis',on)}
+  function apply(s){
+    var st=S[s];
+    pipe.classList.toggle('active',st.pipe);
+    store.classList.toggle('active',st.qry||st.upd);
+    badgeExt.textContent=st.ext?'抽取':(st.upd?'更新':'—');
+    badgeExt.classList.toggle('on',st.pipe);
+    badgeDb.classList.toggle('on',st.qry||st.upd);
+
+    vis('m0MsgU',s>=1);vis('m0MsgB',s>=1);
+    vis('m0CtxS',s>=2);vis('m0CtxR',s>=2);
+    vis('m0Arr1',s>=2);vis('m0Cand',s>=3);
+    vis('m0Arr2',s>=4);vis('m0OpLine',s>=4);
+    opDel.classList.toggle('vis',s>=4);
+    opAdd.classList.toggle('vis',s>=5);
+
+    if(st.m1==='hit'){m1.classList.add('hit');m1.classList.remove('del','dim')}
+    else if(st.m1==='del'){m1.classList.remove('hit');m1.classList.add('del')}
+    else{m1.classList.remove('hit','del');m1.classList.toggle('dim',s>=2&&s<4)}
+
+    if(st.m2==='show'){
+      m2.style.maxHeight='60px';m2.style.opacity='1';m2.style.padding='7px 10px';m2.style.marginBottom='5px';m2.style.borderWidth='1px';
+      m2.classList.add('new');m2.classList.remove('retrieved');
+      badgeDb.textContent='1 条';
+    }else if(st.m2==='retrieved'){
+      m2.style.maxHeight='60px';m2.style.opacity='1';m2.style.padding='7px 10px';m2.style.marginBottom='5px';m2.style.borderWidth='1px';
+      m2.classList.remove('new');m2.classList.add('retrieved');
+      badgeDb.textContent='1 条';
+    }else{
+      m2.classList.remove('retrieved');
+      if(s<5){m2.style.maxHeight='0';m2.style.opacity='0';m2.style.padding='0';m2.style.margin='0';m2.style.borderWidth='0'}
+    }
+
+    vis('m0Q',st.qry);vis('m0A',st.qry);
+    desc.textContent=st.desc;
+    stepEl.textContent='步骤 '+s+' / '+maxS;
+    nextBtn.disabled=(s>=maxS);
+    nextBtn.textContent=(s>=maxS)?'✓ 完成':'下一步 →';
+  }
+
+  nextBtn.addEventListener('click',function(){
+    if(step>=maxS)return;
+    step++;
+    apply(step);
+  });
+  resetBtn.addEventListener('click',function(){
+    step=0;
+    m1.className='m0-mem';m1.style.cssText='';
+    m2.className='m0-mem new';m2.style.cssText='max-height:0;opacity:0;padding:0;margin:0;border-width:0';
+    opDel.classList.remove('vis');opAdd.classList.remove('vis');
+    apply(0);
+  });
+  apply(0);
+})();
+</script>
+
+<div class="figure-block">
+  <img src="https://arxiv.org/html/2504.19413v1/extracted/6393986/figures/mem0_pipeline.png" alt="Mem0 extraction and update pipeline" loading="lazy">
+  <div class="figure-caption"><strong>Mem0 架构总览</strong>：抽取阶段把消息 + 历史语境转为候选记忆；更新阶段与相似已有记忆比对后执行 ADD/UPDATE/DELETE/NOOP；中央向量库同时供检索与后续处理。</div>
+  <span class="fig-toggle" onclick="toggleFigDetail(this, event)">展开说明 ▸</span>
+  <div class="figure-detail">
+    <ul>
+      <li><strong>输入流：</strong>每轮完整交互单元（用户消息 + 助手回复）触发 pipeline，适合流式对话场景。</li>
+      <li><strong>双源语境（抽取）：</strong>摘要 <code>S</code> 提供全局主题；最近 10 条消息提供细粒度时序细节——二者互补，避免只靠摘要丢细节。</li>
+      <li><strong>异步摘要模块：</strong>与主 pipeline 解耦，不阻塞记忆写入，保证抽取时 <code>S</code> 尽量新。</li>
+      <li><strong>Tool Call 更新：</strong>不用单独分类器，由 LLM 根据候选事实与检索到的相似记忆之间的语义关系直接选操作。</li>
+      <li><strong>向量库：</strong>dense embedding 支撑更新阶段的相似检索与查询阶段的记忆召回。</li>
+      <li><strong>一句话总结：</strong>把「整段对话」压缩成「可维护的事实条目集合」，用显式增删改保持库内一致，而非静态 RAG 切块。</li>
+    </ul>
+  </div>
+</div>
+
+<details class="example-details">
+<summary>查看示例：记忆更新四操作（Appendix B 逻辑）</summary>
+<div class="example-content">
+<p>对候选事实 <code>f</code> 与已有记忆库 <code>M</code> 的判定逻辑：</p>
+<ul style="margin:8px 0 0 20px;list-style:disc">
+  <li><strong>ADD：</strong><code>f</code> 与库中无语义相似条目 → 生成新 ID 写入</li>
+  <li><strong>UPDATE：</strong><code>f</code> 可补充已有记忆且信息更丰富 → 替换旧条目</li>
+  <li><strong>DELETE：</strong><code>f</code> 与某条已有记忆矛盾 → 删除被否决的旧记忆</li>
+  <li><strong>NOOP：</strong>已存在或无需改动 → 跳过</li>
+</ul>
+<p style="margin-top:8px">实验默认 <code>m=10</code>（近期消息窗）、<code>s=10</code>（相似记忆数），抽取与更新均用 GPT-4o-mini。</p>
+</div>
+</details>
+
+<p>论文还提出 <strong>Mem0<sup>g</sup></strong>（Graph Memory）：把实体作节点、关系作边存入 Neo4j，适合需要沿关系链推理的场景；在 LOCOMO 整体 J 分上仅比基础版高约 2%，单跳 / 多跳任务上稠密文本记忆反而更占优。下文三维度与数据均指<strong>基础 Mem0</strong>。</p>
+
+<div class="metric-row">
+  <div class="metric-card">
+    <div class="metric-num">+26%</div>
+    <div class="metric-label">相对 OpenAI 记忆的<br>LLM-as-Judge 提升</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-num">~91%</div>
+    <div class="metric-label">相对 full-context 的<br>p95 总延迟降低</div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-num">&gt;90%</div>
+    <div class="metric-label">相对 full-context 的<br>token 成本节省</div>
+  </div>
+</div>
+
+<div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">存什么</div>
+    <div class="card-brief">从对话中抽取的 salient facts（自然语言记忆条目），每条带唯一 ID，存入向量数据库——不是原始 transcript 切块。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么更新</div>
+    <div class="card-brief">每轮消息对触发：LLM 抽取候选事实 → 检索 top-10 相似旧记忆 → tool call 执行 ADD/UPDATE/DELETE/NOOP；全局摘要异步刷新。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么召回</div>
+    <div class="card-brief">查询时 embedding 语义检索相关记忆注入 prompt；检索 p95 约 0.2s，总响应 p95 约 1.44s（LOCOMO）。</div>
+  </div>
+</div>
+
+<p><strong>关键数据（LOCOMO）：</strong>Overall J = 66.88（Mem0）vs 52.90（OpenAI 记忆）、72.90（full-context，但 p95 总延迟 ~17s）；记忆 token ~1764 vs full-context ~26031。<strong>局限：</strong>full-context 在 J 分上仍略高（~73%），极致准确率场景可能仍愿付 token/延迟代价；抽取与更新质量依赖 LLM（实验用 GPT-4o-mini）；图变体 Mem0<sup>g</sup> 存储与检索更重，多数问答类型收益有限。</p>
+
+  </div></div>
+</div>
+
+<!-- ===== IFRAgent ===== -->
+<div class="expand-section" id="ifragent">
+  <div class="expand-header">
+    <div class="expand-title-group">
+      <h4>IFRAgent：从演示中学习用户习惯 <span class="paper-tag">arXiv 2025</span></h4>
+      <p class="expand-desc">演示建 SOP 库 + 习惯库 h_i；在线 RAG 得通用流程后，Query Rewriter（𝒲）显式改写 query/SOP 再执行</p>
+    </div>
+    <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
+  </div>
+  <div class="expand-body"><div class="expand-body-inner">
+
+<p><a href="https://arxiv.org/abs/2508.08645" target="_blank">IFRAgent</a>（Wu et al., 2025，亦称 Quick on the Uptake）解决<strong>手机 GUI Agent 与用户操作习惯不对齐</strong>的问题：同一任务（点外卖、查邮件）不同用户的点击路径、筛选偏好差异很大，通用 SOP 无法覆盖。</p>
+
+<p>框架分<strong>离线意图流提取</strong>与<strong>在线部署</strong>两阶段。离线阶段：用户正常使用手机，系统收集每个 query 对应的截图轨迹 <code>S(u,q)</code>。对每条演示并行走两条线——<strong>显式意图流</strong> <code>A<sub>e</sub></code> 产出结构化 SOP <code>p</code>，与 query embedding 存入 per-user 向量库；<strong>隐式意图流</strong> <code>A<sub>i</sub></code> 增量更新用户级习惯库 <code>h<sub>i</sub></code>（如「偏好辣味」「总选附近餐厅」）。在线阶段：新 query 先 RAG 检索相似历史 query 的 SOP 做 few-shot，再由 SOP Extractor <code>ℰ</code> 生成任务 SOP；最后 Query Rewriter <code>𝒲</code> 把 <code>h<sub>i</sub></code> 编码进<strong>改写后的</strong> <code>q</code> 与 SOP <code>p</code>（下文记 <code>q<sub>改</sub></code>、<code>p<sub>改</sub></code>；论文符号为 q̂、p̂），交给 UI Agent 执行。</p>
+
+<p>与 Mem0（对话事实条目）不同：IFRAgent 的个性化来自<strong>观察用户做了什么</strong>，且习惯通过 rewriter 间接注入，而非直接塞进执行 Agent 的 prompt。</p>
+
+<div class="ifr-rewrite-panel" id="ifrRewritePanel">
+<style>
+#ifragent .ifr-rewrite-panel{margin:20px 0;padding:16px 18px;border:1px solid var(--accent-light);border-radius:var(--radius-lg);background:var(--accent-bg);transition:box-shadow .35s,border-color .35s}
+#ifragent .ifr-rewrite-panel.on{border-color:var(--accent);box-shadow:0 0 0 2px color-mix(in srgb,var(--accent) 18%,transparent)}
+#ifragent .ifr-rewrite-panel h5{margin:0 0 8px;font-size:14px;color:var(--text-primary)}
+#ifragent .ifr-rewrite-panel .ifr-rw-lead{margin:0 0 12px;font-size:13px;line-height:1.7;color:var(--text-secondary)}
+#ifragent .ifr-rw-io{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:14px;font-size:12px}
+#ifragent .ifr-rw-chip{padding:6px 10px;border-radius:6px;background:var(--bg-white);border:1px solid var(--border-light);color:var(--text-secondary)}
+#ifragent .ifr-rw-chip strong{color:var(--text-primary)}
+#ifragent .ifr-rw-arrow{color:var(--accent);font-weight:600;font-size:13px}
+#ifragent .ifr-rw-cols{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:stretch}
+#ifragent .ifr-rw-col{padding:12px;border-radius:8px;font-size:12.5px;line-height:1.65;border:1px solid var(--border-light);background:var(--bg-white)}
+#ifragent .ifr-rw-col h6{margin:0 0 8px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--text-tertiary)}
+#ifragent .ifr-rw-col.before{border-left:3px solid #bbb}
+#ifragent .ifr-rw-col.after{border-left:3px solid var(--accent)}
+#ifragent .ifr-rw-mid{display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;color:var(--accent);writing-mode:vertical-rl;text-orientation:mixed;letter-spacing:.5px}
+#ifragent .ifr-rw-col del{color:var(--text-tertiary);text-decoration:line-through}
+#ifragent .ifr-rw-col ins{text-decoration:none;color:var(--accent);font-weight:500;background:color-mix(in srgb,var(--accent) 12%,transparent);padding:0 2px;border-radius:2px}
+#ifragent .ifr-rw-note{margin:12px 0 0;font-size:12px;color:var(--text-tertiary);line-height:1.6}
+@media(max-width:640px){#ifragent .ifr-rw-cols{grid-template-columns:1fr}#ifragent .ifr-rw-mid{writing-mode:horizontal-tb;padding:4px 0}}
+</style>
+<h5>Rewrite 是什么？（Query Rewriter 𝒲）</h5>
+<p class="ifr-rw-lead">RAG + ℰ 只解决「<strong>这类任务大致怎么做</strong>」（得到通用 SOP 模板）；<strong>Rewrite</strong> 才解决「<strong>这个用户要怎么做</strong>」——用一个小模型 𝒲 读入<strong>当前 query、当前 SOP、习惯库 h<sub>i</sub></strong>，把 h<sub>i</sub> 里的偏好<strong>写进自然语言</strong>，输出给 UI Agent 的 <strong>q<sub>改</sub></strong> 与 <strong>p<sub>改</sub></strong>。不是向量检索，是<strong>文本改写</strong>。</p>
+<div class="ifr-rw-io">
+  <span class="ifr-rw-chip"><strong>输入</strong> q（本轮用户话）</span>
+  <span class="ifr-rw-chip"><strong>输入</strong> p（ℰ 生成的 SOP）</span>
+  <span class="ifr-rw-chip"><strong>输入</strong> h<sub>i</sub>（离线积累的习惯描述）</span>
+  <span class="ifr-rw-arrow">→ 𝒲 改写 →</span>
+  <span class="ifr-rw-chip"><strong>输出</strong> q<sub>改</sub>、p<sub>改</sub>（带个人约束的指令）</span>
+</div>
+<div class="ifr-rw-cols">
+  <div class="ifr-rw-col before">
+    <h6>改写前（通用模板，Step 5 结束）</h6>
+    <p style="margin:0 0 6px"><strong>q：</strong>「帮我点份晚餐」</p>
+    <p style="margin:0"><strong>p（SOP）：</strong><br>1. 打开美团<br>2. 搜索餐厅<br>3. 按<strong>评分</strong>筛选<br>4. 下单</p>
+  </div>
+  <div class="ifr-rw-mid">𝒲<br>Rewrite</div>
+  <div class="ifr-rw-col after">
+    <h6>改写后（个性化，Step 6）</h6>
+    <p style="margin:0 0 6px"><strong>q<sub>改</sub>：</strong>「帮我点份晚餐，<ins>附近、川菜、中辣</ins>」</p>
+    <p style="margin:0"><strong>p<sub>改</sub>（SOP）：</strong><br>1. 打开美团<br>2. 搜索餐厅<br>3. <ins>先按距离排序</ins>，再筛 <ins>川菜 + 辣度</ins><br>4. 下单</p>
+  </div>
+</div>
+<p class="ifr-rw-note">h<sub>i</sub> 例：「偏好川菜、重辣；习惯先按距离再比评分」→ 被 𝒲 <strong>抄写/融合</strong>进 q<sub>改</sub> 与 p<sub>改</sub> 的步骤文案。UI Agent <strong>只读改写后的文本</strong>，不直接读 h<sub>i</sub>。</p>
+</div>
+
+<div class="quote-block" style="font-style:normal">
+  <p style="margin:0 0 8px"><strong>读起来像 PolySkill，但多态轴是「用户」而不是「网站」</strong></p>
+  <p style="margin:0 0 8px">情节经验里的 <a href="#polyskill">PolySkill</a>：Amazon / Target 共用「搜索 → 加购 → 结账」接口骨架，各站用子类代码填 DOM/点击细节。IFRAgent 可类比为：每位用户像「一个购物网站实例」——底层任务逻辑是一套 <strong>SOP 流程骨架</strong>（显式流 + 相似 query 的 RAG 继承），用户差异由 <strong>隐式习惯库</strong> <code>h<sub>i</sub></code> 与 𝒲 改写填充（重辣、先距离后评分等），再交给同一套 UI Agent 执行。</p>
+  <ul style="margin:0 0 0 20px;font-size:14px;line-height:1.7;list-style:disc">
+    <li><strong>显式 SOP 库</strong> ≈ 抽象接口 / 组合流程（定义步骤顺序）</li>
+    <li><strong>隐式 h<sub>i</sub> + 检索改写</strong> ≈ 子类实现（填用户特化约束，但是自然语言而非代码）</li>
+    <li><strong>区别：</strong>PolySkill 跨环境泛化；IFRAgent 同 App 跨用户个性化，且不做 Voyager/PolySkill 式可调用 skill 入库</li>
+  </ul>
+</div>
+
+<h4 style="margin:24px 0 12px">步进演示：离线建库 → 在线个性化执行</h4>
+<div id="ifr-demo">
+<style>
+#ifr-demo{padding:20px;background:var(--bg-white);border:1px solid var(--border);border-radius:var(--radius-lg);margin:24px 0}
+#ifr-demo .ifr-row{display:flex;gap:12px;flex-wrap:wrap;align-items:stretch}
+#ifr-demo .ifr-col{flex:1;min-width:200px;border:1px solid var(--border-light);border-radius:var(--radius);padding:12px;background:var(--bg-card);transition:border-color .35s,background .35s}
+#ifr-demo .ifr-col.on{border-color:var(--accent-light);background:var(--accent-bg)}
+#ifr-demo .ifr-lbl{font-size:11px;font-weight:600;color:var(--text-tertiary);margin-bottom:8px}
+#ifr-demo .ifr-node{font-size:12px;padding:7px 9px;border-radius:6px;border:1px solid var(--border-light);background:var(--bg-white);margin-bottom:5px;color:var(--text-secondary);max-height:0;opacity:0;overflow:hidden;transition:max-height .4s,opacity .35s,padding .35s,margin .35s}
+#ifr-demo .ifr-node.vis{max-height:88px;opacity:1;padding:7px 9px;margin-bottom:5px}
+#ifr-demo .ifr-node.hi{border-color:var(--accent);background:var(--accent-bg);font-weight:500;color:var(--text-primary)}
+#ifr-demo .ifr-node.new{border-style:dashed;border-color:#7a9e6a}
+#ifr-demo .ifr-arrow{text-align:center;font-size:14px;color:var(--text-tertiary);margin:4px 0;max-height:0;opacity:0;transition:opacity .3s,max-height .3s}
+#ifr-demo .ifr-arrow.vis{max-height:20px;opacity:1}
+#ifr-demo .ifr-ctrl{display:flex;gap:10px;margin-top:12px;flex-wrap:wrap;align-items:center}
+#ifr-demo .ifr-btn{padding:6px 16px;border-radius:6px;font-size:12.5px;cursor:pointer;border:1px solid var(--border);background:var(--bg-card);font-family:inherit}
+#ifr-demo .ifr-btn-pri{background:var(--accent);color:#fff;border-color:var(--accent)}
+#ifr-demo .ifr-btn:disabled{opacity:.45;cursor:default}
+#ifr-demo .ifr-step{font-size:11px;color:var(--text-tertiary);margin-left:auto}
+#ifr-demo .ifr-desc{margin-top:10px;font-size:12.5px;color:var(--text-secondary);line-height:1.65;padding:10px 12px;background:var(--bg-card);border-left:3px solid var(--accent-light)}
+</style>
+<div class="ifr-row">
+  <div class="ifr-col" id="ifrOff"><div class="ifr-lbl">离线 · 意图流提取</div>
+    <div class="ifr-node" id="ifrD1">📱 演示：query「点外卖」+ 截图轨迹 S</div>
+    <div class="ifr-arrow" id="ifrA1">↳ 并行</div>
+    <div class="ifr-node" id="ifrD2">显式 A<sub>e</sub> → SOP + embedding 入库</div>
+    <div class="ifr-node" id="ifrD3">隐式 A<sub>i</sub> → 习惯库 h<sub>i</sub> +=「偏好川菜、重辣」</div>
+  </div>
+  <div class="ifr-col" id="ifrOn"><div class="ifr-lbl">在线 · 部署</div>
+    <div class="ifr-node" id="ifrN1">新 query：「帮我点份晚餐」</div>
+    <div class="ifr-node" id="ifrN2">RAG+(q′,SOP′) → ℰ 得<strong>通用</strong> SOP p（未个性化）</div>
+    <div class="ifr-node" id="ifrN3">【Rewrite】𝒲：q+p+h<sub>i</sub> → q<sub>改</sub>、p<sub>改</sub></div>
+    <div class="ifr-node" id="ifrN4">UI Agent 只执行 q<sub>改</sub>、p<sub>改</sub></div>
+  </div>
+</div>
+<div class="ifr-ctrl">
+  <button class="ifr-btn ifr-btn-pri" id="ifrNext">下一步 →</button>
+  <button class="ifr-btn" id="ifrReset">重置</button>
+  <span class="ifr-step" id="ifrStep">步骤 0 / 6</span>
+</div>
+<div class="ifr-desc" id="ifrDesc">初始：用户尚未提供演示，显式 SOP 库与隐式习惯库为空。</div>
+</div>
+<script>
+(function(){
+  var s=0,m=6,off=document.getElementById('ifrOff'),on=document.getElementById('ifrOn');
+  var desc=document.getElementById('ifrDesc'),st=document.getElementById('ifrStep');
+  var nb=document.getElementById('ifrNext'),rb=document.getElementById('ifrReset');
+  var nodes=['ifrD1','ifrA1','ifrD2','ifrD3','ifrN1','ifrN2','ifrN3','ifrN4'];
+  var D=[
+    '初始：用户尚未提供演示，显式 SOP 库与隐式习惯库为空。',
+    'Step 1【离线】：收集演示——自然语言 query + 操作截图序列，无需手写偏好。',
+    'Step 2【显式】：A_e 从轨迹抽 SOP「打开美团→搜餐厅→筛选→下单」，query embedding 写入向量库。',
+    'Step 3【隐式】：A_i 增量更新 h_i：「偏好川菜、重辣；先按距离再比评分」——跨 query 共享。',
+    'Step 4【在线】：新 query 进入；与 Mem0 不同，此处不读对话 transcript，只读演示建好的库。',
+    'Step 5【RAG+SOP】：检索相似演示 (q′,SOP′) → ℰ 生成当前任务的通用 SOP p。此时还没有个人偏好，只是「点外卖」的标准流程模板。',
+    'Step 6【Rewrite + 执行】：𝒲 读 q+p+h_i，输出 q改、p改（见上方「改写前/后」）。UI Agent 只读改写后文本，按个人习惯点击（不直接读 h_i）。'
+  ];
+  function v(id,on){var e=document.getElementById(id);if(e)e.classList.toggle('vis',on)}
+  function hi(id,on){var e=document.getElementById(id);if(e)e.classList.toggle('hi',on)}
+  function apply(){
+    off.classList.toggle('on',s>=1&&s<=3);on.classList.toggle('on',s>=4);
+    v('ifrD1',s>=1);v('ifrA1',s>=2);v('ifrD2',s>=2);v('ifrD3',s>=3);
+    hi('ifrD2',s===2);hi('ifrD3',s===3);
+    v('ifrN1',s>=4);v('ifrN2',s>=5);v('ifrN3',s>=6);v('ifrN4',s>=6);
+    hi('ifrN2',s===5);hi('ifrN3',s===6);hi('ifrN4',s===6);
+    var rw=document.getElementById('ifrRewritePanel');
+    if(rw)rw.classList.toggle('on',s>=5);
+    desc.textContent=D[s];st.textContent='步骤 '+s+' / '+m;
+    nb.disabled=(s>=m);nb.textContent=(s>=m)?'✓ 完成':'下一步 →';
+  }
+  nb.onclick=function(){if(s<m){s++;apply()}};
+  rb.onclick=function(){s=0;nodes.forEach(function(id){var e=document.getElementById(id);e.classList.remove('vis','hi','new')});apply()};
+  apply();
+})();
+</script>
+
+<div class="figure-block">
+  <img src="https://arxiv.org/html/2508.08645v1/pipeline.png" alt="IFRAgent offline extraction and online deployment" loading="lazy">
+  <div class="figure-caption"><strong>IFRAgent 全流程</strong>：上半部离线从演示提取显式 SOP 与隐式习惯；下半部在线 RAG + 改写后驱动手机 Agent。</div>
+  <span class="fig-toggle" onclick="toggleFigDetail(this, event)">展开说明 ▸</span>
+  <div class="figure-detail">
+    <ul>
+      <li><strong>User Demonstrations：</strong>多组 (query, 截图轨迹)，用户无需标注偏好。</li>
+      <li><strong>Explicit flow：</strong>GPT-4o 从轨迹抽逐步 SOP，<code>ϕ(query)</code> 入向量库，供相似任务 few-shot。</li>
+      <li><strong>Implicit flow：</strong>同一演示增量写入用户习惯库 <code>h<sub>i</sub></code>，跨 query 共享。</li>
+      <li><strong>SOP 检索线：</strong>embedding 相似度 &gt; τ 时取历史 (q′, p′) → ℰ 生成新 SOP。</li>
+      <li><strong>个性化改写线：</strong>𝒲（Qwen3-4B 蒸馏）输入 q, p, h<sub>i</sub> → 输出 <code>q<sub>改</sub></code>, <code>p<sub>改</sub></code>（论文写作 q̂、p̂）。</li>
+      <li><strong>执行：</strong>UI-TARS 等 Agent 接收 q<sub>改</sub>, p<sub>改</sub> + 当前屏幕，按用户习惯操作。</li>
+    </ul>
+  </div>
+</div>
+
+<details class="example-details">
+<summary>查看示例：点外卖任务的显式 SOP vs 隐式习惯</summary>
+<div class="example-content">
+<p><strong>显式 SOP（per-query）：</strong>「点外卖 → 1. 打开美团 2. 搜索餐厅 3. 按评分筛选 4. 下单」</p>
+<p><strong>隐式习惯（per-user）：</strong>「偏好川菜、辣度中高；习惯先按距离排序再比评分」</p>
+<p><strong>Rewrite 前后（同任务）：</strong></p>
+<ul style="margin:0 0 12px 20px;font-size:14px;line-height:1.75">
+  <li><strong>改写前 p：</strong>按评分筛选 → <strong>改写后 p<sub>改</sub>：</strong>先按距离，再筛川菜+辣度（来自 h<sub>i</sub>）</li>
+  <li><strong>改写前 q：</strong>「帮我点份晚餐」 → <strong>改写后 q<sub>改</sub>：</strong>补「附近、川菜、中辣」</li>
+</ul>
+<p>Agent 只看到 q<sub>改</sub>/p<sub>改</sub>，不会直接读 h<sub>i</sub> 原文。</p>
+</div>
+</details>
+
+<div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">存什么</div>
+    <div class="card-brief">Per-user 两套存储：显式 (embedding, SOP) 对；隐式习惯库 h<sub>i</sub>（自然语言偏好描述，跨任务共享）。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么更新</div>
+    <div class="card-brief">离线：每段新演示跑 A<sub>e</sub> 追加 SOP 对、A<sub>i</sub> 增量更新 h<sub>i</sub>。在线不自动写库（需新演示）。𝒲 经 SFT 暖启动。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么召回</div>
+    <div class="card-brief">显式：query embedding 检索 top-1 SOP（阈值 τ）。隐式：全量 h<sub>i</sub> 送入 𝒲，不做向量检索。</div>
+  </div>
+</div>
+
+  </div></div>
+</div>
+
+<!-- VARS 和 PUMA 已删除 -->
+</section>
+
+</main>
+
+<div class="footer"><div class="container">
+  <p>参考综述：<a href="https://arxiv.org/abs/2604.08224" target="_blank">Externalization in LLM Agents</a> · Zhou et al., 2026</p>
+  <p style="margin-top:8px"><a href="externalization-llm-agents.html">完整综述可视化</a> · <a href="https://syt-nju.github.io/files/visual-reading/skill0-internalization/" target="_blank">Skill0</a></p>
+</div></div>
+
+<script>
+function toggleFigDetail(el, event) {
+  if (event) event.stopPropagation();
+  var d = el.nextElementSibling;
+  var a = d.classList.contains('active');
+  d.classList.toggle('active');
+  el.textContent = a ? '展开说明 \u25B8' : '收起 \u25B4';
+}
+
+document.querySelectorAll('.expand-section .expand-header').forEach(function(header) {
+  header.addEventListener('click', function(e) {
+    e.stopPropagation();
+    this.parentElement.classList.toggle('open');
+  });
+});
+
+document.querySelectorAll('.card').forEach(function(card) {
+  card.addEventListener('click', function(e) {
+    if (e.target.closest('a, .fig-toggle, .figure-detail, pre, code')) return;
+    this.classList.toggle('open');
+  });
+});
+</script>
+</body>
+</html>

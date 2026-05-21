@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: agent-memory-survey
+    title: "Agent memory 调研"
+    date: 2026-05-21
+    source_type: paper
+    source_url: "https://arxiv.org/abs/2604.08224"
   - slug: eagle-series-inference-acceleration
     title: "EAGLE 系列怎么一步步把 LLM 推理加速做到 6.5x"
     date: 2026-05-14
