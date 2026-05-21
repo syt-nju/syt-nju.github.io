@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>LLM Agent 记忆综述：从上下文到经验再到技能</title>
+<title>LLM Agent Memory Survey</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
@@ -147,7 +147,7 @@ pre code{background:none;padding:0}
 
 <header class="hero"><div class="container">
   <span class="hero-label">研究综述 · 可视化阅读</span>
-  <h1>LLM Agent 的记忆<br>从上下文管理到经验学习</h1>
+  <h1>LLM Agent Memory Survey</h1>
   <p class="hero-sub">记忆的三个层次——工作上下文、情节经验、个性化记忆。重点追踪情节经验方向从 Reflection 到 Skill 范式的演化。</p>
   <div class="hero-meta">
     <a href="https://arxiv.org/abs/2604.08224" target="_blank">参考: Externalization in LLM Agents (2026)</a>
@@ -158,6 +158,7 @@ pre code{background:none;padding:0}
 
 <!-- ===================== TAXONOMY ===================== -->
 <section id="taxonomy">
+<p style="margin-bottom:8px;">借鉴 <a href="https://arxiv.org/abs/2501.13751" target="_blank" style="color:var(--accent);text-decoration:none;font-weight:500">Externalization in LLM Agents (2026)</a> 对 <strong>Agent Memory 的分类方式</strong>，将 Agent Memory 分为以下三块：</p>
 <div class="card-grid" style="grid-template-columns:repeat(3,1fr)">
   <div class="card" style="cursor:default"><div class="card-icon">📋</div><div class="card-title">工作上下文</div><div class="card-brief">Agent 当前能看到的环境状态切片。</div></div>
   <div class="card" style="cursor:default"><div class="card-icon">📚</div><div class="card-title">情节经验</div><div class="card-brief">从历史轨迹中提炼的可复用知识。</div></div>
@@ -167,40 +168,21 @@ pre code{background:none;padding:0}
 
 <!-- ===================== WORKING CONTEXT ===================== -->
 <section id="working">
-<h2>工作上下文：有限窗口感知外部状态变化</h2>
+<h2>一、工作上下文</h2>
 
-<p>LLM 是一个<strong>参数固定的 machine</strong>——训练结束后权重不再变化；而外部环境是一个<strong>不断变化的 state machine</strong>——文件在被编辑、终端有新输出、浏览器页面在刷新。核心问题是：如何让模型在有限的上下文窗口内实时感知外部 state 的变化，并据此做出正确决策？</p>
-
-<h3>问题拆解</h3>
-
-<div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
-  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
-    <div class="card-icon">🔍</div>
-    <div class="card-title">接口设计</div>
-    <div class="card-brief">环境给 Agent 的信息太多太杂，需要设计专用接口过滤噪声，让 Agent 每步只看到精炼的状态切片。</div>
-  </div>
-  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
-    <div class="card-icon">📦</div>
-    <div class="card-title">历史压缩</div>
-    <div class="card-brief">上下文随步数线性增长，窗口满了需要压缩/外化历史状态。</div>
-  </div>
-</div>
+<p>LLM 的上下文与其表现高度相关，一方面<strong>上下文窗口有限</strong>，另一方面，<strong>模型表现往往随着上下文长度的增加而下降</strong>。有效的上下文管理机制往往能大幅提高模型表现。</p>
 
 <!-- ===== 观察什么 ===== -->
 <h3>观察什么：为 Agent 设计状态接口</h3>
 
+<p>原始的 bash CLI 指令往往带有大量<strong>无关信息</strong>，SWE-agent 针对处理 issue 这个场景，设计了一套<strong>定制化工具接口</strong>，让模型不被噪音塞满上下文。</p>
+
 <!-- SWE-agent -->
 <div class="expand-section">
-  <div class="expand-header"><div class="expand-title-group"><h4>SWE-agent：Agent-Computer Interface <span class="paper-tag">NeurIPS 2024</span></h4><p class="expand-desc">为 LM Agent 专门设计文件编辑/搜索/导航接口，用 100 行窗口 + linter 护栏替代原生 shell</p></div><svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg></div>
+  <div class="expand-header"><div class="expand-title-group"><h4>SWE-agent：Agent-Computer Interface <span class="paper-tag">NeurIPS 2024</span></h4><p class="expand-desc">修 issue 时用定制命令按行读写代码，少往上下文里灌无关输出</p></div><svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg></div>
   <div class="expand-body"><div class="expand-body-inner">
 
-<p>SWE-agent 定义了 5 个核心命令（<code>open</code> / <code>edit</code> / <code>search_file</code> / <code>find_file</code> / <code>scroll</code>），设计原则是<strong>操作原子化 + 即时反馈 + 护栏防错</strong>。与原生 shell 的关键区别：</p>
-<ul style="margin:8px 0 16px 20px;color:var(--text-secondary);font-size:15px;line-height:1.7">
-  <li><strong>100 行窗口视图</strong>：文件打开不 dump 全文，只显示以目标行为中心的 100 行窗口，附带上下文行数指示器</li>
-  <li><strong>Edit + Linter 即时反馈</strong>：编辑后自动展示更新内容并运行语法检查，无效编辑被拒绝并要求重试</li>
-  <li><strong>搜索结果限额</strong>：搜索返回摘要式结果（上限 50 条），过多时要求 Agent 细化查询，防止上下文被淹没</li>
-  <li><strong>Last-5 观察压缩</strong>：仅保留最近 5 步的完整输出，更早的观察折叠为单行摘要，上下文不随步数线性膨胀</li>
-</ul>
+<p>SWE-agent 定义了 5 个<strong>定制化命令</strong>（<code>open</code> / <code>edit</code> / <code>search_file</code> / <code>find_file</code> / <code>scroll</code>），用精细到<strong>行级别</strong>的代码读取和修改，有效减少了无关上下文的读入。</p>
 
 <details class="example-details">
 <summary>查看示例：原生 shell vs ACI 定制接口的交互对比</summary>
@@ -241,10 +223,6 @@ end_of_edit
 </div>
 </details>
 
-<p><a href="https://arxiv.org/abs/2410.03859" target="_blank">SWE-agent</a>（Yang et al., 2024）的核心洞察：<strong>Agent 的表现瓶颈不在 LLM 能力，而在它与环境的交互接口设计</strong>。裸 shell 输出噪声大、信息密度低，Agent 往往淹没在冗余状态中。SWE-agent 为此设计了专用的 <strong>ACI（Agent-Computer Interface）</strong>，通过四大组件精确控制每步进入上下文的状态片段：<strong>File Viewer</strong>（100 行滑动窗口取代全文 dump）、<strong>File Editor</strong>（edit + linter 即时反馈取代盲改）、<strong>Search/Navigation</strong>（摘要式搜索结果限制条目数）、<strong>Context Management</strong>（Last-5 观察窗口，旧观察折叠为单行摘要）。</p>
-
-<p>实验证明 ACI 设计<strong>显著优于直接使用原生 shell</strong>，且窗口大小和压缩策略的选择确实影响表现——过大噪声多、过小信息不足。<strong>局限</strong>在于 ACI 是为代码编辑场景专门设计的，泛化到其他 Agent 场景（如 Web 浏览、数据分析）需要重新设计接口。<strong>综述定位：</strong>SWE-agent 定义了「状态选择」这个问题维度——不是把所有环境状态塞进窗口，而是设计接口让 Agent 每步只看到最相关的投影。</p>
-
   </div></div>
 </div>
 
@@ -252,11 +230,11 @@ end_of_edit
 <!-- ===== 历史压缩 ===== -->
 <h3>历史压缩：上下文线性增长怎么办</h3>
 
-<p>Agent 每执行一步就产生新的 action + observation，上下文线性增长。8k 窗口大约 140 条消息就满了，200k 窗口跑复杂任务也撑不过几个小时。满了怎么办？核心是三个工程问题：<strong>压缩后保留什么</strong>、<strong>原文能否复原</strong>、<strong>需要时怎么召回</strong>。</p>
+<p>上下文窗口是有限的，<strong>压缩</strong>是所有多轮 Agent 都需要有的设计。这里介绍经典论文 MemGPT 的设计和 Claude Code 的策略。</p>
 
 <!-- MemGPT vs Claude compact 对比 -->
 <div class="expand-section">
-  <div class="expand-header"><div class="expand-title-group"><h4>MemGPT：LLM 自主管理虚拟上下文</h4><p class="expand-desc">让 LLM 自主 page-in/page-out 管理记忆，模拟操作系统的虚拟内存机制</p></div><svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg></div>
+  <div class="expand-header"><div class="expand-title-group"><h4>MemGPT：LLM 自主管理虚拟上下文 <span class="paper-tag">arXiv 2023</span></h4><p class="expand-desc">LLM 自主存、取上下文</p></div><svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg></div>
   <div class="expand-body"><div class="expand-body-inner">
 
 <div class="figure-block">
@@ -278,6 +256,12 @@ end_of_edit
     </ul>
   </div>
 </div>
+
+<p style="margin:16px 0 8px;font-weight:600;color:var(--text-primary)">两个向量库：</p>
+<ol style="margin:8px 0 20px 20px;color:var(--text-secondary);font-size:15px;line-height:1.7;padding-left:4px">
+  <li style="margin-bottom:8px"><strong>FIFO 压缩</strong>并将原文存到向量库 <strong>Recall Storage</strong>，允许模型通过<strong>工具调用复原</strong>。</li>
+  <li>模型可<strong>主动写入和读取</strong>（向量检索）的 <strong>Archival Storage</strong>。</li>
+</ol>
 
 <h4 style="margin:24px 0 12px">FIFO Queue 驱逐机制</h4>
 <div id="fifo-demo">
@@ -418,9 +402,7 @@ end_of_edit
 </table>
 
 <div style="margin-top:16px;padding:10px 14px;background:var(--bg-card);border-radius:var(--radius);border:1px solid var(--border-light);font-size:13px;line-height:1.7">
-<p style="margin:0 0 6px"><strong>MemGPT 路线：</strong>牺牲推理速度（多一次 function call 延迟），换取原文可复原 + 跨会话持久化 + LLM 自主决策。</p>
-<p style="margin:0"><strong>Claude compact 路线：</strong>牺牲原文（压缩不可逆），换取零额外延迟 + 简单可靠 + 不依赖 LLM 的召回能力。</p>
-<p style="margin:8px 0 0;font-size:14px;color:var(--text-tertiary)"><strong>背后的分歧：</strong>有无外部存储决定了压缩可以多激进。MemGPT 有 Recall Storage 兜底（原文永远可召回），所以摘要可以更激进地压缩；Claude Code 无外存，压缩不可逆，所以 summary prompt 必须在摘要中保留更多原始内容（如逐字保留所有用户消息）。两者独立演进后 prompt 结构趋同（都走向结构化分段摘要），但压缩力度因架构差异而分化。</p>
+<p style="margin:0">由于 MemGPT <strong>保存了完整的上下文</strong>且可以自主召回，因此<strong>压缩策略更激进</strong>；Claude Code 为了任务完成度保留了很多信息，主要策略是<strong>优先丢弃工具返回，保留任务进度和用户意图</strong>。</p>
 </div>
 
 <details class="example-details">
@@ -668,29 +650,25 @@ end_of_edit
 
 <!-- ===================== EPISODIC EXPERIENCE ===================== -->
 <section id="episodic">
-<h2>情节经验：从反思到技能（重点）</h2>
+<h2>二、情节经验</h2>
 
-<p>情节经验记录先前运行中发生了什么——决策、失败、反思。核心问题是：<strong>怎么利用这些经验让 Agent 下次做得更好？</strong>可以拆为三个维度：<strong>存什么</strong>（经验以什么形式保留）、<strong>怎么更新</strong>（新经验如何创建和迭代）、<strong>怎么召回</strong>（需要时如何加载到上下文）。这三个维度各自独立演化，共同驱动了从 Reflexion 到 Skill 范式的转变。</p>
+<p>模型推理的推理轨迹中往往能得到一些<strong>有利于下次推理的经验信息（skill）</strong>，核心问题是：怎么让模型自动<strong>总结并利用</strong>这些 skill 让 Agent 下次做得更好？在 <strong>Memory 系统</strong>方面可以拆为三个维度：<strong>存什么</strong>（经验以什么形式保留）、<strong>怎么更新</strong>（新经验如何创建和迭代）、<strong>怎么召回</strong>（需要时如何加载到上下文）。而近期的研究开始聚焦于怎么与 <strong>RL 训练结合</strong>，提高模型的 skill 利用能力。</p>
 
 
-<h3>早期探索：文本形式的经验记忆</h3>
+<h3>早期探索：skill 的雏形</h3>
 
 <!-- ===== REFLEXION ===== -->
 <div class="expand-section">
   <div class="expand-header">
     <div class="expand-title-group">
-      <h4>Reflexion：语义梯度 <span class="paper-tag">NeurIPS 2023</span></h4>
-      <p class="expand-desc">用自然语言反思代替梯度更新，失败后生成 semantic gradient 存入滑动窗口指导下次重试</p>
+      <h4>Reflexion：存经验的 naive 实践 <span class="paper-tag">NeurIPS 2023</span></h4>
+      <p class="expand-desc">失败后写一段反思文字存起来，下次重试时塞进 prompt 接着用</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
   </div>
   <div class="expand-body"><div class="expand-body-inner">
 
-<p><a href="https://arxiv.org/abs/2303.11366" target="_blank">Reflexion</a>（Shinn et al., 2023）提出用<strong>自然语言反思代替梯度更新</strong>——Agent 失败后不调权重，而是生成一段自然语言反思（semantic gradient），注入下轮 prompt 来改变行为。这是情节经验方向的起点，三个维度都处于最早期形态。</p>
-
-<h4 style="margin:24px 0 12px">执行→评估→反思 闭环</h4>
-
-<p>系统由三个模块协作：<strong>Actor</strong>（LLM 策略模型）接收环境观察 + 当前轨迹 + 历史反思，输出动作；<strong>Evaluator</strong> 将执行结果转化为二元成功/失败信号；失败后 <strong>Self-Reflection</strong> 接收完整轨迹 + 评估信号，生成一段具体的、可操作的反思文本（如「应该先找台灯再找杯子」）。反思需要具体的失败信号才能有针对性——所以 Self-Reflection 只在失败时触发。</p>
+<p><a href="https://arxiv.org/abs/2303.11366" target="_blank">Reflexion</a>（Shinn et al., 2023）用 Actor → Evaluator → Self-Reflection 构成 <strong>执行→评估→反思</strong> 闭环：仅在失败时写出<strong>自然语言反思</strong>，下轮<strong>注入 prompt</strong> 重试，用语言反馈替代调权重。</p>
 
 <details class="example-details">
 <summary>Evaluator 在不同场景下的实现方式</summary>
@@ -719,18 +697,6 @@ end_of_edit
   </div>
 </div>
 
-<h4 style="margin:24px 0 12px">滑动窗口驱逐机制</h4>
-
-<div class="quote-block" style="font-style:normal">
-  <p style="margin:0 0 8px"><strong>Memory = 滑动窗口（最多 3 条反思）</strong></p>
-  <ul style="margin:0 0 0 20px;font-size:14px;line-height:1.8;list-style:disc">
-    <li>窗口<strong>有界</strong>：最多保留最近 <strong>3 条</strong>反思，不会无限增长</li>
-    <li><strong>FIFO 驱逐</strong>：满了后最旧的反思被丢弃——反思并非只进不出，而是先进先出</li>
-    <li><strong>无优先级</strong>：不区分反思重要性，纯按时间淘汰</li>
-    <li><strong>全量注入</strong>：窗口内所有反思强制注入 prompt，3 条是 token 预算与信息量的权衡——多了消耗上下文，少了信息不足</li>
-  </ul>
-</div>
-
 <h4 style="margin:24px 0 12px">三维度定位</h4>
 
 <div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
@@ -748,8 +714,6 @@ end_of_edit
   </div>
 </div>
 
-<p><strong>关键数据：</strong>HumanEval pass@1 从 80.1% → 91.0%；AlfWorld 完成率 108/134 → 130/134。<strong>局限：</strong>滑动窗口无法积累大量经验；反思与具体任务强耦合、难以迁移；全量插入消耗上下文——三个维度都有改进空间。</p>
-
   </div></div>
 </div>
 
@@ -758,19 +722,19 @@ end_of_edit
   <div class="expand-header">
     <div class="expand-title-group">
       <h4>ExpeL：跨任务迁移的经验洞察 <span class="paper-tag">ICLR 2024</span></h4>
-      <p class="expand-desc">从多任务轨迹对比中提炼可迁移的 insights，实现跨任务零样本迁移</p>
+      <p class="expand-desc">从很多任务的成败轨迹里总结几条通用经验，带到新任务里用</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
   </div>
   <div class="expand-body"><div class="expand-body-inner">
 
-<p><strong>「存什么」前进一步：从个案反思到跨任务抽象 insights。</strong>更新方式也从单任务 retry 升级为多任务对比归纳。</p>
+<p><a href="https://arxiv.org/abs/2303.11366" target="_blank">Reflexion</a> 证明了真实推理中获得的经验能被复用到下一次推理中，但<strong>单 query</strong> 反复推理获得的经验往往<strong>泛化性不足</strong>。</p>
 
-<p><a href="https://arxiv.org/abs/2308.10144" target="_blank">ExpeL</a>（Zhao et al., 2023）解决 Reflexion 的迁移问题：不只从单个失败中反思，而是从<strong>多个任务的成功/失败对比中提炼通用 insights</strong>。三个维度的变化：</p>
+<p><a href="https://arxiv.org/abs/2308.10144" target="_blank">ExpeL</a> 从<strong>多个 query</strong> 的成功/失败对比中提炼通用 <strong>insights</strong>。三个维度的变化：</p>
 <ul style="margin:8px 0 16px 20px;color:var(--text-secondary);font-size:15px;line-height:1.7">
-  <li><strong>存什么：</strong>从轨迹中提炼的 insights——不再是个案反思，而是跨任务的抽象规则（如「先确认物品位置再行动」）。经 ADD/UPVOTE/DOWNVOTE 投票机制筛选质量</li>
-  <li><strong>怎么更新：</strong>GPT-4 做两类分析——(A) 对比同任务的成功/失败轨迹找关键差异；(B) 归纳多个成功轨迹的共性模式。从 retry 迭代升级为<strong>多任务归纳</strong></li>
-  <li><strong>怎么召回：</strong>所有 insights 仍全量注入 + FAISS 检索 top-k 相关成功轨迹作为 few-shot。召回方式<strong>开始引入向量检索</strong>，但 insights 本身还是硬加载</li>
+  <li><strong>存什么：</strong>① 完整的尝试轨迹；② 从轨迹中提炼的<strong>跨任务的抽象规则</strong>（如「先确认物品位置再行动」）。</li>
+  <li><strong>怎么更新：</strong>创建和更新上依赖 GPT-4 做两类分析——(A) 对比同任务的成功/失败轨迹找关键差异；(B) 归纳多个成功轨迹的共性模式。</li>
+  <li><strong>怎么召回：</strong>所有 <strong>insights</strong> 仍全量注入 + 向量检索 top-k 相关<strong>成功轨迹作为 few-shot</strong>。</li>
 </ul>
 
 <div class="figure-block">
@@ -787,9 +751,7 @@ end_of_edit
   </div>
 </div>
 
-<p><strong>关键数据：</strong>HotpotQA 34% → 39%；ALFWorld 48.5% → 59%。<strong>仍然的局限：</strong>experience 召回用完整轨迹（上下文开销大），insights 又全量注入 prompt——两者共同挤压上下文预算，限制了 insights 能积累的数量和每条的粒度。</p>
-
-<div class="quote-block">Reflexion 和 ExpeL 的经验都是自然语言文本。同期的 Voyager（实际发表更早，2023.05）走了另一条路——把经验存为可执行代码，开启了 skill 范式的雏形。</div>
+<p>ExpeL 开始抽取更通用抽象的 insight，保留了未经处理的完整轨迹用于注入，这种<strong>粗细结合</strong>的方式被后续工作继承。主流的存储方式演变成了 <strong>SOP 抽象 + 可执行代码/流程细节</strong>。</p>
 
   </div></div>
 </div>
@@ -802,44 +764,32 @@ end_of_edit
   <div class="expand-header">
     <div class="expand-title-group">
       <h4>Voyager：可执行的技能库 <span class="paper-tag">TMLR 2023</span></h4>
-      <p class="expand-desc">经验存储为可执行 JS 代码，向量检索 top-k 按需加载，技能可组合形成复合能力</p>
+      <p class="expand-desc">把成功经验写成可运行代码存进技能库，需要时检索几条来用</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
   </div>
   <div class="expand-body"><div class="expand-body-inner">
 
-<p><strong>「存什么」迈出关键一步：从文本到可执行代码，开启 skill 范式雏形。「怎么召回」也前进一步：从硬加载全量注入到按需向量检索 top-k。</strong></p>
+<p>Voyager 把经验存成<strong>执行成功的代码</strong>，从文本反思迈向可执行 skill；由 <strong>LLM 基于环境反馈提出探索任务</strong> 驱动持续练级，验证通过的函数入库后可组合调用。召回侧改为按任务描述做向量检索 top-k，不再把整库反思全量塞进 prompt。</p>
 
-<p><a href="https://arxiv.org/abs/2305.16291" target="_blank">Voyager</a>（Wang et al., 2023）是第一个把经验存储为<strong>可执行代码</strong>的 LLM Agent。在 Minecraft 开放世界中，三个维度的定位：</p>
-<ul style="margin:8px 0 16px 20px;color:var(--text-secondary);font-size:15px;line-height:1.7">
-  <li><strong>存什么：</strong>可执行 JS 函数——验证通过的代码存入向量数据库，新技能可调用已有技能，能力以组合方式指数增长</li>
-  <li><strong>怎么更新：</strong>验证通过即入库（只增不改）——Iterative Prompting 不是整体重试，而是逐步调试：生成代码 → 执行 → 三路反馈（环境状态 diff 告诉「做了什么」/ JS 错误告诉「哪里炸了」/ LLM self-verification 判断「目标达到没」）→ 在上一版代码基础上修改，最多 4 轮。通过即存入 skill library，4 轮都没过就丢弃</li>
-  <li><strong>怎么召回：</strong>向量相似度 top-k——用任务描述 embedding 检索最相关的 5 个技能作为 few-shot，不再全量注入</li>
-</ul>
+<p>可执行代码更<strong>稳定</strong>，并且天然可被别的<strong>代码复用</strong>，<strong>由易到难</strong>，更容易探索出复杂任务的解决方案。</p>
 
 <div class="figure-block">
   <img src="https://arxiv.org/html/2305.16291v2/x1.png" alt="Voyager system overview" loading="lazy">
-  <div class="figure-caption"><strong>Voyager 系统全景</strong>：Automatic Curriculum 提出目标 → Iterative Prompting 生成和修正代码 → 验证通过的代码存入 Skill Library → Library 帮助解决更难目标。</div>
+  <img src="https://arxiv.org/html/2305.16291v2/x3.png" alt="Voyager skill library mechanism" loading="lazy" style="margin-top:20px">
+  <div class="figure-caption"><strong>Voyager 架构与技能库</strong>：上图 — 课程学习 → 迭代写码 → 入库；下图 — 描述 embedding 入库，任务 query 检索 top-5 召回。</div>
   <span class="fig-toggle" onclick="toggleFigDetail(this, event)">展开说明 ▸</span>
   <div class="figure-detail">
     <ul>
-      <li><strong>Automatic Curriculum（左）：</strong>GPT-4 根据 Agent 当前状态（背包、位置、已完成任务）提出难度递增的目标。是「好奇心引擎」。</li>
-      <li><strong>Iterative Prompting（中）：</strong>更像开发者调 bug 而非考试重试——GPT-4 生成 JS 代码 → 执行 → 三路反馈同时返回（环境状态 diff / JS 执行错误堆栈 / LLM self-verification 判断目标是否达成）→ 在上一版代码基础上针对性修改，最多 4 轮。</li>
-      <li><strong>Skill Library（右）：</strong>验证通过的代码存入向量数据库（key=描述 embedding，value=代码）。新任务时检索 top-5 相关技能作为 few-shot 参考。</li>
-      <li><strong>复合增长：</strong>新技能可以调用已有技能函数，能力以组合方式指数增长。彻底解决灾难性遗忘。</li>
-    </ul>
-  </div>
-</div>
-
-<div class="figure-block">
-  <img src="https://arxiv.org/html/2305.16291v2/x3.png" alt="Voyager skill library mechanism" loading="lazy">
-  <div class="figure-caption"><strong>技能库存取机制</strong>：上 — 新技能通过描述 embedding 索引入库；下 — 新任务时用计划+反馈作为 query 检索 top-5。</div>
-  <span class="fig-toggle" onclick="toggleFigDetail(this, event)">展开说明 ▸</span>
-  <div class="figure-detail">
-    <ul>
-      <li><strong>存入：</strong>代码 → GPT-3.5 生成自然语言描述 → text-embedding-ada-002 编码 → 向量数据库。用描述做 key 是因为检索时 query 是自然语言。</li>
-      <li><strong>取出：</strong>新任务 → GPT-3.5 生成解决建议 → 合并环境反馈作为 query → cosine similarity 检索 top-5 → 注入代码生成 prompt。Top-5 准确率 96.5%。</li>
-      <li><strong>可组合性：</strong><code>craftWoodenPlanks()</code> 内部调用 <code>mineWoodLog()</code>，复杂技能站在简单技能肩膀上。50 个基础技能可组合出数百种行为。</li>
+      <li><strong>存什么：</strong>可执行 JS 函数——验证通过的代码存入<strong>向量</strong>数据库，<strong>新技能可调用已有技能</strong>，能力以组合方式指数增长。</li>
+      <li><strong>怎么更新：</strong>验证通过即入库（只增不改）——Iterative Prompting 不是整体重试，而是逐步调试：生成代码 → 执行 → 三路反馈（环境状态 diff 告诉「做了什么」/ JS 错误告诉「哪里炸了」/ LLM self-verification 判断「目标达到没」）→ 在上一版代码基础上修改，最多 4 轮。通过即存入 skill library，4 轮都没过就丢弃。</li>
+      <li><strong>怎么召回：</strong>向量相似度 top-k——用任务描述 embedding 检索最相关的 5 个技能作为 few-shot，不再全量注入。</li>
+      <li><strong>Automatic Curriculum（图 1 左）：</strong>GPT-4 根据 Agent 当前状态（背包、位置、已完成任务）提出难度递增的目标，即 <strong>LLM 基于环境反馈提出探索任务</strong>。</li>
+      <li><strong>Iterative Prompting（图 1 中）：</strong>更像开发者调 bug 而非考试重试——GPT-4 生成 JS 代码 → 执行 → 三路反馈同时返回（环境状态 diff / JS 执行错误堆栈 / LLM self-verification 判断目标是否达成）→ 在上一版代码基础上针对性修改，最多 4 轮。</li>
+      <li><strong>Skill Library（图 1 右）：</strong>验证通过的<strong>执行成功的代码</strong>以描述 embedding 为 key 入库；新任务时检索 top-5 相关技能注入 prompt。</li>
+      <li><strong>入库流程（图 2 上）：</strong>代码 → GPT-3.5 生成自然语言描述 → text-embedding-ada-002 编码 → 向量数据库。用描述做 key 是因为检索时 query 是自然语言。</li>
+      <li><strong>检索流程（图 2 下）：</strong>新任务 → GPT-3.5 生成解决建议 → 合并环境反馈作为 query → cosine similarity 检索 top-5 → 注入代码生成 prompt。</li>
+      <li><strong>可组合性：</strong><code>craftWoodenPlanks()</code> 内部调用 <code>mineWoodLog()</code>，复杂技能站在简单技能肩膀上。</li>
     </ul>
   </div>
 </div>
@@ -852,7 +802,7 @@ end_of_edit
   <div class="expand-header">
     <div class="expand-title-group">
       <h4>SkillWeaver：自驱动技能发现与 API 合成 <span class="paper-tag">COLM 2025</span></h4>
-      <p class="expand-desc">Agent 自主探索网站、练习操作、把成功经验蒸馏成可复用的 Python API，形成不断扩展的技能库</p>
+      <p class="expand-desc">自己上网练操作，把会用的步骤写成 Python 函数存起来</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
   </div>
@@ -862,11 +812,11 @@ end_of_edit
 
 <ul style="margin:8px 0 16px 20px;color:var(--text-secondary);font-size:15px;line-height:1.7">
   <li><strong>探索更主动：</strong>Voyager 靠 Automatic Curriculum 提目标，SkillWeaver 让 LLM 直接扫描网页截图和 accessibility tree 自主提出技能任务，且显式去重保证探索多样性</li>
-  <li><strong>验证更严格：</strong>Voyager 的 self-verification 是 LLM 自判，SkillWeaver 额外加了单元测试——合成的 API 必须跑通测试才入库，失败的进入 debug 循环修复</li>
+  <li><strong>验证更严格：</strong>Voyager 的 self-verification 是 LLM 自判，SkillWeaver 额外加了<strong>单元测试</strong>——合成的 API 必须跑通测试才入库，失败的进入 debug 循环修复</li>
   <li><strong>技能可跨 Agent 迁移：</strong>产出的是标准 Playwright Python API（函数签名 + docstring），强模型合成的 API 直接插给弱模型用，弱模型在 WebArena 上最高获 +133% 相对提升</li>
 </ul>
 
-<p>三阶段流程：<strong>Skill Proposal</strong>（LLM 扫描网页提出技能任务）→ <strong>Skill Synthesis</strong>（执行任务 + 成功轨迹蒸馏为 Python 函数）→ <strong>Skill Honing</strong>（单元测试 + debug 修复）。多轮迭代后会自动涌现组合 API（一个 API 调用多个子 API）。跟 Voyager 一样是<strong>只增不改</strong>——没有遗忘或迭代更新机制，且技能跟具体网站绑定，换站需要重新探索。</p>
+<p>三阶段流程：Skill Proposal（LLM 扫描网页提出技能任务）→ Skill Synthesis（执行任务 + 成功轨迹蒸馏为 Python 函数）→ Skill Honing（单元测试 + debug 修复）。多轮迭代后会自动涌现组合 API（一个 API 调用多个子 API）。跟 Voyager 一样是只增不改——没有遗忘或迭代更新机制，且技能跟具体网站绑定，换站需要重新探索。</p>
 
 <div id="sw-demo">
 <style>
@@ -1070,17 +1020,13 @@ end_of_edit
   <div class="expand-header">
     <div class="expand-title-group">
       <h4>AWM：参数化 Workflow 记忆 <span class="paper-tag">ICML 2025</span></h4>
-      <p class="expand-desc">从成功轨迹归纳参数化 workflow 子程序，作为 context guidance 注入 prompt，支持 offline 批量 + online 滚雪球两种模式</p>
+      <p class="expand-desc">把反复成功的操作步骤记下来，下次当参考流程塞进 prompt</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
   </div>
   <div class="expand-body"><div class="expand-body-inner">
 
-<p>假设你让 Agent 在某个电商网站下单——Agent 磕磕绊绊地完成了。下次遇到类似任务时，它能不能把「搜索商品 → 加入购物车 → 结账」这个流程记下来复用？<a href="https://arxiv.org/abs/2409.07429" target="_blank">AWM</a>（Wang et al., 2024）做的就是这件事：<strong>从成功经验中提炼出可复用的操作流程（workflow）</strong>，下次遇到同类任务时作为行动参考。</p>
-
-<p>具体来说，每个 workflow 是一段<strong>带占位符的步骤序列</strong>——比如「在搜索框输入 <code>{product-name}</code> → 点击第一个结果 → 加入购物车」。占位符让同一个流程可以套用到不同商品上。但 AWM 不会让 Agent 机械地执行这些步骤（动态网页环境太复杂，弹个窗就卡住了），而是把 workflow 作为<strong>参考指南</strong>放在 prompt 里，Agent 自己决定要不要跟着走。两种使用模式：<strong>Offline</strong> 从历史数据一次性总结；<strong>Online</strong> 边做边学——每完成一个任务就提炼新 workflow，简单流程叠加出复杂流程，产生滚雪球效应。</p>
-
-<p><strong>召回方式很朴素：</strong>workflow 按网站分组存储（Amazon 的流程、GitLab 的流程各一组），Agent 访问哪个网站就把该网站的<strong>所有 workflow 一股脑塞进 prompt</strong>。不做语义检索、不做相关性过滤——因为每个网站总共也就 7 个左右 workflow，全塞进去 token 开销可控。Agent 拿到这组 workflow 后自主判断当前任务跟哪个流程匹配，决定是否参照执行。这比 Voyager 的向量检索简单得多，但也意味着 workflow 数量一旦增长，全量注入就不可持续。</p>
+<p><a href="https://arxiv.org/abs/2409.07429" target="_blank">AWM</a>（Wang et al., 2024）从 Agent 成功轨迹里<strong>提取 SOP</strong>——带占位符的步骤流程（如「搜索 <code>{product-name}</code> → 加购 → 结账」），下次放进 prompt 作参考而非机械执行；按网站分组全量注入，可离线批量总结或在线边做边积累。</p>
 
 <details class="example-details">
 <summary>查看示例：AWM 归纳出的 workflow（来自原论文）</summary>
@@ -1139,15 +1085,13 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   <div class="expand-header">
     <div class="expand-title-group">
       <h4>ASI：可验证的程序化技能归纳 <span class="paper-tag">COLM 2025</span></h4>
-      <p class="expand-desc">从成功轨迹中归纳可执行 Python 程序作为技能，通过执行验证保证正确性，直接扩展动作空间而非仅做 prompt 参考</p>
+      <p class="expand-desc">从成功轨迹里抽出可运行的 Python 技能，跑通验证了再放进动作列表</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
   </div>
   <div class="expand-body"><div class="expand-body-inner">
 
-<p><a href="https://arxiv.org/abs/2504.06821" target="_blank">ASI</a>（Wang et al., 2025）是前面 AWM 同一第一作者（Zijun Wang）的后续工作，延续了在线归纳技能的框架，但对存储形式做了根本性升级：AWM 把技能存为自由文本 workflow，只能放进 prompt 做参考，Agent 可能不遵循，也<strong>无法被执行验证</strong>；ASI 则用<strong>可执行的 Python 程序</strong>来表示技能，并新增三重验证机制。程序形式带来两个关键优势：一是可以通过实际执行来验证技能的正确性，过滤掉有问题的归纳结果；二是技能作为函数直接<strong>扩展 Agent 的动作空间</strong>（而非仅作为记忆参考），Agent 调用一次函数就能精确执行多步原子操作，既减少低层出错，也提升效率。</p>
-
-<p>具体做法分三步：① <strong>归纳</strong>——从成功 episode 中，LM 归纳出一个或多个 Python 函数（如 <code>search_product(name)</code>），把多步原子操作（click/fill/scroll）封装为高层调用；② <strong>验证（核心）</strong>——分三个环节：首先<strong>轨迹重写</strong>，把原始的 click/fill/scroll 操作替换为对新技能函数的调用，生成一个「使用技能的轨迹前缀」；然后<strong>截断尾部</strong>，去掉轨迹末尾直接给出答案的步骤（如 <code>send_msg_to_user('答案是2')</code>）——这一步至关重要，否则 Agent 从重写轨迹继续执行时直接就到了答案步骤，什么技能都没用就"通过"了验证（假阳性）；最后<strong>重跑检查</strong>，让 Agent 从截断后的前缀继续执行，同时检查三件事：任务是否完成（技能有效性）、Agent 是否真的调用了新技能（防止绕开技能用原始操作完成）、技能调用是否引起了环境变化（防止空调用）；③ <strong>入库</strong>——三项全过才加入 skill library，下次 Agent 可直接调用这些函数作为动作。</p>
+<p><a href="https://arxiv.org/abs/2504.06821" target="_blank">ASI</a>（Wang et al., 2025）延续 AWM 的在线归纳框架，把技能从文本 workflow 升级为<strong>可执行的 Python 程序</strong>：能实际跑通验证、能直接注册为 Agent 新动作，而不只是 prompt 里的参考说明。</p>
 
 <div class="figure-block">
   <img src="https://arxiv.org/html/2504.06821v2/x1.png" alt="ASI framework overview" loading="lazy">
@@ -1155,9 +1099,11 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   <span class="fig-toggle" onclick="toggleFigDetail(this, event)">展开说明 ▸</span>
   <div class="figure-detail">
     <ul>
-      <li><strong>文本技能（上）：</strong>workflow 只能放在 prompt 里做参考，Agent 自行决定是否遵循，容易偏离或遗忘。</li>
-      <li><strong>程序技能（下）：</strong>技能是可执行函数，Agent 一旦选择调用就会精确执行封装好的步骤序列，减少低层错误。</li>
-      <li><strong>关键区别：</strong>从「记忆增强」变成「动作空间扩展」——不是多了一条参考信息，而是多了一个新能力。</li>
+      <li><strong>相对 AWM：</strong>文本 workflow 只能放进 prompt，Agent 可能不跟、也无法执行验证；程序技能则扩展动作空间，调用一次函数即完成多步 click/fill/scroll。</li>
+      <li><strong>① 归纳：</strong>从成功 episode 中由 LM 归纳 Python 函数（如 <code>search_product(name)</code>），封装多步原子操作为高层调用。</li>
+      <li><strong>② 验证（核心）：</strong>轨迹重写（用技能函数替换原始操作）→ <strong>截断尾部</strong>（去掉 <code>send_msg_to_user</code> 等直接给答案的步骤，否则重跑会「空过」验证、产生假阳性）→ 重跑检查：任务是否完成、是否真调用了新技能、调用是否引起环境变化。</li>
+      <li><strong>③ 入库：</strong>三项全过才写入 skill library，后续可作为 Agent 可调用动作。</li>
+      <li><strong>图中对比：</strong>上为文本参考式记忆增强；下为可执行程序式动作空间扩展。</li>
     </ul>
   </div>
 </div>
@@ -1340,24 +1286,13 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   <div class="expand-header">
     <div class="expand-title-group">
       <h4>PolySkill：多态抽象的跨域泛化 <span class="paper-tag">ICLR 2026</span></h4>
-      <p class="expand-desc">借鉴 OOP 多态思想，将技能分为抽象类接口和具体子类实现，解决 skill library 的跨网站泛化问题</p>
+      <p class="expand-desc">同一套流程骨架，不同网站各写一版具体实现，方便迁移</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
   </div>
   <div class="expand-body"><div class="expand-body-inner">
 
-<p>Agent 在 Amazon 上学会了「搜索 → 加购物车 → 结账」的操作技能，但换到 Target 网站就完全不会了——按钮位置不同、交互流程有差异、DOM 结构全变了。这是 Voyager 式 skill library 的核心瓶颈：<strong>技能跟具体环境绑死了，换个环境就废了</strong>。<a href="https://arxiv.org/abs/2510.15863" target="_blank">PolySkill</a>（Yu et al., 2025）的解法很直觉：虽然 Amazon 和 Target 的具体操作不同，但「购物」这件事的<strong>流程骨架是一样的</strong>——都需要搜索、加购物车、结账。能不能把流程骨架和具体操作分开？</p>
-
-<p>PolySkill 借鉴了编程中的<strong>接口与实现分离</strong>：先定义一个「购物网站」的通用接口（需要实现哪些方法：<code>search()</code>、<code>add_to_cart()</code>、<code>checkout()</code>），再为每个具体网站填充实现细节。组合流程（如「下单 = 搜索 → 加购物车 → 结账」）只需在接口层定义一次，所有网站自动继承。遇到没见过的新网站时，Agent 至少知道<strong>需要学什么</strong>（实现这些接口方法），而不是从零开始盲目探索。技能生成后还要过一道验证：用新技能重做原任务，LLM Judge 判定成功才入库。</p>
-
-<div class="quote-block" style="font-style:normal">
-  <p style="margin:0 0 8px"><strong>与个性化记忆 IFRAgent 的对照（多态轴不同）</strong></p>
-  <p style="margin:0 0 8px">PolySkill 把多态用在<strong>环境</strong>：Amazon / Target 共用「购物」流程骨架（抽象类），各站填具体实现（子类）。情节经验里的 <a href="#ifragent">IFRAgent</a> 把同一套思路用在<strong>用户</strong>：同一 App 下「点外卖」的 SOP 骨架相近（显式流 + RAG 继承相似 demonstration），每位用户用隐式习惯库 <code>h<sub>i</sub></code> + Query Rewriter 填偏好槽位（相当于 per-user 的「子类实现」），差异在文本改写而非可执行代码。</p>
-  <ul style="margin:0 0 0 20px;font-size:14px;line-height:1.7;list-style:disc">
-    <li><strong>相同：</strong>骨架与实例分离；新实例（新站 / 新用户）检索继承模板，再填充特化细节</li>
-    <li><strong>不同：</strong>PolySkill 是 OOP 式抽象类 + 代码子类；IFRAgent 是检索式 SOP + 自然语言习惯，不扩展 action space</li>
-  </ul>
-</div>
+<p>技能绑死单一网站是 skill library 的常见瓶颈。<a href="https://arxiv.org/abs/2510.15863" target="_blank">PolySkill</a>（Yu et al., 2025）把「购物」流程做<strong>功能抽象</strong>（<code>search()</code> / <code>add_to_cart()</code> / <code>checkout()</code> 等接口），<strong>不同网站，重跑生成可执行代码</strong>填入具体实现；组合流程在抽象层定义一次、各站<strong>继承</strong>复用，形成跨环境的<strong>多态</strong>。新站按接口清单探索而非盲目试错，技能需用原任务重跑并由 LLM Judge 验证后才入库。</p>
 
 <details class="example-details">
 <summary>查看示例：PolySkill 的抽象类与具体实现（来自原论文）</summary>
@@ -1555,26 +1490,24 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   </div>
 </div>
 
-<p><strong>局限：</strong>抽象类初始化质量敏感（初始抽象若捕获表面 UI 相似性，所有子类继承该缺陷）；对长尾/跨领域融合网站效果减弱。</p>
-
   </div></div>
 </div>
 
 
 <h3>Skill 库自进化</h3>
 
+<p>至此，Skill 的<strong>顶层 SOP + 底层代码</strong>的范式基本已确定，研究重点转到怎样对现有的 skill 做<strong>更新</strong>。</p>
+
 <!-- ===== MEMENTO-SKILLS ===== -->
 <div class="expand-section">
   <div class="expand-header">
     <div class="expand-title-group">
       <h4>Memento-Skills：技能自迭代进化 <span class="paper-tag">arXiv 2026</span></h4>
-      <p class="expand-desc">结构化 skill 文件夹通过 Read-Write 循环持续自进化，行为对齐路由替代语义检索</p>
+      <p class="expand-desc">技能写成文件夹，按任务挑对的来用，还能边用边改</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
   </div>
   <div class="expand-body"><div class="expand-body-inner">
-
-<p>LLM 参数一旦冻结，所有适应都只能发生在输入侧——prompt、context、或外部 memory。<a href="https://arxiv.org/abs/2603.18743" target="_blank">Memento-Skills</a>（Memento-Team, 2026）的核心命题是：<strong>让 agent 自己设计 agent</strong>——一个通用 agent 通过 Read-Write Reflective Learning 循环，自主构建、适配和迭代面向特定任务的 skill，实现无需参数更新的 continual learning。</p>
 
 <p>具体来说，Memento-Skills 从少量基础 skill（如 Web 搜索、终端操作）起步，通过反复的「读取 skill → 执行任务 → 反馈归因 → 改写 skill」闭环不断扩展能力边界。在三个关键维度上做出了推进：</p>
 <ul style="margin:8px 0 16px 20px;color:var(--text-secondary);font-size:15px;line-height:1.7">
@@ -1753,7 +1686,7 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   <div class="expand-header">
     <div class="expand-title-group">
       <h4 style="font-size:0.95rem;margin:0">Memento-Qwen：行为对齐路由器的训练流程</h4>
-      <p class="expand-desc">Skill 召回 ≠ 文档检索——语义近不代表行为匹配，这是个独立的难题</p>
+      <p class="expand-desc">训练一个小模型，按行为相似挑该用哪个技能，不看文字像不像</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
   </div>
@@ -1808,7 +1741,7 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   <div class="expand-header">
     <div class="expand-title-group">
       <h4>Trace2Skill：像人类专家一样写 Skill <span class="paper-tag">arXiv 2026</span></h4>
-      <p class="expand-desc">先广泛分析经验，再蒸馏为一份综合性指南——并行分析 + 归纳合并，无需检索模块</p>
+      <p class="expand-desc">先把大量经验看完，再写成一份总指南，用时整份加载</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
   </div>
@@ -2017,7 +1950,7 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   <div class="expand-header">
     <div class="expand-title-group">
       <h4>SkillRL：RL 驱动的技能递归进化 <span class="paper-tag">arXiv 2026</span></h4>
-      <p class="expand-desc">经验蒸馏构建层次化 SkillBank，GRPO 强化学习中技能库与策略共同进化</p>
+      <p class="expand-desc">边强化学习边维护技能库，考得不好就补新技能</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
   </div>
@@ -2068,7 +2001,7 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   <div class="expand-header">
     <div class="expand-title-group">
       <h4>ARISE：RL 驱动的技能共进化 <span class="paper-tag">arXiv 2026</span></h4>
-      <p class="expand-desc">将 skill library 内嵌为策略状态的一部分，通过参数共享让技能选择与策略优化间接耦合、协同进化</p>
+      <p class="expand-desc">技能库和策略绑在一起，练策略的同时一起练怎么选技能</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
   </div>
@@ -2310,7 +2243,7 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   <div class="expand-header">
     <div class="expand-title-group">
       <h4>Skill0：内化式路径——把 Skill 写进模型参数 <span class="paper-tag">另一条路</span></h4>
-      <p class="expand-desc">前面所有方法都是「外化」——skill 存在模型外部，靠 prompt 注入。Skill0 反过来：把 skill 内化到模型权重里</p>
+      <p class="expand-desc">不靠外挂文档，把技能直接训进模型参数里</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
   </div>
@@ -2333,7 +2266,7 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
 
 <!-- ===================== PERSONALIZED ===================== -->
 <section id="personalized">
-<h2>个性化记忆：适配特定用户</h2>
+<h2>三、个性化记忆</h2>
 <p>核心问题：用户特定痕迹有不同的保留、检索和<strong>隐私规则</strong>，不应混入通用知识。跨会话对话记忆是这一层最典型的场景——需要从冗长历史中抽取、合并、检索与用户相关的 salient facts，而不是每次把全文塞进上下文。</p>
 
 <!-- ===== Mem0 ===== -->
@@ -2341,7 +2274,7 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   <div class="expand-header">
     <div class="expand-title-group">
       <h4>Mem0：生产级长期对话记忆 <span class="paper-tag">ECAI 2025</span></h4>
-      <p class="expand-desc">增量抽取对话 salient facts，经 ADD/UPDATE/DELETE/NOOP 维护记忆库，查询时向量检索注入——LOCOMO 上比 OpenAI 记忆高 26% J 分，p95 延迟约为 full-context 的 1/10</p>
+      <p class="expand-desc">每轮对话抽几条要记住的事实，更新记忆库，回答时再捞出来</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
   </div>
@@ -2582,7 +2515,7 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   <div class="expand-header">
     <div class="expand-title-group">
       <h4>IFRAgent：从演示中学习用户习惯 <span class="paper-tag">arXiv 2025</span></h4>
-      <p class="expand-desc">演示建 SOP 库 + 习惯库 h_i；在线 RAG 得通用流程后，Query Rewriter（𝒲）显式改写 query/SOP 再执行</p>
+      <p class="expand-desc">先看你做过什么学会流程，再按你的习惯改写成你想看到的指令</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
   </div>
