@@ -92,9 +92,15 @@ section p strong{color:var(--text-primary);font-weight:600}
 .expand-header h4{font-size:15px;font-weight:600;margin:0}
 .expand-header .expand-desc{font-size:13px;color:var(--text-tertiary);font-weight:400;margin-top:4px;line-height:1.4}
 .expand-chevron{width:20px;height:20px;transition:transform .3s;color:var(--text-tertiary)}
-.expand-section.open .expand-chevron{transform:rotate(180deg)}
+.expand-section.open > .expand-header .expand-chevron{transform:rotate(180deg)}
 .expand-body{max-height:0;overflow:hidden;transition:max-height .4s ease}
-.expand-section.open .expand-body{max-height:3000px}
+.expand-section.open > .expand-body{max-height:3000px}
+.expand-section--nested{margin:12px 0;border-color:transparent;background:var(--bg-secondary)}
+.expand-section--nested > .expand-header{padding:10px 14px;background:transparent}
+.expand-section--nested > .expand-header:hover{background:var(--bg-tertiary)}
+.expand-section--nested > .expand-header h4{font-size:13px;font-weight:500;color:var(--text-secondary)}
+.expand-section--nested > .expand-header .expand-desc{font-size:12px;color:var(--text-tertiary)}
+.expand-section--nested > .expand-body-inner{padding:12px 16px;font-size:13px}
 .expand-body-inner{padding:20px;font-size:14px;color:var(--text-secondary);line-height:1.7}
 .expand-body-inner p{margin-bottom:12px}
 .comparison-table-wrap{margin:24px 0;overflow-x:auto}
@@ -130,6 +136,17 @@ pre code{background:none;padding:0}
 .example-details[open] summary::before{content:'▾ '}
 .example-details summary:hover{background:var(--bg-hover)}
 .example-details .example-content{padding:4px 16px 16px;font-size:14px;color:var(--text-secondary);line-height:1.7}
+.prompt-card--subtle{margin:10px 0 14px;border:1px dashed var(--border-light);border-radius:8px;overflow:hidden;background:var(--bg-secondary)}
+.prompt-card--subtle summary{padding:8px 14px;font-size:12px;font-weight:500;color:var(--text-tertiary);cursor:pointer;user-select:none;list-style:none;transition:background .2s}
+.prompt-card--subtle summary::-webkit-details-marker{display:none}
+.prompt-card--subtle summary::before{content:'▸ ';font-size:11px;opacity:.7}
+.prompt-card--subtle[open] summary::before{content:'▾ '}
+.prompt-card--subtle summary:hover{background:var(--bg-tertiary);color:var(--text-secondary)}
+.prompt-card--subtle .prompt-card-body{padding:0 12px 12px}
+.prompt-card--subtle pre{margin:0;padding:10px 12px;font-size:11px;line-height:1.55;background:var(--bg-white);border:1px solid var(--border-light);border-radius:6px;color:var(--text-secondary);max-height:320px;overflow:auto}
+.prompt-card--subtle .prompt-card-note{margin:8px 0 0;font-size:11px;color:var(--text-tertiary);line-height:1.5}
+.ref-link-quiet{color:var(--text-tertiary);text-decoration:none;border-bottom:1px dotted var(--border-light)}
+.ref-link-quiet:hover{color:var(--text-secondary);border-bottom-color:var(--text-tertiary)}
 </style>
 </head>
 <body>
@@ -158,7 +175,7 @@ pre code{background:none;padding:0}
 
 <!-- ===================== TAXONOMY ===================== -->
 <section id="taxonomy">
-<p style="margin-bottom:8px;">借鉴 <a href="https://arxiv.org/abs/2501.13751" target="_blank" style="color:var(--accent);text-decoration:none;font-weight:500">Externalization in LLM Agents (2026)</a> 对 <strong>Agent Memory 的分类方式</strong>，将 Agent Memory 分为以下三块：</p>
+<p style="margin-bottom:8px;">借鉴 <a href="https://arxiv.org/abs/2501.13751" target="_blank" style="color:var(--accent);text-decoration:none;font-weight:500">Externalization in LLM Agents (2026)</a> 对 Agent Memory 的分类方式，根据<strong>记忆内容</strong>将 Agent Memory 分为以下三块：</p>
 <div class="card-grid" style="grid-template-columns:repeat(3,1fr)">
   <div class="card" style="cursor:default"><div class="card-icon">📋</div><div class="card-title">工作上下文</div><div class="card-brief">Agent 当前能看到的环境状态切片。</div></div>
   <div class="card" style="cursor:default"><div class="card-icon">📚</div><div class="card-title">情节经验</div><div class="card-brief">从历史轨迹中提炼的可复用知识。</div></div>
@@ -170,7 +187,7 @@ pre code{background:none;padding:0}
 <section id="working">
 <h2>一、工作上下文</h2>
 
-<p>LLM 的上下文与其表现高度相关，一方面<strong>上下文窗口有限</strong>，另一方面，<strong>模型表现往往随着上下文长度的增加而下降</strong>。有效的上下文管理机制往往能大幅提高模型表现。</p>
+<p>LLM 的上下文与其表现高度相关，<strong>模型表现往往随着上下文长度的增加而下降</strong>。因此这一块的核心问题是：<strong>怎么让模型只看到信息量最多的那一部分信息</strong>。</p>
 
 <!-- ===== 观察什么 ===== -->
 <h3>观察什么：为 Agent 设计状态接口</h3>
@@ -652,10 +669,10 @@ end_of_edit
 <section id="episodic">
 <h2>二、情节经验</h2>
 
-<p>模型推理的推理轨迹中往往能得到一些<strong>有利于下次推理的经验信息（skill）</strong>，核心问题是：怎么让模型自动<strong>总结并利用</strong>这些 skill 让 Agent 下次做得更好？在 <strong>Memory 系统</strong>方面可以拆为三个维度：<strong>存什么</strong>（经验以什么形式保留）、<strong>怎么更新</strong>（新经验如何创建和迭代）、<strong>怎么召回</strong>（需要时如何加载到上下文）。而近期的研究开始聚焦于怎么与 <strong>RL 训练结合</strong>，提高模型的 skill 利用能力。</p>
+<p>模型推理的推理轨迹中往往能得到一些<strong>有利于下次推理的经验信息（skill）</strong>，核心问题是：怎么让模型自动<strong>总结并利用</strong>这些 skill 让 Agent 下次做得更好？在 <strong>Memory 系统</strong>方面可以拆为三个维度：<strong>存什么</strong>（经验以什么形式保留）、<strong>怎么更新</strong>（新经验如何创建和迭代）、<strong>怎么召回</strong>（需要时如何加载到上下文）。早期的工作大多在探索要<strong>存什么</strong>，近期的研究开始聚焦于怎么<strong>有效更新</strong>、怎么与 <strong>RL 训练</strong>结合，提高模型的 skill 利用能力。</p>
 
 
-<h3>早期探索：skill 的雏形</h3>
+<h3>skill 的表示形式：早期探索</h3>
 
 <!-- ===== REFLEXION ===== -->
 <div class="expand-section">
@@ -757,7 +774,7 @@ end_of_edit
 </div>
 
 
-<h3>课程式探索：Agent 自主发现 Skill</h3>
+<h3>课程式探索：LLM 自主设计任务</h3>
 
 <!-- ===== VOYAGER ===== -->
 <div class="expand-section">
@@ -1013,7 +1030,7 @@ end_of_edit
 </div>
 
 
-<h3>Skill 表示与验证</h3>
+<h3>skill 的原则：粗细结合</h3>
 
 <!-- ===== AWM ===== -->
 <div class="expand-section">
@@ -1509,11 +1526,11 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   </div>
   <div class="expand-body"><div class="expand-body-inner">
 
-<p>具体来说，Memento-Skills 从少量基础 skill（如 Web 搜索、终端操作）起步，通过反复的「读取 skill → 执行任务 → 反馈归因 → 改写 skill」闭环不断扩展能力边界。在三个关键维度上做出了推进：</p>
+<p>Skill 的更新其实是个很难的任务。一方面，实际运行中，让 LLM 去选择创建或者更新旧的 skill，模型往往<strong>偏向创建新的 skill</strong>，导致 skill 库爆炸；另一方面，skill 更新后往往<strong>不经过测试，更新后不能保证原来的 skill 原有功能仍能 work</strong>。</p>
 <ul style="margin:8px 0 16px 20px;color:var(--text-secondary);font-size:15px;line-height:1.7">
   <li><strong>存什么：</strong>结构化 skill 文件夹（SKILL.md + prompts + scripts + <strong>tests</strong>）——既包含声明式知识（prompts 引导 LLM），又包含程序性知识（scripts 直接执行），还自带质量保证（<strong>tests</strong> 防退化）。比 Voyager 的纯函数更完整</li>
-  <li><strong>怎么更新：</strong>失败归因 + 原地优化/发现——Judge 定位失败归因到具体 skill 后，根据该 skill 的 <strong>utility</strong>（历史成功率 = 成功次数 / 总使用次数）决定策略：<strong>Optimise</strong>（utility ≥ δ，说明 skill 整体还行只是本次出错，靶向修补）、<strong>Discover</strong>（utility &lt; δ，说明 skill 方向本身就不对，新建替代）、<strong>Unit Test Gate</strong>（门控回滚防退化）</li>
-  <li><strong>怎么召回：</strong>行为对齐路由——传统检索（如 Voyager）用语义 embedding 找「描述最像」的 skill，但「密码重置」和「退款处理」的语义相似度可达 0.91，选错却是灾难性的。Memento 用 <strong>InfoNCE 对比学习 + 离线 RL</strong> 训练 embedding：正样本 = 用了这个 skill 后任务成功的 (task, skill) 对，负样本 = 同领域但行为不匹配的对。这样 embedding 空间优化的是「选了这个 skill 后成功的概率」而非「文本描述相似度」</li>
+  <li><strong>怎么更新：</strong>失败归因 + 原地优化/发现——Judge 定位失败归因到具体 skill 后，根据该 skill 的 <strong>utility</strong>（历史成功率 = 成功次数 / 总使用次数）决定策略：Optimise（utility ≥ δ，说明 skill 整体还行只是本次出错，靶向修补）、Discover（utility &lt; δ，说明 skill 方向本身就不对，新建替代）、Unit Test Gate（门控回滚防退化）</li>
+  <li><strong>怎么召回：</strong>行为对齐路由——Memento 用 InfoNCE 对比学习 + 离线 RL 训练 embedding：正样本 = 用了这个 skill 后任务成功的 (task, skill) 对，负样本 = 同领域但行为不匹配的对。这样 embedding 空间优化的是「选了这个 skill 后成功的概率」而非「文本描述相似度」</li>
 </ul>
 
 <div id="ms-demo">
@@ -1682,10 +1699,10 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
 </script>
 </div>
 
-<div class="expand-section" style="margin:1.5rem 0">
+<div class="expand-section expand-section--nested">
   <div class="expand-header">
     <div class="expand-title-group">
-      <h4 style="font-size:0.95rem;margin:0">Memento-Qwen：行为对齐路由器的训练流程</h4>
+      <h4>Memento-Qwen：行为对齐路由器的训练流程</h4>
       <p class="expand-desc">训练一个小模型，按行为相似挑该用哪个技能，不看文字像不像</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
@@ -1747,9 +1764,9 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   </div>
   <div class="expand-body"><div class="expand-body-inner">
 
-<p>前面介绍的方法（Voyager、Memento-Skills 等）都是<strong>在线逐条演化</strong>——每遇到一条新轨迹就立刻更新 skill。这就像一个新手边看第一页教材边写总结，写完第一页的理解后再看第二页，但第二页可能推翻第一页的结论——结果每次更新都在改变后续分析的基础，产生<strong>「顺序漂移」</strong>。而且 skill 越改越碎片化：每条轨迹产生一个窄 skill，最终技能库爆炸到需要复杂的检索系统。</p>
+<p>大部分 skill 更新方式遵守<strong>一条轨迹对应一次更新</strong>：后面的更新往往优先级更高，容易产生偏差；单条轨迹带来的改动又常让 skill 过度贴合这道题，<strong>泛化性不足</strong>。</p>
 
-<p>人类专家怎么写操作指南？不是边做边改，而是<strong>先广泛积累经验，再一次性蒸馏为一份综合指南</strong>。<a href="https://arxiv.org/abs/2603.25158" target="_blank">Trace2Skill</a>（Ni et al., 2026）就是模仿这个过程：一次性并行分析大量轨迹，从中归纳出系统性模式，蒸馏为一份完整的 skill document——不需要检索模块，直接注入 system prompt 就能用。</p>
+<p><a href="https://arxiv.org/abs/2603.25158" target="_blank">Trace2Skill</a>（Ni et al., 2026）提出<strong>拿一批轨迹来更新 skill</strong>：每道题独立创建 patch → patch 合并归纳。</p>
 
 <!-- 三阶段动画 -->
 <div id="t2s-demo">
@@ -1922,6 +1939,32 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
 </script>
 </div>
 
+<details class="prompt-card--subtle">
+<summary>Stage 3 Merge 算子 ℳ · system prompt（附录 B.3.1）</summary>
+<div class="prompt-card-body">
+<pre><code>You are a skill edit coordinator. You receive multiple independently-proposed
+patches that each suggest changes to a skill folder. Your job is to merge them
+into one coherent, non-redundant patch.
+
+Guidelines:
+1. Deduplicate: same or very similar edits → keep the best version.
+2. Resolve conflicts: contradictory edits → stronger justification or synthesize.
+3. Preserve unique insights: include all unique, non-redundant edits.
+4. Maintain conciseness: merged patch ≤ sum of unique edits; remove redundancy.
+5. Ensure independence: no two edits target overlapping lines (parallel apply).
+6. Atomic create/link pairs: references/*.md "create" + SKILL.md link → keep both or drop both.
+
+Prevalent pattern bias: when multiple patches independently propose similar edits
+for the same failure/success class, treat recurrence as systematic — preserve with
+higher priority and express as general principles, not instance-specific fixes.
+
+Output: JSON {"reasoning","edits":[{file,op,...}],"changelog_entries":[...]}
+Ops: insert_after | insert_before | append_to_section | replace_in_section |
+     add_section | delete_section | create | delete_file</code></pre>
+<p class="prompt-card-note">每轮 user 消息另附原始 skill 目录全文 + 待合并 patch 列表；论文实验每层 batch=32，官方代码默认 5。</p>
+</div>
+</details>
+
 <div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
   <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
     <div class="card-title">存什么</div>
@@ -1937,13 +1980,13 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   </div>
 </div>
 
-<p><strong>局限：</strong>仅验证于 spreadsheet/math/VQA 三个领域；单轮演化未探索迭代；依赖可验证任务（需 ground truth 划分成功/失败）。人写的 xlsx skill 让 122B 提升 +20pp，但同一份 skill 反而让 35B 下降——说明 skill 与模型的适配性是个未解问题。</p>
-
   </div></div>
 </div>
 
 
 <h3>RL 驱动的参数化进化</h3>
+
+<p>Skill 库的初始化创建和后续更新都依赖真实 rollout 轨迹；rollout 也是 RL 环节里成本最高的部分。有的工作开始探索这两个环节的融合，以<strong>更充分地利用 rollout 轨迹</strong>。</p>
 
 <!-- ===== SKILLRL ===== -->
 <div class="expand-section">
@@ -1956,11 +1999,7 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   </div>
   <div class="expand-body"><div class="expand-body-inner">
 
-<p>回顾前面的方法——无论是 Voyager/SkillWeaver 的课程式探索，还是 AWM/ASI 的轨迹归纳，本质都是 <strong>rollout 探索环境 → 将经验记忆化为技能</strong>。但技能建好之后，agent 怎么用它们？全靠 prompt 注入后的 in-context learning，agent 本身的参数没有因此变强。既然构建技能库的过程本身就需要大量 rollout，<strong>为什么不在 rollout 的同时用 RL 训练 agent 更好地利用这些技能？</strong>（<em>编者注：这一视角并非原文论述，原文的出发点是批评 Reflexion/ExpeL 等 memory 方法存储原始轨迹过于冗余，主张通过「经验→技能的抽象蒸馏」来提升信息密度。</em>）</p>
-
-<p><a href="https://arxiv.org/abs/2602.08234" target="_blank">SkillRL</a>（Xia et al., 2026）做的正是这件事：先把原始轨迹蒸馏为结构化技能（解决信息密度问题），再通过 RL 让 agent 学会利用这些技能，并在训练过程中让技能库与策略<strong>共同进化</strong>。</p>
-
-<p>具体方案分三步。<strong>第一步，经验蒸馏：</strong>用 teacher model 把原始轨迹压缩成结构化 skill——成功轨迹提取战略模式（关键决策点、可泛化规律），失败轨迹提炼反面教训（失败点、错误推理、应有做法）。这步实现 10–20× 的 token 压缩。<strong>第二步，层次化技能库（SkillBank）：</strong>分为「通用 skill」（跨所有任务类别的策略原则，如系统性探索、状态验证）和「任务特定 skill」（某类任务的专属 heuristics），检索时通用 skill 全量注入 + 任务 skill 向量 top-K 召回。<strong>第三步，递归进化：</strong>先用 teacher 生成 skill-augmented 示范做 cold-start SFT（让 agent 学会「用 skill」），再跑 GRPO 强化学习；每个 validation epoch 后，对成功率低于阈值的类别收集失败轨迹，teacher 分析缺口并生成新 skill 补入库——形成「策略提升 → 遇到新挑战 → 技能库扩展 → 进一步提升」的良性循环。</p>
+<p>前述 Voyager/AWM 等把 rollout 经验外化成 skill，但 agent 多半只靠 prompt 注入来用，参数本身不会更会「用 skill」。<a href="https://arxiv.org/abs/2602.08234" target="_blank">SkillRL</a>（Xia et al., 2026）用 teacher 把轨迹蒸馏进层次化 SkillBank（通用 skill 全量注入 + 任务 skill 向量 top-K，约 10–20× 压缩），再经 cold-start SFT 与 GRPO 训练；验证失败时 teacher 分析缺口并补 skill——核心是<strong>迭代 skill 库并进行 RL，提高模型的 skill 利用能力</strong>。</p>
 
 <div class="figure-block">
   <img src="https://arxiv.org/html/2602.08234v1/x2.png" alt="SkillRL framework overview" loading="lazy">
@@ -1996,266 +2035,57 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   </div></div>
 </div>
 
-<!-- ===== ARISE ===== -->
-<div class="expand-section">
-  <div class="expand-header">
-    <div class="expand-title-group">
-      <h4>ARISE：RL 驱动的技能共进化 <span class="paper-tag">arXiv 2026</span></h4>
-      <p class="expand-desc">技能库和策略绑在一起，练策略的同时一起练怎么选技能</p>
-    </div>
-    <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
-  </div>
-  <div class="expand-body"><div class="expand-body-inner">
-
-<p>SkillRL 用 teacher model 在 RL 训练外围补充新 skill，但技能选择仍靠外部检索器——策略本身对「该用哪个技能」没有学习信号。<a href="https://arxiv.org/abs/2603.16060" target="_blank">ARISE</a>（Li et al., 2026）更进一步：<strong>把 skill library 从外挂模块变成策略内生状态</strong>，技能选择由策略自身参数（log-prob 打分）驱动，而非依赖独立的检索模块。虽然选择步骤本身是非可微的（ε-greedy），但因为 Manager 和 Worker 共享同一个 θ，GRPO 训练 Worker 时对 θ 的更新会间接改变 Manager 的选择偏好。</p>
-
-<div class="quote-block" style="font-style:normal">
-<strong>SkillRL vs ARISE 核心差异：</strong>两者都用 GRPO 训练 Worker「怎么用 skill」，差异在技能选择和技能库进化的机制。<strong>技能选择：</strong>SkillRL 靠外部检索器（通用 skill 全量注入 + 任务 skill 向量 top-K），检索器固定不可训练；ARISE 用策略自身的 log-prob 给技能打分 + ε-greedy 选择——虽然也没有直接的 loss 训练选择过程，但因为和 Worker 共享参数 θ，选择偏好会随 Worker 训练间接改善。<strong>技能库进化：</strong>SkillRL 由 teacher model 在 RL 外围分析失败、生成新 skill；ARISE 由策略自身蒸馏正 advantage 轨迹为新 skill，并通过 Cache-Reservoir 五操作（Add/Update/Evict/Load/Delete）持续维护质量。
-</div>
-
-<p>整个系统只有<strong>一个模型 π<sub>θ</sub></strong>，身兼两职：<strong>选技能（Manager）</strong>——把题目和每个候选技能文档拼在一起做 forward pass，用技能文档部分的 log-prob 总和打分，一次 batched forward 处理所有候选；softmax 归一化后 ε-greedy 选最高分的，若最高分未过置信度门槛（δ=0.35）则不注入任何技能。<strong>做题（Worker）</strong>——选中的技能以 <code>SKILL:{JSON}</code> 前缀注入 prompt，π<sub>θ</sub> 在此条件下生成解答。GRPO 训练时奖励分三档：注入技能且正确=2，正确但未注入技能=1，错误=0（判定标准是 skill 是否被注入 prompt，而非推理中是否引用）。当均值 μ>1 时，r=1 的 advantage 为负——模型被惩罚绕开技能。</p>
-
-<p><strong>选技能的能力怎么提升？</strong>GRPO 的 loss 只作用在 Worker 解答 token 上，选技能的 forward pass 不参与反向传播。但因为 Manager 和 Worker 共享同一个 θ，Worker 在"题目+有用技能"上下文下训练后 θ 的表征改变，同一个 θ 再去做 scoring 时对有用技能的 log-prob 打分自然偏高——这是<strong>参数共享带来的隐式耦合</strong>，不是计算图上的梯度回传（原文称 end-to-end，严格来说是间接的）。</p>
-
-<p>训练分两阶段：<strong>Phase I（暖启动）</strong>关闭技能选择，策略用标准 GRPO + 二元奖励训练基础推理能力，同时把成功轨迹蒸馏为技能文档"静默填充"入库（避免低质量技能在早期引入噪声）；<strong>Phase II</strong> 激活完整管线——Manager 选技能、Worker 做题（奖励升级为三档）、成功轨迹继续蒸馏新技能入库。技能库采用<strong>两层 Cache-Reservoir 架构</strong>（活跃池 + 归档池），通过 Add/Update/Evict/Load/Delete 五操作持续维护质量，每个技能携带 utility 指标经 EMA 更新。</p>
-
-<div id="arise-demo">
-<style>
-#arise-demo { padding: 1.2rem; border-radius: 12px; background: var(--bg-white); border: 1px solid var(--border); margin: 1.5rem 0; }
-#arise-demo .ar-stage { display: flex; flex-direction: column; gap: 0.6rem; align-items: center; }
-#arise-demo .ar-row { display: flex; gap: 0.8rem; width: 100%; max-width: 660px; align-items: stretch; justify-content: center; }
-#arise-demo .ar-cache-box { border: 1.5px solid var(--text); border-radius: 8px; padding: 0.6rem; flex: 1; transition: all 0.4s ease; }
-#arise-demo .ar-cache-box.reservoir { border-style: dashed; border-color: #9e9e9e; background: color-mix(in srgb, #9e9e9e 4%, transparent); }
-#arise-demo .ar-box-title { font-weight: 700; font-size: 0.8rem; margin-bottom: 0.4rem; }
-#arise-demo .ar-skill { display: flex; align-items: center; justify-content: space-between; padding: 0.25rem 0.5rem; border-radius: 5px; font-size: 0.75rem; font-family: monospace; margin-bottom: 0.25rem; border: 1px solid var(--border); transition: all 0.4s ease; position: relative; }
-#arise-demo .ar-skill .ar-uval { font-size: 0.7rem; color: var(--text-light); }
-#arise-demo .ar-skill .ar-score-detail { font-size: 0.68rem; color: var(--text-light); opacity: 0; transition: opacity 0.3s; margin-left: 0.3rem; }
-#arise-demo .ar-skill.scored .ar-score-detail { opacity: 1; }
-#arise-demo .ar-skill.selected { border-color: #1565c0; background: color-mix(in srgb, #1565c0 12%, transparent); font-weight: 600; }
-#arise-demo .ar-skill.highlight-update { border-color: #ff9800; background: color-mix(in srgb, #ff9800 12%, transparent); }
-#arise-demo .ar-skill.new-added { border-color: #4caf50; border-style: dashed; background: color-mix(in srgb, #4caf50 8%, transparent); }
-#arise-demo .ar-skill.evicted { opacity: 0.3; text-decoration: line-through; border-style: dashed; }
-#arise-demo .ar-skill.loaded { border-color: #1565c0; background: color-mix(in srgb, #1565c0 8%, transparent); border-style: dashed; }
-#arise-demo .ar-skill.deleted { opacity: 0.15; text-decoration: line-through; border-color: #c62828; }
-#arise-demo .ar-scoring { border: 1.5px solid var(--border); border-radius: 8px; padding: 0.6rem 0.8rem; width: 100%; max-width: 660px; font-size: 0.78rem; font-family: monospace; line-height: 1.8; opacity: 0; transition: all 0.4s ease; }
-#arise-demo .ar-scoring.visible { opacity: 1; }
-#arise-demo .ar-scoring .ar-sc-row { display: flex; align-items: center; gap: 0.4rem; flex-wrap: wrap; }
-#arise-demo .ar-scoring .ar-sc-row.best { font-weight: 600; color: #1565c0; }
-#arise-demo .ar-solution { border: 1.5px solid var(--border); border-radius: 8px; padding: 0.6rem 0.8rem; width: 100%; max-width: 660px; font-size: 0.8rem; font-family: monospace; line-height: 1.6; opacity: 0; transform: translateY(6px); transition: all 0.4s ease; }
-#arise-demo .ar-solution.visible { opacity: 1; transform: translateY(0); }
-#arise-demo .ar-reward { display: flex; gap: 0.6rem; justify-content: center; flex-wrap: wrap; }
-#arise-demo .ar-reward-item { border: 1.5px solid var(--border); border-radius: 6px; padding: 0.3rem 0.7rem; font-size: 0.78rem; opacity: 0; transition: all 0.35s ease; }
-#arise-demo .ar-reward-item.visible { opacity: 1; }
-#arise-demo .ar-reward-item.active { border-color: #4caf50; background: #e8f5e9; color: #2e7d32; font-weight: 600; }
-#arise-demo .ar-reward-item.dim { opacity: 0.35; }
-#arise-demo .ar-arrow { text-align: center; font-size: 0.95rem; color: var(--text-light); opacity: 0; transition: opacity 0.3s; }
-#arise-demo .ar-arrow.visible { opacity: 1; }
-#arise-demo .ar-controls { display: flex; align-items: center; gap: 0.8rem; margin-top: 1rem; flex-wrap: wrap; }
-#arise-demo .ar-btn { padding: 0.4rem 1rem; border-radius: 6px; border: 1px solid var(--border); background: var(--bg-white); cursor: pointer; font-size: 0.85rem; transition: background 0.2s; }
-#arise-demo .ar-btn:hover { background: color-mix(in srgb, var(--accent) 10%, var(--bg-white)); }
-#arise-demo .ar-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
-#arise-demo .ar-btn.primary:hover { opacity: 0.9; }
-#arise-demo .ar-step-ind { font-size: 0.8rem; color: var(--text-light); }
-#arise-demo .ar-desc { margin-top: 0.6rem; font-size: 0.85rem; color: var(--text-light); padding: 0.5rem 0.8rem; border-left: 3px solid var(--accent); background: color-mix(in srgb, var(--accent) 4%, transparent); border-radius: 0 6px 6px 0; min-height: 2.2em; transition: opacity 0.3s; }
-@media (max-width: 600px) {
-  #arise-demo .ar-row { flex-direction: column; align-items: center; }
-}
-</style>
-
-<div class="ar-stage">
-  <!-- Cache + Reservoir -->
-  <div class="ar-row">
-    <div class="ar-cache-box" id="ar-cache">
-      <div class="ar-box-title">Cache（活跃池，容量 3）</div>
-      <div class="ar-skill" id="ar-sk1"><span>skill_1 奇偶性分析</span><span class="ar-uval" id="ar-u1">u=0.65</span><span class="ar-score-detail" id="ar-sd1"></span></div>
-      <div class="ar-skill" id="ar-sk2"><span>skill_2 数学归纳法</span><span class="ar-uval" id="ar-u2">u=0.40</span><span class="ar-score-detail" id="ar-sd2"></span></div>
-      <div class="ar-skill" id="ar-sk3"><span>skill_3 反证法</span><span class="ar-uval" id="ar-u3">u=0.12</span><span class="ar-score-detail" id="ar-sd3"></span></div>
-      <div class="ar-skill" id="ar-sk-new" style="display:none"><span>skill_4 连续整数乘积法</span><span class="ar-uval" id="ar-u-new">u=0</span></div>
-      <div class="ar-skill" id="ar-sk-loaded" style="display:none"><span>skill_X 极值原理</span><span class="ar-uval" id="ar-u-loaded">u=0.45</span></div>
-    </div>
-    <div class="ar-cache-box reservoir" id="ar-reservoir">
-      <div class="ar-box-title">Reservoir（归档池）</div>
-      <div class="ar-skill" id="ar-rx"><span>skill_X 极值原理</span><span class="ar-uval">u=0.45</span></div>
-      <div class="ar-skill" id="ar-ry"><span>skill_Y 枚举法</span><span class="ar-uval">u=0.03</span></div>
-      <div class="ar-skill" id="ar-sk3-evicted" style="display:none"><span>skill_3 反证法</span><span class="ar-uval">u=0.12</span></div>
-    </div>
-  </div>
-
-  <!-- Scoring 区域 -->
-  <div class="ar-scoring" id="ar-scoring">
-    <div style="font-weight:600;margin-bottom:0.3rem;">📐 Scoring：[题目] + [技能doc] → log-prob → softmax</div>
-    <div class="ar-sc-row best" id="ar-scr1">[求证 n²+n 是偶数] + [奇偶性分析] → score=-8.7 → <strong>p=0.72</strong></div>
-    <div class="ar-sc-row" id="ar-scr2">[求证 n²+n 是偶数] + [数学归纳法] → score=-12.3 → p=0.18</div>
-    <div class="ar-sc-row" id="ar-scr3">[求证 n²+n 是偶数] + [反证法] → score=-15.1 → p=0.10</div>
-    <div style="margin-top:0.3rem;font-size:0.76rem;color:var(--text-light)" id="ar-gate">p_max=0.72 &gt; δ=0.35 → ✅ 选中 skill_1「奇偶性分析」</div>
-  </div>
-
-  <div class="ar-arrow" id="ar-arrow1">↓ SKILL:{奇偶性分析} 注入 prompt</div>
-
-  <!-- 解答 -->
-  <div class="ar-solution" id="ar-solution">
-    <strong>[SKILL:{奇偶性分析}]</strong><br>
-    n(n+1) 中 n 和 n+1 一奇一偶 → 乘积必为偶数 ✓
-  </div>
-
-  <!-- 奖励 -->
-  <div class="ar-arrow" id="ar-arrow2">↓ 层次化奖励</div>
-  <div class="ar-reward">
-    <div class="ar-reward-item" id="ar-r0">r₀ = 0（错误）</div>
-    <div class="ar-reward-item" id="ar-r1">r₁ = 1（正确，未注入技能）</div>
-    <div class="ar-reward-item" id="ar-r2">r₂ = 2（正确 + 注入了技能）</div>
-  </div>
-</div>
-
-<!-- 控制栏 -->
-<div class="ar-controls">
-  <button class="ar-btn primary" id="ar-next-btn" onclick="ariseNext()">下一步 →</button>
-  <button class="ar-btn" onclick="ariseReset()">重置</button>
-  <span class="ar-step-ind" id="ar-step-ind">步骤 0 / 7</span>
-</div>
-<div class="ar-desc" id="ar-desc">初始状态：Cache 有 3 个活跃技能（各有 utility 分数），Reservoir 有 2 个归档技能（灰色虚线）。</div>
-
-<script>
-(function(){
-  var step = 0, maxStep = 7;
-  var descs = [
-    '初始状态：Cache 有 3 个活跃技能（各有 utility 分数），Reservoir 有 2 个归档技能（灰色虚线）。',
-    'Scoring：对每个 Cache 技能，把 [题目 token] + [技能doc token] 拼在一起做 forward pass，算技能文档部分的 log-prob 总和作为 score，softmax 归一化得到概率。p_max=0.72 > δ=0.35 → 选中 skill_1「奇偶性分析」。',
-    'Worker 做题：SKILL:{奇偶性分析} 以 JSON 前缀注入 prompt 开头，π_θ 在此条件下生成解答 → n(n+1) 一奇一偶，乘积必偶。答案正确 ✓',
-    '奖励：r₂=2（正确 + 注入了技能）。三档奖励——2（正确+注入技能）、1（正确未注入技能）、0（错误）。判定标准是 skill 是否被注入 prompt，不检测模型推理中是否引用。当均值 μ>1 时，r₁ 的 advantage 为负，惩罚绕开技能。',
-    'Update：skill_1 的 utility 通过 EMA 更新：u ← 0.9×0.65 + 0.1×2 = 0.785。Utility 越高说明该技能越有用。',
-    'Add：成功轨迹蒸馏为新技能「连续整数乘积法」（u=0），加入 Cache。现在 Cache 有 4 个技能，超出容量。',
-    'Evict：Cache 超容量，utility 最低的 skill_3（u=0.12）被踢到 Reservoir。Cache 恢复为 3 个技能。',
-    'Load+Delete：Reservoir 中 skill_X（u=0.45）比 Cache 最低的更优 → 换入 Cache；skill_Y（u=0.03，低于 10th percentile 且 zero usage）被永久删除。'
-  ];
-
-  function apply(){
-    var sk1=document.getElementById('ar-sk1'), sk2=document.getElementById('ar-sk2'), sk3=document.getElementById('ar-sk3');
-    var skNew=document.getElementById('ar-sk-new'), skLoaded=document.getElementById('ar-sk-loaded');
-    var rx=document.getElementById('ar-rx'), ry=document.getElementById('ar-ry'), sk3e=document.getElementById('ar-sk3-evicted');
-    var scoring=document.getElementById('ar-scoring');
-    var u1=document.getElementById('ar-u1'), u3=document.getElementById('ar-u3');
-
-    // Full reset
-    [sk1,sk2,sk3].forEach(function(el){ el.style.display=''; el.classList.remove('scored','selected','highlight-update','new-added','evicted','loaded','deleted'); });
-    skNew.style.display='none'; skNew.classList.remove('new-added');
-    skLoaded.style.display='none'; skLoaded.classList.remove('loaded');
-    [rx,ry].forEach(function(el){ el.style.display=''; el.classList.remove('loaded','deleted','evicted'); });
-    sk3e.style.display='none';
-    scoring.classList.remove('visible');
-    document.getElementById('ar-arrow1').classList.remove('visible');
-    document.getElementById('ar-arrow2').classList.remove('visible');
-    document.getElementById('ar-solution').classList.remove('visible');
-    u1.textContent='u=0.65'; u3.textContent='u=0.12';
-    ['ar-sd1','ar-sd2','ar-sd3'].forEach(function(id){ document.getElementById(id).textContent=''; });
-    var r0=document.getElementById('ar-r0'), r1=document.getElementById('ar-r1'), r2=document.getElementById('ar-r2');
-    [r0,r1,r2].forEach(function(el){ el.classList.remove('visible','active','dim'); });
-
-    // Step 1: Scoring
-    if(step >= 1) {
-      scoring.classList.add('visible');
-      [sk1,sk2,sk3].forEach(function(el){ el.classList.add('scored'); });
-      document.getElementById('ar-sd1').textContent='score=-8.7 → p=0.72';
-      document.getElementById('ar-sd2').textContent='score=-12.3 → p=0.18';
-      document.getElementById('ar-sd3').textContent='score=-15.1 → p=0.10';
-      sk1.classList.add('selected');
-    }
-
-    // Step 2: Worker
-    if(step >= 2) {
-      document.getElementById('ar-arrow1').classList.add('visible');
-      document.getElementById('ar-solution').classList.add('visible');
-    }
-
-    // Step 3: Reward
-    if(step >= 3) {
-      document.getElementById('ar-arrow2').classList.add('visible');
-      [r0,r1,r2].forEach(function(el){ el.classList.add('visible'); });
-      r2.classList.add('active');
-      r0.classList.add('dim');
-      r1.classList.add('dim');
-    }
-
-    // Step 4: Update utility
-    if(step >= 4) {
-      sk1.classList.add('highlight-update');
-      u1.textContent='u=0.785';
-    }
-
-    // Step 5: Add new skill
-    if(step >= 5) {
-      sk1.classList.remove('highlight-update');
-      skNew.style.display='';
-      skNew.classList.add('new-added');
-    }
-
-    // Step 6: Evict skill_3
-    if(step >= 6) {
-      skNew.classList.remove('new-added');
-      sk3.classList.add('evicted');
-      sk3e.style.display='';
-    }
-
-    // Step 7: Load + Delete
-    if(step >= 7) {
-      sk3.style.display='none';
-      rx.classList.add('loaded');
-      rx.style.display='none';
-      skLoaded.style.display='';
-      skLoaded.classList.add('loaded');
-      ry.classList.add('deleted');
-    }
-
-    document.getElementById('ar-desc').textContent = descs[step];
-    document.getElementById('ar-step-ind').textContent = '步骤 ' + step + ' / ' + maxStep;
-    document.getElementById('ar-next-btn').textContent = step >= maxStep ? '✓ 完成' : '下一步 →';
-  }
-
-  window.ariseNext = function(){ if(step < maxStep) { step++; apply(); } };
-  window.ariseReset = function(){ step = 0; apply(); };
-  apply();
-})();
-</script>
-</div>
-
-<div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
-  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
-    <div class="card-title">存什么</div>
-    <div class="card-brief">结构化 skill 文档（name + problem type + key insight + method + verification），统一 schema 保证 log-prob 打分可比。</div>
-  </div>
-  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
-    <div class="card-title">怎么更新</div>
-    <div class="card-brief">RL 训练中持续生成——每步额外 rollout 蒸馏正 advantage 轨迹，五操作维护 Cache-Reservoir 两层池。</div>
-  </div>
-  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
-    <div class="card-title">怎么召回</div>
-    <div class="card-brief">策略内生选择——用同一策略的条件 log-prob 打分 + ε-greedy + 置信度门控，通过参数共享间接优化。</div>
-  </div>
-</div>
-
-<p><strong>局限：</strong>仅验证于数学推理场景（竞赛数学 + Omni-MATH），对开放式 agent 任务的适用性未知。此外，奖励判定只看 skill 是否被注入 prompt（confidence gate 是否通过），不检测模型推理时是否真正引用了技能内容——模型可能忽略注入的技能自己硬算，但仍拿到 r=2。</p>
-
-  </div></div>
-</div>
-
 <!-- ===== SKILL0 ===== -->
 <div class="expand-section">
   <div class="expand-header">
     <div class="expand-title-group">
-      <h4>Skill0：内化式路径——把 Skill 写进模型参数 <span class="paper-tag">另一条路</span></h4>
-      <p class="expand-desc">不靠外挂文档，把技能直接训进模型参数里</p>
+      <h4>Skill0：技能内化到模型参数 <span class="paper-tag">arXiv 2026</span></h4>
+      <p class="expand-desc">训练时给 skill、推理时归零，用 RL 把能力写进参数</p>
     </div>
     <svg class="expand-chevron" viewBox="0 0 20 20" fill="currentColor"><path d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z"/></svg>
   </div>
   <div class="expand-body"><div class="expand-body-inner">
 
-<p>前面介绍的所有工作——Reflexion、Voyager、Memento-Skills、Trace2Skill——都是<strong>外化式记忆</strong>：skill 以文本、代码或文件夹的形式存在模型外部，通过 prompt 注入来使用。模型参数始终冻结，所有学习都发生在「输入侧」。</p>
+<p>美团的 <a href="https://arxiv.org/abs/2604.02268" target="_blank">Skill0</a>（Lu et al., 2026）提出<strong>skill 内化</strong>：通过课程学习<strong>逐步缩小允许召回的 skill 数</strong>，让模型在 skill 不再放入上下文之后，仍能保持与载入 skill 时相近的性能。</p>
 
-<p>但这条路有天花板：context window 有限，skill 越多 prompt 越长；检索质量不完美（Memento-Qwen Recall@1 才 0.60）；外部 skill 与模型的适配性也是问题（Trace2Skill 发现同一份 skill 让 122B 提升但让 35B 下降）。</p>
+<div class="figure-block">
+  <img src="https://arxiv.org/html/2604.02268v1/x2.png" alt="Skill0 framework overview" loading="lazy">
+  <div class="figure-caption"><strong>Skill0 流程</strong>：离线按任务相关性分组 skill → 训练期 ICRL（skill + 视觉历史进 context）→ 动态课程按帮助性筛 skill、逐阶段缩减预算直至归零；推理期无 skill、无检索。</div>
+</div>
 
-<p><strong>Skill0 走的是另一条路：把 skill 直接内化到模型参数里。</strong>不是挂在 prompt 外面，而是通过训练让模型「学会」这些能力——不再需要检索、不占 context、不存在适配性问题。这是外化和内化两条路径的互补视角。</p>
+<div class="figure-block">
+  <img src="https://arxiv.org/html/2604.02268v1/x5.png" alt="Skill0 Figure 5 training dynamics" loading="lazy">
+  <div class="figure-caption"><strong>原文 Figure 5：训练动态对比</strong>——三组实验分别验证内化是否发生、优势是否来自参数而非偷看 skill、以及无 skill 推理时的性能上限。</div>
+  <span class="fig-toggle" onclick="toggleFigDetail(this, event)">展开说明 ▸</span>
+  <div class="figure-detail">
+    <ul>
+      <li><strong>(a) Skill0 自身：</strong>绿线 w/ skill、紫线 w/o skill。训练前期紫线明显更低；随课程推进紫线追上并在约 120 步后与绿线重合——说明能力已迁入参数，推理时不注入 skill 也接近带 skill 时的表现。</li>
+      <li><strong>(b) vs AgentOCR（均无 skill 推理）：</strong>Skill0（绿）全程高于 AgentOCR（紫），差距随训练拉大，排除「只是训练时多看了 skill 才变强」。</li>
+      <li><strong>(c) vs GRPO / SkillRL（均无 skill 推理）：</strong>GRPO（黄）早期涨得快但后期 plateau；SkillRL（紫）约 60–100 步见顶后撤 skill 性能明显下滑——能力未内化；Skill0（绿）起步慢但持续升至约 150 步，为三者最高。SkillRL 教会<em>用</em> skill，Skill0 教会<em>替代</em> skill。</li>
+    </ul>
+  </div>
+</div>
 
-<p style="margin-top:1rem"><a href="https://syt-nju.github.io/files/visual-reading/skill0-internalization/" target="_blank" style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.5rem 1.2rem;background:var(--accent);color:#fff;border-radius:8px;text-decoration:none;font-size:0.9rem;font-weight:600;transition:opacity 0.2s" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">→ 查看 Skill0 详细解读</a></p>
+<p>子图 (c) 里有一条值得单独注意的曲线：SkillRL 在长期训练之后，对 skill 的依赖度在逐渐加深，导致训练后期在<strong>不载入 skill</strong> 的情况下反而出现性能下降。</p>
+
+<div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">存什么</div>
+    <div class="card-brief">训练期：按任务分组后的结构化 skill 文档（继承 SkillRL SkillBank）。推理期：库可完全不用，能力在参数里。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么更新</div>
+    <div class="card-brief">ICRL + 动态课程——Δ<sub>k</sub> 筛选仍需要的 skill，阶段预算衰减至 0；已内化（Δ<sub>k</sub>≤0）的技能从训练中移除。</div>
+  </div>
+  <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
+    <div class="card-title">怎么召回</div>
+    <div class="card-brief">推理无召回。训练期按任务相关性选 skill 组，阶段内按帮助性 top-M 注入（非 embedding 检索器）。</div>
+  </div>
+</div>
+
+<p><strong>局限：</strong>依赖高质量初始 SkillBank 与帮助性评估（每个 skill 需有/无对照 rollout）；实验主要在 ALFWorld、Search-QA，与 Trace2Skill 式「单份综合 SOP」路线互补而非替代。</p>
+
+<p style="margin-top:8px;font-size:12px;color:var(--text-tertiary)">延伸阅读：<a href="https://syt-nju.github.io/files/visual-reading/skill0-internalization/" target="_blank" class="ref-link-quiet">Skill0 方法图解</a></p>
 
   </div></div>
 </div>
@@ -2280,19 +2110,7 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   </div>
   <div class="expand-body"><div class="expand-body-inner">
 
-<p><a href="https://arxiv.org/abs/2504.19413" target="_blank">Mem0</a>（Chhikara et al., 2025）面向<strong>多轮 / 跨会话对话</strong>中 LLM 固定上下文窗口带来的连贯性断裂：不把整段历史当 RAG 文档切块检索，也不依赖 full-context 每次读完全部对话，而是维护一个<strong>持续更新的外部记忆库</strong>——从每条新消息对中抽取关键事实，与已有记忆比对后增删改，回答问题时只检索相关记忆注入 prompt。</p>
-
-<p>系统按<strong>增量处理</strong>运行：每来一轮交互 <code>(m<sub>t-1</sub>, m<sub>t</sub>)</code> 就触发一次 pipeline，无需离线批处理整段对话。与 MemGPT 让 LLM 自主 page-in/page-out 不同，Mem0 把「写什么进记忆库」交给专门的抽取 + 更新两阶段，检索侧只做向量相似度匹配，工程上更易部署为独立 memory 服务。</p>
-
-<h4 style="margin:24px 0 12px">抽取 → 更新 两阶段</h4>
-
-<ul style="margin:8px 0 16px 20px;color:var(--text-secondary);font-size:15px;line-height:1.7">
-  <li><strong>抽取（Extraction）：</strong>输入 = 全局对话摘要 <code>S</code>（异步后台周期性刷新）+ 最近 <code>m=10</code> 条消息 + 当前消息对。LLM 函数 <code>φ(P)</code> 只从本轮交换中提炼候选事实集 Ω，同时感知更长程语境</li>
-  <li><strong>更新（Update）：</strong>对每条候选事实，用 embedding 检索库内 top-<code>s=10</code> 相似记忆，再通过 LLM tool call 在四种操作中选一：<strong>ADD</strong>（新事实）、<strong>UPDATE</strong>（补充/替换更丰富的表述）、<strong>DELETE</strong>（新信息与旧记忆矛盾）、<strong>NOOP</strong>（已存在或无关）</li>
-  <li><strong>查询（Inference）：</strong>问题到来时向量检索相关记忆条目，作为紧凑上下文送入答题 LLM——记忆 token 约 1764，远低于 full-context 的 ~26031</li>
-</ul>
-
-<h4 style="margin:24px 0 12px">步进演示：一轮对话如何写入记忆库</h4>
+<p><a href="https://arxiv.org/abs/2504.19413" target="_blank">Mem0</a>（Chhikara et al., 2025）为跨会话对话维护<strong>持续更新的外部记忆库</strong>：每轮 <code>(m<sub>t-1</sub>, m<sub>t</sub>)</code> 触发一次 pipeline——先用 LLM 从当前交换中<strong>抽取候选事实</strong>（结合全局摘要与近期上下文），再<strong>检索库内相似条目</strong>并决定 ADD / UPDATE / DELETE / NOOP；答题时只做向量检索注入相关记忆（约 1.7k token，远低于 full-context 的 2.6 万+）。</p>
 
 <div id="mem0-demo">
 <style>
@@ -2473,23 +2291,6 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
 </div>
 </details>
 
-<p>论文还提出 <strong>Mem0<sup>g</sup></strong>（Graph Memory）：把实体作节点、关系作边存入 Neo4j，适合需要沿关系链推理的场景；在 LOCOMO 整体 J 分上仅比基础版高约 2%，单跳 / 多跳任务上稠密文本记忆反而更占优。下文三维度与数据均指<strong>基础 Mem0</strong>。</p>
-
-<div class="metric-row">
-  <div class="metric-card">
-    <div class="metric-num">+26%</div>
-    <div class="metric-label">相对 OpenAI 记忆的<br>LLM-as-Judge 提升</div>
-  </div>
-  <div class="metric-card">
-    <div class="metric-num">~91%</div>
-    <div class="metric-label">相对 full-context 的<br>p95 总延迟降低</div>
-  </div>
-  <div class="metric-card">
-    <div class="metric-num">&gt;90%</div>
-    <div class="metric-label">相对 full-context 的<br>token 成本节省</div>
-  </div>
-</div>
-
 <div class="card-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr))">
   <div class="card" style="cursor:default;border-left:3px solid var(--accent)">
     <div class="card-title">存什么</div>
@@ -2505,8 +2306,6 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   </div>
 </div>
 
-<p><strong>关键数据（LOCOMO）：</strong>Overall J = 66.88（Mem0）vs 52.90（OpenAI 记忆）、72.90（full-context，但 p95 总延迟 ~17s）；记忆 token ~1764 vs full-context ~26031。<strong>局限：</strong>full-context 在 J 分上仍略高（~73%），极致准确率场景可能仍愿付 token/延迟代价；抽取与更新质量依赖 LLM（实验用 GPT-4o-mini）；图变体 Mem0<sup>g</sup> 存储与检索更重，多数问答类型收益有限。</p>
-
   </div></div>
 </div>
 
@@ -2521,11 +2320,7 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   </div>
   <div class="expand-body"><div class="expand-body-inner">
 
-<p><a href="https://arxiv.org/abs/2508.08645" target="_blank">IFRAgent</a>（Wu et al., 2025，亦称 Quick on the Uptake）解决<strong>手机 GUI Agent 与用户操作习惯不对齐</strong>的问题：同一任务（点外卖、查邮件）不同用户的点击路径、筛选偏好差异很大，通用 SOP 无法覆盖。</p>
-
-<p>框架分<strong>离线意图流提取</strong>与<strong>在线部署</strong>两阶段。离线阶段：用户正常使用手机，系统收集每个 query 对应的截图轨迹 <code>S(u,q)</code>。对每条演示并行走两条线——<strong>显式意图流</strong> <code>A<sub>e</sub></code> 产出结构化 SOP <code>p</code>，与 query embedding 存入 per-user 向量库；<strong>隐式意图流</strong> <code>A<sub>i</sub></code> 增量更新用户级习惯库 <code>h<sub>i</sub></code>（如「偏好辣味」「总选附近餐厅」）。在线阶段：新 query 先 RAG 检索相似历史 query 的 SOP 做 few-shot，再由 SOP Extractor <code>ℰ</code> 生成任务 SOP；最后 Query Rewriter <code>𝒲</code> 把 <code>h<sub>i</sub></code> 编码进<strong>改写后的</strong> <code>q</code> 与 SOP <code>p</code>（下文记 <code>q<sub>改</sub></code>、<code>p<sub>改</sub></code>；论文符号为 q̂、p̂），交给 UI Agent 执行。</p>
-
-<p>与 Mem0（对话事实条目）不同：IFRAgent 的个性化来自<strong>观察用户做了什么</strong>，且习惯通过 rewriter 间接注入，而非直接塞进执行 Agent 的 prompt。</p>
+<p><a href="https://arxiv.org/abs/2508.08645" target="_blank">IFRAgent</a>（Wu et al., 2025）<strong>改写用户 query，注入用户偏好细节</strong>：离线从演示轨迹 <code>S(u,q)</code> 并行提取<strong>显式 SOP</strong> <code>p</code> 与<strong>隐式习惯库</strong> <code>h<sub>i</sub></code>；在线对新 query RAG 相似历史 SOP，经 ℰ 生成流程、𝒲 将 <code>h<sub>i</sub></code> 编入 <code>q<sub>改</sub></code>、<code>p<sub>改</sub></code> 后交 UI Agent——习惯经 rewriter 间接注入，而非直接塞进执行 prompt。</p>
 
 <div class="ifr-rewrite-panel" id="ifrRewritePanel">
 <style>
@@ -2548,8 +2343,8 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
 #ifragent .ifr-rw-note{margin:12px 0 0;font-size:12px;color:var(--text-tertiary);line-height:1.6}
 @media(max-width:640px){#ifragent .ifr-rw-cols{grid-template-columns:1fr}#ifragent .ifr-rw-mid{writing-mode:horizontal-tb;padding:4px 0}}
 </style>
-<h5>Rewrite 是什么？（Query Rewriter 𝒲）</h5>
-<p class="ifr-rw-lead">RAG + ℰ 只解决「<strong>这类任务大致怎么做</strong>」（得到通用 SOP 模板）；<strong>Rewrite</strong> 才解决「<strong>这个用户要怎么做</strong>」——用一个小模型 𝒲 读入<strong>当前 query、当前 SOP、习惯库 h<sub>i</sub></strong>，把 h<sub>i</sub> 里的偏好<strong>写进自然语言</strong>，输出给 UI Agent 的 <strong>q<sub>改</sub></strong> 与 <strong>p<sub>改</sub></strong>。不是向量检索，是<strong>文本改写</strong>。</p>
+<h5>rewrite 示例</h5>
+<p class="ifr-rw-lead">RAG + ℰ 只解决「这类任务大致怎么做」（得到通用 SOP 模板）；Rewrite 才解决「这个用户要怎么做」——用一个小模型 𝒲 读入当前 query、当前 SOP、习惯库 h<sub>i</sub>，把 h<sub>i</sub> 里的偏好写进自然语言，输出给 UI Agent 的 q<sub>改</sub> 与 p<sub>改</sub>。不是向量检索，是文本改写。</p>
 <div class="ifr-rw-io">
   <span class="ifr-rw-chip"><strong>输入</strong> q（本轮用户话）</span>
   <span class="ifr-rw-chip"><strong>输入</strong> p（ℰ 生成的 SOP）</span>
@@ -2571,16 +2366,6 @@ send_msg_to_user('The distance between {FROM_LOCATION} and {TO_LOCATION} is {DIS
   </div>
 </div>
 <p class="ifr-rw-note">h<sub>i</sub> 例：「偏好川菜、重辣；习惯先按距离再比评分」→ 被 𝒲 <strong>抄写/融合</strong>进 q<sub>改</sub> 与 p<sub>改</sub> 的步骤文案。UI Agent <strong>只读改写后的文本</strong>，不直接读 h<sub>i</sub>。</p>
-</div>
-
-<div class="quote-block" style="font-style:normal">
-  <p style="margin:0 0 8px"><strong>读起来像 PolySkill，但多态轴是「用户」而不是「网站」</strong></p>
-  <p style="margin:0 0 8px">情节经验里的 <a href="#polyskill">PolySkill</a>：Amazon / Target 共用「搜索 → 加购 → 结账」接口骨架，各站用子类代码填 DOM/点击细节。IFRAgent 可类比为：每位用户像「一个购物网站实例」——底层任务逻辑是一套 <strong>SOP 流程骨架</strong>（显式流 + 相似 query 的 RAG 继承），用户差异由 <strong>隐式习惯库</strong> <code>h<sub>i</sub></code> 与 𝒲 改写填充（重辣、先距离后评分等），再交给同一套 UI Agent 执行。</p>
-  <ul style="margin:0 0 0 20px;font-size:14px;line-height:1.7;list-style:disc">
-    <li><strong>显式 SOP 库</strong> ≈ 抽象接口 / 组合流程（定义步骤顺序）</li>
-    <li><strong>隐式 h<sub>i</sub> + 检索改写</strong> ≈ 子类实现（填用户特化约束，但是自然语言而非代码）</li>
-    <li><strong>区别：</strong>PolySkill 跨环境泛化；IFRAgent 同 App 跨用户个性化，且不做 Voyager/PolySkill 式可调用 skill 入库</li>
-  </ul>
 </div>
 
 <h4 style="margin:24px 0 12px">步进演示：离线建库 → 在线个性化执行</h4>
