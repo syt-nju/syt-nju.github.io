@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: nudgerl-self-distillation-rl
+    title: "NudgeRL self-distillation 和 RL 的巧妙结合"
+    date: 2026-05-25
+    source_type: paper
+    source_url: "https://arxiv.org/abs/2605.15726"
   - slug: agent-memory-survey
     title: "Agent memory 调研"
     date: 2026-05-21

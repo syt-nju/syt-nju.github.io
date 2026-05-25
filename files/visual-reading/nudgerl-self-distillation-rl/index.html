@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NudgeRL：策略引导的探索如何突破 RLVR 的瓶颈</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-primary: #fbf6ea;
+  --bg-secondary: #f4ead7;
+  --bg-tertiary: #e8dcc7;
+  --text-primary: #2c2418;
+  --text-secondary: #5a4d3a;
+  --text-muted: #8a7c68;
+  --accent: #a0724a;
+  --accent-light: #c9956a;
+  --border: #ddd0be;
+  --card-shadow: 0 2px 8px rgba(44,36,24,0.06);
+  --radius: 8px;
+  --font-sans: 'Inter', 'Noto Sans SC', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.8;
+  font-size: 16px;
+}
+
+.container {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+/* Header */
+.paper-header {
+  padding: 48px 0 32px;
+  border-bottom: 1px solid var(--border);
+}
+
+.paper-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.meta-tag {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.meta-tag.venue {
+  background: var(--accent);
+  color: #fff;
+}
+
+.paper-title {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.paper-authors {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  border-bottom: 1px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.source-link:hover {
+  border-bottom-color: var(--accent);
+}
+
+/* Navigation */
+.nav-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 0;
+  margin-bottom: 32px;
+}
+
+.nav-bar .container {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav-bar .container::-webkit-scrollbar { display: none; }
+
+.nav-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+  transition: color 0.2s;
+}
+
+.nav-link:hover, .nav-link.active {
+  color: var(--accent);
+}
+
+/* Sections */
+section {
+  margin-bottom: 48px;
+}
+
+h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--bg-tertiary);
+}
+
+h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  margin-top: 28px;
+}
+
+p {
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+/* TL;DR */
+.tldr {
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  margin-bottom: 36px;
+  border-left: 4px solid var(--accent);
+}
+
+.tldr-title {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.tldr p {
+  font-size: 15px;
+  margin-bottom: 8px;
+}
+
+.tldr p:last-child { margin-bottom: 0; }
+
+/* Metric Cards */
+.metrics-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.metric-card {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  box-shadow: var(--card-shadow);
+  border: 1px solid var(--border);
+}
+
+.metric-value {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+.metric-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+/* Figures */
+.figure-block {
+  margin: 28px 0;
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 20px;
+  border: 1px solid var(--border);
+}
+
+.figure-block img {
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.figure-caption {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-top: 12px;
+  line-height: 1.6;
+}
+
+.fig-toggle {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--accent);
+  cursor: pointer;
+  margin-top: 8px;
+  user-select: none;
+  font-weight: 500;
+}
+
+.fig-toggle:hover { text-decoration: underline; }
+
+.figure-detail {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.4s ease, opacity 0.3s ease;
+  margin-top: 0;
+}
+
+.figure-detail.active {
+  max-height: 800px;
+  opacity: 1;
+  margin-top: 12px;
+}
+
+.figure-detail ul {
+  list-style: none;
+  padding: 0;
+}
+
+.figure-detail li {
+  font-size: 14px;
+  color: var(--text-secondary);
+  padding: 6px 0;
+  padding-left: 16px;
+  position: relative;
+  line-height: 1.6;
+}
+
+.figure-detail li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-light);
+}
+
+/* Expandable cards */
+.expand-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  overflow: hidden;
+  box-shadow: var(--card-shadow);
+}
+
+.expand-card-header {
+  padding: 16px 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  transition: background 0.2s;
+}
+
+.expand-card-header:hover {
+  background: var(--bg-secondary);
+}
+
+.expand-arrow {
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: transform 0.3s;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.expand-card.expanded .expand-arrow {
+  transform: rotate(90deg);
+}
+
+.expand-card-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.expand-card-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 3px;
+}
+
+.expand-card-body {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.5s ease, opacity 0.3s ease;
+}
+
+.expand-card.expanded .expand-card-body {
+  max-height: 2000px;
+  opacity: 1;
+}
+
+.expand-card-content {
+  padding: 0 20px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.expand-card-content p {
+  font-size: 14px;
+  margin-top: 14px;
+}
+
+.expand-card-content img {
+  width: 100%;
+  border-radius: 4px;
+  margin-top: 14px;
+}
+
+/* Step animation */
+.step-demo {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin: 28px 0;
+}
+
+.step-demo-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+
+.step-visual {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  min-height: 80px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  justify-content: center;
+}
+
+.step-node {
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  text-align: center;
+  transition: all 0.4s ease;
+  border: 2px solid transparent;
+}
+
+.step-node.prompt { background: var(--bg-tertiary); color: var(--text-primary); }
+.step-node.context { background: var(--accent); color: #fff; opacity: 0; transform: translateY(10px); }
+.step-node.context.visible { opacity: 1; transform: translateY(0); }
+.step-node.arrow { background: none; font-size: 18px; color: var(--text-muted); }
+.step-node.output { background: #fff; border: 2px solid var(--border); color: var(--text-secondary); }
+.step-node.output.highlight { border-color: var(--accent); color: var(--accent); }
+
+.step-controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.step-btn {
+  padding: 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: var(--font-sans);
+}
+
+.step-btn:hover { background: var(--bg-secondary); }
+.step-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.step-btn.primary:hover { background: var(--accent-light); }
+
+.step-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-left: auto;
+  max-width: 400px;
+}
+
+/* Formula block */
+.formula-block {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin: 20px 0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  overflow-x: auto;
+  text-align: center;
+  color: var(--text-primary);
+}
+
+/* Policy distribution visual */
+.policy-dist-card {
+  margin: 22px 0;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 18px;
+  box-shadow: var(--card-shadow);
+}
+
+.policy-dist-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.dist-caption {
+  margin-top: 12px;
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.dist-caption strong {
+  color: var(--text-primary);
+}
+
+.dist-legend {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-top: 12px;
+}
+
+.dist-legend-item {
+  padding: 10px 12px;
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.dist-legend-item strong {
+  display: block;
+  margin-bottom: 2px;
+}
+
+/* Rollout decay visual */
+.decay-curve-card {
+  margin: 14px 0;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: #fff;
+}
+
+.decay-curve-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.decay-note {
+  margin-top: 10px;
+  font-size: 13px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+.decay-note strong {
+  color: var(--text-primary);
+}
+
+/* Comparison panel */
+.compare-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.compare-side {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.compare-side-title {
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.compare-side p, .compare-side li {
+  font-size: 14px;
+}
+
+/* Lists */
+ul, ol {
+  padding-left: 20px;
+  margin-bottom: 16px;
+}
+
+li {
+  margin-bottom: 6px;
+}
+
+strong {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+/* Quote blocks */
+.quote-block {
+  border-left: 3px solid var(--accent-light);
+  padding: 12px 20px;
+  margin: 20px 0;
+  background: var(--bg-secondary);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+/* Footer */
+.page-footer {
+  padding: 32px 0;
+  border-top: 1px solid var(--border);
+  margin-top: 48px;
+}
+
+.page-footer p {
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+/* Details/Summary */
+details {
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+details summary {
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+details summary:hover { background: var(--bg-tertiary); }
+
+details[open] summary { border-bottom: 1px solid var(--border); }
+
+details .detail-content {
+  padding: 16px;
+  font-size: 14px;
+}
+
+/* Responsive */
+@media (max-width: 880px) {
+  .compare-panel { grid-template-columns: 1fr; }
+  .metrics-row { grid-template-columns: 1fr; }
+  .dist-legend { grid-template-columns: 1fr; }
+  .paper-title { font-size: 22px; }
+  .container { padding: 0 16px; }
+  .step-controls { flex-wrap: wrap; }
+  .step-desc { margin-left: 0; max-width: 100%; margin-top: 8px; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header class="paper-header">
+    <div class="paper-meta">
+      <span class="meta-tag venue">arXiv preprint</span>
+      <span class="meta-tag">2026.05</span>
+      <span class="meta-tag">RLVR</span>
+      <span class="meta-tag">Exploration</span>
+    </div>
+    <h1 class="paper-title">NudgeRL：用策略引导探索突破 RLVR 的长尾瓶颈</h1>
+    <p class="paper-authors">Chanuk Lee, Sangwoo Park, Minki Kang, Sung Ju Hwang &middot; KAIST</p>
+    <a href="https://arxiv.org/abs/2605.15726" target="_blank" class="source-link">原文 ↗ arXiv:2605.15726</a>
+  </header>
+</div>
+
+<nav class="nav-bar">
+  <div class="container">
+    <a href="#tldr" class="nav-link">核心思想</a>
+    <a href="#problem" class="nav-link">问题</a>
+    <a href="#existing" class="nav-link">已有方案</a>
+    <a href="#method" class="nav-link">方法</a>
+    <a href="#insights" class="nav-link">有趣细节</a>
+    <a href="#results" class="nav-link">实验</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <!-- TL;DR -->
+  <section id="tldr">
+    <div class="tldr">
+      <div class="tldr-title">TL;DR</div>
+      <p><strong>RLVR 训练语言模型推理时，模型倾向于反复采样少数主流推理路径，忽略那些概率低但正确的长尾策略。</strong></p>
+      <p>NudgeRL 的解法很简单：训练时在 prompt 后面附加一个轻量的「策略提示」（如「试试用生成函数」），强迫模型沿不同推理路径生成 rollout。再通过分组 advantage 估计和蒸馏，把探索到的好路径迁移回无提示的基础策略。</p>
+      <p><strong>效果</strong>：用 8 条 rollout 就能匹敌 GRPO 用 64 条 rollout 的表现，同时超越使用 oracle 提示的方案。</p>
+    </div>
+  </section>
+
+  <!-- Problem -->
+  <section id="problem">
+    <h2>为什么需要这篇论文</h2>
+    <p>用 <strong>RLVR</strong>（带可验证奖励的强化学习）训练大模型做数学推理时，核心循环是：对一道题采样若干条推理路径（rollout），用答案对错作为奖励信号更新模型。</p>
+    <p>问题在于：<strong>模型会反复采样它已经「会」的推理模式</strong>。对一道几何题，如果模型习惯用坐标法，它采 64 次大概率还是坐标法的变体——虽然用三角恒等式也能解，但这条路径概率太低，几乎永远采不到。</p>
+
+    <h3>探索瓶颈的数学本质</h3>
+    <p>更直观地看，RLVR 不是在整张策略分布上均匀训练，而是<strong>只在本轮 rollout 实际采到的区域上更新</strong>。这就是 on-policy 的好处，也是长尾探索的瓶颈。</p>
+
+    <div class="policy-dist-card">
+      <svg class="policy-dist-svg" viewBox="0 0 720 320" preserveAspectRatio="xMidYMid meet" role="img" aria-label="RLVR 采样只更新 on-policy 区域，off-policy 正确长尾未被采到">
+        <defs>
+          <marker id="arrowUpOnPolicy" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#7a9a6a"/>
+          </marker>
+          <marker id="arrowDownOnPolicy" viewBox="0 0 10 10" refX="6" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M 0 0 L 10 5 L 0 10 z" fill="#a0724a"/>
+          </marker>
+          <pattern id="tailHatch" patternUnits="userSpaceOnUse" width="8" height="8" patternTransform="rotate(45)">
+            <line x1="0" y1="0" x2="0" y2="8" stroke="#a0724a" stroke-width="2" opacity="0.45"/>
+          </pattern>
+        </defs>
+
+        <line x1="45" y1="258" x2="675" y2="258" stroke="#d4c4a6" stroke-width="1"/>
+        <text x="48" y="42" font-family="JetBrains Mono, monospace" font-size="13" fill="#5a4d3a" font-weight="600">π(trajectory | x₀) · 当前策略分布</text>
+        <text x="585" y="282" font-family="JetBrains Mono, monospace" font-size="11" fill="#8a7c68">推理路径 / token 区域</text>
+
+        <!-- current policy distribution -->
+        <path d="M 45 258
+                 Q 90 258 125 212
+                 Q 162 166 205 124
+                 Q 250 82 300 132
+                 Q 342 174 382 232
+                 Q 420 258 462 258
+                 Q 500 258 532 244
+                 Q 568 228 604 242
+                 Q 640 258 675 258 Z"
+              fill="#8a7c68" fill-opacity="0.18" stroke="#6b5d48" stroke-width="1.8"/>
+
+        <!-- updated contour only in the sampled on-policy region -->
+        <path d="M 45 258
+                 Q 90 258 125 232
+                 Q 162 188 205 116
+                 Q 250 52 300 112
+                 Q 342 190 382 244
+                 Q 420 258 462 258"
+              fill="none" stroke="#7a9a6a" stroke-width="1.6" stroke-dasharray="5 4"/>
+        <text x="318" y="106" font-family="JetBrains Mono, monospace" font-size="11" fill="#5f7f50" font-weight="600">π after update</text>
+
+        <!-- on-policy sampled region -->
+        <rect x="112" y="62" width="280" height="196" rx="12" fill="#7a9a6a" opacity="0.08" stroke="#7a9a6a" stroke-dasharray="5 4"/>
+        <text x="126" y="84" font-family="JetBrains Mono, monospace" font-size="12" fill="#5f7f50" font-weight="700">on-policy · 本轮采到了</text>
+
+        <!-- off-policy correct tail -->
+        <path d="M 462 258
+                 Q 500 258 532 244
+                 Q 568 228 604 242
+                 Q 640 258 675 258 Z"
+              fill="url(#tailHatch)" stroke="#a0724a" stroke-width="1.4" stroke-dasharray="4 3"/>
+        <rect x="474" y="86" width="172" height="78" rx="10" fill="#fffaf5" stroke="#d8c3aa"/>
+        <text x="492" y="110" font-family="JetBrains Mono, monospace" font-size="13" fill="#a0724a" font-weight="700">U<tspan baseline-shift="sub" font-size="9">pos,2</tspan></text>
+        <text x="492" y="132" font-family="Noto Sans SC, sans-serif" font-size="12" fill="#5a4d3a">正确但没采到的</text>
+        <text x="492" y="151" font-family="Noto Sans SC, sans-serif" font-size="12" fill="#5a4d3a">概率质量</text>
+        <line x1="558" y1="164" x2="570" y2="230" stroke="#a0724a" stroke-width="1.4" stroke-dasharray="4 3"/>
+
+        <!-- sampled rollouts -->
+        <g fill="#7a9a6a">
+          <circle cx="182" cy="153" r="4.5"/>
+          <circle cx="224" cy="116" r="4.5"/>
+          <circle cx="258" cy="101" r="4.5"/>
+          <circle cx="294" cy="129" r="4.5"/>
+        </g>
+        <g fill="#a0724a">
+          <circle cx="132" cy="209" r="4"/>
+          <circle cx="345" cy="186" r="4"/>
+          <circle cx="372" cy="230" r="4"/>
+        </g>
+        <text x="150" y="285" font-family="Noto Sans SC, sans-serif" font-size="12" fill="#5a4d3a">绿色点：采样正确</text>
+        <text x="284" y="285" font-family="Noto Sans SC, sans-serif" font-size="12" fill="#5a4d3a">棕色点：采样错误</text>
+
+        <!-- policy updates in sampled region -->
+        <g stroke="#7a9a6a" stroke-width="2" fill="none">
+          <path d="M 224 116 L 224 78" marker-end="url(#arrowUpOnPolicy)"/>
+          <path d="M 258 101 L 258 62" marker-end="url(#arrowUpOnPolicy)"/>
+          <path d="M 294 129 L 294 94" marker-end="url(#arrowUpOnPolicy)" opacity="0.8"/>
+        </g>
+        <g stroke="#a0724a" stroke-width="1.8" fill="none">
+          <path d="M 132 209 L 132 233" marker-end="url(#arrowDownOnPolicy)"/>
+          <path d="M 345 186 L 345 214" marker-end="url(#arrowDownOnPolicy)"/>
+        </g>
+        <text x="226" y="53" font-family="Noto Sans SC, sans-serif" font-size="12" fill="#5f7f50" font-weight="600">正确样本 ↑</text>
+        <text x="112" y="246" font-family="Noto Sans SC, sans-serif" font-size="12" fill="#a0724a" font-weight="600">错误样本 ↓</text>
+
+        <!-- no gradient in tail -->
+        <line x1="520" y1="216" x2="632" y2="216" stroke="#a0724a" stroke-width="1.5" stroke-dasharray="5 4"/>
+        <text x="576" y="207" font-family="Noto Sans SC, sans-serif" font-size="12" fill="#a0724a" text-anchor="middle" font-weight="600">本轮没有梯度</text>
+      </svg>
+
+      <div class="dist-caption">
+        <strong>读图方式</strong>：灰色曲线是模型当前会走的推理路径分布。RLVR 只能根据采到的 rollout 更新，所以左侧高概率的 on-policy 区域会被调整；右侧小山头虽然也是正确解法，但概率太低，本轮没有采到，因此不会得到正向训练。
+      </div>
+      <div class="dist-legend">
+        <div class="dist-legend-item"><strong>已采样正确</strong>奖励为正，概率被往上推，是直接的学习信号。</div>
+        <div class="dist-legend-item"><strong>已采样错误</strong>奖励为低，概率被往下压，间接让采样区域里的正确路径更突出。</div>
+        <div class="dist-legend-item"><strong>U<sub>pos,2</sub></strong>正确但没采到的概率质量；它在 off-policy 长尾里，本轮没有被正向训练到。</div>
+      </div>
+    </div>
+
+    <p>所以 BroRL 中的 <strong>ΔQ<sub>pos</sub></strong> 可以理解成：on-policy 区域里采到的正确样本和错误样本会推动分布变好，但 <strong>U<sub>pos,2</sub></strong> 代表的 off-policy 正确质量没有进入训练信号，甚至可能被 baseline 间接挤压。<strong>核心瓶颈：模型知道正确答案，但采不到它们。</strong></p>
+
+    <div class="formula-block">
+      发现概率为 π(y|x₀) 的稀有轨迹所需期望 rollout 数 = 1 / π(y|x₀)
+    </div>
+
+    <p>如果一条正确路径的概率是 0.01，平均要采 100 次才能发现一次。堆 rollout 数虽然能缓解，但对长尾轨迹效率极低——<strong>这就是为什么需要「结构化探索」而非简单堆量</strong>。</p>
+  </section>
+
+  <!-- Existing approaches -->
+  <section id="existing">
+    <h2>已有方案做了什么、卡在哪</h2>
+    <p>围绕 RLVR 探索瓶颈，已有两条路线：</p>
+
+    <div class="expand-card" id="card-grpo">
+      <div class="expand-card-header" onclick="toggleCard('card-grpo')">
+        <span class="expand-arrow">&#9654;</span>
+        <div>
+          <div class="expand-card-title">路线一：堆 rollout 数量（GRPO 扩展）</div>
+          <div class="expand-card-subtitle">增大 N 来覆盖更多路径，计算成本线性增长但收益递减</div>
+        </div>
+      </div>
+      <div class="expand-card-body">
+        <div class="expand-card-content">
+          <p><strong>做法</strong>：GRPO 对每个 prompt 采样 N 条 rollout，用组内奖励均值和方差做归一化 advantage，然后用 PPO-style 的 clipped 目标优化。增大 N 就能多覆盖一些路径。</p>
+          <p><strong>优势公式</strong>：Â<sub>i</sub> = (r<sub>i</sub> - μ) / (σ + δ)，其中 μ 和 σ 是同组 rollout 的奖励均值和标准差。</p>
+          <p><strong>卡在哪</strong>：BroRL 把未采样区域的二阶矩写成 Σ p<sub>i</sub>²(1-p<sub>i</sub>)<sup>N</sup>。N 变大确实会让它单调下降，但下降速度由 p<sub>i</sub> 决定：越长尾的正确轨迹，越难靠堆 rollout 覆盖。</p>
+          <details>
+            <summary>公式怎么来的：它衡量「概率为 p<sub>i</sub> 的轨迹在 N 次采样后仍没被看到」的期望贡献。</summary>
+            <div class="detail-content">
+              <p>先不用急着看推导，直接看曲线。横轴是 rollout 数 N，纵轴是「这条路径到现在还一次都没被采到」的概率，也就是 (1-p<sub>i</sub>)<sup>N</sup>。</p>
+              <div class="decay-curve-card">
+                <svg class="decay-curve-svg" viewBox="0 0 620 280" preserveAspectRatio="xMidYMid meet" role="img" aria-label="不同路径概率下未采样概率随 rollout 数下降的曲线">
+                  <line x1="56" y1="222" x2="565" y2="222" stroke="#d4c4a6" stroke-width="1"/>
+                  <line x1="56" y1="46" x2="56" y2="222" stroke="#d4c4a6" stroke-width="1"/>
+                  <text x="54" y="30" font-family="Noto Sans SC, sans-serif" font-size="12" fill="#5a4d3a" font-weight="600">仍没采到的概率 (1-pᵢ)ᴺ</text>
+                  <text x="475" y="253" font-family="Noto Sans SC, sans-serif" font-size="12" fill="#5a4d3a">rollout 数 N</text>
+
+                  <g stroke="#e8dcc7" stroke-width="1">
+                    <line x1="56" y1="134" x2="565" y2="134"/>
+                    <line x1="56" y1="90" x2="565" y2="90"/>
+                    <line x1="56" y1="178" x2="565" y2="178"/>
+                  </g>
+                  <g font-family="JetBrains Mono, monospace" font-size="10" fill="#8a7c68">
+                    <text x="26" y="225">0</text>
+                    <text x="20" y="181">25%</text>
+                    <text x="20" y="137">50%</text>
+                    <text x="20" y="93">75%</text>
+                    <text x="18" y="50">100%</text>
+                    <text x="52" y="241">0</text>
+                    <text x="208" y="241">64</text>
+                    <text x="300" y="241">100</text>
+                    <text x="552" y="241">200</text>
+                  </g>
+
+                  <!-- N = 64 reading line -->
+                  <line x1="216" y1="46" x2="216" y2="222" stroke="#a0724a" stroke-width="1.4" stroke-dasharray="4 4"/>
+                  <text x="226" y="62" font-family="JetBrains Mono, monospace" font-size="11" fill="#a0724a" font-weight="700">N = 64</text>
+
+                  <!-- p = 0.1 -->
+                  <path d="M 56 46 C 80 78, 96 150, 112 185 C 135 216, 170 222, 565 222"
+                        fill="none" stroke="#7a9a6a" stroke-width="2.2"/>
+                  <circle cx="216" cy="222" r="3.6" fill="#7a9a6a"/>
+                  <text x="380" y="214" font-family="JetBrains Mono, monospace" font-size="11" fill="#5f7f50" font-weight="700">pᵢ = 0.1：很快采到</text>
+
+                  <!-- p = 0.01 -->
+                  <path d="M 56 46 C 138 70, 210 112, 306 158 C 392 186, 470 198, 565 199"
+                        fill="none" stroke="#a0724a" stroke-width="2.2"/>
+                  <circle cx="216" cy="129" r="3.6" fill="#a0724a"/>
+                  <text x="330" y="154" font-family="JetBrains Mono, monospace" font-size="11" fill="#a0724a" font-weight="700">pᵢ = 0.01：64 次后还剩约 53%</text>
+
+                  <!-- p = 0.001 -->
+                  <path d="M 56 46 C 180 52, 330 66, 565 81"
+                        fill="none" stroke="#6b5d48" stroke-width="2.2"/>
+                  <circle cx="216" cy="57" r="3.6" fill="#6b5d48"/>
+                  <text x="236" y="90" font-family="JetBrains Mono, monospace" font-size="11" fill="#5a4d3a" font-weight="700">pᵢ = 0.001：64 次后仍约 94% 没采到</text>
+                </svg>
+                <div class="decay-note">
+                  <strong>读图重点</strong>：不是所有曲线都慢。p<sub>i</sub>=0.1 的路径很快被覆盖；真正慢的是 p<sub>i</sub>=0.001 这种长尾路径，N=64 只让「没采到概率」从 100% 降到约 94%。
+                </div>
+              </div>
+              <p>公式里的 (1-p<sub>i</sub>)<sup>N</sup> 就是上图的纵轴。BroRL 还要衡量这条路径在 softmax 更新里的影响大小，所以给它乘上 p<sub>i</sub>²；对所有候选路径求和，就得到 Σ p<sub>i</sub>²(1-p<sub>i</sub>)<sup>N</sup>。</p>
+            </div>
+          </details>
+          <p><strong>直觉</strong>：堆 N 主要覆盖中等概率路径；对 p<sub>i</sub> 极小的长尾正确轨迹，计算成本线性增长，但未探索质量下降很慢。这就是为什么 NudgeRL 要用策略提示把采样分布主动推向这些低概率正确区域，而不是只增加 rollout 数。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="expand-card" id="card-pope">
+      <div class="expand-card-header" onclick="toggleCard('card-pope')">
+        <span class="expand-arrow">&#9654;</span>
+        <div>
+          <div class="expand-card-title">路线二：Oracle 引导探索（POPE 等）</div>
+          <div class="expand-card-subtitle">用标准答案前缀引导模型生成正确路径，代价是需要昂贵的特权信息</div>
+        </div>
+      </div>
+      <div class="expand-card-body">
+        <div class="expand-card-content">
+          <p><strong>做法</strong>：POPE（Privileged On-Policy Exploration）把已知的正确解的前几步作为 prefix 拼接到 prompt 后面，引导模型更容易采到正确 rollout。类似的还有 BREAD（从 expert 解出发做分支 rollout）。</p>
+          <p><strong>卡在哪</strong>：</p>
+          <ul>
+            <li><strong>依赖 oracle 数据</strong>：需要每道题的标准解，获取成本高、难以规模化</li>
+            <li><strong>多样性受限</strong>：引导策略指向预定义的成功路径，反而可能压缩了探索空间——模型学到的只是 oracle 指明的那条路</li>
+            <li><strong>可行性导向而非多样性导向</strong>：目标是「让模型能解出来」，不是「让模型发现多种解法」</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="compare-panel">
+      <div class="compare-side">
+        <div class="compare-side-title">堆 rollout 数</div>
+        <ul>
+          <li>不需要额外数据</li>
+          <li>对长尾无效</li>
+          <li>计算开销大</li>
+        </ul>
+      </div>
+      <div class="compare-side">
+        <div class="compare-side-title">Oracle 引导</div>
+        <ul>
+          <li>能解出难题</li>
+          <li>依赖昂贵标注</li>
+          <li>多样性不足</li>
+        </ul>
+      </div>
+    </div>
+
+    <p>NudgeRL 想要的是：<strong>不用 oracle 数据，用比堆 rollout 少得多的计算量，同时获得真正多样化的推理路径探索。</strong></p>
+  </section>
+
+  <!-- Method -->
+  <section id="method">
+    <h2>NudgeRL 的做法</h2>
+    <p>NudgeRL 由三个模块组成，解决三个递进问题：</p>
+    <ol>
+      <li><strong>Strategy Nudging</strong>——怎么让模型探索不同的推理路径？</li>
+      <li><strong>Inter-Intra Group Advantage</strong>——不同策略下的 rollout 怎么公平地算 advantage？</li>
+      <li><strong>蒸馏目标</strong>——训练时用了策略提示，推理时不用提示怎么办？</li>
+    </ol>
+
+    <!-- Module 1: Strategy Nudging -->
+    <h3>模块一：Strategy Nudging——用策略提示激活不同推理模式</h3>
+    <p>核心直觉很简单：如果在 prompt 后面加一句「试试用勾股定理」，模型生成的 rollout 就会倾向于用勾股定理的思路；加「试试用面积法」，就会走另一条路。<strong>不需要告诉它答案，只需要一个方向性的 nudge。</strong></p>
+
+    <p>具体做法：</p>
+    <ul>
+      <li>对每道题 x₀ 维护一个<strong>策略池</strong> C(x₀) = {c₁, c₂, ..., c<sub>M</sub>}（M 个策略提示，如「数学归纳法」「生成函数」「坐标几何」等）</li>
+      <li>每条 rollout 从池中<strong>均匀随机</strong>采一个策略 c<sup>(i)</sup></li>
+      <li>以概率 p<sub>drop</sub> <strong>丢弃该策略</strong>（context dropout），保持与原始 prompt 的兼容性</li>
+      <li>最终 prompt 为 x₁<sup>(i)</sup> = (x₀, z<sup>(i)</sup>)，其中 z<sup>(i)</sup> = c<sup>(i)</sup>（保留时）或 ∅（丢弃时）</li>
+    </ul>
+
+    <!-- Step animation for Strategy Nudging -->
+    <div class="step-demo">
+      <div class="step-demo-title">Strategy Nudging 过程演示</div>
+      <div class="step-visual" id="nudge-visual">
+        <div class="step-node prompt" id="sv-prompt">数学题 x₀</div>
+        <div class="step-node arrow">+</div>
+        <div class="step-node context" id="sv-ctx">策略：生成函数</div>
+        <div class="step-node arrow">→</div>
+        <div class="step-node output" id="sv-out1">rollout₁</div>
+        <div class="step-node output" id="sv-out2">rollout₂</div>
+        <div class="step-node output" id="sv-out3">rollout₃</div>
+      </div>
+      <div class="step-controls">
+        <button class="step-btn primary" onclick="nudgeStep()">下一步</button>
+        <button class="step-btn" onclick="nudgeReset()">重置</button>
+        <span class="step-desc" id="nudge-desc">点击「下一步」查看 Strategy Nudging 如何工作</span>
+      </div>
+    </div>
+
+    <!-- Figure 1: Diversity -->
+    <div class="figure-block">
+      <img src="https://arxiv.org/html/2605.15726v1/x1.png" alt="Strategy Nudging 带来的探索多样性提升">
+      <p class="figure-caption">Strategy Nudging 如何改善探索多样性：(a) 朴素采样反复采到相同推理模式；(b) NudgeRL 通过策略提示强制模型走不同路径；(c) 定量对比显示策略提示显著增加了不同推理结构的数量。</p>
+      <span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明 &#9656;</span>
+      <div class="figure-detail">
+        <ul>
+          <li><strong>左 (a)</strong>：传统 GRPO 对同一道题采样 8 条 rollout，由于都从同一个 prompt 采样，大部分路径落入同一种推理模式（如反复用代数消元），覆盖面窄。</li>
+          <li><strong>中 (b)</strong>：NudgeRL 为不同 rollout 分配不同的策略提示，迫使模型尝试多种推理路径（坐标法、三角法、向量法……），覆盖更多推理空间。</li>
+          <li><strong>右 (c)</strong>：实验对比——对 4 条 rollout 用 2 个策略 vs 从基础 prompt 采 8 条，用 LLM 判断推理结构的数量。Strategy Nudging 在多数题目上发现了更多不同的推理方式。</li>
+          <li><strong>一句话</strong>：策略提示是一种输入层面的多样性注入，比温度调节或熵正则更有语义方向性。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="quote-block">
+      <strong>关键洞察</strong>：策略提示不需要「正确」——它只需要把采样分布往不同方向推。即使一个策略提示在某道题上成功率很低，它仍然有价值，因为它帮助模型探索了不同的推理空间。
+    </div>
+
+    <!-- Module 2: Inter-Intra Group Advantage -->
+    <h3>模块二：Inter-Intra Group Advantage——跨策略的信用分配</h3>
+    <p>用策略提示后，rollout 自然按策略分组。但标准 GRPO 的 advantage 估计假设所有 rollout 来自同一个分布——<strong>现在不同组的 rollout 来自不同条件分布，直接混在一起算均值和方差会出问题。</strong></p>
+
+    <p>NudgeRL 的解法是把 advantage 分解为<strong>组内</strong>和<strong>组间</strong>两个分量：</p>
+
+    <div class="formula-block">
+      Â<sub>i</sub> = (1 - λ/2) &middot; [组内归一化] + (λ/2) &middot; [组间归一化]
+    </div>
+
+    <ul>
+      <li><strong>组内信号（Intra）</strong>：在同一策略下的 rollout 之间比较——这条路径相对于「同策略同学」表现如何？</li>
+      <li><strong>组间信号（Inter）</strong>：跨策略比较整体成功率——这个策略整体上比其他策略更靠谱吗？</li>
+      <li><strong>λ 控制平衡</strong>：λ ∈ [0, 2]。λ > 1 时更信任高成功率策略（exploit），λ < 1 时更鼓励低成功率策略的偶然成功（explore）。实验最优值 λ ≈ 1.1。</li>
+    </ul>
+
+    <p>论文证明了一个重要性质（Proposition 3.1）：<strong>只要 λ ∈ [0, 2]，advantage 的一致性就能保证</strong>——奖励更高的 rollout 永远获得更高的 advantage，不会出现「答对了反而被惩罚」的反常情况。</p>
+
+    <!-- Module 3: Distillation -->
+    <h3>模块三：蒸馏目标——弥合训练与推理的 gap</h3>
+    <p>训练时用了策略提示，推理时不能加提示（用户只给一道题）。如果只优化 π(y|x₀, c) 而不管 π(y|x₀)，探索到的好路径可能无法转移到无提示的基础策略。</p>
+
+    <p>蒸馏目标直接解决这一问题：</p>
+    <div class="formula-block">
+      L<sub>Distill</sub> = -E[ Â &middot; log π<sub>θ</sub>(y | x₀) ]
+    </div>
+
+    <p>含义：对探索到的高 advantage 轨迹 y（在 x₀ + 策略提示下采到的），<strong>用无提示的 prompt x₀ 重新计算其对数概率</strong>，然后用 advantage 加权做梯度上升。这相当于把「提示下发现的好路径」蒸馏回基础策略。</p>
+
+    <p>最终训练目标是两者加权：</p>
+    <div class="formula-block">
+      L<sub>NudgeRL</sub> = L<sub>RL</sub> + λ<sub>distill</sub> &middot; L<sub>Distill</sub>
+    </div>
+
+    <ul>
+      <li><strong>L<sub>RL</sub></strong>：标准的 PPO-style clipped 目标（在策略提示条件下优化）</li>
+      <li><strong>L<sub>Distill</sub></strong>：把好轨迹转移到基础策略</li>
+      <li><strong>λ<sub>distill</sub></strong>：蒸馏权重</li>
+    </ul>
+
+    <h3>把三个模块连起来看</h3>
+    <p>到这里再看论文的总览图就清楚了：左边是在解决「不同策略下的 rollout 怎么分配信用」，右边是在解决「训练时靠提示发现的好路径，怎么迁移到无提示推理」。</p>
+
+    <!-- Figure 2: Overview -->
+    <div class="figure-block">
+      <img src="https://arxiv.org/html/2605.15726v1/x2.png" alt="NudgeRL 学习机制概览">
+      <p class="figure-caption">NudgeRL 学习机制概览：左侧展示 Inter-Intra Group Advantage 的信用分配逻辑，右侧展示蒸馏如何弥合训练-推理的 gap。</p>
+      <span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明 &#9656;</span>
+      <div class="figure-detail">
+        <ul>
+          <li><strong>左半 (a) Inter-Intra Group Advantage</strong>：两个策略（A 和 B）各产生若干 rollout。策略 B 整体成功率更高，因此来自 B 的成功 rollout 获得更大的正 advantage——鼓励模型多利用「靠谱」策略，同时不放弃低成功率策略偶尔的成功发现。</li>
+          <li><strong>右半 (b) Self-Distillation</strong>：模型在「问题 + 策略提示」条件下发现了高质量 rollout，蒸馏目标让这些好轨迹的概率在「只看问题」条件下也提升——实现无提示推理时也能复用探索到的推理路径。</li>
+          <li><strong>关键连线</strong>：策略提示仅在训练阶段存在（探索 → 发现好路径 → 蒸馏回基础策略），推理时完全不需要外部提示。</li>
+          <li><strong>设计意图</strong>：将「多样化探索」和「推理时的简洁性」解耦——训练时用提示强制多样性，推理时靠蒸馏内化结果。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Insights -->
+  <section id="insights">
+    <h2>有意思的发现</h2>
+
+    <h3>随机采样 > 精心挑选策略</h3>
+    <p>直觉上你可能觉得应该挑「跟正确解最相关的」策略做提示。但实验显示：<strong>从策略池中均匀随机采样的效果优于 oracle 排序后只用高质量策略。</strong></p>
+    <p>原因：如果只用「最靠谱」的策略，反而限制了探索多样性——跟 POPE 的问题如出一辙。随机采样保证了策略空间的覆盖度，偶尔的「不靠谱」策略可能帮模型发现意想不到的解法。</p>
+
+    <h3>Context Dropout = 0.5 最优</h3>
+    <p>p<sub>drop</sub> = 0.5 意味着一半 rollout 有策略提示、一半没有。这个比例平衡了：</p>
+    <ul>
+      <li>太低（drop 少）→ 蒸馏时基础策略看到的无提示 rollout 不够</li>
+      <li>太高（drop 多）→ 策略提示带来的多样性优势被稀释</li>
+    </ul>
+
+    <h3>探索效率公式的直觉</h3>
+    <p>如果策略提示 c 能把某条正确路径的概率从 π(y|x₀) = 0.001 提高到 π(y|x₀, c) = 0.1，那发现它所需的 rollout 数从 1000 降到 10。<strong>策略提示不需要给出答案——它只需要「推一把」让概率分布偏移。</strong>这就是论文标题「Nudging Beyond the Comfort Zone」的含义。</p>
+  </section>
+
+  <!-- Results -->
+  <section id="results">
+    <h2>实验结论</h2>
+
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="metric-value">8x</div>
+        <div class="metric-label">更少的 rollout 就能匹敌 GRPO</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">0.489</div>
+        <div class="metric-label">Qwen3-4B 平均 pass@1<br>(GRPO-32 为 0.487)</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">&gt; POPE</div>
+        <div class="metric-label">超越 oracle 引导方案<br>（不依赖标准答案）</div>
+      </div>
+    </div>
+
+    <p>在五个数学 benchmark（AIME24/25、AMC23、MATH500、Apex Shortlist）上，NudgeRL 只用 8 条 rollout 的表现就<strong>超过 GRPO 用 64 条 rollout</strong>。用同样 8 条 rollout 对比，NudgeRL 也优于使用 oracle 前缀的 POPE 方法。</p>
+
+    <details>
+      <summary>具体数字对比（Qwen3-4B-Instruct，pass@1）</summary>
+      <div class="detail-content">
+        <p><strong>GRPO-8</strong>（基线 8 rollout）：作为底线</p>
+        <p><strong>GRPO-32</strong>（堆 4 倍量）：平均 0.487</p>
+        <p><strong>POPE-8</strong>（oracle 引导）：略低于 NudgeRL</p>
+        <p><strong>NudgeRL-8</strong>（本文方法）：<strong>0.489</strong>，以 8 rollout 超越 GRPO-32 的 32 rollout</p>
+        <p>在 OLMo3-7B-Instruct 上也观察到类似趋势：NudgeRL 达到 0.285 vs GRPO-32 的 0.281。</p>
+      </div>
+    </details>
+
+    <p style="margin-top: 16px;">论文提到的局限性：策略池的生成目前依赖 LLM（用 GPT-4o-mini 对每道题生成候选策略），未来可以探索更自动化或自适应的策略池维护机制。</p>
+  </section>
+
+  <!-- Footer -->
+  <footer class="page-footer">
+    <p>原文：<a href="https://arxiv.org/abs/2605.15726" target="_blank" style="color: var(--accent);">Nudging Beyond the Comfort Zone: Efficient Strategy-Guided Exploration for RLVR</a> &middot; Chanuk Lee et al. &middot; arXiv 2026.05</p>
+  </footer>
+
+</div>
+
+<script>
+// Toggle expand cards
+function toggleCard(id) {
+  const card = document.getElementById(id);
+  card.classList.toggle('expanded');
+}
+
+// Toggle figure detail
+function toggleFigDetail(el) {
+  el.onclick = function(e) { e.stopPropagation(); toggleFigDetail(el); };
+  const detail = el.nextElementSibling;
+  if (detail.classList.contains('active')) {
+    detail.classList.remove('active');
+    el.innerHTML = '展开说明 &#9656;';
+  } else {
+    detail.classList.add('active');
+    el.innerHTML = '收起 &#9652;';
+  }
+}
+
+// Step animation for Strategy Nudging
+let nudgeState = 0;
+const nudgeSteps = [
+  { desc: '第 1 步：有一道数学题需要生成 rollout', action: function() {
+    document.getElementById('sv-prompt').style.borderColor = 'var(--accent)';
+    document.getElementById('sv-prompt').style.border = '2px solid var(--accent)';
+  }},
+  { desc: '第 2 步：从策略池随机采样一个策略提示，拼接到 prompt 后', action: function() {
+    document.getElementById('sv-ctx').classList.add('visible');
+  }},
+  { desc: '第 3 步：用「题目 + 策略提示」生成 rollout，模型被引导走不同路径', action: function() {
+    document.getElementById('sv-out1').classList.add('highlight');
+    document.getElementById('sv-out1').textContent = 'rollout₁ (生成函数)';
+  }},
+  { desc: '第 4 步：换一个策略（如 Context Dropout 丢弃提示），生成另一组 rollout', action: function() {
+    document.getElementById('sv-ctx').textContent = '(无提示 - dropout)';
+    document.getElementById('sv-ctx').style.background = 'var(--text-muted)';
+    document.getElementById('sv-out2').classList.add('highlight');
+    document.getElementById('sv-out2').textContent = 'rollout₂ (自由探索)';
+  }},
+  { desc: '第 5 步：再换一个策略，最终获得覆盖多种推理模式的多样化 rollout 集合', action: function() {
+    document.getElementById('sv-ctx').textContent = '策略：数学归纳';
+    document.getElementById('sv-ctx').style.background = 'var(--accent-light)';
+    document.getElementById('sv-out3').classList.add('highlight');
+    document.getElementById('sv-out3').textContent = 'rollout₃ (归纳法)';
+  }}
+];
+
+function nudgeStep() {
+  if (nudgeState < nudgeSteps.length) {
+    nudgeSteps[nudgeState].action();
+    document.getElementById('nudge-desc').textContent = nudgeSteps[nudgeState].desc;
+    nudgeState++;
+  }
+}
+
+function nudgeReset() {
+  nudgeState = 0;
+  document.getElementById('sv-prompt').style.border = 'none';
+  const ctx = document.getElementById('sv-ctx');
+  ctx.classList.remove('visible');
+  ctx.textContent = '策略：生成函数';
+  ctx.style.background = 'var(--accent)';
+  ['sv-out1','sv-out2','sv-out3'].forEach(function(id) {
+    const el = document.getElementById(id);
+    el.classList.remove('highlight');
+  });
+  document.getElementById('sv-out1').textContent = 'rollout₁';
+  document.getElementById('sv-out2').textContent = 'rollout₂';
+  document.getElementById('sv-out3').textContent = 'rollout₃';
+  document.getElementById('nudge-desc').textContent = '点击「下一步」查看 Strategy Nudging 如何工作';
+}
+
+// Smooth scroll for nav
+document.querySelectorAll('.nav-link').forEach(function(link) {
+  link.addEventListener('click', function(e) {
+    e.preventDefault();
+    const target = document.querySelector(this.getAttribute('href'));
+    if (target) {
+      target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  });
+});
+</script>
+</body>
+</html>
