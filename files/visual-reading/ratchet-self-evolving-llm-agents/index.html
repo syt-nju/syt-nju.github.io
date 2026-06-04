@@ -1,0 +1,775 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ratchet · 让 agent 自己维护"经验手册"，到底哪些管理动作不能少</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bg:#faf7f2;--bg-card:#ffffff;--bg-card-2:#f5f0e8;--bg-soft:#f0ebe0;
+  --bg-deep:#2a1f0f;--bg-hero:#1e1508;--text:#2a1f0f;--text-secondary:#5c4a2a;
+  --text-muted:#8a7e72;--text-invert:#f0e8d8;--accent:#b07840;--accent-hover:#8f5e2a;
+  --accent-soft:#f0e8d8;--border:#e8ddc8;--border-strong:#c8b89a;
+  --good:#4a8c5a;--good-soft:#e8f5ec;--bad:#b05040;--bad-soft:#fdf0ed;
+  --shadow-sm:0 1px 3px rgba(30,20,5,.08);--shadow-md:0 4px 16px rgba(30,20,5,.12);
+  --radius:10px;--radius-lg:16px;
+  --font-sans:'Inter','Noto Sans SC',system-ui,sans-serif;--font-mono:'JetBrains Mono','Fira Code',monospace;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;font-size:16px}
+body{font-family:var(--font-sans);background:var(--bg);color:var(--text);line-height:1.78}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+.topnav{position:sticky;top:0;z-index:100;background:rgba(250,247,242,.92);backdrop-filter:blur(12px);border-bottom:1px solid transparent;transition:border-color .2s,box-shadow .2s}
+.topnav.scrolled{border-color:var(--border);box-shadow:var(--shadow-sm)}
+.nav-inner{max-width:1080px;margin:0 auto;display:flex;align-items:center;gap:20px;padding:0 24px;height:52px}
+.nav-brand{font-weight:800;font-size:16px;color:var(--accent);letter-spacing:.02em;text-decoration:none;white-space:nowrap}
+.nav-links{display:flex;gap:2px;flex-wrap:wrap}
+.nav-link{font-size:13px;font-weight:500;color:var(--text-secondary);padding:4px 10px;border-radius:6px;text-decoration:none;transition:all .15s}
+.nav-link:hover{background:var(--accent-soft);color:var(--accent);text-decoration:none}
+.nav-src{margin-left:auto;font-size:12.5px;font-weight:600;color:var(--accent)}
+.hero{background:var(--bg-hero);color:var(--text-invert);padding:60px 24px 52px}
+.hero-inner{max-width:820px;margin:0 auto}
+.hero-tags{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:26px;align-items:center}
+.paper-tag{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);border-radius:100px;padding:5px 14px;font-family:var(--font-mono);font-size:12.5px;color:rgba(240,232,216,.8)}
+.hero-tags span{font-size:13px;color:rgba(240,232,216,.6)}
+.hero-title{font-size:clamp(40px,7vw,64px);font-weight:800;letter-spacing:-.02em;color:var(--text-invert);line-height:1.06;margin-bottom:14px}
+.hero-sub{font-size:clamp(16px,2.4vw,20px);color:rgba(240,232,216,.78);font-weight:500;margin-bottom:30px;line-height:1.6}
+.hero-tldr{background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.12);border-radius:var(--radius-lg);padding:20px 24px;margin-bottom:30px}
+.tldr-label{font-family:var(--font-mono);font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
+.hero-tldr p{font-size:15.5px;color:rgba(240,232,216,.88);line-height:1.8;margin-bottom:10px}
+.hero-tldr p:last-child{margin-bottom:0}
+.hero-tldr strong{color:var(--text-invert)}
+.metric-row{display:flex;gap:14px;flex-wrap:wrap}
+.metric-card{background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:var(--radius);padding:16px 18px;flex:1;min-width:130px}
+.metric-card.good{background:rgba(74,140,90,.12);border-color:rgba(74,140,90,.3)}
+.metric-card.bad{background:rgba(176,80,64,.12);border-color:rgba(176,80,64,.3)}
+.metric-val{font-size:26px;font-weight:800;color:var(--text-invert);line-height:1;margin-bottom:6px;font-family:var(--font-mono)}
+.metric-card.good .metric-val{color:#7ecf94}
+.metric-card.bad .metric-val{color:#e89080}
+.metric-label{font-size:12px;color:rgba(240,232,216,.62);line-height:1.45}
+.section{padding:60px 24px}.section.alt{background:var(--bg-card)}
+.section-inner{max-width:840px;margin:0 auto}
+.section-label{font-family:var(--font-mono);font-size:11.5px;font-weight:700;color:var(--accent);letter-spacing:.12em;text-transform:uppercase;margin-bottom:10px}
+.section-title{font-size:clamp(23px,4vw,31px);font-weight:800;line-height:1.28;margin-bottom:20px;color:var(--text)}
+.section-sublabel{font-size:15px;font-weight:700;color:var(--text);margin:30px 0 12px}
+p.body{font-size:16px;color:var(--text-secondary);line-height:1.85;margin-bottom:18px}
+p.body strong{color:var(--text);font-weight:700}
+.lead{font-size:17px;color:var(--text);line-height:1.85;margin-bottom:20px}
+.lead strong{color:var(--accent-hover);font-weight:700}
+.bridge{font-size:15.5px;color:var(--text-muted);font-style:normal;line-height:1.8;margin:26px 0 6px;padding-left:16px;border-left:3px solid var(--border-strong)}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin:8px 0}
+@media(max-width:680px){.two-col{grid-template-columns:1fr}}
+.col-card{background:var(--bg-soft);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 22px}
+.col-card.highlight{background:var(--bg-hero);color:var(--text-invert);border-color:transparent}
+.col-card.highlight p,.col-card.highlight li{color:rgba(240,232,216,.82)}
+.col-card.highlight h3{color:var(--text-invert)}
+.col-card h3{font-size:15px;font-weight:700;margin-bottom:10px}
+.col-card p{font-size:14px;color:var(--text-secondary);margin-bottom:8px;line-height:1.7}
+.col-card ul{margin-left:18px}.col-card li{font-size:13.5px;color:var(--text-secondary);margin:6px 0;line-height:1.6}
+.callout{background:var(--accent-soft);border-left:3px solid var(--accent);border-radius:0 var(--radius) var(--radius) 0;padding:14px 18px;font-size:14.5px;color:var(--text-secondary);line-height:1.7;margin:18px 0}
+.callout strong{color:var(--text)}
+.callout.good{background:var(--good-soft);border-color:var(--good)}
+.callout.bad{background:var(--bad-soft);border-color:var(--bad)}
+figure{margin:24px 0}
+figure img{cursor:zoom-in;border-radius:var(--radius);box-shadow:var(--shadow-md);width:100%;display:block;background:#fff}
+figcaption{margin-top:12px;font-size:13.5px;color:var(--text-secondary);text-align:center;line-height:1.6}
+.fig-toggle{display:inline-block;margin-top:8px;font-family:var(--font-mono);font-size:12px;font-weight:600;color:var(--accent);cursor:pointer;padding:5px 11px;border-radius:6px;background:var(--accent-soft);user-select:none;transition:background .15s}
+.fig-toggle:hover{background:var(--bg-card-2)}
+.figure-detail{max-height:0;overflow:hidden;opacity:0;transition:max-height .4s ease,opacity .3s ease,padding .3s;background:var(--bg-card-2);border-radius:var(--radius);margin-top:0;padding:0 18px;font-size:14px;line-height:1.75;color:var(--text);text-align:left}
+.figure-detail.active{max-height:2200px;opacity:1;margin-top:12px;padding:16px 18px}
+.figure-detail ul{margin:6px 0 8px 22px}.figure-detail li{margin:5px 0}
+.figure-detail b{color:var(--accent-hover)}
+.role-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin:12px 0 6px}
+@media(max-width:680px){.role-grid{grid-template-columns:1fr}}
+.role-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;box-shadow:var(--shadow-sm)}
+.role-card .rc-band{font-family:var(--font-mono);font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;margin-bottom:6px}
+.role-card .rc-band.inf{color:#5b86b0}.role-card .rc-band.mem{color:#b08a3a}.role-card .rc-band.ref{color:#5a9468}
+.role-card .rc-name{font-size:15px;font-weight:700;color:var(--text);margin-bottom:4px}
+.role-card .rc-eng{font-family:var(--font-mono);font-size:11.5px;color:var(--text-muted);font-weight:500}
+.role-card .rc-desc{font-size:13px;color:var(--text-secondary);line-height:1.6;margin-top:7px}
+.stepper{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:24px;box-shadow:var(--shadow-md);margin:22px 0}
+.stepper-controls{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap}
+.step-btn{font-family:var(--font-sans);font-size:13px;font-weight:600;padding:7px 14px;border-radius:7px;border:1px solid var(--border-strong);background:var(--bg);color:var(--text);cursor:pointer;transition:all .15s}
+.step-btn:hover{background:var(--accent-soft);border-color:var(--accent)}
+.step-btn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+.step-btn.primary:hover{background:var(--accent-hover)}
+.step-indicator{margin-left:auto;font-family:var(--font-mono);font-size:12.5px;color:var(--text-secondary)}
+.step-track{display:flex;gap:6px;margin-bottom:22px;flex-wrap:wrap}
+.step-pill{flex:1;min-width:88px;padding:9px 8px;border-radius:7px;background:var(--bg-soft);border:1px solid var(--border);font-size:12.5px;font-weight:600;text-align:center;color:var(--text-secondary);transition:all .3s;cursor:pointer}
+.step-pill.active{background:var(--accent);border-color:var(--accent);color:#fff;box-shadow:0 2px 8px rgba(176,120,64,.3)}
+.step-pill.passed{background:var(--good-soft);border-color:var(--good);color:var(--text)}
+.step-panel{display:none;animation:fadeIn .3s ease}.step-panel.active{display:block}
+@keyframes fadeIn{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.step-content{display:grid;grid-template-columns:1.15fr 1fr;gap:22px;align-items:start}
+@media(max-width:680px){.step-content{grid-template-columns:1fr}}
+.step-info h4{font-size:17px;font-weight:700;margin-bottom:9px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.step-info h4 .num{font-family:var(--font-mono);font-size:11.5px;font-weight:700;background:var(--accent);color:#fff;padding:3px 9px;border-radius:100px}
+.step-info h4 .eng{font-family:var(--font-mono);font-size:12px;color:var(--text-muted);font-weight:500}
+.step-info p{font-size:14.5px;color:var(--text-secondary);margin-bottom:12px;line-height:1.7}
+.step-info ul{margin-left:20px;font-size:14px}.step-info li{color:var(--text-secondary);margin:6px 0;line-height:1.6}
+.step-visual{background:var(--bg-soft);border:1px solid var(--border);border-radius:var(--radius);padding:18px;font-family:var(--font-mono);font-size:13px;line-height:1.55;min-height:180px}
+.step-visual .label{font-size:10.5px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:10px}
+.step-visual pre{font-family:var(--font-mono);font-size:12px;white-space:pre-wrap;word-break:break-word;color:var(--text)}
+.kv{display:flex;gap:8px;margin:5px 0;align-items:baseline}
+.kv .k{color:var(--accent);font-weight:600;min-width:96px}.kv .v{color:var(--text)}
+.kv .v.ok{color:var(--good)}.kv .v.bad{color:var(--bad)}
+.qbox{background:var(--bg-hero);color:var(--text-invert);border-radius:var(--radius-lg);padding:26px 28px;margin:6px 0 28px}
+.qbox .q-label{font-family:var(--font-mono);font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;margin-bottom:12px}
+.qbox p{font-size:16px;color:rgba(240,232,216,.88);line-height:1.8}
+.qbox strong{color:var(--text-invert)}
+.finding{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius-lg);padding:20px 22px;margin-bottom:16px;box-shadow:var(--shadow-sm);border-left:4px solid var(--border-strong)}
+.finding.load{border-left-color:var(--bad)}
+.finding.surprise{border-left-color:var(--good)}
+.finding-head{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:10px}
+.finding-num{font-family:var(--font-mono);font-size:13px;font-weight:800;color:var(--accent)}
+.finding-title{font-size:16px;font-weight:700;color:var(--text)}
+.finding-badge{font-family:var(--font-mono);font-size:11px;font-weight:700;padding:2px 9px;border-radius:5px;margin-left:auto}
+.finding-badge.load{background:var(--bad-soft);color:var(--bad)}
+.finding-badge.surprise{background:var(--good-soft);color:var(--good)}
+.finding-badge.soft{background:var(--bg-soft);color:var(--text-secondary)}
+.finding p{font-size:14.5px;color:var(--text-secondary);line-height:1.72;margin-bottom:8px}
+.finding p:last-child{margin-bottom:0}
+.finding .exp{font-size:13px;color:var(--text-muted);background:var(--bg-soft);border-radius:var(--radius);padding:10px 13px;margin-top:8px;line-height:1.65}
+.finding .exp b{color:var(--text-secondary)}
+.numtag{font-family:var(--font-mono);font-weight:700}
+.numtag.bad{color:var(--bad)}.numtag.good{color:var(--good)}.numtag.accent{color:var(--accent-hover)}
+.results-table{width:100%;border-collapse:collapse;margin:18px 0;font-size:13.5px}
+.results-table th{background:var(--bg-soft);padding:10px 12px;text-align:left;font-size:12px;font-weight:700;font-family:var(--font-mono);color:var(--text-secondary);border-bottom:2px solid var(--border)}
+.results-table td{padding:9px 12px;border-bottom:1px solid var(--border)}
+.results-table .highlight-row{background:var(--accent-soft)}.results-table .bad-row{background:var(--bad-soft)}
+.results-table .mono{font-family:var(--font-mono);font-size:12.5px}
+.prop-box{background:var(--bg-hero);color:var(--text-invert);border-radius:var(--radius-lg);padding:28px;margin:22px 0}
+.prop-title{font-family:var(--font-mono);font-size:13px;font-weight:700;color:var(--accent);letter-spacing:.06em;text-transform:uppercase;margin-bottom:16px}
+.prop-body p{font-size:14.5px;color:rgba(240,232,216,.85);line-height:1.75;margin-bottom:12px}
+.prop-body strong{color:var(--text-invert)}
+.formula{font-family:var(--font-mono);font-size:16px;color:var(--text-invert);background:rgba(255,255,255,.07);border-radius:var(--radius);padding:14px 20px;margin:16px 0;text-align:center;border:1px solid rgba(255,255,255,.12)}
+.takeaway-card{display:flex;gap:14px;background:var(--bg-soft);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.tk-icon{font-family:var(--font-mono);font-size:14px;font-weight:800;color:var(--accent);min-width:28px;height:28px;background:var(--accent-soft);border-radius:50%;display:grid;place-items:center}
+.takeaway-card div strong{color:var(--text)}
+.takeaway-card div{font-size:14.5px;color:var(--text-secondary);line-height:1.7}
+.limit-card{background:var(--bad-soft);border:1px solid var(--border);border-radius:var(--radius);padding:13px 16px;margin-bottom:10px;font-size:13.5px;color:var(--text-secondary);line-height:1.65}
+.limit-card strong{color:var(--text)}
+.footer{background:var(--bg-deep);color:rgba(240,232,216,.6);padding:30px 24px;margin-top:0}
+.footer-inner{max-width:840px;margin:0 auto;display:flex;flex-direction:column;gap:8px;font-size:13.5px}
+.footer-inner a{color:var(--accent)}.footer-inner b{color:rgba(240,232,216,.9)}
+.term{cursor:help;border-bottom:1.5px dashed var(--accent);color:inherit}
+.term:hover{color:var(--accent)}
+#term-tooltip{position:fixed;z-index:9999;max-width:320px;min-width:200px;background:var(--bg-deep);color:var(--text-invert);border-radius:var(--radius);padding:12px 14px;box-shadow:0 8px 28px rgba(30,22,12,.28);pointer-events:none;opacity:0;transform:translateY(4px);transition:opacity .18s,transform .18s;font-size:13.5px;line-height:1.65}
+#term-tooltip.has-link{pointer-events:auto}
+#term-tooltip.visible{opacity:1;transform:none}
+#term-tooltip .tt-term{font-family:var(--font-mono);font-size:12px;font-weight:700;color:#d59a5a;margin-bottom:6px}
+#term-tooltip .tt-body{color:var(--text-invert)}
+#term-tooltip .tt-body b{color:#f0c084}
+#term-tooltip .tt-ref{margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,.12);font-size:11.5px}
+#term-tooltip .tt-ref a{color:#d59a5a;text-decoration:none}
+#term-tooltip .tt-ref a:hover{text-decoration:underline}
+dialog#fig-lightbox{max-width:95vw;max-height:95vh;border:none;border-radius:var(--radius-lg);padding:0;overflow:hidden;box-shadow:0 24px 80px rgba(0,0,0,.5);background:transparent}
+dialog#fig-lightbox::backdrop{background:rgba(0,0,0,.75)}
+#fig-lightbox-img{max-width:90vw;max-height:90vh;display:block;border-radius:var(--radius)}
+.lightbox-close{position:absolute;top:12px;right:12px;width:36px;height:36px;border-radius:50%;background:rgba(0,0,0,.6);border:none;color:#fff;font-size:18px;cursor:pointer;display:grid;place-items:center}
+</style>
+</head>
+<body>
+
+<nav class="topnav" id="topnav">
+  <div class="nav-inner">
+    <a href="#top" class="nav-brand">Ratchet</a>
+    <div class="nav-links">
+      <a href="#problem" class="nav-link">为什么没用</a>
+      <a href="#idea" class="nav-link">核心思路</a>
+      <a href="#loop" class="nav-link">循环怎么转</a>
+      <a href="#ablation" class="nav-link">哪些不能少</a>
+      <a href="#theory" class="nav-link">不会变差的保证</a>
+      <a href="#takeaways" class="nav-link">结论与局限</a>
+    </div>
+    <a href="https://arxiv.org/abs/2605.22148" target="_blank" rel="noopener" class="nav-src">原文 ↗</a>
+  </div>
+</nav>
+
+<section class="hero" id="top">
+  <div class="hero-inner">
+    <div class="hero-tags">
+      <span class="paper-tag">arXiv 2605.22148 · 2026.05 · arXiv preprint</span>
+      <span>📄 Xing Zhang 等（AWS / HSBC）</span>
+      <span>🔧 Claude Opus 4.7 · Cohere embed-v4</span>
+    </div>
+    <h1 class="hero-title">让 agent 自己维护"经验手册"</h1>
+    <p class="hero-sub">一本越攒越烂的手册不如没有。Ratchet 用一连串消融实验，找出"自动管理"这本手册时真正不能少的几个动作。</p>
+    <div class="hero-tldr">
+      <div class="tldr-label">一句话</div>
+      <p>
+        让 LLM 把自己的踩坑经验写成可复用的"技能"攒成一个库，听起来很美，但有个反常识的事实：<strong>LLM 自己写技能，提升约等于 0</strong>；换成人来编同样的库，提升 <strong>+16.2 个百分点</strong>。
+      </p>
+      <p>
+        差距不在"谁更会写笔记"，而在<strong>"有没有人在管理这个库"</strong>——没人管，库会混进坏经验、无节制膨胀，最后比没有还差。Ratchet 把这件事拆成一个个"管理动作"逐一消融，结论是：<strong>冻结模型不动，只把"图书管理员"这个角色做扎实</strong>，自动管理的库就能追上人工编的水平，把 MBPP+ 难题的 pass@1 从 <strong>0.258 推到 0.658</strong>。
+      </p>
+    </div>
+    <div class="metric-row">
+      <div class="metric-card bad">
+        <div class="metric-val">+0.0pp</div>
+        <div class="metric-label">LLM 自己写技能<br>（SkillsBench 对照）</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">+16.2pp</div>
+        <div class="metric-label">人来策划同样的库<br>（提升来自"管理"）</div>
+      </div>
+      <div class="metric-card good">
+        <div class="metric-val">+0.328</div>
+        <div class="metric-label">Ratchet 自动管理后<br>100 轮平均增益</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-val">0.258→0.658</div>
+        <div class="metric-label">pass@1<br>（起点 → 峰值）</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 01 问题 -->
+<section class="section" id="problem">
+  <div class="section-inner">
+    <div class="section-label">01 · 问题</div>
+    <h2 class="section-title">让 agent 自己写"经验手册"，为什么几乎没用？</h2>
+    <p class="lead">
+      自进化 agent 的一个朴素想法：让模型每次做完题，把"这类题怎么解、容易踩什么坑"写成一条可复用的<strong>技能</strong>，攒进一个<strong>技能库</strong>；下次遇到相似的题，先翻库里有没有现成经验可参考。模型权重不动，靠这本越攒越厚的手册让自己变强。
+    </p>
+    <p class="body">
+      但对照基准 <span class="term" data-term="skillsbench">SkillsBench</span> 给出了一个泼冷水的结果：让 LLM 自己写这些技能，对成绩的贡献是 <span class="numtag bad">+0.0pp</span>；而换成人来编一套同样格式的技能库，提升有 <span class="numtag accent">+16.2pp</span>。同一个模型、同样的题、同样的"翻手册再解题"流程，唯一的差别是<strong>谁在维护这个库</strong>。
+    </p>
+    <p class="body">
+      Ratchet 的诊断是：LLM 写出来的单条技能其实质量不差——给它一个具体失败案例，它能准确说出原因、写出格式清晰的经验。<strong>问题不在"写得好不好"，而在"没人管这个库"</strong>。库一旦放任自流，就会以三种方式烂掉：
+    </p>
+    <div class="two-col">
+      <div class="col-card">
+        <h3>✍️ 单条技能：LLM 已经够用</h3>
+        <p>给定一个具体的失败样例，LLM 能：</p>
+        <ul>
+          <li>准确归纳出"这次为什么错"</li>
+          <li>写出字段规整、逻辑清楚的经验卡片</li>
+          <li>所以瓶颈不在"会不会写"</li>
+        </ul>
+      </div>
+      <div class="col-card highlight">
+        <h3>📚 整个库：没人管就会烂</h3>
+        <ul>
+          <li><strong>坏经验不下架</strong> → 帮倒忙的技能一直被翻出来用，持续拖累成绩</li>
+          <li><strong>无节制膨胀</strong> → 库越来越大，"挑到对的经验"越来越难</li>
+          <li><strong>同一个坑写出 N 条</strong> → 风格各异、语义重复，互相干扰</li>
+        </ul>
+      </div>
+    </div>
+    <div class="callout bad">
+      <strong>这就是"手册退化"（<span class="term" data-term="library_drift">library drift</span>）：</strong>库里"有效经验的占比"被慢慢稀释、污染，直到自进化的效果还不如一开始什么经验都没有。SkillsBench 里 +0.0pp 的根因就是它。
+    </div>
+    <p class="bridge">
+      所以真正的问题被换了一个方向：不是"怎么让 LLM 写出更好的技能"，而是"<strong>怎么自动管理这个库，让它别退化</strong>"。Ratchet 就是冲着这个问题去的。
+    </p>
+  </div>
+</section>
+
+<!-- 02 核心思路 -->
+<section class="section alt" id="idea">
+  <div class="section-inner">
+    <div class="section-label">02 · 核心思路</div>
+    <h2 class="section-title">冻结模型，只把"图书管理员"做扎实</h2>
+    <p class="body">
+      Ratchet 的设定很克制：<strong>同一个冻结的 LLM 扮演所有角色，不改一丝权重</strong>，整个系统的"成长"只发生在外部的库和账本里（用 SQLite 持久化）。它把流程分成三条带子——上面"解题"、中间"存东西"、下面"复盘+管理库"。下图是全貌，看不懂没关系，紧接着用人话拆解每个角色。
+    </p>
+    <figure>
+      <img src="ratchet-loop.png" alt="Ratchet 系统架构：推理带 / 记忆带 / 反思带三层"
+           onclick="openLightbox('ratchet-loop.png','Ratchet 系统全貌（点击放大）')" />
+      <figcaption>
+        Ratchet 系统全貌：蓝色"推理带"负责做题，黄色"记忆带"存技能与战绩，绿色"反思带"复盘并维护库。实线是数据流，虚线是读/写记忆。<span class="fig-toggle" onclick="toggleDetail('fig1-detail')">▶ 逐层解读</span>
+      </figcaption>
+      <div class="figure-detail" id="fig1-detail">
+        <ul>
+          <li><b>推理带（蓝，每道题走一遍）：</b>题目 → <b>挑笔记</b>（Router 从库里选 0–1 条相关经验）→ <b>解题</b>（Solver 读着经验写代码）→ <b>判分</b>（Grader 跑测试，对/错）→ 把这次 (题, 用了哪条经验, 对错) 打包成一条<b>战绩记录</b>。</li>
+          <li><b>记忆带（黄，持久化、只追加）：</b><b>技能库</b>（所有经验，含已下架的，永不物理删除）、<b>模板</b>（一份"好经验长什么样"的写作规范，全局唯一）、<b>战绩账本</b>（所有战绩记录 + 复盘结论）。系统的全部"状态"都在这三处，模型本身不变。</li>
+          <li><b>反思带（绿，每轮跑一次）：</b><b>复盘</b>（Critic 给每条失败记录归因：经验是帮了倒忙还是没用上）→ <b>写新经验</b>（Synthesizer 把反复出现的同类失败照模板写成新技能）→ <b>清理</b>（Curator 按战绩把长期帮倒忙的技能下架）。另有一个慢周期的<b>重写模板</b>（Meta-Synth，默认关闭）。</li>
+        </ul>
+      </div>
+    </figure>
+    <p class="section-sublabel">六个角色，都是同一个 LLM + 一本库，换个提示词而已</p>
+    <p class="body">页面后面会反复提到这几个角色。这里给一张"人话对照表"，记住<strong>左边的动作名</strong>就够了，括号里的英文只是方便对回原文：</p>
+    <div class="role-grid">
+      <div class="role-card">
+        <div class="rc-band inf">推理 · 做题</div>
+        <div class="rc-name">挑笔记 <span class="rc-eng">Router</span></div>
+        <div class="rc-desc">从库里挑 0 或 1 条最相关的经验，塞给解题的人。库大了先粗筛再让 LLM 拍板选哪条。</div>
+      </div>
+      <div class="role-card">
+        <div class="rc-band inf">推理 · 做题</div>
+        <div class="rc-name">解题 <span class="rc-eng">Solver</span></div>
+        <div class="rc-desc">冻结的 LLM 读着挑出来的经验，把题做了。单次调用，不反思、不调工具。</div>
+      </div>
+      <div class="role-card">
+        <div class="rc-band inf">推理 · 做题</div>
+        <div class="rc-name">判分 <span class="rc-eng">Grader</span></div>
+        <div class="rc-desc">跑测试看对错。这是"客观战绩"的唯一来源，写进战绩账本。</div>
+      </div>
+      <div class="role-card">
+        <div class="rc-band ref">反思 · 管库</div>
+        <div class="rc-name">复盘 <span class="rc-eng">Critic</span></div>
+        <div class="rc-desc">对每条失败记录归因：这次用的经验是帮了倒忙、没用上、还是无关。只用固定标签，避免乱编理由。</div>
+      </div>
+      <div class="role-card">
+        <div class="rc-band ref">反思 · 管库</div>
+        <div class="rc-name">写新经验 <span class="rc-eng">Synthesizer</span></div>
+        <div class="rc-desc">把最近反复出现的同类失败，照"模板"总结成一条新技能入库。</div>
+      </div>
+      <div class="role-card">
+        <div class="rc-band ref">反思 · 管库</div>
+        <div class="rc-name">清理 <span class="rc-eng">Curator</span></div>
+        <div class="rc-desc">按账本算每条经验的战绩，长期帮倒忙的下架（改状态，不删除）。库满了也淘汰战绩最差的。</div>
+      </div>
+    </div>
+    <div class="callout">
+      <strong>记住一个对应关系：</strong>"挑笔记 / 解题 / 判分"是<strong>用</strong>这本手册；"复盘 / 写新经验 / 清理"是<strong>管</strong>这本手册。整篇文章的核心发现，全在"管"这一侧。
+    </div>
+  </div>
+</section>
+
+<!-- 03 循环怎么转 -->
+<section class="section" id="loop">
+  <div class="section-inner">
+    <div class="section-label">03 · 循环怎么转</div>
+    <h2 class="section-title">一轮里发生了什么：做题 → 复盘 → 更新手册</h2>
+    <p class="body">
+      Ratchet 按"轮"运行。每一轮先用当前手册做一遍题（这是上报成绩的地方），再专门制造一批失败案例供复盘，然后复盘、写新经验、清理。本轮"管"出来的手册，就是下一轮"用"的手册——这样一圈圈滚下去。点"下一步"跟着走一遍：
+    </p>
+    <div class="stepper" id="stepper">
+      <div class="stepper-controls">
+        <button class="step-btn" onclick="stepperGo(stepperCur-1)">← 上一步</button>
+        <button class="step-btn primary" onclick="stepperGo(stepperCur+1)">下一步 →</button>
+        <button class="step-btn" onclick="stepperReset()">↺ 重置</button>
+        <div class="step-indicator" id="step-indicator">第 1 / 5 步</div>
+      </div>
+      <div class="step-track" id="step-track">
+        <div class="step-pill active" onclick="stepperGo(0)">① 考试</div>
+        <div class="step-pill" onclick="stepperGo(1)">② 练习</div>
+        <div class="step-pill" onclick="stepperGo(2)">③ 复盘</div>
+        <div class="step-pill" onclick="stepperGo(3)">④ 写新经验</div>
+        <div class="step-pill" onclick="stepperGo(4)">⑤ 清理</div>
+      </div>
+      <div class="step-panel active" id="step-0">
+        <div class="step-content">
+          <div class="step-info">
+            <h4><span class="num">第 1 步</span> 考试 <span class="eng">Eval Pass</span></h4>
+            <p>拿当前手册在 40 道"考试题"（held-out）上正常做一遍：挑笔记 → 解题 → 判分。<strong>这一遍的 pass@1 就是论文上报的成绩</strong>。</p>
+            <ul>
+              <li>只允许"在用中"（ACTIVE）的经验参与</li>
+              <li>考试题<strong>不</strong>拿去复盘，纯粹用来量成绩</li>
+              <li>每题只跑一次（无采样），所以成绩自带约 ±0.07 抖动</li>
+            </ul>
+          </div>
+          <div class="step-visual">
+            <div class="label">一条考试战绩</div>
+            <div class="kv"><span class="k">题目</span><span class="v">mbpp_hard_017</span></div>
+            <div class="kv"><span class="k">用了哪条经验</span><span class="v">滑窗边界保护</span></div>
+            <div class="kv"><span class="k">结果</span><span class="v ok">对</span></div>
+            <div class="kv"><span class="k">第几轮</span><span class="v">42</span></div>
+            <div class="kv"><span class="k">用途</span><span class="v">只计成绩</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="step-panel" id="step-1">
+        <div class="step-content">
+          <div class="step-info">
+            <h4><span class="num">第 2 步</span> 练习 <span class="eng">Train Pass</span></h4>
+            <p>在另外 60 道"练习题"上跑同一条流程，目的是<strong>制造可供分析的失败案例</strong>，不上报成绩。</p>
+            <ul>
+              <li>失败的题 → 送去复盘；做对的题 → 计入战绩统计</li>
+              <li>冷启动阶段允许"候选经验"（刚写、还没验证够）也来试手</li>
+              <li>考试题和练习题严格分开，避免"对着答案学"</li>
+            </ul>
+          </div>
+          <div class="step-visual">
+            <div class="label">一条练习失败记录</div>
+            <div class="kv"><span class="k">题目</span><span class="v">mbpp_hard_053</span></div>
+            <div class="kv"><span class="k">用了哪条经验</span><span class="v">边界检查 v2</span></div>
+            <div class="kv"><span class="k">结果</span><span class="v bad">错</span></div>
+            <div class="kv"><span class="k">第几轮</span><span class="v">42</span></div>
+            <div class="kv"><span class="k">→ 去向</span><span class="v">送复盘归因</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="step-panel" id="step-2">
+        <div class="step-content">
+          <div class="step-info">
+            <h4><span class="num">第 3 步</span> 复盘 <span class="eng">Critic</span></h4>
+            <p>对每条失败记录，让 LLM 以"复盘"身份给一个<strong>归因结论</strong>：这次用的经验到底起了什么作用。</p>
+            <ul>
+              <li>看的是：题目 + 用了哪条经验 + 模型输出 + 判分反馈</li>
+              <li>输出：帮了倒忙 / 有帮助 / 无关 / 不适用，外加一个失败"花样"标签和置信度</li>
+              <li>用<strong>固定标签</strong>而非自由发挥，防止 LLM 编造归因；"诊断"和"写经验"分开是关键设计</li>
+            </ul>
+          </div>
+          <div class="step-visual">
+            <div class="label">一份复盘结论</div>
+            <div class="kv"><span class="k">作用判定</span><span class="v bad">帮了倒忙</span></div>
+            <div class="kv"><span class="k">失败花样</span><span class="v">边界差一位</span></div>
+            <div class="kv"><span class="k">置信度</span><span class="v">高</span></div>
+            <div class="kv"><span class="k">原因</span><span class="v">经验教成闭区间，测试要开区间</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="step-panel" id="step-3">
+        <div class="step-content">
+          <div class="step-info">
+            <h4><span class="num">第 4 步</span> 写新经验 <span class="eng">Synthesizer</span></h4>
+            <p>翻最近 6 轮的复盘结论，把<strong>同一个失败花样反复出现 ≥3 次</strong>的，照"模板"写成一条新经验入库。</p>
+            <ul>
+              <li>写的时候带上"模板"一起给提示词，保证风格统一、字段规整</li>
+              <li>产出 YAML → 校验格式 → 和库里现有经验去重 → 转为"在用"</li>
+              <li>"模板"这一步是后面消融里损失最大的一环（先记住）</li>
+            </ul>
+          </div>
+          <div class="step-visual">
+            <div class="label">新写的一条经验（片段）</div>
+            <pre>id: boundary_off_by_one
+适用场景: 用 range / 切片且涉及端点
+关键提示: Python 的 range/切片右端是开区间
+常见坑:
+  - 末位是 n 时误写成 range(0, n+1)
+返回前检查: 单独验一下 n 这个边界
+状态: 在用 (ACTIVE)</pre>
+          </div>
+        </div>
+      </div>
+      <div class="step-panel" id="step-4">
+        <div class="step-content">
+          <div class="step-info">
+            <h4><span class="num">第 5 步</span> 清理 <span class="eng">Curator</span></h4>
+            <p>用战绩账本给每条"在用"经验算一个<span class="term" data-term="contribution_score">战绩分</span>，把长期帮倒忙的下架。这是全文最 load-bearing 的动作。</p>
+            <ul>
+              <li>战绩分 = (做对次数 − 做错次数) / 总试用次数</li>
+              <li>下架条件：试用次数 ≥ <strong>100</strong>（证据够多）<strong>且</strong> 战绩分 ≤ <strong>−0.10</strong>（确实拖后腿）</li>
+              <li>下架 = 改状态为"已弃用"，<strong>记录永久保留</strong>，可审计、可恢复</li>
+              <li>"在用"经验超过上限 50 条时，自动淘汰战绩分最低的</li>
+            </ul>
+          </div>
+          <div class="step-visual">
+            <div class="label">一次清理决策</div>
+            <div class="kv"><span class="k">经验</span><span class="v">边界检查 v1</span></div>
+            <div class="kv"><span class="k">试用次数</span><span class="v">128</span></div>
+            <div class="kv"><span class="k">战绩分</span><span class="v bad">−0.14 ≤ −0.10</span></div>
+            <div class="kv"><span class="k">决策</span><span class="v bad">→ 弃用</span></div>
+            <div class="kv"><span class="k">记录</span><span class="v">保留在账本</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="callout">
+      <strong>还有一道保险（回滚）：</strong>如果某轮考试成绩比历史最高点低 0.10 以上，<strong>且连续 5 轮都这样</strong>，系统才回滚到当时最好的那版手册快照。"连续 5 轮"这个门控，是为了不被单轮的随机抖动吓到、误触发回滚。
+    </div>
+  </div>
+</section>
+
+<!-- 04 哪些不能少 -->
+<section class="section alt" id="ablation">
+  <div class="section-inner">
+    <div class="section-label">04 · 核心贡献</div>
+    <h2 class="section-title">真正的问题：哪些"管理动作"不能少？</h2>
+    <div class="qbox">
+      <div class="q-label">全文围绕的一个问题</div>
+      <p>
+        上面那套"复盘 / 写新经验 / 清理 / 去重 / 容量上限 / 回滚……"看着都挺合理，但<strong>哪些是真不能少，哪些其实是摆设？</strong>Ratchet 的做法很直接：每次只<strong>砍掉一个</strong>动作、其余不变，跑 100 轮 × 3 个随机种子，看学习曲线掉多少。衡量用 <span class="term" data-term="rolling_gain">rolling gain</span>（最后 10 轮均值 − 最前 10 轮均值），比看峰值更稳。
+      </p>
+    </div>
+    <figure>
+      <img src="learning-curve.png" alt="100 轮学习曲线：Default 与 A1–A8 消融对比"
+           onclick="openLightbox('learning-curve.png','100 轮学习曲线（点击放大）')" />
+      <figcaption>
+        100 轮里各配置的考试 pass@1（3 个种子 ±1 标准差）。看分层就够了：最上面一簇是完整配置和"去掉冗余机制"的几条；中间那条偏低的是"去掉模板"；贴着底部那两条（灰、紫）是"完全没技能"和"退役太激进"。<span class="fig-toggle" onclick="toggleDetail('fig2-detail')">▶ 数据解读</span>
+      </figcaption>
+      <div class="figure-detail" id="fig2-detail">
+        <ul>
+          <li><b>完整配置 +0.328：</b>稳定收敛到 0.58 上下，峰值 0.658。</li>
+          <li><b>A1 完全不给技能 +0.002：</b>贴着底，证明所有提升都来自技能本身。</li>
+          <li><b>A2 只检索、不让 LLM 拍板挑 +0.077：</b>只剩约 1/4 的提升。</li>
+          <li><b>A3 去掉"模板" +0.187：</b>明显掉一档，单项损失最大。</li>
+          <li><b>A4 退役太激进 −0.019：</b>唯一掉到"没技能"以下的配置。</li>
+          <li><b>A5 / A6 去掉两种去重 ≈+0.37：</b>不降反升，略好于完整配置。</li>
+          <li><b>A8 定期重写模板 +0.372、峰值 0.725：</b>峰值最高，但耗时多 55%。</li>
+        </ul>
+      </div>
+    </figure>
+
+    <p class="section-sublabel">先确认前提：提升真的来自技能吗？</p>
+    <div class="finding">
+      <div class="finding-head">
+        <span class="finding-num">A1</span>
+        <span class="finding-title">把技能注入整个关掉</span>
+        <span class="finding-badge soft">对照组</span>
+      </div>
+      <p>强制每道题都"不挑任何经验"，整个库形同虚设。结果 <span class="numtag bad">+0.002</span>——几乎不涨。这条确立了基线：<strong>Ratchet 的全部增益确实来自技能这套机制，而不是别的什么</strong>。后面所有对比都以此为锚。</p>
+    </div>
+
+    <p class="section-sublabel">三个"砍了就疼"的动作</p>
+    <div class="finding load">
+      <div class="finding-head">
+        <span class="finding-num">A4</span>
+        <span class="finding-title">退役规则：必须"温和 + 要够多证据"</span>
+        <span class="finding-badge load">load-bearing</span>
+      </div>
+      <p>把退役阈值调狠（试用满 20 次、只要不是正贡献就退），结果 rolling gain 掉到 <span class="numtag bad">−0.019</span>，<strong>是唯一比"完全没技能"还差的配置</strong>。</p>
+      <p>原因是统计噪声：<span class="term" data-term="hoeffding">样本太少时战绩分极不可信</span>——只试 20 次的偏差可能高达 ±0.44，意味着真正有用的好经验，常因为早期几次倒霉失败就被误杀。把门槛提到"满 100 次且战绩分 ≤ −0.10"，才挡住了这种误退役。</p>
+      <p class="exp"><b>启示：</b>"自动退役"不是越积极越好。退役决策必须基于<b>足够多的实测战绩</b>，而不是急着清场。</p>
+    </div>
+    <div class="finding load">
+      <div class="finding-head">
+        <span class="finding-num">A3</span>
+        <span class="finding-title">写经验的"模板"：单项损失最大</span>
+        <span class="finding-badge load">load-bearing</span>
+      </div>
+      <p>去掉写新经验时附带的那份"模板"（一份 Markdown 写作规范：该写哪些字段、什么风格、禁止空泛建议），rolling gain 从 +0.328 掉到 <span class="numtag accent">+0.187</span>，损失 <span class="numtag bad">−0.141</span>，是所有单项消融里最大的。</p>
+      <p>关键洞察：模板不只是"统一格式"。它逼着每条新经验都长得规整、表达同质，<strong>顺手就把"同一个坑写出好几条"的重复问题给消化掉了</strong>——这一点在下面会再次出现。</p>
+    </div>
+    <div class="finding load">
+      <div class="finding-head">
+        <span class="finding-num">A2</span>
+        <span class="finding-title">挑笔记：让 LLM 拍板，而不只是检索</span>
+        <span class="finding-badge load">load-bearing</span>
+      </div>
+      <p>"挑笔记"分两步：先按相似度粗筛出几条候选，再让 LLM 读着候选拍板"选哪条、还是干脆不选"。只保留检索、砍掉 LLM 拍板这一步后，只剩 <span class="numtag accent">+0.077</span>，约等于完整提升的 1/4。<strong>"选不选、选哪条"这个判断，贡献了约 76% 的挑选价值</strong>。</p>
+    </div>
+
+    <p class="section-sublabel">一个"砍了反而更好"的反直觉发现</p>
+    <div class="finding surprise">
+      <div class="finding-head">
+        <span class="finding-num">A5 / A6</span>
+        <span class="finding-title">显式去重：在当前规模下其实是负担</span>
+        <span class="finding-badge surprise">反直觉</span>
+      </div>
+      <p>系统本来有两个去重机制：把语义相近的失败花样合并（A5），以及新经验和已有经验太像就跳过（A6）。直觉上这能防止库里堆重复。但把它们分别砍掉，rolling gain 反而<strong>略升</strong>到 <span class="numtag good">+0.374</span> / <span class="numtag good">+0.363</span>。</p>
+      <p>原因正是上面那条："模板"已经让新经验高度同质，本来就没多少真重复可去。这时候显式去重的<strong>误伤</strong>（把其实有用的细微差别也当成重复给合并/跳过）反而成了净损失。</p>
+      <p class="exp"><b>启示：</b>这些"卫生机制"<b>不是各自独立、越多越好</b>。模板和显式去重在很大程度上是<b>替代关系</b>——有了前者，后者就成了多余。这是消融实验最有价值的结论之一：加机制要看它和已有机制是叠加还是替代。</p>
+    </div>
+
+    <p class="section-sublabel">两个"现在用不上、但别删"的设置</p>
+    <div class="finding">
+      <div class="finding-head">
+        <span class="finding-num">A7</span>
+        <span class="finding-title">容量上限：当前不是瓶颈，但放开会变不稳</span>
+        <span class="finding-badge soft">理论必要</span>
+      </div>
+      <p>把"在用"经验的上限从 50 翻倍到 100，均值 <span class="numtag">+0.317</span> 和完整配置差不多——说明<strong>当前规模下 50 这个上限并不卡脖子</strong>。但方差从 ±0.018 暴涨到 <span class="numtag bad">±0.110</span>：更大的库带来明显的不稳定。而且下一节会看到，<strong>这个上限在理论保证里不可或缺</strong>——去掉它，"不会越学越差"的保证就崩了。</p>
+    </div>
+    <div class="finding">
+      <div class="finding-head">
+        <span class="finding-num">A8</span>
+        <span class="finding-title">定期重写模板：一个可选的"加速档"</span>
+        <span class="finding-badge soft">可选</span>
+      </div>
+      <p>让"模板"本身也每 10 轮被重写优化一次。峰值确实拉到全场最高 <span class="numtag good">0.725</span>，rolling gain +0.372，但代价是耗时多 <span class="numtag bad">55%</span>（10.1 小时 vs 6.5 小时）。所以默认关闭：算力换那点峰值，作者认为不划算。</p>
+    </div>
+
+    <details style="margin-top:18px">
+      <summary style="cursor:pointer;font-size:13.5px;color:var(--accent);font-weight:600;list-style:none">▸ 完整数据表（Default vs A1–A8，MBPP+ hard-100，100 轮 ×3 种子）</summary>
+      <table class="results-table">
+        <thead><tr><th>配置</th><th>起点 (round 0)</th><th>峰值</th><th>rolling gain</th></tr></thead>
+        <tbody>
+          <tr class="highlight-row"><td><strong>Default 完整</strong></td><td class="mono">0.258 ± 0.047</td><td class="mono">0.658 ± 0.042</td><td class="mono"><strong>+0.328 ± 0.018</strong></td></tr>
+          <tr><td>A1 不给技能</td><td class="mono">0.283 ± 0.031</td><td class="mono">0.375 ± 0.000</td><td class="mono">+0.002 ± 0.005</td></tr>
+          <tr><td>A2 只检索不拍板</td><td class="mono">0.242 ± 0.012</td><td class="mono">0.492 ± 0.042</td><td class="mono">+0.077 ± 0.065</td></tr>
+          <tr><td>A3 去掉模板</td><td class="mono">0.200 ± 0.035</td><td class="mono">0.592 ± 0.047</td><td class="mono">+0.187 ± 0.036</td></tr>
+          <tr class="bad-row"><td>A4 退役太激进</td><td class="mono">0.300 ± 0.035</td><td class="mono">0.433 ± 0.042</td><td class="mono">−0.019 ± 0.010</td></tr>
+          <tr><td>A5 去掉花样合并</td><td class="mono">0.275 ± 0.020</td><td class="mono">0.708 ± 0.012</td><td class="mono"><strong>+0.374 ± 0.023</strong></td></tr>
+          <tr><td>A6 去掉相似跳过</td><td class="mono">0.217 ± 0.024</td><td class="mono">0.700 ± 0.035</td><td class="mono">+0.363 ± 0.033</td></tr>
+          <tr><td>A7 上限=100</td><td class="mono">0.292 ± 0.042</td><td class="mono">0.650 ± 0.089</td><td class="mono">+0.317 ± 0.110</td></tr>
+          <tr><td>A8 定期重写模板</td><td class="mono">0.250 ± 0.035</td><td class="mono"><strong>0.725 ± 0.020</strong></td><td class="mono">+0.372 ± 0.017</td></tr>
+        </tbody>
+      </table>
+    </details>
+
+    <div class="callout good">
+      <strong>这一节的总账：</strong>真正不能少的是<strong>退役（要温和+够证据）、写经验的模板、让 LLM 拍板挑笔记</strong>三件；容量上限当下不卡但理论上必需；而显式去重在有模板时反而是负担。一句话——<strong>有用的不是"机制堆得多"，而是几个互补、彼此不冗余的关键设置</strong>。
+    </div>
+  </div>
+</section>
+
+<!-- 05 理论 -->
+<section class="section" id="theory">
+  <div class="section-inner">
+    <div class="section-label">05 · 理论保证</div>
+    <h2 class="section-title">一个"至少不会越学越差"的承诺</h2>
+    <p class="body">
+      自进化系统最让人担心的是<strong>失控下滑</strong>：库越攒越烂，成绩一路滑到谷底。Ratchet 给了一个简单但有用的保证：在几条温和假设下，<strong>期望成绩不会比"完全没技能"低过一个有限的差距</strong>，不会无限下滑。注意——这叫"<span class="term" data-term="non_divergence">非发散</span>"，是"不会变得太差"的下限保证，<strong>不是</strong>"一定会变好"。
+    </p>
+    <div class="prop-box">
+      <div class="prop-title">命题 1 · 期望意义下的非发散</div>
+      <div class="prop-body">
+        <p><strong>大意：</strong>只要 (1) 挑笔记这步本身不乱来、(2) 战绩分是对真实贡献的无偏估计、(3) 退役所需的试用次数足够多（用 Hoeffding 不等式把估计误差压到 ε 以内），那么——</p>
+        <div class="formula">E[pass@1] ≥ E[没技能成绩] − (τ + ε) − C · δ</div>
+        <p>也就是：期望成绩相对"没技能基线"的下滑，被三个量牢牢锁住——退役阈值 τ、估计误差 ε、以及<strong>库容量上限 C</strong>（δ 是小概率项）。每一项都是有限的，所以总下滑有限。</p>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="col-card">
+        <h3>📐 代入默认参数</h3>
+        <p>τ=0.10、试用满 100 次、C=50、δ=10⁻³：</p>
+        <ul>
+          <li>估计误差 ε ≈ <strong>0.20</strong></li>
+          <li>C · δ = <strong>0.05</strong></li>
+          <li>下限 = 没技能成绩 − <strong>0.35</strong></li>
+        </ul>
+        <p>实际系统从没接近过这个下限（真跑出来是 +0.328），但它保证了最坏情况也只是有限损失。</p>
+      </div>
+      <div class="col-card highlight">
+        <h3>💥 为什么前作没有这个保证</h3>
+        <p>Voyager / ExpeL / AutoManual 这类工作，库可以无限膨胀（C→∞）、也没有像样的退役阈值（τ 无下界）。</p>
+        <p>代进上面的式子：C→∞ 时下限直接崩到 −∞——也就是<strong>理论上允许无限下滑</strong>。</p>
+        <div class="callout" style="background:rgba(255,255,255,.08);border-color:var(--accent);margin:10px 0 0">
+          <span style="color:var(--text-invert)">所以"容量上限 + 退役阈值"不只是工程调参，而是让系统在数学上<strong>不发散的最小必要结构</strong>。这也解释了 A7 里"容量上限当下不卡、但不能删"。</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 06 结论 -->
+<section class="section alt" id="takeaways">
+  <div class="section-inner">
+    <div class="section-label">06 · 结论与局限</div>
+    <h2 class="section-title">三个带走的结论 + 四个要当心的地方</h2>
+    <p class="body">最后把全文收成一条线：<strong>自进化的瓶颈在"管库"不在"写技能"；管库真正关键的是少数几个互补动作；它们还能给出一个不发散的下限保证。</strong></p>
+    <div class="two-col">
+      <div>
+        <h3 style="margin-bottom:12px;font-size:15px">💡 关键结论</h3>
+        <div class="takeaway-card">
+          <div class="tk-icon">①</div>
+          <div><strong>"+0.0pp"的真凶是缺管理，不是缺能力。</strong>LLM 单条技能写得不差，是缺了"按战绩退役"和"写作模板"这两件事，库才退化的。补上它们，自动管理就追上了人工策划。</div>
+        </div>
+        <div class="takeaway-card">
+          <div class="tk-icon">②</div>
+          <div><strong>以实测战绩为准，不信 LLM 自评。</strong>新经验从"外部判分出的失败"里长出来，退役也只看实测战绩分，不依赖模型自己说"我需要什么技能"。这让账本可信、退役可审计。</div>
+        </div>
+        <div class="takeaway-card">
+          <div class="tk-icon">③</div>
+          <div><strong>机制之间会替代，不要无脑叠加。</strong>有了"模板"，显式去重反而成负担。判断一个机制该不该留，要看它和已有机制是互补还是冗余。</div>
+        </div>
+      </div>
+      <div>
+        <h3 style="margin-bottom:12px;font-size:15px">⚠️ 局限与开放问题</h3>
+        <div class="limit-card"><strong>是放大器，不是发现者：</strong>权重冻结，只能重新调度模型已有的能力，没法教会它真正全新的知识。</div>
+        <div class="limit-card"><strong>SWE-bench 上的结果还很初步：</strong>换 agentic Claude Code 当解题器迁移到 SWE-bench Verified，20 轮拿到峰值 +0.22（0.65→0.87，最好种子 0.92），但只跑了 20 轮、单模型单供应商，跨模型稳定性未验证。</div>
+        <div class="limit-card"><strong>复盘可能归错因：</strong>错误的失败归因会把伪规律固化成"经验"。固定标签能缓解，但缺少原则性的校准。</div>
+        <div class="limit-card"><strong>战绩分是相关不是因果：</strong>战绩分只是观测统计，无法区分某条经验到底是真有用，还是恰好和别的因素一起出现。</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="footer">
+  <div class="footer-inner">
+    <div>
+      <b>原文：</b>
+      <a href="https://arxiv.org/abs/2605.22148" target="_blank" rel="noopener">Ratchet: A Minimal Hygiene Recipe for Self-Evolving LLM Agents</a>
+      · arXiv 2605.22148 · 2026.05 ·
+      <a href="https://arxiv.org/html/2605.22148" target="_blank" rel="noopener">HTML 版</a>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-top:4px">
+      代码状态：<b>尚未开源</b>（Appendix G 承诺发布 codebase / 数据子集 / 日志）·
+      技能 schema 见 <a href="https://arxiv.org/html/2605.22148#A3" target="_blank" rel="noopener">Appendix C</a> ·
+      提示词原文见 <a href="https://arxiv.org/html/2605.22148#A4" target="_blank" rel="noopener">Appendix D</a>
+    </div>
+    <div>可视化阅读 · Yuteng Shen</div>
+  </div>
+</footer>
+
+<div id="term-tooltip" role="tooltip" aria-live="polite"></div>
+<dialog id="fig-lightbox">
+  <img id="fig-lightbox-img" src="" alt="Ratchet figure" />
+  <button type="button" class="lightbox-close" onclick="document.getElementById('fig-lightbox').close()">✕</button>
+</dialog>
+
+<script>
+  var TERMS = {
+    skillsbench: { label: 'SkillsBench · 技能演化基准', body: '系统性评测自进化技能库系统的对照基准（Li et al. 2026）。核心发现：LLM 自写技能 +0.0pp，人工策划技能 +16.2pp——差距只来自「谁在管库」，不是「谁会写技能」。' },
+    library_drift: { label: 'Library drift · 技能库退化', body: '技能库因坏经验不下架、无节制膨胀、同一坑写出多条而让「有效经验占比」被稀释，最终自进化效果还不如完全没技能。Ratchet 的全部管理动作都是冲它去的。' },
+    contribution_score: { label: '战绩分 · contribution score c(s)', body: 'c(s) = (做对次数 − 做错次数) / 总试用次数。这是清理时唯一用于退役判断的信号。门槛：试用 ≥ 100 次且 c(s) ≤ −0.10 才退役。用实测而非 LLM 自评，是「以结果为准」设计的核心。' },
+    rolling_gain: { label: 'Rolling gain · 滚动平均增益', body: '整个 100 轮里，考试 pass@1 相对第 0 轮基线的平均提升（最后 10 轮均值 − 最前 10 轮均值），比看峰值更稳健。完整配置 = +0.328；A4 = −0.019；A3 = +0.187。' },
+    hoeffding: { label: 'Hoeffding 界 · 为什么要够多证据', body: '统计学里限定有界随机变量估计误差的不等式。试用满 100 次时偏差 ε ≈ 0.20；只试 20 次时 ε ≈ 0.44——这么大的噪声下，真实贡献在 [−0.44, 0] 的好技能也可能被误判退役（A4 就是这么崩的）。' },
+    non_divergence: { label: '非发散性 · non-divergence', body: '命题 1 保证期望 pass@1 不会比无技能基线低过一个有限 margin：E[pass@1] ≥ E[没技能] − (τ+ε) − C·δ。把容量上限 C 或退役阈值 τ 设为无穷，下限就崩到 −∞（前作的处境）。注意它只保证「不会太差」，不保证「一定变好」。' }
+  };
+  var TERM_REFS = {
+    skillsbench:        { url: 'https://arxiv.org/abs/2602.12670',            label: 'SkillsBench paper ↗' },
+    library_drift:      { url: 'https://arxiv.org/html/2605.22148#S1',        label: '§1 Introduction' },
+    contribution_score: { url: 'https://arxiv.org/html/2605.22148#S3.SS2',    label: '§3.2 Curator' },
+    rolling_gain:       { url: 'https://arxiv.org/html/2605.22148#S4.SS1',    label: '§4.1 Protocol' },
+    hoeffding:          { url: 'https://arxiv.org/html/2605.22148#S3.SS5',    label: '§3.5 Proposition 1' },
+    non_divergence:     { url: 'https://arxiv.org/html/2605.22148#S3.SS5',    label: '§3.5 Non-divergence' }
+  };
+
+  var tooltip = document.getElementById('term-tooltip');
+  var hideTimer = null;
+
+  function showTooltip(el) {
+    clearTimeout(hideTimer);
+    var key = el.getAttribute('data-term');
+    var def = TERMS[key];
+    if (!def || !tooltip) return;
+    var ref = TERM_REFS[key];
+    var refHtml = ref ? '<div class="tt-ref">\u2192 \u539f\u6587\uff1a<a href="' + ref.url + '" target="_blank" rel="noopener">' + ref.label + '</a></div>' : '';
+    tooltip.innerHTML = '<div class="tt-term">' + def.label + '</div><div class="tt-body">' + def.body + '</div>' + refHtml;
+    tooltip.classList.toggle('has-link', !!ref);
+    var rect = el.getBoundingClientRect();
+    var tw = tooltip.offsetWidth || 300, th = tooltip.offsetHeight || 120;
+    var vw = window.innerWidth, vh = window.innerHeight;
+    var left = Math.max(8, Math.min(rect.left, vw - tw - 12));
+    var top = rect.bottom + 8;
+    if (top + th > vh - 12) top = rect.top - th - 8;
+    tooltip.style.left = left + 'px'; tooltip.style.top = top + 'px';
+    tooltip.classList.add('visible');
+  }
+  function hideTooltip() {
+    hideTimer = setTimeout(function () { if (tooltip) tooltip.classList.remove('visible'); }, 180);
+  }
+  if (tooltip) {
+    tooltip.addEventListener('mouseenter', function () { clearTimeout(hideTimer); });
+    tooltip.addEventListener('mouseleave', hideTooltip);
+  }
+  document.querySelectorAll('.term').forEach(function (el) {
+    el.addEventListener('mouseenter', function () { showTooltip(el); });
+    el.addEventListener('mouseleave', hideTooltip);
+    el.addEventListener('click', function (e) { e.stopPropagation(); showTooltip(el); });
+  });
+  document.addEventListener('click', hideTooltip);
+
+  var stepperCur = 0, totalSteps = 5;
+  function paint() {
+    document.querySelectorAll('.step-panel').forEach(function (p, i) { p.classList.toggle('active', i === stepperCur); });
+    document.querySelectorAll('.step-pill').forEach(function (p, i) {
+      p.classList.remove('active','passed');
+      if (i === stepperCur) p.classList.add('active'); else if (i < stepperCur) p.classList.add('passed');
+    });
+    var ind = document.getElementById('step-indicator');
+    if (ind) ind.textContent = '\u7b2c ' + (stepperCur + 1) + ' / ' + totalSteps + ' \u6b65';
+  }
+  window.stepperGo = function (i) { stepperCur = Math.max(0, Math.min(totalSteps - 1, i)); paint(); };
+  window.stepperReset = function () { stepperCur = 0; paint(); };
+  paint();
+
+  var nav = document.getElementById('topnav');
+  window.addEventListener('scroll', function () { if (nav) nav.classList.toggle('scrolled', window.scrollY > 60); });
+
+  window.toggleDetail = function (id) {
+    var el = document.getElementById(id); if (!el) return;
+    el.classList.toggle('active');
+    var btn = el.previousElementSibling ? el.parentElement.querySelector('.fig-toggle') : null;
+    if (btn) btn.textContent = el.classList.contains('active') ? '\u25BC \u6536\u8d77' : '\u25B6 ' + (id === 'fig2-detail' ? '\u6570\u636e\u89e3\u8bfb' : '\u9010\u5c42\u89e3\u8bfb');
+  };
+
+  window.openLightbox = function (src, alt) {
+    var dlg = document.getElementById('fig-lightbox'), img = document.getElementById('fig-lightbox-img');
+    if (!dlg || !img) return;
+    img.src = src; img.alt = alt || src; dlg.showModal();
+  };
+  var dlg = document.getElementById('fig-lightbox');
+  if (dlg) dlg.addEventListener('click', function (e) { if (e.target === dlg) dlg.close(); });
+</script>
+</body>
+</html>
