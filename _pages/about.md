@@ -13,14 +13,13 @@ I like widening the boundary of my understanding a little at a time, while focus
 
 - Agent training and tool-use behavior
 - Post-training with reinforcement learning
-- Evaluation systems for reliable model iteration
-- Practical AI engineering with strong feedback loops
+- Practical AI engineering 
 
 ## Selected Experience
 
 ### Tencent, Algorithm Engineer Intern
 
-- Worked on a multi-intent financial function-calling component trained with multi-turn SFT and DAPO, and supported online financial traffic in production systems.
+- Worked on a financial function-calling component trained with multi-turn SFT and DAPO, and supported online financial traffic in production systems.
 - Built the interaction and testing workflow for a financial search agent based on Qwen3 30A3B, helping the system surpass DeepSeek V3.2 on FinSearchComp under the same business tool setting.
 - Reduced evaluation instability by standardizing tool environments, lowering judge variance, and iterating the judging prompt until score fluctuation dropped from 10% to 1%.
 - Received a return offer and continued working on production-facing model systems.
@@ -32,7 +31,11 @@ I like widening the boundary of my understanding a little at a time, while focus
 
 ## Selected Projects
 
-### myTorch
+### [Slay2Agent](https://github.com/syt-nju/Slay2Agent)
+
+A train-free agent framework that drives a cloud LLM to autonomously play *Slay the Spire 2* through the STS2MCP REST API—no screen reading, no local model training. Strategy knowledge accumulates across runs via a three-layer memory system (in-context history, a read-only skill library, and an oracle) that is updated offline from full game traces.
+
+### [myTorch](https://github.com/syt-nju/myTorch)
 
 A NumPy-based neural network framework that mimics parts of the PyTorch experience. It uses operator overloading to enter the computation graph, manages the graph lifecycle during backpropagation, and emphasizes reusable abstractions in the core design.
 
