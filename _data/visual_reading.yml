@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: quest-synthetic-deep-research-agents
+    title: "QUEST 怎么用 8K 合成 Rubric Tree 训出通用 deep research agent"
+    date: 2026-06-24
+    source_type: paper
+    source_url: "https://arxiv.org/abs/2605.24218"
   - slug: ratchet-self-evolving-llm-agents
     title: "Ratchet 自进化 agent 经验手册到底哪些管理动作不能少"
     date: 2026-06-04
