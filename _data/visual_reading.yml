@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: openthoughts-agent-data-recipes
+    title: "OpenThoughts-Agent 把 agent 训练数据黑盒拆成开源配方"
+    date: 2026-06-26
+    source_type: paper
+    source_url: "https://arxiv.org/abs/2606.24855"
   - slug: quest-synthetic-deep-research-agents
     title: "QUEST 怎么用 8K 合成 Rubric Tree 训出通用 deep research agent"
     date: 2026-06-24
