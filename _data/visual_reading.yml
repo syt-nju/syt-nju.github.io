@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: supo-summarization-rl
+    title: "SUPO 怎么用端到端摘要把多轮 RL 训出固定窗口"
+    date: 2026-06-30
+    source_type: paper
+    source_url: "https://arxiv.org/abs/2510.06727"
   - slug: openthoughts-agent-data-recipes
     title: "OpenThoughts-Agent 把 agent 训练数据黑盒拆成开源配方"
     date: 2026-06-26

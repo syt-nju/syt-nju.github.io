@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SUPO：用端到端摘要突破多轮 RL 的上下文瓶颈</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-primary: #fbf6ea;
+  --bg-secondary: #f4ead7;
+  --bg-tertiary: #e8dcc7;
+  --text-primary: #2c2418;
+  --text-secondary: #5a4d3a;
+  --text-muted: #8a7c68;
+  --accent: #a0724a;
+  --accent-light: #c9956a;
+  --border: #ddd0be;
+  --card-shadow: 0 2px 8px rgba(44,36,24,0.06);
+  --radius: 8px;
+  --font-sans: 'Inter', 'Noto Sans SC', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.8;
+  font-size: 16px;
+}
+.container { max-width: 820px; margin: 0 auto; padding: 0 24px; }
+
+.paper-header { padding: 48px 0 32px; border-bottom: 1px solid var(--border); }
+.paper-meta { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; margin-bottom: 16px; }
+.meta-tag { font-size: 12px; font-weight: 600; padding: 3px 10px; border-radius: 4px; background: var(--bg-secondary); color: var(--text-secondary); }
+.meta-tag.venue { background: var(--accent); color: #fff; }
+.paper-title { font-size: 28px; font-weight: 700; line-height: 1.3; margin-bottom: 12px; }
+.paper-authors { font-size: 14px; color: var(--text-secondary); margin-bottom: 12px; }
+.source-link { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; color: var(--accent); text-decoration: none; font-weight: 500; border-bottom: 1px solid transparent; }
+.source-link:hover { border-bottom-color: var(--accent); }
+
+.nav-bar { position: sticky; top: 0; z-index: 100; background: rgba(251,246,234,0.92); backdrop-filter: blur(8px); border-bottom: 1px solid var(--border); padding: 12px 0; margin-bottom: 32px; }
+.nav-bar .container { display: flex; gap: 20px; overflow-x: auto; scrollbar-width: none; align-items: center; justify-content: space-between; }
+.nav-links { display: flex; gap: 20px; overflow-x: auto; scrollbar-width: none; }
+.nav-links::-webkit-scrollbar { display: none; }
+.nav-link { font-size: 13px; font-weight: 500; color: var(--text-muted); text-decoration: none; white-space: nowrap; }
+.nav-link:hover { color: var(--accent); }
+.nav-source { font-size: 12px; color: var(--accent); text-decoration: none; white-space: nowrap; border: 1px solid var(--border); padding: 4px 10px; border-radius: 4px; }
+.nav-source:hover { background: var(--bg-secondary); }
+
+section { margin-bottom: 48px; }
+h2 { font-size: 22px; font-weight: 700; margin-bottom: 20px; padding-bottom: 8px; border-bottom: 2px solid var(--bg-tertiary); }
+h3 { font-size: 18px; font-weight: 600; margin-bottom: 14px; margin-top: 28px; }
+p { margin-bottom: 16px; }
+ul.content-list { margin: 0 0 16px 0; padding-left: 0; list-style: none; }
+ul.content-list li { padding: 6px 0 6px 18px; position: relative; }
+ul.content-list li::before { content: ''; position: absolute; left: 0; top: 16px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-light); }
+
+.tldr { background: var(--bg-secondary); border-radius: var(--radius); padding: 24px 28px; margin-bottom: 36px; border-left: 4px solid var(--accent); }
+.tldr-title { font-size: 14px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--accent); margin-bottom: 10px; }
+.tldr p { font-size: 15px; margin-bottom: 8px; }
+.tldr p:last-child { margin-bottom: 0; }
+
+.metrics-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 16px; margin: 24px 0; }
+.metric-card { background: #fff; border-radius: var(--radius); padding: 20px; text-align: center; box-shadow: var(--card-shadow); border: 1px solid var(--border); }
+.metric-value { font-size: 30px; font-weight: 700; color: var(--accent); font-family: var(--font-mono); line-height: 1.1; }
+.metric-label { font-size: 13px; color: var(--text-muted); margin-top: 6px; line-height: 1.4; }
+
+.figure-block { margin: 28px 0; background: #fff; border-radius: var(--radius); padding: 20px; border: 1px solid var(--border); }
+.figure-caption { font-size: 14px; color: var(--text-secondary); margin-top: 12px; line-height: 1.6; }
+.fig-toggle { display: inline-block; font-size: 13px; color: var(--accent); cursor: pointer; margin-top: 8px; user-select: none; font-weight: 500; }
+.fig-toggle:hover { text-decoration: underline; }
+.figure-detail { max-height: 0; overflow: hidden; opacity: 0; transition: max-height 0.4s ease, opacity 0.3s ease; }
+.figure-detail.active { max-height: 1200px; opacity: 1; margin-top: 12px; }
+.figure-detail ul { list-style: none; padding: 0; }
+.figure-detail li { font-size: 14px; color: var(--text-secondary); padding: 6px 0 6px 16px; position: relative; line-height: 1.6; }
+.figure-detail li::before { content: ''; position: absolute; left: 0; top: 14px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent-light); }
+
+.expand-card { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 12px; overflow: hidden; box-shadow: var(--card-shadow); }
+.expand-card-header { padding: 16px 20px; cursor: pointer; display: flex; align-items: flex-start; gap: 12px; transition: background 0.2s; }
+.expand-card-header:hover { background: var(--bg-secondary); }
+.expand-arrow { font-size: 12px; color: var(--text-muted); transition: transform 0.3s; flex-shrink: 0; margin-top: 4px; }
+.expand-card.expanded .expand-arrow { transform: rotate(90deg); }
+.expand-card-title { font-size: 15px; font-weight: 600; }
+.expand-card-tag { display: inline-block; font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 3px; background: var(--bg-tertiary); color: var(--text-secondary); margin-right: 8px; }
+.expand-card-subtitle { font-size: 13px; color: var(--text-muted); margin-top: 4px; line-height: 1.5; }
+.expand-card-body { max-height: 0; overflow: hidden; opacity: 0; transition: max-height 0.5s ease, opacity 0.3s ease; }
+.expand-card.expanded .expand-card-body { max-height: 3000px; opacity: 1; }
+.expand-card-content { padding: 0 20px 20px; border-top: 1px solid var(--border); }
+.expand-card-content p { font-size: 14px; color: var(--text-secondary); }
+
+.two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 20px 0; }
+.panel { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+.panel-title { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); margin-bottom: 12px; }
+.panel.bad .panel-title { color: var(--text-secondary); }
+.panel.good .panel-title { color: var(--accent); }
+.panel ul { list-style: none; }
+.panel li { font-size: 14px; padding: 8px 0; border-bottom: 1px dashed var(--border); line-height: 1.55; }
+.panel li:last-child { border-bottom: none; }
+
+.pipeline-svg { width: 100%; margin: 16px 0; display: block; }
+.pipeline-svg text { font-family: var(--font-sans); }
+
+.step-demo { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin: 24px 0; }
+.step-demo-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+.step-visual { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; justify-content: center; min-height: 80px; margin-bottom: 16px; padding: 16px; background: var(--bg-secondary); border-radius: var(--radius); }
+.step-node { padding: 10px 16px; border-radius: 6px; font-size: 13px; font-weight: 500; background: #fff; border: 1px solid var(--border); transition: all 0.3s; opacity: 0.35; }
+.step-node.active { opacity: 1; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(160,114,74,0.15); }
+.step-node.done { opacity: 1; background: var(--bg-tertiary); }
+.step-controls { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.step-btn { padding: 8px 18px; border: 1px solid var(--border); border-radius: 6px; background: #fff; font-size: 13px; cursor: pointer; font-family: var(--font-sans); }
+.step-btn:hover { background: var(--bg-secondary); }
+.step-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+.step-btn.primary:hover { background: var(--accent-light); }
+.step-desc { font-size: 13px; color: var(--text-muted); flex: 1; min-width: 200px; line-height: 1.55; }
+
+.ctx-state { background: var(--bg-secondary); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; font-family: var(--font-mono); font-size: 12px; line-height: 1.6; color: var(--text-secondary); margin: 12px 0; min-height: 60px; white-space: pre-wrap; }
+
+.compare-table { width: 100%; border-collapse: collapse; font-size: 13px; margin: 16px 0; }
+.compare-table th, .compare-table td { border: 1px solid var(--border); padding: 10px 12px; text-align: left; }
+.compare-table th { background: var(--bg-secondary); font-weight: 600; }
+.compare-table tr:nth-child(even) td { background: rgba(244,234,215,0.4); }
+.compare-table .highlight { font-weight: 700; color: var(--accent); }
+
+.quote-block { background: var(--bg-secondary); border-left: 3px solid var(--accent); padding: 16px 20px; margin: 20px 0; border-radius: 0 var(--radius) var(--radius) 0; }
+.quote-block p { font-size: 14px; color: var(--text-secondary); margin: 0; }
+
+details { background: #fff; border: 1px solid var(--border); border-radius: var(--radius); margin: 16px 0; }
+details summary { padding: 14px 18px; cursor: pointer; font-size: 14px; font-weight: 500; color: var(--text-secondary); list-style: none; }
+details summary::-webkit-details-marker { display: none; }
+details[open] summary { border-bottom: 1px solid var(--border); }
+details .detail-body { padding: 16px 18px; font-size: 13px; color: var(--text-secondary); font-family: var(--font-mono); line-height: 1.6; white-space: pre-wrap; }
+
+.formula-block { background: var(--bg-secondary); border-radius: var(--radius); padding: 16px 20px; margin: 16px 0; font-family: var(--font-mono); font-size: 13px; line-height: 1.7; overflow-x: auto; }
+
+.page-footer { border-top: 1px solid var(--border); padding: 32px 0 48px; margin-top: 48px; font-size: 13px; color: var(--text-muted); }
+.page-footer a { color: var(--accent); }
+
+@media (max-width: 880px) {
+  .two-col { grid-template-columns: 1fr; }
+  .paper-title { font-size: 24px; }
+}
+</style>
+</head>
+<body>
+
+<nav class="nav-bar">
+  <div class="container">
+    <div class="nav-links">
+      <a class="nav-link" href="#tldr">TL;DR</a>
+      <a class="nav-link" href="#problem">问题</a>
+      <a class="nav-link" href="#related">已有方案</a>
+      <a class="nav-link" href="#method">方法</a>
+      <a class="nav-link" href="#supo">SUPO</a>
+      <a class="nav-link" href="#experiments">实验</a>
+      <a class="nav-link" href="#insights">有意思的点</a>
+    </div>
+    <a class="nav-source" href="https://arxiv.org/abs/2510.06727" target="_blank">原文 ↗</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <header class="paper-header">
+    <div class="paper-meta">
+      <span class="meta-tag venue">arXiv preprint</span>
+      <span class="meta-tag">2025.10</span>
+      <span class="meta-tag">cs.CL · cs.AI · cs.LG</span>
+    </div>
+    <h1 class="paper-title">SUPO：用端到端摘要突破多轮 RL 的上下文瓶颈</h1>
+    <p class="paper-authors">Miao Lu, Weiwei Sun, Weihua Du 等 · ByteDance Seed · Stanford · CMU</p>
+    <a class="source-link" href="https://arxiv.org/abs/2510.06727" target="_blank">阅读原文 ↗ · arXiv:2510.06727</a>
+  </header>
+
+  <section id="tldr">
+    <div class="tldr">
+      <div class="tldr-title">30 秒读懂</div>
+      <p>多轮工具调用 Agent 的 RL 训练有个硬瓶颈：<strong>上下文会无限增长</strong>，但模型窗口是固定的。几十轮搜索/函数调用后，要么撑爆窗口，要么推理质量崩塌。</p>
+      <p>这篇论文的核心思想是：<strong>把摘要写进 MDP，端到端用 RL 同时学「怎么用工具」和「怎么压缩历史」</strong>。当上下文超过阈值 L 时，Agent 自己生成任务相关摘要，把 working context 重置为「初始 prompt + 摘要」，从而用短窗口覆盖长 horizon。</p>
+      <p>算法实例 <strong>SUPO</strong>（Summarization augmented Policy Optimization）在 GRPO 基础上，把一次 rollout 拆成多条子轨迹分别算梯度，并共享 rollout 级 advantage。实验显示：同样有效上下文长度下，<strong>成功率显著高于 vanilla GRPO</strong>；测试时还能把摘要轮数扩到训练时以上，进一步提分。</p>
+    </div>
+
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="metric-value">+14%</div>
+        <div class="metric-label">BrowseComp-Plus<br>相对 GRPO 绝对提升</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">+3.2%</div>
+        <div class="metric-label">CodeGym<br>同等有效上下文下提升</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">4K→32K</div>
+        <div class="metric-label">CodeGym 工作窗口 4K<br>有效 horizon 扩到 32K</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">60%</div>
+        <div class="metric-label">测试时扩摘要轮数<br>（训练 S=2，测试 S=23）</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="problem">
+    <h2>这篇论文要解决什么问题？</h2>
+    <p>把 LLM 多轮工具调用建模成 MDP 后做 RL 微调，已经在数学推理、代码、深度搜索等场景取得进展。但<strong>长 horizon 任务</strong>（几十到上百轮工具调用才出最终答案）面临三重困境：</p>
+    <ul class="content-list">
+      <li><strong>指令遵循退化</strong>：上下文过长时，LLM 推理和遵循指令的能力明显下降</li>
+      <li><strong>Rollout 成本爆炸</strong>：上下文越长，采样越慢，rollout 成为训练瓶颈</li>
+      <li><strong>窗口硬上限</strong>：working context 长度直接限制了可训练的任务难度——需要的工具调用次数超过窗口就训不了</li>
+    </ul>
+    <p>现有 RL 管线（GRPO、PPO 等）大多在<strong>固定上下文窗口内</strong>做 rollout，没有显式的上下文管理机制。论文的切入点：把<strong>LLM 生成的摘要</strong>作为决策过程的一部分，用 RL <strong>端到端优化摘要策略</strong>，而非依赖手工规则或离线启发式压缩。</p>
+
+    <div class="two-col">
+      <div class="panel bad">
+        <div class="panel-title">Vanilla 多轮工具调用</div>
+        <ul>
+          <li>上下文不断累积：prompt + 思考 + 工具输出 + …</li>
+          <li>单条轨迹，长度无界增长</li>
+          <li>超出窗口即截断或失败</li>
+          <li>RL 只能优化工具调用，不管历史压缩</li>
+        </ul>
+      </div>
+      <div class="panel good">
+        <div class="panel-title">摘要增强 MDP（本文）</div>
+        <ul>
+          <li>超阈值 L 时触发 LLM 摘要</li>
+          <li>重置为「初始 prompt + 摘要」</li>
+          <li>一条 rollout 拆成 I+1 条子轨迹</li>
+          <li>RL 同时学工具策略和摘要策略</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="related">
+    <h2>已有方案卡在哪？</h2>
+    <p>论文挑了与本文形成直接对比的三类方案。核心差异在于：<strong>摘要/记忆是否端到端用 RL 优化</strong>，以及<strong>能否真正突破固定上下文窗口的训练边界</strong>。</p>
+
+    <div class="expand-card" id="card-grpo">
+      <div class="expand-card-header" onclick="toggleCard('card-grpo')">
+        <span class="expand-arrow">▶</span>
+        <div>
+          <div class="expand-card-title"><span class="expand-card-tag">Baseline</span>Vanilla 多轮 GRPO</div>
+          <div class="expand-card-subtitle">标准 ReAct 式 rollout，上下文线性增长，任务难度受窗口上限约束</div>
+        </div>
+      </div>
+      <div class="expand-card-body">
+        <div class="expand-card-content">
+          <svg class="pipeline-svg" viewBox="0 0 600 100" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="35" width="80" height="36" rx="6" fill="#f4ead7" stroke="#ddd0be"/>
+            <text x="50" y="58" text-anchor="middle" font-size="11" fill="#2c2418">Prompt</text>
+            <text x="110" y="58" font-size="14" fill="#8a7c68">→</text>
+            <rect x="130" y="35" width="70" height="36" rx="6" fill="#f4ead7" stroke="#ddd0be"/>
+            <text x="165" y="58" text-anchor="middle" font-size="11" fill="#2c2418">Tool₁</text>
+            <text x="220" y="58" font-size="14" fill="#8a7c68">→</text>
+            <rect x="240" y="35" width="70" height="36" rx="6" fill="#f4ead7" stroke="#ddd0be"/>
+            <text x="275" y="58" text-anchor="middle" font-size="11" fill="#2c2418">Tool₂</text>
+            <text x="330" y="58" font-size="14" fill="#8a7c68">→</text>
+            <text x="360" y="58" font-size="16" fill="#8a7c68">…</text>
+            <text x="390" y="58" font-size="14" fill="#8a7c68">→</text>
+            <rect x="410" y="35" width="80" height="36" rx="6" fill="#e8dcc7" stroke="#a0724a"/>
+            <text x="450" y="52" text-anchor="middle" font-size="10" fill="#2c2418">上下文</text>
+            <text x="450" y="66" text-anchor="middle" font-size="10" fill="#a0724a">持续增长</text>
+            <text x="520" y="58" font-size="14" fill="#8a7c68">→</text>
+            <rect x="540" y="35" width="50" height="36" rx="6" fill="#fff" stroke="#ddd0be" stroke-dasharray="4"/>
+            <text x="565" y="58" text-anchor="middle" font-size="10" fill="#8a7c68">截断</text>
+          </svg>
+          <p><strong>动机</strong>：GRPO 是当前 LLM RL 的主流基线，rollout 就是标准多轮工具调用。</p>
+          <p><strong>做法</strong>：每轮把 action + observation 拼进 context，直到给出最终答案或达到步数上限 H。</p>
+          <p><strong>局限</strong>：有效 horizon = 窗口大小。CodeGym 用 32K、BrowseComp-Plus 用 64K，再长就训不了。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="expand-card" id="card-heuristic">
+      <div class="expand-card-header" onclick="toggleCard('card-heuristic')">
+        <span class="expand-arrow">▶</span>
+        <div>
+          <div class="expand-card-title"><span class="expand-card-tag">启发式</span>手工/离线上下文压缩</div>
+          <div class="expand-card-subtitle">LLM 摘要或外部记忆能缓解长度，但未与任务目标端到端联合优化</div>
+        </div>
+      </div>
+      <div class="expand-card-body">
+        <div class="expand-card-content">
+          <svg class="pipeline-svg" viewBox="0 0 600 100" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="35" width="100" height="36" rx="6" fill="#f4ead7" stroke="#ddd0be"/>
+            <text x="60" y="58" text-anchor="middle" font-size="11" fill="#2c2418">长上下文</text>
+            <text x="130" y="58" font-size="14" fill="#8a7c68">→</text>
+            <rect x="150" y="35" width="100" height="36" rx="6" fill="#f4ead7" stroke="#ddd0be"/>
+            <text x="200" y="52" text-anchor="middle" font-size="10" fill="#2c2418">固定规则</text>
+            <text x="200" y="66" text-anchor="middle" font-size="10" fill="#2c2418">或启发式摘要</text>
+            <text x="270" y="58" font-size="14" fill="#8a7c68">→</text>
+            <rect x="290" y="35" width="100" height="36" rx="6" fill="#e8dcc7" stroke="#a0724a"/>
+            <text x="340" y="58" text-anchor="middle" font-size="11" fill="#2c2418">压缩上下文</text>
+            <text x="410" y="58" font-size="14" fill="#8a7c68">→</text>
+            <rect x="430" y="35" width="150" height="36" rx="6" fill="#fff" stroke="#ddd0be"/>
+            <text x="505" y="52" text-anchor="middle" font-size="10" fill="#8a7c68">摘要策略未针对</text>
+            <text x="505" y="66" text-anchor="middle" font-size="10" fill="#8a7c68">具体任务微调</text>
+          </svg>
+          <p><strong>动机</strong>：不扩窗口也能处理更长输入——靠压缩 working context 或外部记忆。</p>
+          <p><strong>做法</strong>：用预设 prompt 让 LLM 摘要、丢弃无关信息，或读写外部 memory bank。</p>
+          <p><strong>局限</strong>：压缩策略与任务 reward 脱钩，不知道哪些信息该留、哪些该丢。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="expand-card" id="card-memagent">
+      <div class="expand-card-header" onclick="toggleCard('card-memagent')">
+        <span class="expand-arrow">▶</span>
+        <div>
+          <div class="expand-card-title"><span class="expand-card-tag">MemAgent · 2025</span>分段读取 + 覆写式记忆</div>
+          <div class="expand-card-subtitle">RL 学记忆更新，但交互退化为读长输入分块，是本文框架的特例</div>
+        </div>
+      </div>
+      <div class="expand-card-body">
+        <div class="expand-card-content">
+          <svg class="pipeline-svg" viewBox="0 0 600 100" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="35" width="90" height="36" rx="6" fill="#f4ead7" stroke="#ddd0be"/>
+            <text x="55" y="52" text-anchor="middle" font-size="10" fill="#2c2418">长输入</text>
+            <text x="55" y="66" text-anchor="middle" font-size="10" fill="#2c2418">分块读取</text>
+            <text x="120" y="58" font-size="14" fill="#8a7c68">→</text>
+            <rect x="140" y="35" width="110" height="36" rx="6" fill="#f4ead7" stroke="#ddd0be"/>
+            <text x="195" y="52" text-anchor="middle" font-size="10" fill="#2c2418">memory + chunk</text>
+            <text x="195" y="66" text-anchor="middle" font-size="10" fill="#2c2418">→ 覆写更新</text>
+            <text x="270" y="58" font-size="14" fill="#8a7c68">→</text>
+            <rect x="290" y="35" width="80" height="36" rx="6" fill="#e8dcc7" stroke="#a0724a"/>
+            <text x="330" y="58" text-anchor="middle" font-size="11" fill="#2c2418">RL 优化</text>
+            <text x="390" y="58" font-size="14" fill="#8a7c68">→</text>
+            <rect x="410" y="35" width="170" height="36" rx="6" fill="#fff" stroke="#ddd0be"/>
+            <text x="495" y="52" text-anchor="middle" font-size="10" fill="#8a7c68">仅限 QA 式长输入</text>
+            <text x="495" y="66" text-anchor="middle" font-size="10" fill="#8a7c68">非通用多轮工具调用</text>
+          </svg>
+          <p><strong>动机</strong>：长上下文 QA 不能一次读完，需要分段处理并维护 working memory。</p>
+          <p><strong>做法</strong>：逐段读入，用「当前 memory + 新 chunk」生成更新后的 memory（覆写策略），RL 优化记忆更新。</p>
+          <p><strong>与本文关系</strong>：可视为 SUPO 框架的特例——交互退化为读输入分块，摘要是 memory 更新。本文覆盖更通用的多轮工具调用（搜索、函数调用）。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="expand-card" id="card-mem1">
+      <div class="expand-card-header" onclick="toggleCard('card-mem1')">
+        <span class="expand-arrow">▶</span>
+        <div>
+          <div class="expand-card-title"><span class="expand-card-tag">MEM1 · 2025</span>固定大小内部状态 + 全历史 attention mask</div>
+          <div class="expand-card-subtitle">生成时上下文有界，但训练时仍拼接全历史，能否突破可靠窗口存疑</div>
+        </div>
+      </div>
+      <div class="expand-card-body">
+        <div class="expand-card-content">
+          <svg class="pipeline-svg" viewBox="0 0 600 100" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="35" width="100" height="36" rx="6" fill="#f4ead7" stroke="#ddd0be"/>
+            <text x="60" y="52" text-anchor="middle" font-size="10" fill="#2c2418">新 observation</text>
+            <text x="60" y="66" text-anchor="middle" font-size="10" fill="#2c2418">+ 内部状态</text>
+            <text x="130" y="58" font-size="14" fill="#8a7c68">→</text>
+            <rect x="150" y="35" width="100" height="36" rx="6" fill="#f4ead7" stroke="#ddd0be"/>
+            <text x="200" y="58" text-anchor="middle" font-size="11" fill="#2c2418">合并压缩</text>
+            <text x="270" y="58" font-size="14" fill="#8a7c68">→</text>
+            <rect x="290" y="35" width="120" height="36" rx="6" fill="#e8dcc7" stroke="#a0724a"/>
+            <text x="350" y="52" text-anchor="middle" font-size="10" fill="#2c2418">训练：全历史</text>
+            <text x="350" y="66" text-anchor="middle" font-size="10" fill="#2c2418">+ attention mask</text>
+            <text x="430" y="58" font-size="14" fill="#8a7c68">→</text>
+            <rect x="450" y="35" width="130" height="36" rx="6" fill="#fff" stroke="#ddd0be"/>
+            <text x="515" y="52" text-anchor="middle" font-size="10" fill="#8a7c68">生成快但训练</text>
+            <text x="515" y="66" text-anchor="middle" font-size="10" fill="#8a7c68">未必能扩 horizon</text>
+          </svg>
+          <p><strong>动机</strong>：QA 和网页导航需要恒定大小的内部状态，避免生成时上下文爆炸。</p>
+          <p><strong>做法</strong>：每步把新观察与过去 memory 合并，丢弃无关细节；RL 端到端训练。</p>
+          <p><strong>局限</strong>：训练时把完整历史（含所有 query、observation、内部状态）拼成单条轨迹，用 attention mask 编码依赖。生成虽有峰值上界，但<strong>训练能否扩到可靠上下文之外尚不清楚</strong>。本文通过物理重置上下文明确突破了这一边界。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="expand-card" id="card-memoryr1">
+      <div class="expand-card-header" onclick="toggleCard('card-memoryr1')">
+        <span class="expand-arrow">▶</span>
+        <div>
+          <div class="expand-card-title"><span class="expand-card-tag">Memory-R1 · 2025</span>双 Agent 外部记忆库</div>
+          <div class="expand-card-subtitle">记忆管理器和回答器分开 RL 训练，无摘要压缩，未验证多轮工具场景</div>
+        </div>
+      </div>
+      <div class="expand-card-body">
+        <div class="expand-card-content">
+          <svg class="pipeline-svg" viewBox="0 0 600 100" xmlns="http://www.w3.org/2000/svg">
+            <rect x="10" y="20" width="110" height="30" rx="6" fill="#f4ead7" stroke="#ddd0be"/>
+            <text x="65" y="40" text-anchor="middle" font-size="10" fill="#2c2418">Memory Manager</text>
+            <text x="140" y="38" font-size="14" fill="#8a7c68">→</text>
+            <rect x="160" y="20" width="100" height="30" rx="6" fill="#e8dcc7" stroke="#a0724a"/>
+            <text x="210" y="40" text-anchor="middle" font-size="10" fill="#2c2418">外部 Memory</text>
+            <text x="280" y="38" font-size="14" fill="#8a7c68">→</text>
+            <rect x="300" y="20" width="90" height="30" rx="6" fill="#f4ead7" stroke="#ddd0be"/>
+            <text x="345" y="40" text-anchor="middle" font-size="10" fill="#2c2418">Answer Agent</text>
+            <rect x="10" y="60" width="380" height="30" rx="6" fill="#fff" stroke="#ddd0be"/>
+            <text x="200" y="80" text-anchor="middle" font-size="10" fill="#8a7c68">无摘要压缩 · 未在多轮工具调用上验证能否突破固定窗口</text>
+          </svg>
+          <p><strong>动机</strong>：长 horizon QA 需要显式记忆管理——增删改 memory 条目。</p>
+          <p><strong>做法</strong>：两个 LLM Agent 分别 RL 训练——一个管 memory CRUD，一个检索并推理。</p>
+          <p><strong>局限</strong>：存入 memory 时不做信息压缩；也未在多轮工具调用任务上验证能否 scale 超固定上下文。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="method">
+    <h2>核心方法：摘要增强 MDP</h2>
+    <p>论文把标准多轮工具调用 MDP 记为 M<sub>V</sub>（基于 ReAct），状态是迄今所有 token 的拼接。在此基础上引入<strong>摘要阈值 L</strong> 和<strong>最大摘要轮数 S</strong>，得到 M<sup>sum</sup><sub>V</sub>。</p>
+
+    <div class="figure-block">
+      <svg class="pipeline-svg" viewBox="0 0 720 340" xmlns="http://www.w3.org/2000/svg">
+        <text x="360" y="24" text-anchor="middle" font-size="13" font-weight="700" fill="#2c2418">图 1：Vanilla rollout（上）vs 摘要增强 rollout（下）</text>
+        <!-- Upper: vanilla -->
+        <text x="20" y="50" font-size="11" font-weight="600" fill="#8a7c68">Vanilla M_V</text>
+        <rect x="20" y="60" width="60" height="28" rx="4" fill="#f4ead7" stroke="#ddd0be"/>
+        <text x="50" y="78" text-anchor="middle" font-size="9" fill="#2c2418">Prompt</text>
+        <line x1="80" y1="74" x2="100" y2="74" stroke="#8a7c68" marker-end="url(#arr)"/>
+        <rect x="100" y="60" width="50" height="28" rx="4" fill="#f4ead7" stroke="#ddd0be"/>
+        <text x="125" y="78" text-anchor="middle" font-size="9" fill="#2c2418">Tool</text>
+        <line x1="150" y1="74" x2="170" y2="74" stroke="#8a7c68"/>
+        <rect x="170" y="60" width="50" height="28" rx="4" fill="#f4ead7" stroke="#ddd0be"/>
+        <text x="195" y="78" text-anchor="middle" font-size="9" fill="#2c2418">Tool</text>
+        <text x="240" y="78" font-size="12" fill="#8a7c68">…</text>
+        <line x1="260" y1="74" x2="280" y2="74" stroke="#8a7c68"/>
+        <rect x="280" y="60" width="70" height="28" rx="4" fill="#e8dcc7" stroke="#a0724a"/>
+        <text x="315" y="78" text-anchor="middle" font-size="9" fill="#a0724a">持续增长</text>
+        <text x="400" y="78" font-size="12" fill="#8a7c68">→ 单条轨迹 → Final</text>
+        <!-- Lower: with summary -->
+        <text x="20" y="120" font-size="11" font-weight="600" fill="#8a7c68">M_V^sum（本文）</text>
+        <!-- Trajectory 1 -->
+        <rect x="20" y="130" width="55" height="24" rx="4" fill="#f4ead7" stroke="#ddd0be"/>
+        <text x="47" y="146" text-anchor="middle" font-size="8" fill="#2c2418">Prompt</text>
+        <line x1="75" y1="142" x2="90" y2="142" stroke="#8a7c68"/>
+        <rect x="90" y="130" width="45" height="24" rx="4" fill="#f4ead7" stroke="#ddd0be"/>
+        <text x="112" y="146" text-anchor="middle" font-size="8" fill="#2c2418">Tool</text>
+        <line x1="135" y1="142" x2="150" y2="142" stroke="#8a7c68"/>
+        <rect x="150" y="130" width="55" height="24" rx="4" fill="#e8dcc7" stroke="#a0724a"/>
+        <text x="177" y="146" text-anchor="middle" font-size="8" fill="#a0724a">≥L 触发</text>
+        <line x1="205" y1="142" x2="220" y2="142" stroke="#8a7c68"/>
+        <rect x="220" y="130" width="60" height="24" rx="4" fill="#c9956a" stroke="#a0724a"/>
+        <text x="250" y="146" text-anchor="middle" font-size="8" fill="#fff">Summary₁</text>
+        <text x="300" y="146" font-size="10" fill="#8a7c68">轨迹 1</text>
+        <!-- Trajectory 2 -->
+        <rect x="20" y="170" width="55" height="24" rx="4" fill="#f4ead7" stroke="#ddd0be"/>
+        <text x="47" y="186" text-anchor="middle" font-size="8" fill="#2c2418">Prompt</text>
+        <line x1="75" y1="182" x2="90" y2="182" stroke="#8a7c68"/>
+        <rect x="90" y="170" width="60" height="24" rx="4" fill="#c9956a" stroke="#a0724a" opacity="0.7"/>
+        <text x="120" y="186" text-anchor="middle" font-size="8" fill="#2c2418">Sum₁</text>
+        <line x1="150" y1="182" x2="165" y2="182" stroke="#8a7c68"/>
+        <rect x="165" y="170" width="45" height="24" rx="4" fill="#f4ead7" stroke="#ddd0be"/>
+        <text x="187" y="186" text-anchor="middle" font-size="8" fill="#2c2418">Tool</text>
+        <line x1="210" y1="182" x2="225" y2="182" stroke="#8a7c68"/>
+        <rect x="225" y="170" width="60" height="24" rx="4" fill="#c9956a" stroke="#a0724a"/>
+        <text x="255" y="186" text-anchor="middle" font-size="8" fill="#fff">Summary₂</text>
+        <text x="300" y="186" font-size="10" fill="#8a7c68">轨迹 2</text>
+        <!-- Trajectory I+1 -->
+        <rect x="20" y="210" width="55" height="24" rx="4" fill="#f4ead7" stroke="#ddd0be"/>
+        <text x="47" y="226" text-anchor="middle" font-size="8" fill="#2c2418">Prompt</text>
+        <line x1="75" y1="222" x2="90" y2="222" stroke="#8a7c68"/>
+        <rect x="90" y="210" width="60" height="24" rx="4" fill="#c9956a" stroke="#a0724a" opacity="0.7"/>
+        <text x="120" y="226" text-anchor="middle" font-size="8" fill="#2c2418">Sum_I</text>
+        <line x1="150" y1="222" x2="165" y2="222" stroke="#8a7c68"/>
+        <rect x="165" y="210" width="45" height="24" rx="4" fill="#f4ead7" stroke="#ddd0be"/>
+        <text x="187" y="226" text-anchor="middle" font-size="8" fill="#2c2418">Tool</text>
+        <line x1="210" y1="222" x2="225" y2="222" stroke="#8a7c68"/>
+        <rect x="225" y="210" width="70" height="24" rx="4" fill="#e8dcc7" stroke="#a0724a"/>
+        <text x="260" y="226" text-anchor="middle" font-size="8" fill="#a0724a">Final Answer</text>
+        <text x="310" y="226" font-size="10" fill="#8a7c68">轨迹 I+1</text>
+        <!-- Reward -->
+        <rect x="400" y="160" width="120" height="40" rx="6" fill="#f4ead7" stroke="#a0724a"/>
+        <text x="460" y="178" text-anchor="middle" font-size="10" font-weight="600" fill="#a0724a">可验证 Reward</text>
+        <text x="460" y="192" text-anchor="middle" font-size="9" fill="#5a4d3a">RLVR：答案对错 0/1</text>
+        <line x1="295" y1="200" x2="400" y2="180" stroke="#a0724a" stroke-dasharray="4"/>
+        <!-- State transition box -->
+        <rect x="20" y="260" width="680" height="70" rx="8" fill="#fff" stroke="#ddd0be"/>
+        <text x="360" y="282" text-anchor="middle" font-size="11" font-weight="600" fill="#2c2418">状态转移规则（公式 1）</text>
+        <text x="40" y="302" font-size="10" fill="#5a4d3a">|context| &lt; L → 继续累积 (s_t, a_t, o_t)</text>
+        <text x="40" y="318" font-size="10" fill="#5a4d3a">|context| ≥ L → 附加摘要指令 v_sum，下一步生成摘要</text>
+        <text x="380" y="302" font-size="10" fill="#5a4d3a">检测到 v_sum 已在 context → 重置为 (s_1, summary)</text>
+        <text x="380" y="318" font-size="10" fill="#a0724a">working context 上界 ≈ L + 2L_A + L_O + |v_sum|</text>
+        <defs><marker id="arr" markerWidth="6" markerHeight="6" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#8a7c68"/></marker></defs>
+      </svg>
+      <p class="figure-caption">上图对比 vanilla 单轨迹线性增长 vs 摘要增强的多轨迹分段 rollout。每次超阈值后上下文被压缩重置，但整条 rollout 仍共享同一个最终 reward。</p>
+      <span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明 ▸</span>
+      <div class="figure-detail">
+        <ul>
+          <li><strong>Vanilla 上半部分</strong>：prompt、LLM 输出、工具 observation 不断拼接，形成单条越来越长的轨迹，直到 final response 或步数上限 H。</li>
+          <li><strong>摘要增强下半部分</strong>：当 |context| ≥ L 时，附加摘要指令 v_sum，LLM 生成摘要后把状态重置为 (初始 prompt, 摘要)，开启新子轨迹。</li>
+          <li><strong>轨迹 1</strong>：从 prompt 开始，若干轮 tool calling，以第一次 Summary 结束。</li>
+          <li><strong>轨迹 2…I</strong>：每条以「prompt + 上一轮摘要」开头，继续 tool calling，再以新 Summary 结束。</li>
+          <li><strong>轨迹 I+1</strong>：最后一段不再触发摘要，直接输出 final answer；整条 rollout 的 reward 由最终答案决定。</li>
+          <li><strong>一句话总结</strong>：用物理重置代替无限拼接，把一条长 rollout 拆成多条可独立送入 RL 基础设施的短轨迹。</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>策略梯度分解（Theorem 3.2）</h3>
+    <p>这是本文的理论核心：一条长 rollout 的 policy gradient 可以分解为 <strong>I+1 条子轨迹梯度之和</strong>，每条子轨迹都能用现有 GRPO/PPO 基础设施计算。</p>
+    <div class="formula-block">
+每条子轨迹 i 的结构：
+  [prompt s₁] + [上一轮摘要 a_{t_{i-1}}] + [本轮 tool calls] + [摘要指令 v_sum] + [本轮摘要 a_{t_i}]
+
+梯度 = R(s_T, a_T) × Σ_{i=1}^{I+1} [
+  Σ_{t} ∂log π(a_t | 上下文)     ← 优化工具调用
+  + ∂log π(a_{t_i} | 上下文, v_sum)  ← 优化摘要生成
+]
+    </div>
+    <p>关键含义：<strong>工具策略和摘要策略在同一个 RL 目标下联合优化</strong>，不需要单独的摘要 loss。每条子轨迹的「新 prompt」= 初始任务 prompt + 上一轮摘要，可直接接入 VeRL 等现有 RL 框架。</p>
+
+    <div class="quote-block">
+      <p>理想策略应学会：哪些信息该保留、如何抽象、哪些细节可以丢弃——全部由任务 reward 驱动，而非人工规则。</p>
+    </div>
+  </section>
+
+  <section id="supo">
+    <h2>SUPO 算法：把理论落地到 GRPO</h2>
+    <p><strong>SUPO</strong>（Summarization augmented Policy Optimization）是 Theorem 3.2 的算法实例，基于 GRPO 风格 policy gradient，加了三个工程关键设计。</p>
+
+    <ul class="content-list">
+      <li><strong>轨迹管理</strong>：一次 rollout 拆成 I+1 条独立轨迹，分别送入 RL 基础设施；不足 mini-batch 时用 dummy trajectory 填充（mask=0，不影响更新）</li>
+      <li><strong>Advantage 估计</strong>：同一 rollout 的所有子轨迹共享 advantage Â<sup>j</sup>（在 rollout group G 内做 group-relative），而非在更大的 trajectory group 内计算</li>
+      <li><strong>Overlong masking</strong>：未在 H 步或 S 次摘要内给出最终答案的 rollout，梯度 mask 掉——防止模型学会「摘要很好但没答完」的次优策略</li>
+    </ul>
+
+    <h3>Rollout 流程步进演示</h3>
+    <p>下面用 Algorithm 2 走一遍：Agent 在 CodeGym 风格任务中多轮调用函数，上下文超限时触发摘要并重置。</p>
+
+    <div class="step-demo">
+      <div class="step-demo-title">SUPO Rollout（阈值 L，最大摘要轮数 S）</div>
+      <div class="step-visual" id="rollout-visual">
+        <div class="step-node" id="rs-1" style="opacity:1">① 初始 Prompt</div>
+        <div class="step-node" id="rs-2">② LLM 行动</div>
+        <div class="step-node" id="rs-3">③ 工具返回</div>
+        <div class="step-node" id="rs-4">④ 检查长度</div>
+        <div class="step-node" id="rs-5">⑤ 触发摘要</div>
+        <div class="step-node" id="rs-6">⑥ 重置上下文</div>
+        <div class="step-node" id="rs-7">⑦ 继续 / 结束</div>
+      </div>
+      <div class="ctx-state" id="rollout-ctx">点击「下一步」观察上下文如何随 rollout 变化</div>
+      <div class="step-controls">
+        <button class="step-btn primary" onclick="rolloutStep()">下一步</button>
+        <button class="step-btn" onclick="rolloutReset()">重置</button>
+        <span class="step-desc" id="rollout-desc">演示一条包含摘要重置的 rollout</span>
+      </div>
+    </div>
+
+    <details>
+      <summary>查看 SUPO 目标函数（公式 2）—— GRPO clip + overlong mask 的组合</summary>
+      <div class="detail-body">J_SUPO(θ) = E[ (1/Σ|a|) Σ_j Σ_i Σ_t Σ_ℓ
+  min(ρ_{t,ℓ}^j · Â^j, Clip(ρ_{t,ℓ}^j, 1-ε_low, 1+ε_high) · Â^j)
+  · 1{T^j ≤ H, I^j ≤ S} ]
+
+其中 ρ 是 token-level importance ratio，Â^j 是 rollout group 内的 group-relative advantage：
+Â^j = (R^j - mean({R^{j'}})) / std({R^{j'}})</div>
+    </details>
+
+    <h3>上下文长度精细控制</h3>
+    <p>实现上有一个与理论建模的细微差异：检测到超阈值后，<strong>丢弃最后一轮 action-observation 对</strong>再进入摘要。这样可避免 tool observation 过长导致摘要本身被截断，使实际 RL 训练窗口 L<sub>RL</sub> ≈ 阈值 L。</p>
+  </section>
+
+  <section id="experiments">
+    <h2>实验结论</h2>
+    <p>两个 benchmark：<strong>CodeGym</strong>（合成多轮函数调用，12800 训练 / 128 评测）和 <strong>BrowseComp-Plus</strong>（搜索任务，730 训练 / 100 评测）。奖励均为 RLVR 式可验证 0/1。</p>
+
+    <table class="compare-table">
+      <thead>
+        <tr>
+          <th>任务 / 算法</th>
+          <th>工作窗口</th>
+          <th>有效长度</th>
+          <th>训练后准确率</th>
+          <th>vs GRPO</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>CodeGym · GRPO</td>
+          <td>32K</td>
+          <td>32K</td>
+          <td>44.5%</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>CodeGym · <span class="highlight">SUPO</span></td>
+          <td>4K</td>
+          <td>32K (4K×8)</td>
+          <td class="highlight">47.7%</td>
+          <td>+3.2%</td>
+        </tr>
+        <tr>
+          <td>BrowseComp · GRPO</td>
+          <td>64K</td>
+          <td>64K</td>
+          <td>39.0%</td>
+          <td>—</td>
+        </tr>
+        <tr>
+          <td>BrowseComp · <span class="highlight">SUPO</span></td>
+          <td>64K</td>
+          <td>192K (64K×3)</td>
+          <td class="highlight">53.0%</td>
+          <td>+14.0%</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>关键发现：</p>
+    <ul class="content-list">
+      <li><strong>同等有效上下文</strong>：CodeGym 上 SUPO 用 4K 工作窗口达到比 32K GRPO 更高的成功率</li>
+      <li><strong>更长有效 horizon</strong>：BrowseComp-Plus 上 SUPO 平均工具调用 19.2 次 vs GRPO 6.7 次，搜索更充分</li>
+      <li><strong>消融验证</strong>：去掉 overlong mask 或换 advantage 计算方式（公式 4）都会降分；overlong mask 尤其关键——去掉后摘要模式会崩塌</li>
+    </ul>
+
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="metric-value">54.7</div>
+        <div class="metric-label">CodeGym 平均<br>工具调用次数</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">19.2</div>
+        <div class="metric-label">BrowseComp SUPO<br>平均工具调用</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">3×</div>
+        <div class="metric-label">BrowseComp 训练期<br>SUPO vs GRPO 调用量</div>
+      </div>
+    </div>
+  </section>
+
+  <section id="insights">
+    <h2>有意思的细节</h2>
+
+    <h3>摘要质量真的在变好</h3>
+    <p>训练前后对比同一任务的摘要输出，Agent 学会了保留<strong>任务关键状态</strong>而非泛泛计数：</p>
+    <ul class="content-list">
+      <li><strong>CodeGym</strong>：训练前只记「已比较 28 对」；训练后精确记录当前比较到数组哪一对 (i,j)，下一段轨迹才能继续</li>
+      <li><strong>BrowseComp-Plus</strong>：两段 rollout 都搜到了关键文章 #18432，但只有训练后的 Agent 把文章中的三个作者名写进摘要传递给下一段</li>
+    </ul>
+
+    <details>
+      <summary>CodeGym 摘要对比示例——训练后学会记录精确比较进度 (5,7)</summary>
+      <div class="detail-body">【训练前】
+&lt;summary&gt;…已比较的学生对计数增至 28。需要继续比较剩余学生对…&lt;/summary&gt;
+
+【训练后】
+&lt;summary&gt;…compareHeights 调用已迭代到 (4,6)，当前 pair count = 41。
+下一步从 (5,7) 继续比较至 (11,12)，完成后调用 done() 提交总数。&lt;/summary&gt;</div>
+    </details>
+
+    <h3>测试时可扩摘要轮数</h3>
+    <p>训练时 BrowseComp-Plus 设 S=2（最多 3 条轨迹），测试时把 S 扩到 23，准确率从 53% 升到 <strong>60%</strong>。说明学到的摘要策略具有<strong>泛化性</strong>——不必在训练时就覆盖最大 horizon。</p>
+
+    <svg class="pipeline-svg" viewBox="0 0 600 120" xmlns="http://www.w3.org/2000/svg">
+      <text x="300" y="20" text-anchor="middle" font-size="12" font-weight="600" fill="#2c2418">测试时摘要轮数扩展（BrowseComp-Plus, 64K 工作窗口）</text>
+      <line x1="60" y1="90" x2="540" y2="90" stroke="#ddd0be" stroke-width="1"/>
+      <line x1="60" y1="30" x2="60" y2="90" stroke="#ddd0be"/>
+      <text x="50" y="35" text-anchor="end" font-size="9" fill="#8a7c68">60%</text>
+      <text x="50" y="90" text-anchor="end" font-size="9" fill="#8a7c68">39%</text>
+      <circle cx="120" cy="72" r="4" fill="#8a7c68"/>
+      <text x="120" y="108" text-anchor="middle" font-size="9" fill="#8a7c68">S=1</text>
+      <circle cx="200" cy="58" r="4" fill="#a0724a"/>
+      <text x="200" y="108" text-anchor="middle" font-size="9" fill="#8a7c68">S=2(训练)</text>
+      <circle cx="300" cy="48" r="4" fill="#a0724a"/>
+      <text x="300" y="108" text-anchor="middle" font-size="9" fill="#8a7c68">S=5</text>
+      <circle cx="400" cy="38" r="5" fill="#a0724a"/>
+      <text x="400" y="108" text-anchor="middle" font-size="9" fill="#a0724a" font-weight="600">S=23 → 60%</text>
+      <polyline points="120,72 200,58 300,48 400,38 480,42" fill="none" stroke="#a0724a" stroke-width="2"/>
+      <text x="480" y="108" text-anchor="middle" font-size="9" fill="#8a7c68">S=11</text>
+      <circle cx="480" cy="42" r="4" fill="#a0724a"/>
+    </svg>
+
+    <h3>Overlong mask 为什么不可或缺</h3>
+    <p>去掉 overlong mask 后，训练动态出现<strong>摘要模式崩塌</strong>：越来越多 rollout 在单条轨迹内就结束（不触发摘要），条件成功率也降到 0。原因是没答完的 rollout 如果仍贡献梯度，会惩罚「摘要做得好但稍慢」的策略，迫使模型走捷径。</p>
+
+    <div class="quote-block">
+      <p>论文把这套框架定位为更一般 agentic workflow 的特例——未来可扩展到多 Agent、更复杂的 context management 和 test-time scaling pipeline。</p>
+    </div>
+  </section>
+
+  <footer class="page-footer">
+    <p>原文：<a href="https://arxiv.org/abs/2510.06727" target="_blank">Scaling LLM Multi-turn RL with End-to-end Summarization-based Context Management</a> · Miao Lu 等 · ByteDance Seed · arXiv:2510.06727 · 2025.10</p>
+  </footer>
+
+</div>
+
+<script>
+function toggleCard(id) {
+  var card = document.getElementById(id);
+  if (card) card.classList.toggle('expanded');
+}
+
+function toggleFigDetail(el) {
+  var detail = el.nextElementSibling;
+  if (!detail) return;
+  var isActive = detail.classList.contains('active');
+  detail.classList.toggle('active');
+  el.textContent = isActive ? '展开说明 ▸' : '收起 ▴';
+}
+
+// Rollout step demo
+var rolloutState = 0;
+var rolloutSteps = [
+  {
+    nodes: ['rs-1'],
+    ctx: 's₁ = [任务 Prompt]\n「比较学生身高数组，统计满足 heights[i] < heights[j] 的对数…」\n|context| = 800 tokens',
+    desc: '① 初始状态：只有任务 prompt，I=0（摘要计数）'
+  },
+  {
+    nodes: ['rs-2'],
+    ctx: 's₁ = [Prompt]\na₁ = <Think>先调用 observe() 看变量</Think><Tool>observe()</Tool>',
+    desc: '② LLM 生成 action：包含思考 + 工具调用'
+  },
+  {
+    nodes: ['rs-3'],
+    ctx: 's₂ = [Prompt, a₁, o₁]\no₁ = {heights: [1,3,5,7,9,11,13,2,4,6,8,10,12], count: 0}\n|context| = 1,200 tokens',
+    desc: '③ 工具执行返回 observation，拼入上下文'
+  },
+  {
+    nodes: ['rs-4'],
+    ctx: '…多轮 tool calling 后…\n|context| = 3,800 tokens  (< L=4K，继续累积)',
+    desc: '④ 检查长度：未超阈值 L，正常累积 (s_t, a_t, o_t)'
+  },
+  {
+    nodes: ['rs-5'],
+    ctx: 'L_t = 4,100 ≥ L\n→ 丢弃最后一轮 action-obs\n→ s_{t+1} = [当前上下文, v_sum]\nv_sum = 「请摘要以上交互的关键进展」',
+    desc: '⑤ 再次超长：触发摘要指令（实现上会丢弃最后一轮 action-obs）'
+  },
+  {
+    nodes: ['rs-6'],
+    ctx: 'a_summary = <summary>已比较至 (4,6)，count=41，\n下一步从 (5,7) 继续…</summary>\n\ns_{new} = [s₁, a_summary]  ← 上下文重置！\nI := 1, 开启轨迹 2',
+    desc: '⑥ LLM 生成摘要，状态重置为 (初始 prompt, 摘要)，摘要计数 +1'
+  },
+  {
+    nodes: ['rs-7'],
+    ctx: '轨迹 2: [Prompt + Summary₁] → tool calls → …\n最终 a_T = done(21) → R = 1\n\n整条 rollout 拆成 2 条子轨迹，共享 Â^j 和 R=1',
+    desc: '⑦ 在新上下文中继续，最终提交答案；梯度按 Theorem 3.2 分解到各子轨迹'
+  }
+];
+
+function rolloutStep() {
+  if (rolloutState >= rolloutSteps.length) return;
+  var s = rolloutSteps[rolloutState];
+  for (var i = 1; i <= 7; i++) {
+    var node = document.getElementById('rs-' + i);
+    if (!node) continue;
+    node.classList.remove('active', 'done');
+    if (i < s.nodes.length || (s.nodes.indexOf('rs-' + i) >= 0 && rolloutState > 0)) {
+      var idx = parseInt(s.nodes[0].split('-')[1]);
+      if (i < idx) node.classList.add('done');
+    }
+  }
+  s.nodes.forEach(function(nid) {
+    var n = document.getElementById(nid);
+    if (n) n.classList.add('active');
+  });
+  for (var j = 1; j < parseInt(s.nodes[0].split('-')[1]); j++) {
+    var prev = document.getElementById('rs-' + j);
+    if (prev) { prev.classList.remove('active'); prev.classList.add('done'); }
+  }
+  document.getElementById('rollout-ctx').textContent = s.ctx;
+  document.getElementById('rollout-desc').textContent = s.desc;
+  rolloutState++;
+}
+
+function rolloutReset() {
+  rolloutState = 0;
+  for (var i = 1; i <= 7; i++) {
+    var node = document.getElementById('rs-' + i);
+    if (!node) continue;
+    node.classList.remove('active', 'done');
+    node.style.opacity = i === 1 ? '1' : '';
+  }
+  document.getElementById('rollout-ctx').textContent = '点击「下一步」观察上下文如何随 rollout 变化';
+  document.getElementById('rollout-desc').textContent = '演示一条包含摘要重置的 rollout';
+}
+</script>
+</body>
+</html>
