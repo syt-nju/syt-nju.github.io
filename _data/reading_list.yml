@@ -1,0 +1,15 @@
+# Reading list: original blogs/articles worth keeping.
+# Each entry renders as a card on /reading-list/.
+#
+# The source domain and favicon are derived automatically from `url`.
+# `date` is stored for the record (when the link was added) and used for
+# sorting; it is NOT shown on the card.
+#
+# Fields:
+#   title : short, self-explanatory title of the article
+#   url   : link to the original article
+#   date  : YYYY-MM-DD, the day this link was added (used for sorting only)
+entries:
+  - title: "Reward hacking is swamping model intelligence gains"
+    url: "https://cursor.com/cn/blog/reward-hacking-coding-benchmarks"
+    date: 2026-06-30
