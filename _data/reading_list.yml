@@ -10,6 +10,9 @@
 #   url   : link to the original article
 #   date  : YYYY-MM-DD, the day this link was added (used for sorting only)
 entries:
+  - title: "On-Policy Distillation"
+    url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
+    date: 2026-07-03
   - title: "Interaction Models: A Scalable Approach to Human-AI Collaboration"
     url: "https://thinkingmachines.ai/blog/interaction-models/"
     date: 2026-07-02
