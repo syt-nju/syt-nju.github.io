@@ -10,6 +10,10 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: moe-fused-config
+    title: "vLLM 起 MoE 那句 Using default MoE config 到底慢多少"
+    date: 2026-07-07
+    source_type: blog
   - slug: multimodal-tokenization
     title: "多模态模型怎么把图像 / 视频 / 语音打成 token"
     date: 2026-06-30

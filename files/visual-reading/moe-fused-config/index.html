@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MoE 的隐藏加速开关:vLLM 那些按显卡命名的 config 到底是什么</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#fbf6ea;
+    --bg2:#f4ead7;
+    --card:#fffdf7;
+    --line:#e8dcc7;
+    --line2:#d9c9ac;
+    --ink:#332c27;
+    --ink2:#6a5f52;
+    --ink3:#928676;
+    --accent:#b0651f;
+    --accent-soft:#f0dcc2;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+    --sans:'Inter','Noto Sans SC',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    margin:0;background:var(--bg);color:var(--ink);
+    font-family:var(--sans);line-height:1.75;font-size:16.5px;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:860px;margin:0 auto;padding:0 22px 100px}
+
+  /* top nav */
+  nav.top{
+    position:sticky;top:0;z-index:50;background:rgba(251,246,234,.9);
+    backdrop-filter:blur(8px);border-bottom:1px solid var(--line);
+  }
+  nav.top .inner{max-width:860px;margin:0 auto;padding:11px 22px;display:flex;align-items:center;gap:16px;flex-wrap:wrap}
+  nav.top .brand{font-weight:700;font-size:14.5px;letter-spacing:.2px}
+  nav.top .links{display:flex;gap:15px;flex-wrap:wrap;margin-left:auto;font-size:13px}
+  nav.top .links a{color:var(--ink2);text-decoration:none}
+  nav.top .links a:hover{color:var(--accent)}
+  nav.top .src{color:var(--accent);font-weight:600}
+
+  header.hero{padding:52px 0 20px}
+  .kicker{font-size:13px;font-weight:600;color:var(--accent);letter-spacing:1.5px;text-transform:uppercase;margin-bottom:16px}
+  h1{font-size:33px;line-height:1.28;margin:0 0 18px;font-weight:700;letter-spacing:-.3px}
+  .sub{font-size:17px;color:var(--ink2);margin:0 0 8px}
+  .meta{font-size:13px;color:var(--ink3);margin-top:18px;display:flex;gap:14px;flex-wrap:wrap}
+  .meta a{color:var(--accent);text-decoration:none}
+  .meta a:hover{text-decoration:underline}
+
+  h2{font-size:24px;margin:52px 0 10px;font-weight:700;letter-spacing:-.2px;scroll-margin-top:70px}
+  h2 .n{color:var(--accent);font-family:var(--mono);font-size:15px;margin-right:10px;font-weight:500;vertical-align:2px}
+  h3{font-size:18px;margin:30px 0 8px;font-weight:600}
+  p{margin:14px 0}
+  strong{font-weight:600;color:var(--ink)}
+  a{color:var(--accent)}
+  ul,ol{margin:14px 0;padding-left:22px}
+  li{margin:7px 0}
+  code{font-family:var(--mono);font-size:.86em;background:var(--bg2);padding:2px 6px;border-radius:5px;border:1px solid var(--line);color:#7a4318}
+
+  /* TL;DR */
+  .tldr{background:var(--card);border:1px solid var(--line2);border-radius:14px;padding:24px 26px;margin:26px 0 8px;box-shadow:0 1px 0 var(--line)}
+  .tldr h4{margin:0 0 12px;font-size:13px;letter-spacing:1.5px;text-transform:uppercase;color:var(--accent);font-weight:700}
+  .tldr p{margin:9px 0}
+  .tldr ul{margin:10px 0}
+
+  /* callout */
+  .note{background:var(--bg2);border-left:3px solid var(--accent);border-radius:0 10px 10px 0;padding:15px 18px;margin:20px 0;font-size:15px;color:var(--ink)}
+  .note .lab{font-weight:700;color:var(--accent);font-size:12.5px;letter-spacing:.5px;text-transform:uppercase;display:block;margin-bottom:5px}
+
+  /* code block */
+  pre{background:#2c2620;color:#efe6d6;border-radius:11px;padding:17px 18px;overflow-x:auto;font-family:var(--mono);font-size:13px;line-height:1.7;margin:18px 0;border:1px solid #241f1a}
+  pre .c{color:#9a8f7d}
+  pre .k{color:#e0a56b}
+  pre .s{color:#b9c98a}
+  pre .m{color:#d98f6a}
+
+  /* metric cards */
+  .metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:22px 0}
+  .metric{background:var(--card);border:1px solid var(--line2);border-radius:12px;padding:18px 16px}
+  .metric .big{font-size:30px;font-weight:700;font-family:var(--mono);color:var(--accent);line-height:1}
+  .metric .unit{font-size:14px;color:var(--ink2);font-weight:500}
+  .metric .desc{font-size:13px;color:var(--ink2);margin-top:8px;line-height:1.5}
+
+  /* pipeline diagram */
+  .diagram{background:var(--card);border:1px solid var(--line2);border-radius:14px;padding:26px 22px;margin:22px 0}
+  .flowrow{display:flex;align-items:stretch;justify-content:center;gap:0;flex-wrap:wrap}
+  .fnode{background:var(--bg);border:1px solid var(--line2);border-radius:10px;padding:12px 14px;min-width:118px;max-width:150px;text-align:center;font-size:13px}
+  .fnode .t{font-weight:600;font-size:13.5px}
+  .fnode .d{font-size:11.5px;color:var(--ink2);margin-top:3px;line-height:1.4}
+  .farrow{display:flex;align-items:center;color:var(--accent);font-size:20px;padding:0 6px;font-weight:700}
+  .fnode.hl{border-color:var(--accent);background:var(--accent-soft)}
+
+  /* filename anatomy */
+  .fname{background:#2c2620;border-radius:11px;padding:20px 16px;margin:18px 0;font-family:var(--mono);font-size:14px;text-align:center;overflow-x:auto;border:1px solid #241f1a}
+  .fname .seg{display:inline-block;padding:3px 3px;position:relative;white-space:nowrap}
+  .fname .seg b{display:block;font-weight:600}
+  .fname .k1{color:#e0a56b}
+  .fname .k2{color:#8fc0d6}
+  .fname .k3{color:#c7a3e0}
+  .fname .k4{color:#b9c98a}
+  .fname .k5{color:#e08a8a}
+  .fname .fixed{color:#8a8073}
+  .fname .tag{display:block;font-size:10.5px;color:#9a8f7d;margin-top:6px;font-family:var(--sans);white-space:normal}
+
+  /* tables */
+  .tblwrap{overflow-x:auto;margin:20px 0;border:1px solid var(--line2);border-radius:12px}
+  table{border-collapse:collapse;width:100%;font-size:14px;background:var(--card);min-width:520px}
+  th,td{padding:10px 13px;text-align:left;border-bottom:1px solid var(--line)}
+  th{background:var(--bg2);font-weight:600;font-size:13px;color:var(--ink)}
+  tr:last-child td{border-bottom:none}
+  td.mono,th.mono{font-family:var(--mono);font-size:12.5px}
+  .yes{color:#3f7d3f;font-weight:600}
+  .no{color:#9a5252;font-weight:600}
+  td .hint{display:block;font-size:11.5px;color:var(--ink3);margin-top:2px}
+
+  /* expandable */
+  details{background:var(--card);border:1px solid var(--line2);border-radius:11px;margin:14px 0;overflow:hidden}
+  details summary{cursor:pointer;padding:15px 18px;font-weight:600;font-size:15px;list-style:none;display:flex;align-items:flex-start;gap:10px}
+  details summary::-webkit-details-marker{display:none}
+  details summary .tri{color:var(--accent);transition:transform .2s;flex-shrink:0;margin-top:2px}
+  details[open] summary .tri{transform:rotate(90deg)}
+  details summary .sm{display:block;font-weight:400;font-size:13px;color:var(--ink2);margin-top:4px}
+  .det-body{padding:0 18px 18px;font-size:15px;color:var(--ink)}
+  .det-body p:first-child{margin-top:4px}
+
+  hr.sep{border:none;border-top:1px solid var(--line);margin:40px 0}
+
+  footer{border-top:1px solid var(--line);margin-top:60px;padding-top:26px;font-size:13.5px;color:var(--ink2)}
+  footer a{color:var(--accent);text-decoration:none}
+  footer a:hover{text-decoration:underline}
+  footer .srcs{margin-top:12px;line-height:2}
+
+  .lead{font-size:18px;color:var(--ink);border:none}
+  .tiny{font-size:12.5px;color:var(--ink3)}
+
+  @media (max-width:880px){
+    body{font-size:16px}
+    h1{font-size:27px}
+    h2{font-size:21px}
+    .metrics{grid-template-columns:1fr}
+    .fnode{min-width:104px}
+    nav.top .brand{display:none}
+  }
+</style>
+</head>
+<body>
+
+<nav class="top">
+  <div class="inner">
+    <span class="brand">MoE Fused Config</span>
+    <div class="links">
+      <a href="#w1">warning</a>
+      <a href="#w2">kernel</a>
+      <a href="#w3">config</a>
+      <a href="#w4">为什么快慢</a>
+      <a href="#w5">命名</a>
+      <a href="#w6">H20 实例</a>
+      <a href="#w7">从哪来</a>
+      <a href="#w8">扫描成本</a>
+      <a class="src" href="https://github.com/vllm-project/vllm/tree/main/vllm/model_executor/layers/fused_moe/configs" target="_blank" rel="noopener">原文 ↗</a>
+    </div>
+  </div>
+</nav>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="kicker">vLLM · MoE · 推理性能</div>
+  <h1>MoE 的隐藏加速开关:那些按显卡命名的 config 到底是什么</h1>
+  <p class="sub">起 vLLM 时冒出来一句 <code>Using default MoE config. Performance might be sub-optimal!</code> —— 这句 warning 背后,是一套决定 MoE 模型跑多快、却和模型权重无关的 JSON 文件。它们是什么、为什么影响速度、从哪来、缺了怎么办?</p>
+  <div class="meta">
+    <span>基于 vLLM 官方源码整理</span>
+    <span>·</span>
+    <a href="https://github.com/vllm-project/vllm/tree/main/vllm/model_executor/layers/fused_moe/configs" target="_blank" rel="noopener">源:vllm/.../fused_moe/configs ↗</a>
+  </div>
+</header>
+
+<div class="tldr">
+  <h4>TL;DR · 30 秒抓住核心</h4>
+  <ul>
+    <li><strong>它是什么</strong>:一堆命名形如 <code>E=256,N=256,device_name=NVIDIA_H20,dtype=fp8_w8a8...json</code> 的文件。它<strong>不是</strong>模型权重,<strong>不改</strong>计算结果或精度 —— 它是 MoE 那个大矩阵乘的 <strong>Triton GPU kernel 分块超参数表</strong>。</li>
+    <li><strong>为什么重要</strong>:算的是同一套公式,但分块方案与显卡硬件匹配得好不好,社区实测常见 <strong>吞吐损失约 20%~40%</strong>(整体),prefill 场景个别案例可达 <strong>+50% 以上</strong>。命中调优配置 = 矩阵乘单元喂满;命中不到 = 退回启发式默认值,慢但不报错。</li>
+    <li><strong>怎么索引</strong>:key 是 <code>(专家数 E, 分片中间维度 N, 显卡, 精度 dtype)</code>,<strong>与具体是哪个模型无关</strong>;TP 通过 N 间接生效。</li>
+    <li><strong>从哪来</strong>:主要靠社区贡献者和硬件厂商<strong>手动扫描后 PR 上传</strong>,官方不跑 CI 自动生成 —— 所以覆盖零散、无最优保证。</li>
+    <li><strong>缺了怎么办</strong>:自己跑 <code>benchmark_moe.py --tune</code> 扫一份(单卡几十分钟到几小时,一次性),<code>VLLM_TUNED_CONFIG_FOLDER</code> 指过去即可,优先级高于内置。</li>
+  </ul>
+</div>
+
+<!-- ============ 1 ============ -->
+<h2 id="w1"><span class="n">01</span>从一句 warning 说起</h2>
+<p>如果你在某张不太主流的卡上(比如国内常见的 H20)起一个 MoE 模型,vLLM 启动日志里很可能闪过这么一行:</p>
+<pre><span class="c"># vllm 起 Qwen 系 MoE 时的真实日志</span>
+WARNING [fused_moe.py] Using default MoE config. Performance might be sub-optimal!
+        Config file not found at .../fused_moe/configs/E=256,N=...,device_name=NVIDIA_H20,dtype=fp8_w8a8.json</pre>
+<p>模型能正常跑、结果也对,很多人就忽略了。但这句话的真实含义是:<strong>「我没找到为你这张卡 + 这个 MoE 形状调优过的 kernel 配置,只能用一套通用的保底参数,速度可能明显偏慢。」</strong></p>
+
+<div class="metrics">
+  <div class="metric"><div class="big">20~40%</div><div class="unit">吞吐损失(社区经验)</div><div class="desc">vLLM 性能调优文档对「default MoE config」的常见量级估计;新 SKU / 未覆盖组合更容易踩中</div></div>
+  <div class="metric"><div class="big">+58%</div><div class="unit">prefill 吞吐(个案)</div><div class="desc">vllm-tune 在 Qwen3.6-35B-A3B-FP8、TP=2 上测得 pp2048: 4677→7406 tok/s</div></div>
+  <div class="metric"><div class="big">~10%</div><div class="unit">decode 吞吐(个案)</div><div class="desc">同组实验 tg128: 74.4→81.5 tok/s;不同卡 / batch 会有波动</div></div>
+</div>
+
+<details>
+  <summary><span class="tri">▸</span><span>这些数字从哪来、怎么理解<span class="sm">不是 vLLM 官方 SLA,而是社区 benchmark 与调优文档的量级参考</span></span></summary>
+  <div class="det-body">
+    <ul>
+      <li><strong>20%~40% 吞吐损失</strong>:社区 vLLM 性能调优 skill 对 default MoE config 的概括 —— 出现 <code>sub-optimal</code> warning 时,端到端吞吐常见这个量级回落(视模型、卡、并发而定)。</li>
+      <li><strong>+58% prefill / ~10% decode</strong>:<a href="https://github.com/SeraphimSerapis/vllm-tune" target="_blank" rel="noopener">vllm-tune</a> 在 <strong>Qwen3.6-35B-A3B-FP8</strong>(TP=2, GB10×2, vLLM 0.19.2)上的对比:prefill 2048 token 从约 4677 提到 7406 tok/s,decode 128 token 从 74.4 提到 81.5 tok/s;同时方差大幅下降。</li>
+      <li><strong>「几十 tok/s」</strong>:<a href="https://github.com/MissionSquad/vllm-moe-configs" target="_blank" rel="noopener">MissionSquad/vllm-moe-configs</a> 在问题 prompt 上报告稳定并发与「tens of tokens/s」量级的改善 —— 更偏个案,但说明不只是纸面 FLOPs。</li>
+    </ul>
+    <p>要点:<strong>缺配置不等于算错,而是 MoE 层没吃满硬件</strong>。prefill 往往比 decode 更敏感(大 <code>M</code> 时矩阵形状变化大);具体数字一定要在你自己的卡 + 模型 + TP + 并发下复测。</p>
+  </div>
+</details>
+
+<p>要理解这句话到底损失了什么,得先搞清楚三件事:这个 <em>MoE kernel</em> 在算什么、那个 <em>config</em> 文件是什么、以及它俩为什么会决定速度。这篇文章就顺着这条线走一遍,最后落到一个具体问题:<strong>Qwen3.5-35B-A3B 在 H20 上到底有没有现成配置。</strong></p>
+
+<!-- ============ 2 ============ -->
+<h2 id="w2"><span class="n">02</span>先搞清楚:fused MoE kernel 在算什么</h2>
+<p>MoE(Mixture-of-Experts)层的计算逻辑其实很朴素:每个 token 经过一个 <strong>router</strong>,从一大堆专家里选中 top-k 个(Qwen3.5-35B-A3B 是 <strong>256 选 8</strong>),每个被选中的专家就是一个小 FFN(gate / up / down 三个矩阵乘 + SwiGLU)。</p>
+
+<div class="diagram">
+  <div class="flowrow">
+    <div class="fnode"><div class="t">Tokens</div><div class="d">一个 batch 的 hidden</div></div>
+    <div class="farrow">→</div>
+    <div class="fnode"><div class="t">Router</div><div class="d">每个 token 选 top-k 专家</div></div>
+    <div class="farrow">→</div>
+    <div class="fnode hl"><div class="t">Grouped GEMM</div><div class="d">按专家分组做大矩阵乘<br>(fused kernel)</div></div>
+    <div class="farrow">→</div>
+    <div class="fnode"><div class="t">加权合并</div><div class="d">top-k 输出按门控权重求和</div></div>
+  </div>
+</div>
+
+<p>问题在于「怎么算这 256 个专家的矩阵乘」有天壤之别:</p>
+<ul>
+  <li><strong>朴素做法</strong>:对每个专家单独做一次小 GEMM → 几百个「又小又碎」的矩阵乘,kernel 启动开销大、GPU 利用率极低。</li>
+  <li><strong>fused MoE kernel</strong>:把「按专家给 token 排序分组(permute)+ 分组矩阵乘(grouped GEMM)+ 激活 + 缩放」<strong>融合进极少数几个 Triton kernel</strong>。核心是一个大的分块矩阵乘,每个块自动取对应专家的权重。</li>
+</ul>
+<p>本文说的「配置」,调的就是<strong>这个融合 grouped-GEMM kernel 的分块与调度方式</strong>。它不改权重、不改计算公式,只决定「这堆矩阵乘怎么在 GPU 上排活」。</p>
+
+<!-- ============ 3 ============ -->
+<h2 id="w3"><span class="n">03</span>那个 config 文件到底是什么</h2>
+<p>直接看一份真实文件的内容(H20 上、E=256、N=256、FP8 块量化):</p>
+<pre><span class="c">// E=256,N=256,device_name=NVIDIA_H20,dtype=fp8_w8a8,block_shape=[128,128].json</span>
+{
+  <span class="k">"1"</span>:    {<span class="s">"BLOCK_SIZE_M"</span>:64, <span class="s">"BLOCK_SIZE_N"</span>:128, <span class="s">"BLOCK_SIZE_K"</span>:128, <span class="s">"GROUP_SIZE_M"</span>:1, <span class="s">"num_warps"</span>:4, <span class="s">"num_stages"</span>:3},
+  <span class="k">"64"</span>:   {<span class="s">"BLOCK_SIZE_M"</span>:64, <span class="s">"BLOCK_SIZE_N"</span>:128, <span class="s">"BLOCK_SIZE_K"</span>:256, ...},
+  <span class="k">"4096"</span>: {<span class="s">"BLOCK_SIZE_M"</span>:64, <span class="s">"BLOCK_SIZE_N"</span>:128, <span class="s">"BLOCK_SIZE_K"</span>:256, ...}
+  <span class="c">// ... 共 18 个 M 档位:1,2,4,8,16,24,32,48,64,96,128,256,512,1024,1536,2048,3072,4096</span>
+}</pre>
+<p>它就是一张 <strong><code>M(本次 forward 里要一起算的 token 数)→ 一组 Triton kernel 分块参数</code> 的映射表</strong>。配置之所以按 <code>M</code> 分档,是因为这一步里要处理的 token 数可以从 1 到几千,矩阵形状差很多,最优分块也就差很多。</p>
+<div class="note">
+  <span class="lab">M 和 decode / prefill 是什么关系</span>
+  表里用的是数字 <code>M</code>,不是阶段名。<strong>逐 token 生成(decode)</strong> 时 <code>M</code> 通常很小:单请求常见 <code>M=1</code>,多请求并发时 <code>M</code> 等于 batch 大小。<strong>整段 prompt 一次算完(prefill)</strong> 时 <code>M</code> 等于 prompt 长度,几千很正常。文章后面提到 decode / prefill,是在用这两种常见场景帮你理解「为什么 <code>M</code> 会差这么多」;真正选配置时,看的是当前这一步的 <code>M</code> 落在哪个档位。你能看到上面 <code>M=64</code> 起 <code>BLOCK_SIZE_K</code> 就从 128 涨到了 256。
+</div>
+
+<details>
+  <summary><span class="tri">▸</span><span>那几个参数分别是什么?<span class="sm">BLOCK_SIZE_M/N/K、GROUP_SIZE_M、num_warps、num_stages —— GEMM 分块与流水线的旋钮</span></span></summary>
+  <div class="det-body">
+    <p>GPU 上算矩阵乘 <code>C[M,N] = A[M,K] × B[K,N]</code>,是把输出切成一个个 <code>BLOCK_SIZE_M × BLOCK_SIZE_N</code> 的小块(tile),每个线程块负责一块,沿 K 维以 <code>BLOCK_SIZE_K</code> 为步长循环,把分片搬进 shared memory 再喂给 tensor core 累加。</p>
+    <div class="tblwrap">
+    <table>
+      <tr><th>参数</th><th>含义</th><th>影响</th></tr>
+      <tr><td class="mono">BLOCK_SIZE_M/N/K</td><td>每个块负责的 tile 尺寸</td><td>块越大 → 数据复用率越高(每 FLOP 访存越少),但越吃 shared memory / 寄存器 → 同时能跑的块变少(occupancy 下降)</td></tr>
+      <tr><td class="mono">num_warps</td><td>每块线程数(warp×32)</td><td>块内并行度 + 寄存器压力</td></tr>
+      <tr><td class="mono">num_stages</td><td>软件流水线级数</td><td>提前预取几轮 K 的数据,让访存和计算重叠(藏延迟);级数越多藏得越好但更吃 SRAM</td></tr>
+      <tr><td class="mono">GROUP_SIZE_M</td><td>块调度重排(swizzle)</td><td>让复用同一批权重的块挨着跑 → 提升 L2 cache 命中</td></tr>
+    </table>
+    </div>
+    <p>一句话:这些旋钮共同决定了「<strong>在塞满硬件</strong>(算力/带宽/缓存)<strong>和不溢出</strong>(shared memory/寄存器)<strong>之间怎么平衡</strong>」。</p>
+  </div>
+</details>
+
+<!-- ============ 4 ============ -->
+<h2 id="w4"><span class="n">04</span>为什么会有速度差别</h2>
+<p>既然计算公式完全一样,为什么分块方案不同会快慢差几倍?因为<strong>最优分块由三个东西共同决定</strong>,选错就会出现两类典型浪费:算力单元闲着等数据,或者同时能跑的线程块太少、藏不住读内存的等待时间。</p>
+
+<details>
+  <summary><span class="tri">▸</span><span>两个术语先扫盲<span class="sm">tensor core 和 occupancy 分别是什么,和「分块选错」有什么关系</span></span></summary>
+  <div class="det-body">
+    <p><strong>Tensor Core</strong>(张量核心):GPU 里专门干<strong>矩阵乘</strong>的硬件单元,比通用 CUDA 核心快一个数量级。MoE 的 grouped GEMM 最终就是要喂饱它。所谓「tensor core 饿着」,意思是:<strong>矩阵乘单元已经就绪,但数据还没从显存搬过来</strong>,算力空转 —— 常见于 <code>M</code> 很小、矩阵又瘦又长时,瓶颈在访存而不是算力。</p>
+    <p><strong>Occupancy</strong>(占用率):一块 GPU 上,<strong>同时能跑起来的线程块(warp 组)占比</strong>。占比高 → 一块数据在等显存时,别的线程块还能继续算,把等待时间「盖住」。分块太大 → 每个线程块吃太多 shared memory / 寄存器 → 同时能放的块变少 → occupancy 下降 → 等数据时更容易整体停摆。所谓「藏不住访存延迟」,就是这个意思。</p>
+    <p>调优 config 的目标,就是在给定矩阵形状和显卡上,<strong>让 tensor core 有活干、occupancy 够高</strong>,把算力和带宽都吃满。</p>
+  </div>
+</details>
+
+<ul>
+  <li><strong>矩阵形状(N、K)+ 当前 batch M</strong>:<code>M</code> 小时(典型是逐 token 生成)矩阵又瘦又长,瓶颈在访存;<code>M</code> 大时(典型是 prefill)矩阵更方正,瓶颈在算力 —— 两种形状要的分块完全不同。</li>
+  <li><strong>显卡</strong>:不同卡的 SM 数量、矩阵乘单元吞吐、片上缓存大小、HBM 带宽都不同,最优分块随之不同。</li>
+  <li><strong>dtype</strong>:FP8 每元素字节数是 BF16 的一半,走的矩阵乘指令也不同 → 最优 K 分块和流水线级数都不一样。</li>
+</ul>
+
+<p>光说不够直观。下面是<strong>同一个形状</strong>(<code>E=256, N=256, dtype=fp8_w8a8</code>)在 vLLM 仓库里、<strong>7 张不同卡</strong>上被自动调优出来的真实分块 —— 看它们分歧有多大:</p>
+
+<div class="tblwrap">
+<table>
+  <tr><th>显卡</th><th class="mono">M=1</th><th class="mono">M=64</th><th class="mono">M=4096</th></tr>
+  <tr><td>NVIDIA H20</td><td class="mono">64·128·128 / w4 s3</td><td class="mono">64·128·<b>256</b> / w4 s3</td><td class="mono">64·128·256 / w4 s3</td></tr>
+  <tr><td>NVIDIA H20-3e</td><td class="mono"><b>16</b>·128·128 / w4 s3</td><td class="mono">16·128·256 / w4 s3</td><td class="mono">64·128·128 / w4 s3</td></tr>
+  <tr><td>NVIDIA H200</td><td class="mono"><b>8·32</b>·128 / w4 <b>s4</b></td><td class="mono">16·128·128 / w4 s3 <b>G64</b></td><td class="mono">64·128·128 / w4 s3 G16</td></tr>
+  <tr><td>NVIDIA B200</td><td class="mono">16·64·128 / w4 s4 <b>G32</b></td><td class="mono">16·<b>256</b>·128 / w4 s3 G32</td><td class="mono"><b>32·256</b>·128 / w4 s3 G16</td></tr>
+  <tr><td>NVIDIA L20</td><td class="mono">16·128·128 / <b>w8</b> s3</td><td class="mono">16·128·256 / w8 <b>s2</b> G64</td><td class="mono">64·128·128 / w4 s2 G16</td></tr>
+  <tr><td>AMD MI300X</td><td class="mono">16·128·<b>256</b> / w8 s2</td><td class="mono">16·128·128 / <b>w2</b> s2</td><td class="mono"><b>128·256</b>·128 / w4 s2 G4</td></tr>
+</table>
+</div>
+<p class="tiny">格式:<code>BLOCK_M·BLOCK_N·BLOCK_K / num_warps num_stages [GROUP_M]</code>。加粗为与众不同处。数据取自 vLLM 仓库对应 JSON。<code>M=1</code> 对应小 batch(典型逐 token 生成),<code>M=4096</code> 对应大 batch(典型 prefill)。</p>
+
+<p>几个直观的结论:</p>
+<ul>
+  <li><strong>同一形状,每张卡的最优解都不一样</strong>:H200 在 <code>M=1</code> 用极小的 <code>8×32</code> tile,H20 却用 <code>64×128</code>,B200 又偏爱大 <code>GROUP_M</code>。这就是为什么配置<strong>必须按卡各存一份</strong>。</li>
+  <li><strong>同一张卡,M 不同也要换分块</strong>:MI300X 从 <code>M=1</code> 的 <code>16×128</code> 一路涨到 <code>M=4096</code> 的 <code>128×256</code>。</li>
+  <li>拿 H200 的配置去 H20 上跑,分块并非最优 → 就是那句 <code>sub-optimal</code> warning 想避免的事。</li>
+</ul>
+
+<div class="note">
+  <span class="lab">关键澄清</span>
+  这些差异<strong>只影响速度,不影响结果</strong>。换分块 = 换 GPU 上的排活方式,算出来的数值完全一致。所以它是纯性能旋钮,不是精度或正确性问题。
+</div>
+
+<!-- ============ 5 ============ -->
+<h2 id="w5"><span class="n">05</span>配置怎么被索引:文件名解剖</h2>
+<p>vLLM 用一个函数拼出要找的文件名(源码 <code>fused_moe.py::get_config_file_name</code>),逻辑就一行:</p>
+
+<div class="fname">
+<span class="seg k1">E=256<b class="tag">专家数</b></span><span class="fixed">,</span><span class="seg k2">N=256<b class="tag">中间维度 ÷ TP</b></span><span class="fixed">,</span><span class="seg k3">device_name=NVIDIA_H20<b class="tag">显卡</b></span><span class="fixed">,</span><span class="seg k4">dtype=fp8_w8a8<b class="tag">精度</b></span><span class="seg k5">,block_shape=[128,128]<b class="tag">量化块</b></span><span class="fixed">.json</span>
+</div>
+
+<p>由此得出两个关键性质:</p>
+<ul>
+  <li><strong>与模型无关(model-agnostic)</strong>:文件名里<strong>没有模型名</strong>。任意两个不同模型,只要 <code>E</code>、分片后 <code>N</code>、<code>dtype</code> 相同,又跑在同一张卡上,就<strong>共用同一份配置</strong>。</li>
+  <li><strong>TP 藏在 N 里</strong>:<code>N = 专家中间维度 ÷ TP</code>。所以 TP 不是独立的 key,改 TP → N 变 → 换文件。这也是为什么「换卡、换 TP、换量化」都要换配置,而「换个同架构同规模的模型」却能复用。</li>
+</ul>
+
+<details>
+  <summary><span class="tri">▸</span><span>一个小坑:H200 会被归一,H20 不会<span class="sm">device_name 的匹配规则里藏着一个特例</span></span></summary>
+  <div class="det-body">
+    <p>源码里有一行特判:检测到 H200 家族的卡时,<code>device_name</code> 一律归一成 <code>NVIDIA_H200</code>,即各种 H200 变体共用一份配置。</p>
+    <p>但 <strong>H20 不在此列</strong> —— <code>NVIDIA_H20</code> 和 <code>NVIDIA_H20-3e</code>(141GB 版)是<strong>两个独立的 device_name,配置不通用</strong>。<code>torch.cuda.get_device_name()</code> 报哪个,就必须命中哪个文件。</p>
+  </div>
+</details>
+
+<!-- ============ 6 ============ -->
+<h2 id="w6"><span class="n">06</span>落到实处:Qwen3.5-35B-A3B 在 H20 上有没有</h2>
+<p>Qwen3.5-35B-A3B 是 <strong>E=256、专家中间维度 512</strong> 的 MoE。所以要找的 <code>N = 512 ÷ TP</code>:TP1→512、TP2→256、TP4→128、TP8→64。去 vLLM 仓库 <code>configs/</code> 里逐一核对 H20 的现有文件:</p>
+
+<div class="tblwrap">
+<table>
+  <tr><th>TP</th><th>需要的 N</th><th>NVIDIA_H20</th><th>NVIDIA_H20-3e</th></tr>
+  <tr><td>TP1</td><td class="mono">512</td><td class="no">✗ 无</td><td class="no">✗ 无</td></tr>
+  <tr><td>TP2</td><td class="mono">256</td><td class="yes">✓ fp8 + int8</td><td class="yes">✓ fp8</td></tr>
+  <tr><td>TP4</td><td class="mono">128</td><td class="yes">✓ fp8</td><td class="no">✗ 无</td></tr>
+  <tr><td>TP8</td><td class="mono">64</td><td class="no">✗ 无</td><td class="no">✗ 无</td></tr>
+</table>
+</div>
+
+<p>核对结论:</p>
+<ul>
+  <li><strong>有 H20 支持,但只覆盖量化权重</strong>:所有 H20 的 E=256 配置都带 <code>fp8_w8a8</code> 或 <code>int8_w8a8</code> + <code>block_shape=[128,128]</code>(块级量化)。</li>
+  <li><strong>BF16(非量化)在 H20 上完全没有</strong>:目录里 E=256 不带 dtype 的只有 H100 / A800 / MI325X,<strong>没有任何 H20 的 bf16 项</strong>。用 bf16 跑必然 fallback。</li>
+  <li><strong>只有 TP2 / TP4 命中</strong>,TP1 / TP8 都没有。且 TP4 只有普通 H20,H20-3e 没有。</li>
+</ul>
+
+<div class="metrics">
+  <div class="metric"><div class="big">TP2</div><div class="desc">H20 / H20-3e 都覆盖(FP8),最推荐的部署档</div></div>
+  <div class="metric"><div class="big">FP8</div><div class="desc">唯一有现成 H20 配置的精度;bf16 一律 fallback</div></div>
+  <div class="metric"><div class="big">0</div><div class="unit">个 bf16 配置</div><div class="desc">H20 上 E=256 的 bf16 调优文件数</div></div>
+</div>
+
+<!-- ============ 7 ============ -->
+<h2 id="w7"><span class="n">07</span>这些配置从哪来:贡献者,不是 CI</h2>
+<p>核对完覆盖情况,一个自然的疑问是:这些文件<strong>是谁生成、怎么进仓的?</strong>答案是 —— <strong>主要靠人手工跑扫描、再通过 PR 上传</strong>,vLLM 官方并没有一套 CI 帮你自动生成。</p>
+<ul>
+  <li>目录 <code>README</code> 明说:<em>「See <code>benchmark_moe.py</code> on how to generate these config files.」</em> 官方只提供生成工具,文件本身谁生成谁提交。</li>
+  <li><strong>为什么不能 CI 自动跑</strong>:调优必须有那张<strong>物理卡</strong>(CI 不可能备齐 H20 / MI300X / B200 …),而且一次扫描很贵,不适合放进常规 CI。</li>
+</ul>
+
+<p><strong>谁在贡献:</strong></p>
+<ul>
+  <li><strong>社区 / 部署方</strong>:某人在自己卡上为某模型调好,顺手上游。</li>
+  <li><strong>硬件厂商</strong>:NVIDIA、AMD 等会上游自家卡的调优结果 —— 这就是为什么目录里有成套的 <code>AMD_Instinct_MI300X/MI325X</code>、<code>NVIDIA_H20/H200/B200/L20</code>。</li>
+  <li><strong>模型接入 PR 的作者</strong>:加新模型支持时常顺带附上几张常见卡的配置。</li>
+</ul>
+
+<div class="note">
+  <span class="lab">这带来三个后果</span>
+  <strong>① 覆盖极不均匀</strong> —— 全看有没有人愿意传(这正是 Qwen3.5 在 H20 上只有 FP8/TP2/TP4 的原因)。<strong>② 无最优保证</strong> —— 上游基本是信任制,合并者一般不复跑验证。<strong>③ 会过时</strong> —— Triton / kernel 升级后老配置可能不再最快,除非有人重扫(代码里还特意 <code>pop("triton_version")</code> 忽略版本标记)。
+</div>
+
+<!-- ============ 8 ============ -->
+<h2 id="w8"><span class="n">08</span>扫一次要多少成本</h2>
+<p>既然要自己补,那扫一次的门槛高吗?拆成环境和时间两块看。</p>
+
+<h3>环境成本:中等,但有一个硬门槛</h3>
+<ul>
+  <li><strong>硬门槛:必须有目标卡本身</strong>。H20 的配置只能在 H20 上扫。</li>
+  <li><strong>不用下载真实权重</strong>:脚本用<strong>随机 dummy 权重</strong>按形状分配,只从 <code>--model</code> 读 config 里的 <code>E / intermediate_size / hidden_size / topk</code>。指到 config 就行,不必拉 35B checkpoint。</li>
+  <li><strong>显存</strong>:只需放下该 MoE shape(分片后)的 dummy 权重,单张 H20 绰绰有余。</li>
+</ul>
+
+<h3>时间成本:一次性离线开销</h3>
+<p>NVIDIA 上精简后的搜索空间(每个 M 档位):</p>
+<pre><span class="c"># get_configs_compute_bound 的搜索网格(NVIDIA)</span>
+BLOCK_M<span class="k">(5)</span> × BLOCK_N<span class="k">(4)</span> × BLOCK_K<span class="k">(3)</span> × GROUP_M<span class="k">(4)</span> × num_warps<span class="k">(2)</span> × num_stages<span class="k">(4)</span> = <span class="m">1920</span> 组 / 每个 M</pre>
+
+<div class="metrics">
+  <div class="metric"><div class="big">1920</div><div class="unit">组 / M 档</div><div class="desc">精简搜索空间(编译失败/不对齐的会被跳过)</div></div>
+  <div class="metric"><div class="big">18</div><div class="unit">个 M 档位</div><div class="desc">默认从 1 扫到 4096,合计约 3.5 万次计时</div></div>
+  <div class="metric"><div class="big">÷N</div><div class="unit">GPU 并行</div><div class="desc">ray 自动铺到节点全部 GPU,墙钟 ÷ 卡数</div></div>
+</div>
+
+<p><strong>现实量级</strong>:单卡约<strong>几十分钟到 1~3 小时</strong>;8 卡节点通常 <strong>~20–60 分钟</strong>(专家数 256 会偏慢)。主要耗时是 Triton JIT 编译,不是那 20 次实测迭代本身。<strong>关键是:这是一次性成本</strong>,一个 <code>(形状, TP, dtype, 卡)</code> 组合扫完存成 JSON 就永久复用。</p>
+
+<details>
+  <summary><span class="tri">▸</span><span>想更快?只扫你实际用的档位<span class="sm">定死 TP / dtype / 卡,再用 --batch-size 收窄 M 网格</span></span></summary>
+  <div class="det-body">
+    <p>不用扫全排列。为你<strong>实际部署的档位</strong>扫即可:定死 <code>--tp-size</code>(决定 N)、<code>--dtype</code>(和 block_shape)、以及卡型号。</p>
+    <p>再进一步:默认 18 个 M 档位可以用 <code>--batch-size</code> 只指定你关心的几个(例如小 <code>M</code> 的逐 token 生成档 + 少数几个大 <code>M</code> 的 prefill 档),时间能再砍几倍。</p>
+  </div>
+</details>
+
+<!-- ============ 9 ============ -->
+<h2 id="w9"><span class="n">09</span>缺了怎么办:自己扫,本地生效</h2>
+<p>你完全不必等社区上游。缺配置时自己扫一份,用环境变量指过去就行 —— 而且它的<strong>优先级高于仓库内置配置</strong>(源码里 user-defined 目录排在查找列表最前)。</p>
+<pre><span class="c"># 1. 针对你的卡 + 模型形状 + TP + 精度 调优(--tp-size 必须和部署时一致!)</span>
+python benchmarks/kernels/benchmark_moe.py \
+    --model Qwen/Qwen3.5-35B-A3B \
+    --tp-size 2 \
+    --dtype fp8_w8a8 \
+    --tune \
+    --save-dir /path/to/moe_tuning
+
+<span class="c"># 2. 部署时指向该目录,vLLM 自动加载(启动日志会打 Using configuration from ...)</span>
+<span class="k">export</span> VLLM_TUNED_CONFIG_FOLDER=/path/to/moe_tuning
+vllm serve Qwen/Qwen3.5-35B-A3B --tensor-parallel-size 2 ...</pre>
+
+<div class="note">
+  <span class="lab">两个必对齐的点</span>
+  <strong>TP 要一致</strong> —— 调优的 TP 决定 N,TP2 和 TP4 的配置不通用(多机 PP 也一样)。<strong>dtype 要一致</strong> —— bf16 和 fp8 是两份完全不同的文件,对不上照样命中不了。
+</div>
+
+<hr class="sep">
+
+<!-- ============ 总结 ============ -->
+<h2><span class="n">✦</span>一句话心智模型</h2>
+<p class="lead">MoE fused config <strong>不是模型配置、不是精度设置</strong>,而是 MoE 那个大矩阵乘的 <strong>Triton kernel 分块/流水线超参数表</strong>;它的粒度是 <code>(专家数 E, 分片中间维度 N, 显卡, dtype)</code>,<strong>与模型无关、TP 藏在 N 里</strong>;速度差别来自「分块方案与具体 GPU + 矩阵形状 + batch 大小的匹配程度」;这些文件靠社区和厂商手工扫描 + PR 上传,覆盖零散 —— <strong>缺了就自己 <code>--tune</code> 扫一份,本地生效即可,一劳永逸。</strong></p>
+
+<footer>
+  <div>本文由 vLLM 官方源码与文档整理而成,聚焦 <code>fused_moe</code> 的按显卡调优配置机制。</div>
+  <div class="srcs">
+    原文与源码:<br>
+    · <a href="https://github.com/vllm-project/vllm/tree/main/vllm/model_executor/layers/fused_moe/configs" target="_blank" rel="noopener">vllm/model_executor/layers/fused_moe/configs(配置目录 + README)↗</a><br>
+    · <a href="https://github.com/vllm-project/vllm/blob/main/vllm/model_executor/layers/fused_moe/fused_moe.py" target="_blank" rel="noopener">fused_moe.py(get_config_file_name / get_moe_configs 查找逻辑)↗</a><br>
+    · <a href="https://github.com/vllm-project/vllm/blob/main/benchmarks/kernels/benchmark_moe.py" target="_blank" rel="noopener">benchmarks/kernels/benchmark_moe.py(离线调优脚本)↗</a><br>
+    · <a href="https://vllm.ai/blog/2025-09-11-qwen3-next" target="_blank" rel="noopener">vLLM Blog:Qwen3-Next 混合架构支持(厂商协作致谢)↗</a>
+  </div>
+</footer>
+
+</div>
+</body>
+</html>
