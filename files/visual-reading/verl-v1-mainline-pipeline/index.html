@@ -1,0 +1,1056 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>verl 主线 V1 重构 · 给后训练工作者的三问</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+  :root {
+    --bg: #faf4e6;
+    --bg-soft: #f4ead7;
+    --card: #fffaf0;
+    --card-2: #f6ecd9;
+    --line: #e4d7bd;
+    --line-strong: #d3c09b;
+    --ink: #2c2620;
+    --ink-soft: #5c5344;
+    --ink-mute: #8a7f6c;
+    --accent: #b5651d;
+    --accent-soft: #f0dcc0;
+    --danger: #a8443a;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+    --sans: "Inter", "Noto Sans SC", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.75;
+    font-size: 16px;
+  }
+  a { color: var(--accent); text-decoration: none; }
+  a:hover { text-decoration: underline; }
+
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 22px; }
+
+  /* top nav */
+  .topbar {
+    position: sticky; top: 0; z-index: 50;
+    background: rgba(250, 244, 230, 0.9);
+    backdrop-filter: blur(6px);
+    border-bottom: 1px solid var(--line);
+  }
+  .topbar .wrap { display: flex; align-items: center; justify-content: space-between; height: 54px; }
+  .topbar .brand { font-weight: 700; font-size: 15px; letter-spacing: .2px; }
+  .topbar .brand span { color: var(--accent); }
+  .topbar nav { display: flex; gap: 18px; font-size: 13.5px; }
+  .topbar nav a { color: var(--ink-soft); }
+  .topbar .src { font-size: 13px; color: var(--accent); font-weight: 600; }
+  @media (max-width: 880px) { .topbar nav { display: none; } }
+
+  header.hero { padding: 62px 0 34px; }
+  .kicker {
+    display: inline-block; font-size: 12.5px; font-weight: 600; letter-spacing: 1.5px;
+    text-transform: uppercase; color: var(--accent);
+    background: var(--accent-soft); padding: 5px 12px; border-radius: 999px;
+  }
+  h1 { font-size: 40px; line-height: 1.2; margin: 20px 0 12px; letter-spacing: -.5px; }
+  .subtitle { font-size: 19px; color: var(--ink-soft); max-width: 720px; }
+  .meta-row { margin-top: 22px; display: flex; flex-wrap: wrap; gap: 10px 18px; font-size: 13.5px; color: var(--ink-mute); }
+  .meta-row b { color: var(--ink-soft); font-weight: 600; }
+
+  section { padding: 34px 0; border-top: 1px solid var(--line); }
+  h2 { font-size: 27px; margin: 0 0 8px; letter-spacing: -.3px; }
+  h2 .num { color: var(--accent); font-family: var(--mono); font-size: 18px; margin-right: 10px; font-weight: 500; }
+  .lead { color: var(--ink-soft); font-size: 17px; margin: 0 0 22px; }
+  h3 { font-size: 19px; margin: 28px 0 10px; }
+  p { margin: 0 0 14px; }
+  strong { color: var(--ink); font-weight: 600; }
+  ul { margin: 0 0 16px; padding-left: 20px; }
+  li { margin: 6px 0; }
+
+  /* TL;DR */
+  .tldr {
+    background: var(--card); border: 1px solid var(--line-strong); border-left: 4px solid var(--accent);
+    border-radius: 12px; padding: 22px 24px; margin: 26px 0 4px;
+  }
+  .tldr h4 { margin: 0 0 10px; font-size: 14px; letter-spacing: 1px; text-transform: uppercase; color: var(--accent); }
+  .tldr p { font-size: 16.5px; color: var(--ink-soft); margin: 0; }
+  .tldr p + p { margin-top: 10px; }
+  .tldr ol { margin: 4px 0 0; padding-left: 22px; }
+  .tldr li { font-size: 16px; color: var(--ink-soft); margin: 7px 0; }
+
+  /* metric cards */
+  .metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; margin: 8px 0 4px; }
+  .metric {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 18px;
+  }
+  .metric .big { font-size: 30px; font-weight: 700; color: var(--accent); font-family: var(--mono); }
+  .metric .lab { font-size: 13.5px; color: var(--ink-mute); margin-top: 4px; }
+  @media (max-width: 880px) { .metrics { grid-template-columns: 1fr; } }
+
+  /* two-column compare */
+  .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  @media (max-width: 880px) { .cols { grid-template-columns: 1fr; } }
+  .panel { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 18px 20px; }
+  .panel.v0 { border-top: 3px solid #9a8f78; }
+  .panel.v1 { border-top: 3px solid var(--accent); }
+  .panel h4 { margin: 0 0 12px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .tag { font-family: var(--mono); font-size: 11.5px; padding: 2px 8px; border-radius: 6px; background: var(--card-2); color: var(--ink-soft); border: 1px solid var(--line); }
+  .panel ul { padding-left: 18px; }
+  .panel li { font-size: 14.5px; color: var(--ink-soft); }
+
+  /* code blocks */
+  pre {
+    background: #2c2620; color: #f1e7d3; border-radius: 10px; padding: 16px 18px;
+    overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 1.65; margin: 14px 0;
+    border: 1px solid #3d352a;
+  }
+  pre .c { color: #a89a80; } /* comment */
+  pre .k { color: #e0a86b; } /* keyword */
+  pre .s { color: #b9c99a; } /* string */
+  pre .f { color: #e8c99b; } /* func / attr */
+  pre .m { color: #c9a3d4; } /* module */
+  code.inl { font-family: var(--mono); font-size: 13px; background: var(--card-2); padding: 1px 6px; border-radius: 5px; border: 1px solid var(--line); color: var(--accent); }
+
+  .filelabel { font-family: var(--mono); font-size: 12px; color: var(--ink-mute); margin: 16px 0 -6px; }
+
+  /* flow diagram (V0 vs V1) */
+  .flow { display: flex; flex-direction: column; gap: 8px; }
+  .fnode {
+    background: var(--card-2); border: 1px solid var(--line-strong); border-radius: 8px;
+    padding: 9px 12px; font-size: 13.5px; position: relative;
+  }
+  .fnode .t { font-weight: 600; }
+  .fnode .d { font-size: 12px; color: var(--ink-mute); }
+  .fnode.hi { background: var(--accent-soft); border-color: var(--accent); }
+  .farrow { text-align: center; color: var(--line-strong); font-size: 15px; line-height: 1; margin: -2px 0; }
+
+  /* expandable cards */
+  .pillars { display: flex; flex-direction: column; gap: 14px; margin-top: 10px; }
+  .exp { background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; overflow: hidden; }
+  .exp > .head {
+    display: flex; align-items: flex-start; gap: 14px; padding: 18px 20px; cursor: pointer; user-select: none;
+    transition: background .15s ease;
+  }
+  .exp > .head:hover { background: var(--card-2); }
+  .exp .ic { font-size: 22px; line-height: 1.4; flex: 0 0 auto; }
+  .exp .htext { flex: 1; }
+  .exp .htext .title { font-weight: 600; font-size: 17px; }
+  .exp .htext .sum { font-size: 13.5px; color: var(--ink-mute); margin-top: 3px; }
+  .exp .chev { color: var(--accent); font-size: 14px; transition: transform .2s ease; flex: 0 0 auto; margin-top: 3px; }
+  .exp.open .chev { transform: rotate(90deg); }
+  .exp .body {
+    max-height: 0; opacity: 0; overflow: hidden;
+    transition: max-height .35s ease, opacity .3s ease;
+    padding: 0 20px;
+  }
+  .exp.open .body { max-height: 4200px; opacity: 1; padding: 0 20px 20px; }
+  .exp .body > *:first-child { margin-top: 4px; }
+
+  /* step player */
+  .player { background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 20px; margin-top: 12px; }
+  .stage-track { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+  .chip {
+    font-family: var(--mono); font-size: 11.5px; padding: 4px 9px; border-radius: 6px;
+    background: var(--card-2); border: 1px solid var(--line); color: var(--ink-mute);
+    transition: all .2s ease;
+  }
+  .chip.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .chip.done { background: var(--accent-soft); color: var(--accent); border-color: var(--line-strong); }
+  .stage-view { display: grid; grid-template-columns: 1fr 190px; gap: 18px; align-items: start; }
+  @media (max-width: 880px) { .stage-view { grid-template-columns: 1fr; } }
+  .stage-desc .sname { font-weight: 700; font-size: 17px; color: var(--accent); font-family: var(--mono); }
+  .stage-desc .stext { font-size: 14.5px; color: var(--ink-soft); margin-top: 8px; }
+  .rw { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .rwbox { font-size: 12px; font-family: var(--mono); }
+  .rwbox .lbl { color: var(--ink-mute); }
+  .badge { display: inline-block; padding: 2px 7px; border-radius: 5px; margin: 2px 3px 2px 0; font-size: 11px; }
+  .badge.r { background: #e9dcc0; color: #7a5a1e; }
+  .badge.w { background: var(--accent-soft); color: var(--accent); }
+  .tqbox {
+    background: #2c2620; color: #f1e7d3; border-radius: 10px; padding: 14px; text-align: center;
+    font-family: var(--mono); font-size: 12px;
+  }
+  .tqbox .cyl { font-size: 34px; }
+  .tqbox .nm { color: #e0a86b; font-weight: 600; margin-top: 4px; }
+  .tqbox .sub { color: #a89a80; font-size: 10.5px; margin-top: 3px; }
+  .controls { display: flex; gap: 10px; margin-top: 18px; align-items: center; }
+  .btn {
+    font-family: var(--sans); font-size: 14px; font-weight: 600; padding: 8px 18px; border-radius: 8px;
+    border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; transition: opacity .15s;
+  }
+  .btn:hover { opacity: .88; }
+  .btn.ghost { background: transparent; color: var(--accent); }
+  .btn:disabled { opacity: .4; cursor: not-allowed; }
+  .pcount { font-size: 13px; color: var(--ink-mute); font-family: var(--mono); }
+
+  /* table */
+  table { width: 100%; border-collapse: collapse; margin: 14px 0; font-size: 14px; }
+  th, td { text-align: left; padding: 11px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+  th { background: var(--card-2); font-weight: 600; font-size: 13px; }
+  th:first-child, td:first-child { font-family: var(--mono); font-size: 12.5px; }
+  tr:last-child td { border-bottom: none; }
+  td .ok { color: var(--accent); font-weight: 600; }
+  td .no { color: var(--ink-mute); }
+
+  /* timeline */
+  .tl { position: relative; margin: 20px 0 0; padding-left: 26px; }
+  .tl::before { content: ""; position: absolute; left: 7px; top: 4px; bottom: 4px; width: 2px; background: var(--line-strong); }
+  .tl .item { position: relative; margin-bottom: 20px; }
+  .tl .item::before {
+    content: ""; position: absolute; left: -23px; top: 5px; width: 12px; height: 12px; border-radius: 50%;
+    background: var(--card); border: 2px solid var(--accent);
+  }
+  .tl .item.brk::before { background: var(--danger); border-color: var(--danger); }
+  .tl .date { font-family: var(--mono); font-size: 12.5px; color: var(--accent); font-weight: 500; }
+  .tl .ti { font-weight: 600; font-size: 15.5px; margin: 2px 0; }
+  .tl .td { font-size: 13.5px; color: var(--ink-soft); }
+  .tl .pr { font-family: var(--mono); font-size: 11.5px; color: var(--ink-mute); }
+
+  /* callout */
+  .note {
+    background: var(--bg-soft); border: 1px solid var(--line-strong); border-radius: 10px;
+    padding: 14px 18px; font-size: 14.5px; color: var(--ink-soft); margin: 16px 0;
+  }
+  .note b { color: var(--accent); }
+  .note.good { background: #eef3e6; border-color: #c3d29e; }
+  .note.good b { color: #5f7a2e; }
+  blockquote {
+    margin: 16px 0; padding: 12px 18px; border-left: 3px solid var(--line-strong);
+    background: var(--card); color: var(--ink-soft); font-style: italic; border-radius: 0 8px 8px 0;
+  }
+
+  /* diagrams */
+  .diagram { background: var(--card); border: 1px solid var(--line-strong); border-radius: 12px; padding: 16px 18px 14px; margin: 20px 0; }
+  .diagram svg { width: 100%; height: auto; display: block; }
+  .diagram .dtitle { font-size: 13px; font-weight: 600; color: var(--ink-soft); margin: 0 0 10px; letter-spacing: .3px; }
+  .fig-cap { font-size: 13.5px; color: var(--ink-soft); margin-top: 10px; }
+  .fig-toggle { display: inline-block; margin-top: 6px; font-size: 13px; font-weight: 600; color: var(--accent); cursor: pointer; user-select: none; }
+  .figure-detail { max-height: 0; opacity: 0; overflow: hidden; transition: max-height .35s ease, opacity .3s ease; }
+  .figure-detail.active { max-height: 1200px; opacity: 1; margin-top: 6px; }
+  .figure-detail ul { margin: 6px 0 2px; padding-left: 20px; }
+  .figure-detail li { font-size: 13.5px; color: var(--ink-soft); margin: 4px 0; }
+  .dlegend { display: flex; flex-wrap: wrap; gap: 14px; margin-top: 12px; font-size: 12.5px; color: var(--ink-soft); }
+  .dlegend span { display: inline-flex; align-items: center; gap: 6px; }
+  .dlegend i { width: 16px; height: 12px; border-radius: 3px; display: inline-block; }
+
+  footer { border-top: 1px solid var(--line); padding: 30px 0 60px; color: var(--ink-mute); font-size: 13.5px; }
+  footer a { font-weight: 600; }
+  footer .srcs { margin-top: 8px; line-height: 2; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="wrap">
+    <div class="brand">verl · <span>V1</span> 主线重构</div>
+    <nav>
+      <a href="#q1">Q1 为什么</a>
+      <a href="#q2">Q2 还能跑吗</a>
+      <a href="#q3">Q3 自由度</a>
+      <a href="#peers">番外 · 横向对比</a>
+    </nav>
+    <a class="src" href="https://github.com/verl-project/verl" target="_blank" rel="noopener">verl 源码 ↗</a>
+  </div>
+</div>
+
+<div class="wrap">
+  <header class="hero">
+    <span class="kicker">写给已经用过 verl 的后训练工作者</span>
+    <h1>verl 主线 pipeline 大改：我该关心的三件事</h1>
+    <p class="subtitle">
+      主入口 <code class="inl">main_ppo.py</code> 已迁到 V1：<strong>TransferQueue 数据仓库 + AgentLoop 服务化 rollout + 可插拔 trainer 模式</strong>，
+      默认 <code class="inl">trainer.use_v1=true</code>。本文只回答三个你真正关心的问题——为什么改、老脚本还能不能跑、我的自由度提高了多少。
+    </p>
+    <div class="meta-row">
+      <span><b>范围：</b>V0.8.0 前后主线重构</span>
+      <span><b>关键 PR：</b>#6067 · #6710 · #6823</span>
+      <span><b>入口命令：</b><code class="inl">python -m verl.trainer.main_ppo</code>（未变）</span>
+    </div>
+  </header>
+
+  <div class="tldr">
+    <h4>TL;DR · 一屏结论</h4>
+    <ol>
+      <li><b>为什么改：</b>老主线假设「同步、定长、单轮」，为让 <b>Agent（多轮/工具/变长/异步 off-policy）</b>成为一等公民，把生成与训练解耦。</li>
+      <li><b>老脚本还能跑吗：</b>能。入口命令没变，默认 <code class="inl">use_v1=true + trainer_mode=sync</code> ≈ 老同步 PPO；常规 GRPO/PPO 脚本基本原样可跑。想要异步只是加几行配置。</li>
+      <li><b>自由度：</b>大幅提高。<b>生成逻辑 / 采样策略 / 调度模式 / PPO 每个阶段</b>都成了可插拔扩展点——多数定制不用再碰主循环。</li>
+    </ol>
+  </div>
+
+  <!-- ================= Q1 ================= -->
+  <section id="q1">
+    <h2><span class="num">Q1</span>为什么要动主线？目的是什么？</h2>
+    <p class="lead">一句话：老 pipeline 的三条隐含假设（同步、定长、单轮）挡住了 Agent 训练。大改就是把这三条拆掉。</p>
+
+    <div class="metrics">
+      <div class="metric"><div class="big">吞吐</div><div class="lab">生成与训练可并行，慢样本（多轮/长）不再拖住整批 GPU</div></div>
+      <div class="metric"><div class="big">Agent</div><div class="lab">多轮对话 + 工具调用 + 变长/多输出轨迹成为一等公民</div></div>
+      <div class="metric"><div class="big">可插拔</div><div class="lab">同步↔异步、on↔off-policy、各阶段实现都变成可替换配置</div></div>
+    </div>
+
+    <div class="cols">
+      <div class="panel v0">
+        <h4>老范式挡在哪 <span class="tag">V0</span></h4>
+        <ul>
+          <li><strong>同步生成</strong>：trainer 阻塞等一整批 rollout 完成才继续。</li>
+          <li><strong>定长批次</strong>：一个大 tensor batch 在 trainer 内流转，假设样本形状规整。</li>
+          <li><strong>单轮为主</strong>：prompt→response 一来一回，rollout 与 trainer 共享进程/显存。</li>
+          <li><strong>trainer 什么都管</strong>：worker、资源池、数据集、训练循环全塞进一个 <code class="inl">RayPPOTrainer</code>。</li>
+        </ul>
+      </div>
+      <div class="panel v1">
+        <h4>Agent 训练要什么 <span class="tag">V1</span></h4>
+        <ul>
+          <li><strong>变长 + 多输出</strong>：一条轨迹可能几十轮、带工具返回，每 session 多个 output。</li>
+          <li><strong>异步 / off-policy</strong>：允许用「稍旧权重」生成的轨迹继续训练，换取吞吐。</li>
+          <li><strong>服务化 rollout</strong>：推理引擎（vLLM/SGLang）作为独立 server，AgentLoop 像调 API 一样发多轮请求。</li>
+          <li><strong>解耦数据通道</strong>：生成侧与训练侧各自并行，中间要一个能存变长数据、带元数据的「仓库」。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="diagram">
+      <div class="dtitle">图 A · 架构拓扑：V0 单体同步 → V1 解耦异步（记住这张图，后面都围绕它）</div>
+      <svg viewBox="0 0 720 470" role="img" aria-label="V0 与 V1 架构拓扑对比图">
+        <defs>
+          <marker id="arrA" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L7,3 L0,6 Z" fill="#8a7f6c"/>
+          </marker>
+          <marker id="arrAac" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L7,3 L0,6 Z" fill="#b5651d"/>
+          </marker>
+        </defs>
+
+        <!-- ===== V0 ===== -->
+        <text x="30" y="26" font-size="14" font-weight="700" fill="#9a8f78" font-family="'Noto Sans SC',sans-serif">V0 · RayPPOTrainer（单体 · 同步）</text>
+        <rect x="26" y="40" width="668" height="128" rx="12" fill="#fbf6ea" stroke="#9a8f78" stroke-width="2" stroke-dasharray="5 4"/>
+        <!-- inner boxes -->
+        <rect x="52" y="72" width="126" height="46" rx="8" fill="#f4ead7" stroke="#d3c09b" stroke-width="1.5"/>
+        <text x="115" y="100" font-size="13" fill="#2c2620" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">Dataloader</text>
+        <rect x="272" y="72" width="184" height="46" rx="8" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.7"/>
+        <text x="364" y="94" font-size="13" fill="#2c2620" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">Actor + Rollout（共卡）</text>
+        <text x="364" y="110" font-size="10.5" fill="#8a7f6c" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">同一进程 · 同步 generate</text>
+        <rect x="540" y="72" width="128" height="46" rx="8" fill="#f4ead7" stroke="#d3c09b" stroke-width="1.5"/>
+        <text x="604" y="100" font-size="13" fill="#2c2620" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">PPO 更新</text>
+        <line x1="178" y1="95" x2="266" y2="95" stroke="#8a7f6c" stroke-width="1.6" marker-end="url(#arrA)"/>
+        <line x1="456" y1="95" x2="534" y2="95" stroke="#8a7f6c" stroke-width="1.6" marker-end="url(#arrA)"/>
+        <!-- sync loop back -->
+        <path d="M604,118 L604,146 L364,146 L364,120" fill="none" stroke="#8a7f6c" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#arrA)"/>
+        <text x="364" y="162" font-size="11" fill="#8a7f6c" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">串行循环：① generate（阻塞整批）→ ② 训练 → ③ update → 下一轮</text>
+
+        <!-- ===== V1 ===== -->
+        <text x="30" y="216" font-size="14" font-weight="700" fill="#b5651d" font-family="'Noto Sans SC',sans-serif">V1 · 生成 / 数据 / 训练 / 权重同步 四块解耦</text>
+
+        <!-- generation row -->
+        <rect x="40" y="238" width="120" height="44" rx="8" fill="#f4ead7" stroke="#d3c09b" stroke-width="1.5"/>
+        <text x="100" y="264" font-size="12.5" fill="#2c2620" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">Dataloader</text>
+        <rect x="212" y="238" width="176" height="44" rx="8" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.7"/>
+        <text x="300" y="258" font-size="12.5" fill="#2c2620" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">AgentLoopManager</text>
+        <text x="300" y="273" font-size="10" fill="#8a7f6c" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">fire-and-forget · 每样本一 async 任务</text>
+        <!-- LLM servers stacked -->
+        <rect x="470" y="232" width="196" height="44" rx="8" fill="#efe0c4" stroke="#d3c09b" stroke-width="1.5"/>
+        <rect x="464" y="240" width="196" height="44" rx="8" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.7"/>
+        <text x="562" y="260" font-size="12.5" fill="#2c2620" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">LLM Servers（副本）</text>
+        <text x="562" y="275" font-size="10" fill="#8a7f6c" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">vLLM / SGLang</text>
+        <line x1="160" y1="260" x2="206" y2="260" stroke="#8a7f6c" stroke-width="1.6" marker-end="url(#arrA)"/>
+        <line x1="388" y1="262" x2="458" y2="262" stroke="#8a7f6c" stroke-width="1.6" marker-end="url(#arrA)"/>
+        <text x="423" y="253" font-size="10" fill="#8a7f6c" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">发请求</text>
+
+        <!-- TransferQueue center dark -->
+        <rect x="238" y="322" width="264" height="66" rx="10" fill="#2c2620" stroke="#3d352a" stroke-width="1.5"/>
+        <text x="370" y="350" font-size="15" font-weight="700" fill="#e0a86b" text-anchor="middle" font-family="'JetBrains Mono',monospace">TransferQueue</text>
+        <text x="370" y="370" font-size="10.5" fill="#a89a80" text-anchor="middle" font-family="'JetBrains Mono',monospace">KV 仓库 · {uid}_{sid}_{idx} · tags(staleness)</text>
+        <!-- LLM -> TQ write -->
+        <path d="M562,284 L562,355 L508,355" fill="none" stroke="#8a7f6c" stroke-width="1.6" marker-end="url(#arrA)"/>
+        <text x="600" y="320" font-size="10.5" fill="#8a7f6c" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">写入轨迹</text>
+
+        <!-- Trainer -->
+        <rect x="238" y="410" width="264" height="46" rx="8" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.7"/>
+        <text x="370" y="430" font-size="12.5" fill="#2c2620" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">PPOTrainer.step()</text>
+        <text x="370" y="446" font-size="10" fill="#8a7f6c" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">actor / critic / ref · 读字段→算→写回</text>
+        <!-- TQ <-> Trainer bidirectional -->
+        <line x1="330" y1="410" x2="330" y2="390" stroke="#8a7f6c" stroke-width="1.6" marker-end="url(#arrA)"/>
+        <text x="300" y="404" font-size="10" fill="#8a7f6c" text-anchor="end" font-family="'Noto Sans SC',sans-serif">读</text>
+        <line x1="410" y1="388" x2="410" y2="408" stroke="#8a7f6c" stroke-width="1.6" marker-end="url(#arrA)"/>
+        <text x="440" y="404" font-size="10" fill="#8a7f6c" text-anchor="start" font-family="'Noto Sans SC',sans-serif">写回</text>
+
+        <!-- CheckpointEngine + weight sync -->
+        <rect x="548" y="410" width="128" height="46" rx="8" fill="#f4ead7" stroke="#d3c09b" stroke-width="1.5"/>
+        <text x="612" y="431" font-size="12" fill="#2c2620" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">Checkpoint</text>
+        <text x="612" y="447" font-size="12" fill="#2c2620" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">Engine</text>
+        <line x1="502" y1="433" x2="544" y2="433" stroke="#8a7f6c" stroke-width="1.6" marker-end="url(#arrA)"/>
+        <!-- weight sync dashed up to LLM servers -->
+        <path d="M676,410 L698,410 L698,262 L668,262" fill="none" stroke="#b5651d" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#arrAac)"/>
+        <text x="712" y="340" font-size="10.5" fill="#b5651d" text-anchor="middle" font-family="'Noto Sans SC',sans-serif" transform="rotate(90 712 340)">权重同步</text>
+      </svg>
+      <div class="fig-cap">图 A：V0 把生成与训练锁死在同一个同步循环里；V1 让「生成侧」和「训练侧」各自并行，只通过中间的 TransferQueue 交换数据、通过 CheckpointEngine 异步回灌权重。</div>
+      <span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明 ▸</span>
+      <div class="figure-detail">
+        <ul>
+          <li><strong>上半（V0）</strong>：虚线大框代表「一个进程内的 RayPPOTrainer」。Dataloader → 共卡的 Actor+Rollout → PPO 更新，底部虚线箭头表示<b>串行循环</b>——必须等一整批 generate 阻塞完成才能训练，rollout 和训练抢同一批 GPU。</li>
+          <li><strong>下半（V1）· 生成侧（上排）</strong>：Dataloader → AgentLoopManager（fire-and-forget，每条样本一个 async 任务）→ 一组 LLM Server 副本（vLLM/SGLang）。慢样本不再拖住快样本。</li>
+          <li><strong>中间深色块 = TransferQueue</strong>：唯一的数据交汇点。LLM Server 把轨迹「写入」，key 形如 <code class="inl">{uid}_{sid}_{idx}</code>（uid=原始 prompt，sid=第几条 session，idx=同一 loop 第几个 output），tag 里带 staleness 元数据。</li>
+          <li><strong>下排 = 训练侧</strong>：<code class="inl">PPOTrainer.step()</code> 与 TransferQueue 之间是<b>双向</b>箭头（读字段 → 计算 → 写回），各阶段都在仓库里进出。</li>
+          <li><strong>右侧橙色虚线 = 权重同步</strong>：训练完的权重经 CheckpointEngine 异步回灌给 LLM Servers——这是生成侧与训练侧<b>唯一的强耦合点</b>，也正是三种 trainer_mode 的分水岭。</li>
+        </ul>
+      </div>
+    </div>
+
+    <p>换句话说，V1 把老的「大 trainer」拆成了三个各司其职的组件：
+      <strong>生成侧</strong>（<code class="inl">AgentLoopManager</code> + <code class="inl">LLM Server</code>）、
+      <strong>数据桥</strong>（<code class="inl">TransferQueue</code>）、
+      <strong>训练侧</strong>（<code class="inl">PPOTrainer</code> + <code class="inl">CheckpointEngine</code>）。这也解释了为什么后面两问的答案都很干净——组件解耦了，你能单独替换其中任意一块。</p>
+  </section>
+
+  <!-- ================= Q2 ================= -->
+  <section id="q2">
+    <h2><span class="num">Q2</span>老脚本还能跑吗？怎么快速适配？启动脚本变了啥？</h2>
+
+    <div class="note good">
+      <b>先给定心丸：</b>入口命令<b>没变</b>——还是 <code class="inl">python3 -m verl.trainer.main_ppo ...</code>。
+      默认 <code class="inl">trainer.use_v1=true</code> + <code class="inl">trainer.v1.trainer_mode=sync</code>，行为≈老的同步 PPO。
+      仓库里 <code class="inl">examples/grpo_trainer/*.sh</code> 这些脚本压根没写 <code class="inl">use_v1</code> / <code class="inl">trainer_mode</code>，照样跑。
+      要的话临时退回旧实现：<code class="inl">trainer.use_v1=false</code>（走 <code class="inl">main_ppo_v0.py</code>），但它 deprecated、<b>计划 v0.9.0 删除</b>，别长期依赖。
+    </div>
+
+    <h3>启动脚本新增的旋钮（不写就用默认，多数人只需关心前两行）</h3>
+    <table>
+      <thead>
+        <tr><th>配置项</th><th>默认</th><th>作用</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>trainer.use_v1</td><td>true</td><td>走 V1 主线；false 回退旧 <code class="inl">main_ppo_v0.py</code>（将删）</td></tr>
+        <tr><td>trainer.v1.trainer_mode</td><td>sync</td><td><code class="inl">sync</code> / <code class="inl">colocate_async</code> / <code class="inl">separate_async</code></td></tr>
+        <tr><td>trainer.v1.sampler.max_off_policy_threshold</td><td>8</td><td>一条轨迹最多允许跨几个权重版本（异步时的陈旧度闸门）</td></tr>
+        <tr><td>trainer.v1.sampler.max_off_policy_strategy</td><td>drop</td><td>超阈值怎么办：<code class="inl">drop</code> 丢弃 / <code class="inl">wait</code> 等待</td></tr>
+        <tr><td>trainer.v1.colocate_async.num_warmup_batches</td><td>1</td><td>异步前预热多少批生成</td></tr>
+        <tr><td>trainer.v1.separate_async.num_warmup_batches</td><td>4</td><td>分离异步的预热批数</td></tr>
+        <tr><td>trainer.v1.separate_async.parameter_sync_step</td><td>4</td><td>每几步把新权重同步给 rollout</td></tr>
+        <tr><td>actor_rollout_ref.rollout.agent.default_agent_loop</td><td>single_turn_agent</td><td>默认用哪种 agent loop（单轮/工具/自定义）</td></tr>
+      </tbody>
+    </table>
+
+    <p class="filelabel">同一个脚本：同步照跑；想开异步只加两行</p>
+    <pre><span class="c"># 常规同步（等价旧行为，无需任何改动）</span>
+python3 -m verl.trainer.main_ppo \
+    algorithm.adv_estimator=grpo \
+    data.train_files=... actor_rollout_ref.model.path=... \
+    trainer.n_gpus_per_node=8 trainer.nnodes=1
+<span class="c"># ↑ 默认已是 trainer.use_v1=true, trainer.v1.trainer_mode=sync</span>
+
+<span class="c"># 想开异步（共卡 + partial rollout）：追加两行即可</span>
+    trainer.v1.trainer_mode=colocate_async \
+    trainer.v1.colocate_async.num_warmup_batches=1</pre>
+
+    <h3>迁移清单：哪些老用法会炸 / 要改</h3>
+    <ul>
+      <li><strong>直接子类化旧 worker</strong>、或依赖 <code class="inl">verl/interactions</code>、curriculum sampler、dynamic dataset、旧 tool examples：这些在 <code class="inl">#6067</code>（worker→engine）、<code class="inl">#6302</code> 等 <b>[BREAKING]</b> 里被废弃/迁移，需要改到 engine 与 AgentLoop 体系。</li>
+      <li><strong>自定义过 rollout / 生成逻辑</strong>：不要再改 trainer 内部生成，改成实现一个 <code class="inl">AgentLoop</code>（见 Q3 骨架）。</li>
+      <li><strong>reward / critic</strong>：reward 走 <code class="inl">RewardLoopManager</code>（规则或模型），配置路径在 <code class="inl">reward.reward_model.*</code>；确认你的老 reward 挂载方式仍匹配。</li>
+      <li><strong>想上 <code class="inl">separate_async</code>（分卡全异步）</strong>有硬约束：<code class="inl">train_batch_size == ppo_mini_batch_size</code>、<code class="inl">checkpoint_engine.backend</code> 必须非 naive（nccl/nixl/mooncake）、colocate reward 不支持（需 <code class="inl">reward.reward_model.enable_resource_pool=true</code>）。</li>
+    </ul>
+
+    <h3>那我该选哪种 trainer_mode？</h3>
+    <table>
+      <thead>
+        <tr><th>trainer_mode</th><th>train / rollout 布局</th><th>partial rollout</th><th>权重同步时机</th><th>选它当你…</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>sync</td>
+          <td>colocate（共享显存）</td>
+          <td><span class="no">关闭</span></td>
+          <td>每步：sample 后 sleep，train 后 update</td>
+          <td>单轮/短轨迹、要稳要复现（默认，零改动）</td>
+        </tr>
+        <tr>
+          <td>colocate_async</td>
+          <td>colocate</td>
+          <td><span class="ok">开启</span></td>
+          <td>每步 update + <code class="inl">resume_generation</code>；带 warmup</td>
+          <td>共卡想提吞吐、容忍轻度 off-policy</td>
+        </tr>
+        <tr>
+          <td>separate_async</td>
+          <td><span class="ok">物理分卡</span> + 空闲切换</td>
+          <td><span class="ok">开启</span></td>
+          <td>按 <code class="inl">parameter_sync_step</code> 周期同步</td>
+          <td>大规模 / 长 agent 轨迹、要最高吞吐</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="diagram">
+      <div class="dtitle">图 B · 时间线视角：从「生成/训练不重叠」到「两组卡全程并行」</div>
+      <svg viewBox="0 0 720 360" role="img" aria-label="三种 trainer_mode 的时间线与 GPU 布局对比">
+        <defs>
+          <marker id="arrB" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#8a7f6c"/>
+          </marker>
+        </defs>
+        <!-- time axis hint -->
+        <text x="700" y="20" font-size="10.5" fill="#8a7f6c" text-anchor="end" font-family="'Noto Sans SC',sans-serif">时间 →</text>
+
+        <!-- Row 1: sync -->
+        <text x="12" y="58" font-size="12.5" font-weight="700" fill="#2c2620" font-family="'JetBrains Mono',monospace">sync</text>
+        <text x="12" y="74" font-size="10" fill="#8a7f6c" font-family="'Noto Sans SC',sans-serif">共卡·串行</text>
+        <!-- alternating R/T no overlap -->
+        <rect x="150" y="42" width="88" height="30" rx="5" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.2"/><text x="194" y="62" font-size="12" fill="#7a5a1e" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">生成</text>
+        <rect x="238" y="42" width="88" height="30" rx="5" fill="#3f382e" stroke="#2c2620" stroke-width="1.2"/><text x="282" y="62" font-size="12" fill="#e0a86b" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">训练</text>
+        <rect x="342" y="42" width="88" height="30" rx="5" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.2"/><text x="386" y="62" font-size="12" fill="#7a5a1e" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">生成</text>
+        <rect x="430" y="42" width="88" height="30" rx="5" fill="#3f382e" stroke="#2c2620" stroke-width="1.2"/><text x="474" y="62" font-size="12" fill="#e0a86b" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">训练</text>
+        <rect x="534" y="42" width="88" height="30" rx="5" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.2"/><text x="578" y="62" font-size="12" fill="#7a5a1e" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">生成</text>
+        <!-- weight sync ticks after train -->
+        <line x1="331" y1="38" x2="331" y2="76" stroke="#b5651d" stroke-width="1.6" stroke-dasharray="3 2"/>
+        <line x1="523" y1="38" x2="523" y2="76" stroke="#b5651d" stroke-width="1.6" stroke-dasharray="3 2"/>
+        <text x="150" y="92" font-size="10.5" fill="#8a7f6c" font-family="'Noto Sans SC',sans-serif">生成与训练完全不重叠 · 最 on-policy · partial rollout 关闭</text>
+
+        <!-- Row 2: colocate_async -->
+        <text x="12" y="150" font-size="12.5" font-weight="700" fill="#2c2620" font-family="'JetBrains Mono',monospace">colocate</text>
+        <text x="12" y="165" font-size="12.5" font-weight="700" fill="#2c2620" font-family="'JetBrains Mono',monospace">_async</text>
+        <text x="12" y="181" font-size="10" fill="#8a7f6c" font-family="'Noto Sans SC',sans-serif">共卡·重叠</text>
+        <!-- rollout lane (continuous-ish) -->
+        <rect x="150" y="130" width="130" height="20" rx="4" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.1"/>
+        <rect x="284" y="130" width="150" height="20" rx="4" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.1"/>
+        <rect x="438" y="130" width="150" height="20" rx="4" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.1"/>
+        <rect x="592" y="130" width="30" height="20" rx="4" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.1"/>
+        <text x="386" y="145" font-size="10.5" fill="#7a5a1e" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">生成（partial rollout，可续跑）</text>
+        <!-- train lane overlapping in time -->
+        <rect x="230" y="154" width="90" height="20" rx="4" fill="#3f382e" stroke="#2c2620" stroke-width="1.1"/>
+        <rect x="410" y="154" width="90" height="20" rx="4" fill="#3f382e" stroke="#2c2620" stroke-width="1.1"/>
+        <rect x="574" y="154" width="48" height="20" rx="4" fill="#3f382e" stroke="#2c2620" stroke-width="1.1"/>
+        <text x="386" y="169" font-size="10.5" fill="#e0a86b" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">训练</text>
+        <text x="150" y="196" font-size="10.5" fill="#8a7f6c" font-family="'Noto Sans SC',sans-serif">生成在后台持续 + warmup 批次 · 与训练时间上重叠 · 轻度 off-policy</text>
+
+        <!-- Row 3: separate_async -->
+        <text x="12" y="252" font-size="12.5" font-weight="700" fill="#2c2620" font-family="'JetBrains Mono',monospace">separate</text>
+        <text x="12" y="267" font-size="12.5" font-weight="700" fill="#2c2620" font-family="'JetBrains Mono',monospace">_async</text>
+        <text x="12" y="283" font-size="10" fill="#8a7f6c" font-family="'Noto Sans SC',sans-serif">分卡·并行</text>
+        <text x="150" y="243" font-size="10" fill="#8a7f6c" font-family="'Noto Sans SC',sans-serif">Rollout pool</text>
+        <rect x="150" y="248" width="472" height="22" rx="4" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.2"/>
+        <text x="386" y="263" font-size="11" fill="#7a5a1e" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">持续流式生成（永不停）</text>
+        <rect x="150" y="276" width="472" height="22" rx="4" fill="#3f382e" stroke="#2c2620" stroke-width="1.2"/>
+        <text x="386" y="291" font-size="11" fill="#e0a86b" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">持续训练（攒够一批就更新）</text>
+        <!-- weight sync dashed verticals -->
+        <line x1="268" y1="244" x2="268" y2="302" stroke="#b5651d" stroke-width="1.6" stroke-dasharray="4 3"/>
+        <line x1="386" y1="244" x2="386" y2="302" stroke="#b5651d" stroke-width="1.6" stroke-dasharray="4 3"/>
+        <line x1="504" y1="244" x2="504" y2="302" stroke="#b5651d" stroke-width="1.6" stroke-dasharray="4 3"/>
+        <text x="150" y="318" font-size="10.5" fill="#8a7f6c" font-family="'Noto Sans SC',sans-serif">两组 GPU 全程并行 · 按 parameter_sync_step 周期同步权重 · 吞吐最高 / off-policy 最强</text>
+      </svg>
+      <div class="dlegend">
+        <span><i style="background:#f0dcc0;border:1px solid #b5651d"></i>生成（rollout）</span>
+        <span><i style="background:#3f382e"></i>训练（train）</span>
+        <span><i style="background:transparent;border-left:2px dashed #b5651d;width:2px;height:14px;border-radius:0"></i>权重同步</span>
+      </div>
+      <div class="fig-cap">图 B：从上到下，生成与训练的「重叠程度」逐级加深——sync 完全串行，colocate_async 在同一批卡上时间重叠，separate_async 用两组卡彻底并行。</div>
+      <span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明 ▸</span>
+      <div class="figure-detail">
+        <ul>
+          <li><strong>sync（共卡·串行）</strong>：橙块「生成」与深块「训练」首尾相接、绝不重叠；每次训练后（橙色虚线）才同步权重。最稳、最贴近 on-policy，但生成时训练卡闲着、反之亦然。</li>
+          <li><strong>colocate_async（共卡·重叠）</strong>：同一批卡，开 partial rollout——生成在后台持续、可跨步续跑（上排橙块基本连续），训练块（下排深块）与生成<b>时间重叠</b>，空闲被填上，代价是轻度 off-policy。</li>
+          <li><strong>separate_async（分卡·并行）</strong>：Rollout pool 与 Train pool 是<b>两组物理分开</b>的 GPU，各自连续长条、全程并行；橙色竖虚线是每隔 <code class="inl">parameter_sync_step</code> 的权重同步。吞吐最高，但一个 batch 里可能混着多个权重版本的样本，需要 decoupled-PPO 修正。</li>
+          <li><strong>关键洞察</strong>：三行的<b>主流程代码完全相同</b>，差异只在「权重何时同步」——即 <code class="inl">on_sample_end</code> / <code class="inl">on_step_end</code> 两个钩子里怎么调 CheckpointEngine。</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>共卡 vs 分卡：GPU 到底怎么分？</h3>
+    <p>一个容易被忽略、但直接影响你申请多少卡的点：三种模式里<strong>真正改变 GPU 分配的只有 <code class="inl">separate_async</code></strong>。<code class="inl">sync</code> 和 <code class="inl">colocate_async</code> 用的是<b>同一批卡、同样数量</b>，差别只在调度时机（上一节的钩子）。</p>
+
+    <div class="diagram">
+      <div class="dtitle">图 D · GPU 归属：共卡（1 个池）vs 分卡（2 个池）</div>
+      <svg viewBox="0 0 720 300" role="img" aria-label="GPU 分配 共卡 vs 分卡">
+        <defs>
+          <marker id="arrD" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L7,3 L0,6 Z" fill="#b5651d"/>
+          </marker>
+        </defs>
+
+        <!-- Panel A: colocate -->
+        <text x="28" y="26" font-size="13.5" font-weight="700" fill="#2c2620" font-family="'Noto Sans SC',sans-serif">共卡 · sync / colocate_async（1 个池）</text>
+        <rect x="28" y="40" width="308" height="212" rx="12" fill="#fbf6ea" stroke="#d3c09b" stroke-width="1.5"/>
+        <text x="182" y="64" font-size="12.5" font-weight="700" fill="#5c5344" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">训练 GPU 池</text>
+        <text x="182" y="81" font-size="9.5" fill="#8a7f6c" text-anchor="middle" font-family="'JetBrains Mono',monospace">trainer.n_gpus_per_node × nnodes</text>
+        <rect x="52" y="98" width="260" height="42" rx="8" fill="#3f382e" stroke="#2c2620" stroke-width="1.4"/>
+        <text x="182" y="124" font-size="12" fill="#e0a86b" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">Actor / Critic / Ref 训练</text>
+        <text x="182" y="158" font-size="12.5" fill="#b5651d" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">⇅ 同一批卡时分复用 ⇅</text>
+        <rect x="52" y="168" width="260" height="42" rx="8" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.5"/>
+        <text x="182" y="194" font-size="12" fill="#7a5a1e" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">Rollout 引擎（hybrid）</text>
+        <text x="182" y="234" font-size="10.5" fill="#8a7f6c" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">rollout sleep ↔ resume：让位 / 收回显存</text>
+
+        <!-- Panel B: separate -->
+        <text x="384" y="26" font-size="13.5" font-weight="700" fill="#2c2620" font-family="'Noto Sans SC',sans-serif">分卡 · separate_async（2 个池）</text>
+        <rect x="384" y="40" width="308" height="90" rx="12" fill="#fbf6ea" stroke="#d3c09b" stroke-width="1.5"/>
+        <text x="538" y="61" font-size="12" font-weight="700" fill="#5c5344" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">训练 GPU 池</text>
+        <text x="538" y="77" font-size="9.5" fill="#8a7f6c" text-anchor="middle" font-family="'JetBrains Mono',monospace">trainer.n_gpus_per_node × nnodes</text>
+        <rect x="408" y="90" width="260" height="30" rx="7" fill="#3f382e" stroke="#2c2620" stroke-width="1.3"/>
+        <text x="538" y="110" font-size="10.5" fill="#e0a86b" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">Actor/Critic/Ref + hybrid（空闲兼职）</text>
+
+        <rect x="384" y="150" width="308" height="90" rx="12" fill="#fbf6ea" stroke="#b5651d" stroke-width="1.7"/>
+        <text x="538" y="171" font-size="12" font-weight="700" fill="#5c5344" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">独立 Rollout 池</text>
+        <text x="538" y="187" font-size="9.5" fill="#8a7f6c" text-anchor="middle" font-family="'JetBrains Mono',monospace">rollout.n_gpus_per_node × rollout.nnodes</text>
+        <rect x="408" y="200" width="260" height="30" rx="7" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.3"/>
+        <text x="538" y="220" font-size="10.5" fill="#7a5a1e" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">持续流式生成（永不停）</text>
+
+        <line x1="538" y1="130" x2="538" y2="150" stroke="#b5651d" stroke-width="1.6" stroke-dasharray="4 3" marker-end="url(#arrD)"/>
+        <text x="384" y="262" font-size="10.5" fill="#8a7f6c" font-family="'Noto Sans SC',sans-serif">两组卡全程并行；训练空闲时 hybrid 兼职生成</text>
+        <text x="384" y="278" font-size="10.5" fill="#8a7f6c" font-family="'Noto Sans SC',sans-serif">按 parameter_sync_step 周期同步权重</text>
+      </svg>
+      <div class="fig-cap">图 D：共卡两种模式只有一个 GPU 池，rollout 作为 hybrid 引擎和训练时分复用同一批卡；separate_async 额外开一个由 <code class="inl">rollout.*</code> 配置决定大小的独立 rollout 池，两组卡真正同时跑。</div>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>模式</th><th>GPU 池</th><th>rollout 放哪</th><th>决定卡数的配置</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>sync / colocate_async</td>
+          <td>1 个（共卡）</td>
+          <td>训练卡上 hybrid，时分复用</td>
+          <td><code class="inl">trainer.n_gpus_per_node × nnodes</code></td>
+        </tr>
+        <tr>
+          <td>separate_async</td>
+          <td><span class="ok">2 个（分卡）</span></td>
+          <td>独立 rollout 池 + 训练卡空闲兼职</td>
+          <td>训练池同上 <b>+</b> <code class="inl">rollout.n_gpus_per_node × rollout.nnodes</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>为什么 separate_async 有这三条硬约束？</h3>
+    <p>这三条不是随意限制，全部由「rollout 跑在<b>另一组卡</b>上、且<b>永不停机</b>」这一点直接推导出来。</p>
+    <table>
+      <thead>
+        <tr><th>硬约束</th><th>根因：为什么必须这样</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code class="inl">train_batch_size == ppo_mini_batch_size</code></td>
+          <td>全异步要求<b>每个训练步恰好推进一个策略版本</b>——一次 <code class="inl">sample()</code> → 一次梯度更新 → 同步一次权重。这样 <code class="inl">global_steps</code> 才是忠实的「策略版本时钟」，陈旧度 <code class="inl">(global_steps − 生成时的 step) / parameter_sync_step</code> 才算得准。若一批被拆成多个 mini-batch 做<b>多次 SGD</b>，一个 step 内策略就跳了好几个版本，异步 staleness 记账失真、解耦 PPO 的「行为策略 ↔ 近端策略」对应关系也乱了。所以强制一批 = 一个 mini-batch = 一次更新。</td>
+        </tr>
+        <tr>
+          <td><code class="inl">checkpoint_engine.backend != naive</code></td>
+          <td><code class="inl">naive</code>（即 <code class="inl">ColocatedCheckpointEngine</code>）只做「<b>同卡 colocated</b> 的 <code class="inl">all_gather</code>」，依赖 actor 与 rollout 在同一批卡 / 同一 <code class="inl">torch.distributed</code> 通信域——这正是共卡模式的玩法。分卡后 rollout 在另一组卡、还不停机，必须换成能<b>跨设备 / 跨节点</b>把权重传过去的后端：<code class="inl">nccl</code>/<code class="inl">hccl</code>（all_gather + broadcast）、<code class="inl">nixl</code>/<code class="inl">mooncake</code>（p2p），它们本就是为「actor/rollout 分离集群」设计的。</td>
+        </tr>
+        <tr>
+          <td>colocate reward 不支持（需 <code class="inl">enable_resource_pool=true</code>）</td>
+          <td>colocate reward 是靠「rollout 睡觉、腾出显存」这个窗口来临时加载 reward model 打分的。<code class="inl">separate_async</code> 的独立 rollout 卡<b>从不暂停释放显存</b>，压根没有这个窗口，所以 reward model 必须自己占一组独立卡（standalone reward 池）。而共卡两种模式能让 rollout sleep 腾显存，才允许 colocate reward。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>看懂异步：一条「塞 1 取 1」的流水线，预热负责起步</h3>
+    <p>V1 主循环本质是<strong>生产者 / 消费者流水线</strong>：每个 step 里 <code class="inl">_add_batch_to_generate()</code>（生产者，fire-and-forget，<b>非阻塞</b>）塞入 1 批 prompt；<code class="inl">replay_buffer.sample()</code>（消费者，<b>阻塞轮询</b>）等到「完成的轨迹」够 1 批才取走（还优先取最旧的以压 staleness）。生产与消费<b>解耦</b>——这步塞进去的，不一定是这步消费的那批。</p>
+
+    <div class="diagram">
+      <div class="dtitle">图 E · 塞 1 取 1 的流水线：预热灌满在途队列，让生产者领先消费者</div>
+      <svg viewBox="0 0 720 200" role="img" aria-label="生产者消费者流水线与预热提前量">
+        <defs>
+          <marker id="arrE" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="#8a7f6c"/>
+          </marker>
+          <marker id="arrEac" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L7,3 L0,6 Z" fill="#b5651d"/>
+          </marker>
+        </defs>
+
+        <!-- weight sync arc -->
+        <path d="M650,76 C650,36 360,36 360,64" fill="none" stroke="#b5651d" stroke-width="1.6" stroke-dasharray="6 4" marker-end="url(#arrEac)"/>
+        <text x="505" y="30" font-size="10.5" fill="#b5651d" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">新权重回灌 rollout（on_step_end · update_weights）</text>
+
+        <!-- Dataloader -->
+        <rect x="16" y="80" width="92" height="52" rx="8" fill="#f4ead7" stroke="#d3c09b" stroke-width="1.5"/>
+        <text x="62" y="110" font-size="12" fill="#2c2620" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">Dataloader</text>
+        <line x1="108" y1="106" x2="146" y2="106" stroke="#8a7f6c" stroke-width="1.6" marker-end="url(#arrE)"/>
+        <text x="127" y="98" font-size="9" fill="#8a7f6c" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">塞1批/步</text>
+
+        <!-- conveyor -->
+        <rect x="150" y="72" width="404" height="70" rx="10" fill="#f6ecd9" stroke="#d3c09b" stroke-width="1.2"/>
+        <rect x="160" y="84" width="88" height="46" rx="7" fill="#efe0c4" stroke="#b5651d" stroke-width="1.2"/>
+        <text x="204" y="112" font-size="10.5" fill="#7a5a1e" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">生成中</text>
+        <rect x="252" y="84" width="88" height="46" rx="7" fill="#efe0c4" stroke="#b5651d" stroke-width="1.2"/>
+        <text x="296" y="112" font-size="10.5" fill="#7a5a1e" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">生成中</text>
+        <rect x="344" y="84" width="88" height="46" rx="7" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.4"/>
+        <text x="388" y="112" font-size="10.5" fill="#7a5a1e" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">快完成</text>
+        <rect x="436" y="84" width="108" height="46" rx="7" fill="#cdd9ab" stroke="#7a8a3e" stroke-width="1.5"/>
+        <text x="490" y="112" font-size="10.5" fill="#4f5f24" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">已完成·待取</text>
+        <text x="352" y="64" font-size="10.5" fill="#5c5344" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">在途队列（rollout）· 预热把它灌到 num_warmup_batches 批深</text>
+
+        <!-- to train -->
+        <line x1="554" y1="106" x2="592" y2="106" stroke="#8a7f6c" stroke-width="1.6" marker-end="url(#arrE)"/>
+        <text x="573" y="98" font-size="9" fill="#8a7f6c" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">取1批</text>
+
+        <!-- Train -->
+        <rect x="596" y="80" width="106" height="52" rx="8" fill="#3f382e" stroke="#2c2620" stroke-width="1.4"/>
+        <text x="649" y="104" font-size="12" fill="#e0a86b" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">训练 step</text>
+        <text x="649" y="120" font-size="9" fill="#a89a80" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">sample 阻塞等待</text>
+
+        <text x="360" y="176" font-size="10.5" fill="#8a7f6c" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">生产者（塞1）持续领先消费者（取1）一段提前量 → 生成与训练重叠；提前量=0 就退化成同步</text>
+      </svg>
+      <div class="fig-cap">图 E：把生成想象成一条传送带——预热在训练开始前先塞入 <code class="inl">num_warmup_batches</code> 批，把带子填满；此后每步「塞 1、取 1」维持这个提前量，训练一结束就有完成的轨迹可取，rollout 也不空转。</div>
+      <span class="fig-toggle" onclick="toggleFigDetail(this)">展开：colocate_async 一个 step 的解剖 ▸</span>
+      <div class="figure-detail">
+        <ul>
+          <li><strong>① 塞入下一批 prompt</strong>（非阻塞，rollout 后台开跑）。</li>
+          <li><strong>② <code class="inl">sample()</code></strong> 取走够一批的完成轨迹（靠提前量基本不空等）。</li>
+          <li><strong>③ <code class="inl">on_sample_end</code></strong>：<code class="inl">abort_replicas()</code> 中止未完成请求（partial rollout 把半截轨迹存下来）+ <code class="inl">sleep_replicas()</code>（rollout 交出显存/KV cache）。</li>
+          <li><strong>④ 训练各阶段</strong>：此刻共享的卡归训练独占。</li>
+          <li><strong>⑤ <code class="inl">on_step_end</code></strong>：<code class="inl">update_weights()</code>（推新权重）+ <code class="inl">resume_generation_replicas()</code>（唤醒 rollout，<b>带新权重接着跑</b>那些被 abort 的半截轨迹）。</li>
+          <li><strong>为什么共卡也能「重叠」</strong>：不是同一瞬间同卡并行，而是 <b>partial rollout</b> 让长轨迹跨 step 分段续跑（于是 <code class="inl">trajectory_spans &gt; 1</code>、跨权重版本）+ 提前量让队列不空。代价是这步样本多由上一版权重生成 → 轻度 off-policy。</li>
+          <li><strong>对比 sync</strong>：partial rollout 关闭、无预热、无 resume——每步阻塞生成一整批全新样本 → sleep → 训练 → update，严格串行、完全 on-policy。</li>
+        </ul>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>模式</th><th>num_warmup_batches 默认</th><th>为什么是这个深度</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>sync</td><td><span class="no">无（0）</span></td><td>刻意不重叠：生成完这批立刻训练这批，最 on-policy</td></tr>
+        <tr><td>colocate_async</td><td>1</td><td>共卡只能浅浅重叠一步，约 1 步 off-policy</td></tr>
+        <tr><td>separate_async</td><td>4（+ <code class="inl">parameter_sync_step=4</code>）</td><td>分卡全程并行，流水线更深、容忍更强 staleness</td></tr>
+      </tbody>
+    </table>
+    <p><b>一句话：</b>预热深度 ≈ 流水线深度 ≈ off-policy staleness 预算。预热建立提前量、partial rollout 让长轨迹跨步续跑，两者合起来才让共卡的 <code class="inl">colocate_async</code> 在同一批卡上把生成与训练错峰重叠。</p>
+
+    <div class="note">
+      <b>快速选型：</b>先 <code class="inl">sync</code> 跑通（几乎零改动）；发现生成把卡闲置严重、且能接受轻度 off-policy，再上 <code class="inl">colocate_async</code>；只有当轨迹很长 / 规模很大、且愿意配非 naive 权重后端时，才上 <code class="inl">separate_async</code>。
+    </div>
+  </section>
+
+  <!-- ================= Q3 ================= -->
+  <section id="q3">
+    <h2><span class="num">Q3</span>训练流程的自由度提高了多少？能方便改哪些？</h2>
+    <p class="lead">
+      V1 把「生成逻辑 / 采样策略 / 调度模式 / PPO 每个阶段」都做成了<strong>可插拔扩展点</strong>。
+      绝大多数定制，你只需写一个子类 + 一行配置，<strong>不用碰主循环</strong>。
+    </p>
+
+    <table>
+      <thead>
+        <tr><th>你想改的东西</th><th>怎么接入</th><th>入口 / 配置</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>生成 / 多轮 / 工具逻辑</td><td>写一个 <code class="inl">AgentLoop</code> 子类</td><td><code class="inl">@register</code> + <code class="inl">rollout.agent.agent_loop_config_path</code></td></tr>
+        <tr><td>整个 rollout 调度器</td><td>自定义 <code class="inl">AgentLoopManager</code></td><td><code class="inl">rollout.agent.agent_loop_manager_class</code></td></tr>
+        <tr><td>采样 / off-policy 策略</td><td>自定义 <code class="inl">ReplayBuffer</code> 子类</td><td><code class="inl">trainer.v1.sampler.custom_sampler.{path,name}</code></td></tr>
+        <tr><td>调度模式（同步/异步布局）</td><td>注册新 <code class="inl">trainer_mode</code></td><td><code class="inl">@register_trainer</code> + 生命周期钩子</td></tr>
+        <tr><td>PPO 单个阶段（adv / logprob / …）</td><td>override <code class="inl">PPOTrainer._compute_*</code></td><td>子类 + <code class="inl">register_trainer</code></td></tr>
+        <tr><td>off-policy 修正（IS / decoupled）</td><td>配置 <code class="inl">rollout_correction</code></td><td><code class="inl">algorithm.rollout_correction.*</code></td></tr>
+        <tr><td>reward（规则 / 模型）</td><td><code class="inl">RewardLoopManager</code> / reward server</td><td><code class="inl">reward.reward_model.*</code></td></tr>
+      </tbody>
+    </table>
+
+    <p><strong>PPO 每个阶段都是独立方法</strong>——<code class="inl">step()</code> 里按顺序调用，想改哪步就在 trainer 子类里覆盖对应方法，其它步骤不受影响：</p>
+    <pre><span class="c"># verl/trainer/ppo/v1/trainer_base.py :: PPOTrainer.step()</span>
+_add_batch_to_generate → replay_buffer.sample → [_compute_reward_colocate]
+  → _balance_batch → _compute_old_log_prob → [_compute_ref_log_prob]
+  → [_compute_values] → _compute_advantage → [_update_critic] → _update_actor
+<span class="c"># 生命周期钩子（三种 trainer_mode 就靠它们区分）：</span>
+on_train_begin / on_step_begin / on_sample_begin / on_sample_end / on_step_end</pre>
+
+    <p class="lead" style="margin-top:24px">下面三张卡片是最常见的三类定制，点开看<strong>最小代码骨架</strong>（基于当前源码 API，实验阶段接口可能微调）。</p>
+
+    <div class="pillars">
+      <!-- skeleton 1 -->
+      <div class="exp" id="s1">
+        <div class="head" onclick="toggleExp('s1')">
+          <div class="ic">🔁</div>
+          <div class="htext">
+            <div class="title">改「生成逻辑」· 写一个 AgentLoop（多轮 / 工具 / 自定义采样）</div>
+            <div class="sum">最常见的 Agent 定制入口：继承 AgentLoopBase，在 run() 里自由多轮/调工具，返回 AgentLoopOutput，框架自动写入 TransferQueue。</div>
+          </div>
+          <div class="chev">▶</div>
+        </div>
+        <div class="body">
+          <p>内置参考实现：<code class="inl">single_turn_agent_loop.py</code>（单轮）、<code class="inl">tool_agent_loop.py</code>（ReAct 多轮 + 工具）。你只需实现 <code class="inl">run()</code>：</p>
+          <pre><span class="c"># my_agent_loop.py</span>
+<span class="k">from</span> <span class="m">typing</span> <span class="k">import</span> Any
+<span class="k">from</span> <span class="m">verl.experimental.agent_loop.agent_loop</span> <span class="k">import</span> (
+    AgentLoopBase, AgentLoopOutput, register,
+)
+
+<span class="f">@register</span>(<span class="s">"my_agent"</span>)                     <span class="c"># 注册名，供 config / 数据集按名选用</span>
+<span class="k">class</span> <span class="f">MyAgentLoop</span>(AgentLoopBase):
+    <span class="k">async def</span> <span class="f">run</span>(self, sampling_params: dict[str, Any], **kwargs) -> AgentLoopOutput:
+        messages = <span class="f">list</span>(kwargs[<span class="s">"raw_prompt"</span>])
+        prompt_ids = <span class="k">await</span> self.<span class="f">apply_chat_template</span>(messages)
+
+        <span class="c"># 多轮就在这里 while 循环：生成 → 解析工具调用 → 追加观测 → 再生成</span>
+        out = <span class="k">await</span> self.server_manager.<span class="f">generate</span>(          <span class="c"># 向 LLM Server 发请求</span>
+            request_id=uuid, prompt_ids=prompt_ids, sampling_params=sampling_params,
+        )
+
+        <span class="k">return</span> <span class="f">AgentLoopOutput</span>(
+            prompt_ids=prompt_ids,
+            response_ids=out.token_ids,
+            response_mask=[<span class="k">1</span>] * <span class="f">len</span>(out.token_ids),   <span class="c"># 工具返回段可置 0，不参与 loss</span>
+            num_turns=<span class="k">2</span>,
+        )</pre>
+          <p>接入（Hydra 注入，无需改主代码）：</p>
+          <pre><span class="c"># my_agents.yaml</span>
+- name: my_agent
+  _target_: my_agent_loop.MyAgentLoop</pre>
+          <pre>actor_rollout_ref.rollout.agent.agent_loop_config_path=my_agents.yaml \
+actor_rollout_ref.rollout.agent.default_agent_loop=my_agent</pre>
+        </div>
+      </div>
+
+      <!-- skeleton 2 -->
+      <div class="exp" id="s2">
+        <div class="head" onclick="toggleExp('s2')">
+          <div class="ic">🎛️</div>
+          <div class="htext">
+            <div class="title">改「采样 / off-policy 策略」· 自定义 ReplayBuffer</div>
+            <div class="sum">想按难度/优先级/陈旧度挑样本？继承 ReplayBuffer 覆盖 sample()，一行配置注入。</div>
+          </div>
+          <div class="chev">▶</div>
+        </div>
+        <div class="body">
+          <pre><span class="c"># my_sampler.py</span>
+<span class="k">from</span> <span class="m">verl.trainer.ppo.v1.replay_buffer</span> <span class="k">import</span> ReplayBuffer
+
+<span class="k">class</span> <span class="f">MyReplayBuffer</span>(ReplayBuffer):
+    <span class="k">def</span> <span class="f">sample</span>(self, global_steps: int, partition_id: str, batch_size: int):
+        <span class="c"># 自定义优先级 / 难度课程 / staleness 筛选</span>
+        batch, metrics = <span class="f">super</span>().<span class="f">sample</span>(global_steps, partition_id, batch_size)
+        <span class="k">return</span> batch, metrics</pre>
+          <p>接入：</p>
+          <pre>trainer.v1.sampler.custom_sampler.path=my_sampler.py \
+trainer.v1.sampler.custom_sampler.name=MyReplayBuffer \
+trainer.v1.sampler.max_off_policy_threshold=8      <span class="c"># 内建陈旧度闸门仍可叠加</span></pre>
+        </div>
+      </div>
+
+      <!-- skeleton 3 -->
+      <div class="exp" id="s3">
+        <div class="head" onclick="toggleExp('s3')">
+          <div class="ic">⚙️</div>
+          <div class="htext">
+            <div class="title">改「调度 / 权重同步时机」· 注册一个新 trainer_mode</div>
+            <div class="sum">主循环固定在基类；你只写生命周期钩子，就能定义一套新的「同步 vs 异步」策略。</div>
+          </div>
+          <div class="chev">▶</div>
+        </div>
+        <div class="body">
+          <pre><span class="c"># my_trainer.py</span>
+<span class="k">from</span> <span class="m">verl.trainer.ppo.v1</span> <span class="k">import</span> PPOTrainer, register_trainer
+
+<span class="f">@register_trainer</span>(<span class="s">"my_mode"</span>)
+<span class="k">class</span> <span class="f">MyTrainer</span>(PPOTrainer):
+    <span class="k">def</span> <span class="f">on_sample_end</span>(self):
+        self.checkpoint_manager.<span class="f">sleep_replicas</span>()          <span class="c"># 采样完让出显存</span>
+    <span class="k">def</span> <span class="f">on_step_end</span>(self):
+        <span class="k">if</span> self.global_steps % <span class="k">2</span> == <span class="k">0</span>:                     <span class="c"># 例：每 2 步才同步一次权重</span>
+            self.checkpoint_manager.<span class="f">update_weights</span>(self.global_steps)</pre>
+          <p>接入：<code class="inl">trainer.v1.trainer_mode=my_mode</code>（确保该模块被 import 以触发注册）。想改某个 PPO 阶段，同理在这里 override <code class="inl">_compute_advantage</code> 等方法即可。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 番外 ================= -->
+  <section id="peers">
+    <h2><span class="num">＊</span>番外 · 放到 slime / AReaL 里看：这套设计不是孤例</h2>
+    <p class="lead">
+      如果你也看过 <strong>slime</strong>（清华 / 智谱）或 <strong>AReaL</strong>（蚂蚁 / 清华 IIIS），会发现三者在解同一道题——
+      解耦生成与训练、加一个数据桥、异步同步权重、控制 staleness。差异主要在<strong>抽象哲学</strong>和<strong>解耦彻底程度</strong>。
+    </p>
+
+    <div class="note">
+      <b>不是巧合，是互相借鉴：</b>verl 依赖的 <code class="inl">TransferQueue==0.1.8</code> 是可复用的独立组件（Ascend 开源）；
+      verl 的异步 off-policy 修正直接指向 AReaL 论文——<code class="inl">trainer_separate_async.py</code> 里写着
+      <code class="inl"># TODO: Support Decoupled PPO: https://arxiv.org/abs/2505.24298</code>。三者设计是<strong>收敛</strong>的。
+    </div>
+
+    <div class="diagram">
+      <div class="dtitle">图 C · 共同骨架：三家框架都长成同一个样子</div>
+      <svg viewBox="0 0 720 250" role="img" aria-label="verl slime AReaL 的共同抽象骨架">
+        <defs>
+          <marker id="arrC" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L7,3 L0,6 Z" fill="#8a7f6c"/>
+          </marker>
+          <marker id="arrCac" markerWidth="9" markerHeight="9" refX="7" refY="3" orient="auto">
+            <path d="M0,0 L7,3 L0,6 Z" fill="#b5651d"/>
+          </marker>
+        </defs>
+        <!-- weight sync loop on top -->
+        <path d="M598,74 C598,26 122,26 122,74" fill="none" stroke="#b5651d" stroke-width="1.8" stroke-dasharray="6 4" marker-end="url(#arrCac)"/>
+        <text x="360" y="24" font-size="12" fill="#b5651d" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">权重同步（异步回灌新策略）</text>
+
+        <!-- three boxes -->
+        <rect x="42" y="76" width="176" height="60" rx="10" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.7"/>
+        <text x="130" y="103" font-size="14" font-weight="700" fill="#2c2620" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">生成</text>
+        <text x="130" y="122" font-size="10.5" fill="#8a7f6c" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">推理引擎 · 流式产出轨迹</text>
+
+        <rect x="272" y="76" width="176" height="60" rx="10" fill="#2c2620" stroke="#3d352a" stroke-width="1.5"/>
+        <text x="360" y="103" font-size="14" font-weight="700" fill="#e0a86b" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">数据桥</text>
+        <text x="360" y="122" font-size="10.5" fill="#a89a80" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">缓冲 · 过滤 · 复用</text>
+
+        <rect x="502" y="76" width="176" height="60" rx="10" fill="#f0dcc0" stroke="#b5651d" stroke-width="1.7"/>
+        <text x="590" y="103" font-size="14" font-weight="700" fill="#2c2620" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">训练</text>
+        <text x="590" y="122" font-size="10.5" fill="#8a7f6c" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">攒够一批 → 更新策略</text>
+
+        <line x1="218" y1="106" x2="266" y2="106" stroke="#8a7f6c" stroke-width="1.8" marker-end="url(#arrC)"/>
+        <line x1="448" y1="106" x2="496" y2="106" stroke="#8a7f6c" stroke-width="1.8" marker-end="url(#arrC)"/>
+        <text x="242" y="98" font-size="9.5" fill="#8a7f6c" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">写入</text>
+        <text x="472" y="98" font-size="9.5" fill="#8a7f6c" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">取用</text>
+
+        <!-- per-framework labels -->
+        <line x1="42" y1="158" x2="678" y2="158" stroke="#e4d7bd" stroke-width="1"/>
+        <text x="24" y="180" font-size="11" font-weight="700" fill="#b5651d" font-family="'JetBrains Mono',monospace">verl</text>
+        <text x="130" y="180" font-size="10.5" fill="#5c5344" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">LLM Server + AgentLoop</text>
+        <text x="360" y="180" font-size="10.5" fill="#5c5344" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">TransferQueue</text>
+        <text x="590" y="180" font-size="10.5" fill="#5c5344" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">PPOTrainer（可插拔模式）</text>
+
+        <text x="24" y="203" font-size="11" font-weight="700" fill="#8a7f6c" font-family="'JetBrains Mono',monospace">slime</text>
+        <text x="130" y="203" font-size="10.5" fill="#5c5344" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">SGLang + sgl-router</text>
+        <text x="360" y="203" font-size="10.5" fill="#5c5344" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">Data Buffer</text>
+        <text x="590" y="203" font-size="10.5" fill="#5c5344" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">Megatron 循环（裸写）</text>
+
+        <text x="24" y="226" font-size="11" font-weight="700" fill="#8a7f6c" font-family="'JetBrains Mono',monospace">AReaL</text>
+        <text x="130" y="226" font-size="10.5" fill="#5c5344" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">rollout workers（可中断）</text>
+        <text x="360" y="226" font-size="10.5" fill="#5c5344" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">Replay Buffer</text>
+        <text x="590" y="226" font-size="10.5" fill="#5c5344" text-anchor="middle" font-family="'Noto Sans SC',sans-serif">trainer workers（全异步）</text>
+      </svg>
+      <div class="fig-cap">图 C：三家框架都是「生成 → 数据桥 → 训练 → 权重同步回生成」这同一个闭环，差别只在每个盒子的具体实现与解耦彻底程度。</div>
+      <span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明 ▸</span>
+      <div class="figure-detail">
+        <ul>
+          <li><strong>左盒「生成」</strong>：verl 用 LLM Server + AgentLoop 客户端；slime 用 SGLang + sgl-router；AReaL 用可中断的 rollout workers。</li>
+          <li><strong>中盒「数据桥」（深色）</strong>：解耦生成与训练的缓冲层。verl = TransferQueue，slime = Data Buffer，AReaL = Replay Buffer，角色完全对应。</li>
+          <li><strong>右盒「训练」</strong>：verl 是可插拔的 PPOTrainer，slime 刻意裸写训练循环，AReaL 是全异步 trainer workers。</li>
+          <li><strong>顶部橙色虚线 = 权重同步</strong>：训练更新后把新策略异步回灌给生成侧——所有 online RL 框架的共同命脉。</li>
+          <li><strong>结论</strong>：verl V1 不是另起炉灶，而是把这套业界收敛的骨架，用「结构化可插拔 + 服务化 Agent + 可复用 TransferQueue」重新组织了一遍。</li>
+        </ul>
+      </div>
+    </div>
+
+    <table>
+      <thead>
+        <tr><th>维度</th><th>verl V1</th><th>slime</th><th>AReaL</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>数据桥</td>
+          <td><span class="ok">TransferQueue</span></td>
+          <td><span class="ok">Data Buffer</span></td>
+          <td><span class="ok">Replay Buffer</span>（用一次）</td>
+        </tr>
+        <tr>
+          <td>解耦 / 布局</td>
+          <td>sync / colocate_async / separate_async 三档</td>
+          <td>一个 <code class="inl">--colocate</code> 开关</td>
+          <td><span class="ok">完全分离</span>集群（fully async 优先）</td>
+        </tr>
+        <tr>
+          <td>off-policy 控制</td>
+          <td><code class="inl">max_off_policy_threshold</code> + rollout_correction</td>
+          <td>over-sample + 部分轨迹回收（APRIL）</td>
+          <td><code class="inl">max_head_offpolicyness</code> + decoupled PPO</td>
+        </tr>
+        <tr>
+          <td>trainer 抽象哲学</td>
+          <td>结构化基类 + 注册表 + 钩子</td>
+          <td><span class="no">刻意不封装</span>，循环裸露在 <code class="inl">train.py</code></td>
+          <td>algorithm-first（AReaL-lite）</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="pillars">
+      <div class="exp" id="p-slime">
+        <div class="head" onclick="toggleExp('p-slime')">
+          <div class="ic">🔥</div>
+          <div class="htext">
+            <div class="title">slime · 三模块 + Data Buffer，轻量到不要 trainer 类</div>
+            <div class="sum">Megatron + SGLang + Data Buffer；靠 Ray 的 ray.get 位置切同步/异步；训练循环裸露在入口脚本。</div>
+          </div>
+          <div class="chev">▶</div>
+        </div>
+        <div class="body">
+          <p><strong>抽象哲学：极简。</strong>slime 明确<b>不用 trainer 类包裹</b>，训练循环直接暴露在 <code class="inl">train.py</code>；靠移动 <code class="inl">ray.get</code> 的位置切同步/异步，靠一个 <code class="inl">--colocate</code> 决定共卡/分卡。与 verl「结构化基类 + 注册表 + 钩子」正好相反——一个偏灵活裸写，一个偏工程可插拔。</p>
+          <p><strong>长尾优化（APRIL）：</strong>over-sample（要 32 发 64）→ 够了 abort 其余 → 半截轨迹存 buffer、下轮续跑。对应 verl 的 partial rollout + <code class="inl">min/max_global_steps</code> 跨版本追踪。</p>
+          <div class="note"><b>给 verl 用户的启发：</b>slime 的裸训练循环提醒我们，verl 的 trainer 抽象是「为多模式可插拔」买的单——好处是 Q3 里那些扩展点很规整，代价是初次读主流程更重。</div>
+          <p style="font-size:13px;color:var(--ink-mute);margin-top:6px">来源：
+            <a href="https://github.com/THUDM/slime" target="_blank" rel="noopener">THUDM/slime ↗</a> ·
+            <a href="https://thudm.github.io/slime/blogs/introducing_slime.html" target="_blank" rel="noopener">介绍博客 ↗</a>
+          </p>
+        </div>
+      </div>
+
+      <div class="exp" id="p-areal">
+        <div class="head" onclick="toggleExp('p-areal')">
+          <div class="ic">⚡</div>
+          <div class="htext">
+            <div class="title">AReaL · 「完全异步」的极致 + decoupled PPO（verl 直接引用）</div>
+            <div class="sum">生成/训练分到不同 GPU 集群，rollout 持续流式、trainer 攒够一批就更新；用 max_head_offpolicyness + 解耦 PPO 稳住 off-policy。</div>
+          </div>
+          <div class="chev">▶</div>
+        </div>
+        <div class="body">
+          <p><strong>fully asynchronous。</strong>rollout worker 不等待、持续流式；trainer 攒够一批就更新，更新后同步权重回 rollout。一个 batch 可能混着不同模型版本的样本。论文报告相比同步系统最高 <b>2.77×</b> 加速且性能不降。</p>
+          <p><strong>两把稳定器：</strong><code class="inl">rollout.max_head_offpolicyness</code>（=0 退化为同步，异步常用 2–8）+ <code class="inl">actor.use_decoupled_loss</code>（解耦行为策略 π_behav 与近端策略 π_prox）。</p>
+          <p><strong>与 verl 的血缘：</strong>verl <code class="inl">separate_async</code> 的 TODO 直指这篇；verl 的 <code class="inl">rollout_correction</code>（token-IS / seq-IS / geo-RS 等 <code class="inl">decoupled_*</code> 预设）与 <code class="inl">bypass_mode</code>，本质就是这套修正在 verl 的落地。</p>
+          <p style="font-size:13px;color:var(--ink-mute);margin-top:6px">来源：
+            <a href="https://github.com/inclusionAI/AReaL" target="_blank" rel="noopener">inclusionAI/AReaL ↗</a> ·
+            <a href="https://arxiv.org/abs/2505.24298" target="_blank" rel="noopener">论文 arXiv:2505.24298 ↗</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= 小结 ================= -->
+  <section id="takeaway">
+    <h2><span class="num">✓</span>一句话行动指南</h2>
+    <ul>
+      <li><strong>先别慌：</strong>你现有的 GRPO/PPO 脚本大概率<b>照跑</b>——默认 V1 sync ≈ 老同步 PPO，入口命令没变。</li>
+      <li><strong>要吞吐/长轨迹：</strong>加 <code class="inl">trainer.v1.trainer_mode=colocate_async</code>（或规模够大再上 <code class="inl">separate_async</code> + 非 naive 权重后端）。</li>
+      <li><strong>要定制：</strong>优先走三个扩展点——<b>AgentLoop</b>（生成）/ <b>ReplayBuffer</b>（采样）/ <b>trainer_mode</b>（调度），别再改主循环。</li>
+      <li><strong>别踩坑：</strong>若老代码子类化了旧 worker 或依赖 interactions / curriculum / dynamic dataset，需按 <code class="inl">#6067</code> 迁到 engine；<code class="inl">use_v1=false</code> 只是临时退路（v0.9.0 移除）。</li>
+    </ul>
+  </section>
+
+  <footer>
+    <div>本页基于本地 verl 仓库源码（分支 <code class="inl">gsm8k</code> @ <code class="inl">5c24e81d</code>）梳理，面向已了解 verl 的后训练工作者。代码骨架基于当前源码 API，实验阶段接口可能微调，落地前请对照仓库确认。</div>
+    <div class="srcs">
+      源码：<a href="https://github.com/verl-project/verl" target="_blank" rel="noopener">verl-project/verl ↗</a><br/>
+      关键文件：<code class="inl">verl/trainer/main_ppo.py</code> · <code class="inl">verl/trainer/ppo/v1/trainer_base.py</code> · <code class="inl">verl/experimental/agent_loop/agent_loop.py</code><br/>
+      关键 PR：
+      <a href="https://github.com/verl-project/verl/pull/6067" target="_blank" rel="noopener">#6067</a> ·
+      <a href="https://github.com/verl-project/verl/pull/6710" target="_blank" rel="noopener">#6710</a> ·
+      <a href="https://github.com/verl-project/verl/pull/6823" target="_blank" rel="noopener">#6823</a><br/>
+      对比框架：
+      <a href="https://github.com/THUDM/slime" target="_blank" rel="noopener">THUDM/slime ↗</a> ·
+      <a href="https://github.com/inclusionAI/AReaL" target="_blank" rel="noopener">inclusionAI/AReaL ↗</a> ·
+      <a href="https://arxiv.org/abs/2505.24298" target="_blank" rel="noopener">AReaL 论文 ↗</a>
+    </div>
+  </footer>
+</div>
+
+<script>
+  function toggleExp(id) {
+    const el = document.getElementById(id);
+    el.classList.toggle("open");
+  }
+
+  function toggleFigDetail(el) {
+    const d = el.nextElementSibling;
+    const open = d.classList.toggle("active");
+    el.textContent = open ? "收起 ▴" : "展开说明 ▸";
+  }
+</script>
+</body>
+</html>

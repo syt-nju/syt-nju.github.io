@@ -10,6 +10,10 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: verl-v1-mainline-pipeline
+    title: "verl 0.8.0：主线 pipeline 改了什么？"
+    date: 2026-07-14
+    source_type: blog
   - slug: moe-fused-config
     title: "vLLM 起 MoE 那句 Using default MoE config 到底慢多少"
     date: 2026-07-07
