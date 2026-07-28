@@ -10,6 +10,9 @@
 #   url   : link to the original article
 #   date  : YYYY-MM-DD, the day this link was added (used for sorting only)
 entries:
+  - title: "LoRA Without Regret"
+    url: "https://thinkingmachines.ai/blog/lora/"
+    date: 2026-07-28
   - title: "On-Policy Distillation"
     url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
     date: 2026-07-03
