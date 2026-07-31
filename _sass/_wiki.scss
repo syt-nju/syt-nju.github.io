@@ -1,0 +1,242 @@
+/* ==========================================================================
+   WIKI
+   ========================================================================== */
+
+.wiki-sidebar {
+  summary {
+    padding: 0.65em 0;
+    font-family: $sans-serif;
+    font-size: $type-size-6;
+    font-weight: 700;
+    cursor: pointer;
+  }
+
+  nav {
+    padding-bottom: 1em;
+  }
+
+  a {
+    color: $text-color;
+    text-decoration: none;
+  }
+
+  .is-active {
+    color: $link-color;
+    font-weight: 700;
+  }
+}
+
+.wiki-sidebar__home {
+  display: block;
+  margin-bottom: 1em;
+  font-family: $sans-serif;
+  font-size: $type-size-6;
+}
+
+.wiki-sidebar__topic {
+  margin-bottom: 1.25em;
+
+  h2 {
+    margin: 0 0 0.4em;
+    font-size: $type-size-6;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  ul {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  li {
+    margin-bottom: 0.45em;
+  }
+}
+
+.wiki-shell .wiki-article {
+  @include breakpoint($large) {
+    @include span(10 of 12 last);
+    @include prefix(0.5 of 12);
+    @include suffix(0.5 of 12);
+  }
+}
+
+.wiki-article__header {
+  margin-bottom: 2em;
+  padding-bottom: 1.25em;
+  border-bottom: 1px solid $border-color;
+}
+
+.wiki-article__eyebrow,
+.wiki-article__updated {
+  margin-bottom: 0.65em;
+  color: $gray;
+  font-family: $sans-serif;
+  font-size: $type-size-6;
+}
+
+.wiki-article__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.wiki-article__summary {
+  margin: 0.75em 0;
+  color: $gray;
+  font-size: $type-size-4;
+  line-height: 1.5;
+}
+
+.wiki-source-note {
+  padding: 0.75em 1em;
+  border-left: 3px solid $warning-color;
+  background: mix($warning-color, #fff, 8%);
+  font-size: $type-size-6;
+}
+
+.wiki-article__sources {
+  margin-top: 3em;
+  padding-top: 1em;
+  border-top: 1px solid $border-color;
+
+  h2 {
+    font-size: $type-size-4;
+  }
+
+  li {
+    margin-bottom: 0.4em;
+  }
+}
+
+.wiki-pagination {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1em;
+  margin-top: 3em;
+  padding-top: 1.5em;
+  border-top: 1px solid $border-color;
+}
+
+.wiki-pagination__link {
+  display: flex;
+  flex-direction: column;
+  padding: 0.8em;
+  border: 1px solid $border-color;
+  border-radius: $border-radius;
+  text-decoration: none;
+
+  span {
+    margin-bottom: 0.3em;
+    color: $gray;
+    font-size: $type-size-7;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+  }
+
+  &:hover {
+    border-color: $link-color;
+  }
+}
+
+.wiki-pagination__link--next {
+  text-align: right;
+}
+
+.wiki-topic {
+  margin: 2.5em 0;
+}
+
+.wiki-search {
+  margin: 2em 0;
+  padding: 1em;
+  border: 1px solid $border-color;
+  border-radius: $border-radius;
+
+  label {
+    display: block;
+    margin-bottom: 0.5em;
+    font-family: $sans-serif;
+    font-weight: 700;
+  }
+
+  input {
+    width: 100%;
+    padding: 0.7em;
+    border: 1px solid $border-color;
+    border-radius: $border-radius;
+  }
+}
+
+.wiki-search__status {
+  margin: 0.7em 0 0;
+  color: $gray;
+  font-size: $type-size-6;
+}
+
+.wiki-search__results {
+  margin-top: 0.75em;
+}
+
+.wiki-search-result {
+  display: block;
+  padding: 0.8em 0;
+  border-top: 1px solid $border-color;
+  color: $text-color;
+  text-decoration: none;
+
+  strong,
+  span {
+    display: block;
+  }
+
+  span {
+    margin-top: 0.3em;
+    color: $gray;
+    font-size: $type-size-6;
+  }
+
+  mark {
+    padding: 0;
+    background-color: mix($warning-color, #fff, 25%);
+  }
+}
+
+.wiki-topic__description {
+  color: $gray;
+}
+
+.wiki-card {
+  display: block;
+  margin-bottom: 1em;
+  padding: 1em;
+  border: 1px solid $border-color;
+  border-radius: $border-radius;
+  color: $text-color;
+  text-decoration: none;
+
+  &:hover {
+    border-color: $link-color;
+  }
+
+  strong,
+  span {
+    display: block;
+  }
+
+  span {
+    margin-top: 0.35em;
+    color: $gray;
+    font-size: $type-size-6;
+  }
+}
+
+@include breakpoint(max-width $large) {
+  .wiki-sidebar {
+    position: static !important;
+  }
+
+  .wiki-pagination {
+    grid-template-columns: 1fr;
+  }
+}

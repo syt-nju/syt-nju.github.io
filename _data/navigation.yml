@@ -15,6 +15,9 @@ main:
   - title: "Reading List"
     url: /reading-list/
 
+  - title: "Wiki"
+    url: /wiki/
+
   - title: "Writing"
     url: /writing/
 

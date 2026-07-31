@@ -1,0 +1,4 @@
+- slug: agent-training
+  title: "Agent Training"
+  description: "Notes on post-training objectives, exploration, and reliable agent learning."
+  order: 1

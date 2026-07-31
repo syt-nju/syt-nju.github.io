@@ -1,0 +1,57 @@
+---
+layout: default
+---
+
+{% assign topics = site.data.wiki_topics | sort: "order" %}
+{% assign found_current = false %}
+{% assign previous_article = nil %}
+{% assign next_article = nil %}
+{% assign last_article = nil %}
+{% for topic in topics %}
+  {% assign topic_articles = site.wiki | where: "topic", topic.slug | sort: "order" %}
+  {% for article in topic_articles %}
+    {% if found_current and next_article == nil %}
+      {% assign next_article = article %}
+    {% endif %}
+    {% if article.url == page.url %}
+      {% assign found_current = true %}
+      {% assign previous_article = last_article %}
+    {% endif %}
+    {% assign last_article = article %}
+  {% endfor %}
+{% endfor %}
+
+<div id="main" class="wiki-shell" role="main">
+  {% include wiki-sidebar.html %}
+
+  <article class="page wiki-article" itemscope itemtype="https://schema.org/TechArticle">
+    <div class="page__inner-wrap">
+      <header class="wiki-article__header">
+        {% if page.collection == "wiki" %}
+          <p class="wiki-article__eyebrow"><a href="{{ '/wiki/' | relative_url }}">Wiki</a> / {{ page.topic | replace: "-", " " | capitalize | escape }}</p>
+        {% endif %}
+        <h1 class="page__title" itemprop="headline">{{ page.title | escape }}</h1>
+        {% if page.summary %}<p class="wiki-article__summary" itemprop="description">{{ page.summary | escape }}</p>{% endif %}
+        {% if page.source_note %}<p class="wiki-source-note">{{ page.source_note | escape }}</p>{% endif %}
+        {% if page.updated %}<p class="wiki-article__updated">Updated <time datetime="{{ page.updated | date: '%Y-%m-%d' }}">{{ page.updated | date: "%B %-d, %Y" }}</time></p>{% endif %}
+      </header>
+
+      <section class="page__content" itemprop="articleBody">
+        {{ content }}
+      </section>
+
+      {% if page.sources %}
+        <footer class="wiki-article__sources">
+          <h2>Sources</h2>
+          <ul>
+            {% for source in page.sources %}
+              <li><a href="{{ source.url | escape }}" rel="noopener">{{ source.title | escape }}</a></li>
+            {% endfor %}
+          </ul>
+        </footer>
+      {% endif %}
+
+      {% include wiki-pagination.html previous=previous_article next=next_article %}
+    </div>
+  </article>
+</div>

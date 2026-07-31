@@ -1,0 +1,22 @@
+<aside class="sidebar sticky wiki-sidebar" aria-label="Wiki navigation">
+  <details class="wiki-sidebar__panel" open>
+    <summary>Wiki navigation</summary>
+    <nav>
+      <a class="wiki-sidebar__home{% if page.url == '/wiki/' %} is-active{% endif %}" href="{{ '/wiki/' | relative_url }}">All topics</a>
+      {% assign topics = site.data.wiki_topics | sort: "order" %}
+      {% for topic in topics %}
+        {% assign articles = site.wiki | where: "topic", topic.slug | sort: "order" %}
+        <section class="wiki-sidebar__topic">
+          <h2>{{ topic.title | escape }}</h2>
+          <ul>
+            {% for article in articles %}
+              <li>
+                <a href="{{ article.url | relative_url }}"{% if article.url == page.url %} class="is-active" aria-current="page"{% endif %}>{{ article.title | escape }}</a>
+              </li>
+            {% endfor %}
+          </ul>
+        </section>
+      {% endfor %}
+    </nav>
+  </details>
+</aside>
