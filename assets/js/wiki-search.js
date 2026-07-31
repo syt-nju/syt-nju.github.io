@@ -16,6 +16,15 @@
     return normalize(query).trim().split(/\s+/).filter(Boolean);
   }
 
+  function filterByLanguage(entries, language) {
+    if (!language || language === "all") {
+      return entries.slice();
+    }
+    return entries.filter(function(entry) {
+      return entry.lang === language;
+    });
+  }
+
   function search(entries, query) {
     var tokens = tokensFor(query);
     if (!tokens.length) {
@@ -96,24 +105,34 @@
     });
   }
 
-  function renderResults(container, status, entries, query) {
+  function renderResults(container, status, entries, query, language) {
     container.textContent = "";
-    var allResults = search(entries, query);
+    var allResults = search(filterByLanguage(entries, language), query);
     var results = allResults.slice(0, 20);
     if (allResults.length > results.length) {
-      status.textContent = "Showing " + results.length + " of " + allResults.length + " results";
+      status.textContent = "显示 " + results.length + " / " + allResults.length + " 条结果";
     } else {
-      status.textContent = results.length ? results.length + " result" + (results.length === 1 ? "" : "s") : "No matching articles";
+      status.textContent = results.length ? "找到 " + results.length + " 篇文章" : "没有匹配的文章";
     }
 
     results.forEach(function(entry) {
       var link = document.createElement("a");
+      var meta = document.createElement("span");
+      var languageBadge = document.createElement("span");
+      var updated = document.createElement("span");
       var title = document.createElement("strong");
       var snippet = document.createElement("span");
       link.className = "wiki-search-result";
       link.href = entry.url;
+      meta.className = "wiki-search-result__meta";
+      languageBadge.className = "wiki-language-badge";
+      languageBadge.textContent = entry.lang === "zh-CN" ? "中文" : "English";
+      updated.textContent = entry.updated || "";
+      meta.appendChild(languageBadge);
+      meta.appendChild(updated);
       appendHighlighted(title, entry.title, query);
       appendHighlighted(snippet, createSnippet(entry, query), query);
+      link.appendChild(meta);
       link.appendChild(title);
       link.appendChild(snippet);
       container.appendChild(link);
@@ -125,16 +144,58 @@
     var input = document.getElementById("wiki-search-input");
     var status = document.getElementById("wiki-search-status");
     var results = document.getElementById("wiki-search-results");
+    var emptyState = document.getElementById("wiki-filter-empty");
     if (!searchBox || !input || !status || !results) {
       return;
     }
+
+    var entries = [];
+    var currentLanguage = "all";
+    var filterButtons = document.querySelectorAll(".wiki-language-filter [data-wiki-lang]");
+    var cards = document.querySelectorAll(".wiki-card[data-wiki-lang]");
+    var topics = document.querySelectorAll("[data-wiki-topic]");
+
+    function applyLanguageFilter(language) {
+      currentLanguage = language;
+      Array.prototype.forEach.call(filterButtons, function(button) {
+        button.setAttribute("aria-pressed", button.getAttribute("data-wiki-lang") === language ? "true" : "false");
+      });
+      Array.prototype.forEach.call(cards, function(card) {
+        card.hidden = language !== "all" && card.getAttribute("data-wiki-lang") !== language;
+      });
+      var visibleTopicCount = 0;
+      Array.prototype.forEach.call(topics, function(topic) {
+        var visibleCards = topic.querySelectorAll(".wiki-card:not([hidden])");
+        topic.hidden = visibleCards.length === 0;
+        if (visibleCards.length) {
+          visibleTopicCount += 1;
+        }
+        var count = topic.querySelector("[data-topic-count]");
+        if (count) {
+          count.textContent = visibleCards.length + " 篇";
+        }
+      });
+      if (emptyState) {
+        emptyState.hidden = visibleTopicCount !== 0;
+      }
+      if (input.value.trim() && entries.length) {
+        renderResults(results, status, entries, input.value.trim(), currentLanguage);
+      }
+    }
+
+    Array.prototype.forEach.call(filterButtons, function(button) {
+      button.addEventListener("click", function() {
+        applyLanguageFilter(button.getAttribute("data-wiki-lang"));
+      });
+    });
 
     fetch(searchBox.getAttribute("data-index-url")).then(function(response) {
       if (!response.ok) {
         throw new Error("Search index request failed with " + response.status);
       }
       return response.json();
-    }).then(function(entries) {
+    }).then(function(loadedEntries) {
+      entries = loadedEntries;
       input.addEventListener("input", function() {
         var query = input.value.trim();
         if (!query) {
@@ -142,11 +203,14 @@
           results.textContent = "";
           return;
         }
-        renderResults(results, status, entries, query);
+        renderResults(results, status, entries, query, currentLanguage);
       });
+      if (input.value.trim()) {
+        renderResults(results, status, entries, input.value.trim(), currentLanguage);
+      }
     }).catch(function(error) {
       console.error("Unable to load Wiki search index:", error);
-      status.textContent = "Search is temporarily unavailable.";
+      status.textContent = "搜索暂时不可用。";
     });
   }
 
@@ -160,6 +224,7 @@
 
   return {
     createSnippet: createSnippet,
+    filterByLanguage: filterByLanguage,
     search: search
   };
 }));

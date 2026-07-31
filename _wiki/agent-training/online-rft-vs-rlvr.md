@@ -2,7 +2,8 @@
 title: "Why Online RFT Falls Short of RLVR"
 topic: agent-training
 summary: "Negative samples help preserve exploration and correct unstable reasoning paths that positive-only RFT can reinforce."
-source_note: "This seed page is grounded in the complete summary on the Writing page; the linked Zhihu article blocked automated retrieval."
+lang: en
+source_note: "当前示例页基于 Writing 页面中的完整摘要整理；知乎原文阻止了自动抓取。"
 updated: 2026-07-30
 order: 1
 sources:

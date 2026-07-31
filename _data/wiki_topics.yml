@@ -1,4 +1,4 @@
 - slug: agent-training
-  title: "Agent Training"
-  description: "Notes on post-training objectives, exploration, and reliable agent learning."
+  title: "智能体训练"
+  description: "关于后训练目标、探索机制与可靠智能体学习的持续整理。"
   order: 1

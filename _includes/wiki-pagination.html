@@ -1,8 +1,8 @@
 {% if include.previous or include.next %}
-  <nav class="wiki-pagination" aria-label="Wiki article navigation">
+  <nav class="wiki-pagination" aria-label="知识库文章导航">
     {% if include.previous %}
       <a class="wiki-pagination__link wiki-pagination__link--previous" href="{{ include.previous.url | relative_url }}">
-        <span>Previous</span>
+        <span>上一篇</span>
         <strong>{{ include.previous.title | escape }}</strong>
       </a>
     {% else %}
@@ -10,7 +10,7 @@
     {% endif %}
     {% if include.next %}
       <a class="wiki-pagination__link wiki-pagination__link--next" href="{{ include.next.url | relative_url }}">
-        <span>Next</span>
+        <span>下一篇</span>
         <strong>{{ include.next.title | escape }}</strong>
       </a>
     {% endif %}

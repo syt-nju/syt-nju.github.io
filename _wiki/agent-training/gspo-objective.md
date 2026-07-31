@@ -2,7 +2,8 @@
 title: "Understanding GSPO from the Objective Level"
 topic: agent-training
 summary: "GSPO moves clipping to the sequence level to reduce instability caused by routing changes in MoE training."
-source_note: "This seed page is grounded in the complete summary on the Writing page; the linked Zhihu article blocked automated retrieval."
+lang: en
+source_note: "当前示例页基于 Writing 页面中的完整摘要整理；知乎原文阻止了自动抓取。"
 updated: 2026-07-30
 order: 2
 sources:

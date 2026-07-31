@@ -3,6 +3,7 @@ layout: default
 ---
 
 {% assign topics = site.data.wiki_topics | sort: "order" %}
+{% assign current_topic = site.data.wiki_topics | where: "slug", page.topic | first %}
 {% assign found_current = false %}
 {% assign previous_article = nil %}
 {% assign next_article = nil %}
@@ -28,12 +29,17 @@ layout: default
     <div class="page__inner-wrap">
       <header class="wiki-article__header">
         {% if page.collection == "wiki" %}
-          <p class="wiki-article__eyebrow"><a href="{{ '/wiki/' | relative_url }}">Wiki</a> / {{ page.topic | replace: "-", " " | capitalize | escape }}</p>
+          <p class="wiki-article__eyebrow"><a href="{{ '/wiki/' | relative_url }}">知识库</a> / {{ current_topic.title | default: page.topic | escape }}</p>
         {% endif %}
         <h1 class="page__title" itemprop="headline">{{ page.title | escape }}</h1>
         {% if page.summary %}<p class="wiki-article__summary" itemprop="description">{{ page.summary | escape }}</p>{% endif %}
         {% if page.source_note %}<p class="wiki-source-note">{{ page.source_note | escape }}</p>{% endif %}
-        {% if page.updated %}<p class="wiki-article__updated">Updated <time datetime="{{ page.updated | date: '%Y-%m-%d' }}">{{ page.updated | date: "%B %-d, %Y" }}</time></p>{% endif %}
+        {% if page.collection == "wiki" %}
+          <div class="wiki-article__meta">
+            <span class="wiki-language-badge">{% if page.lang == "zh-CN" %}中文{% else %}English{% endif %}</span>
+            {% if page.updated %}<span>更新于 <time datetime="{{ page.updated | date: '%Y-%m-%d' }}">{{ page.updated | date: "%Y-%m-%d" }}</time></span>{% endif %}
+          </div>
+        {% endif %}
       </header>
 
       <section class="page__content" itemprop="articleBody">
@@ -42,7 +48,7 @@ layout: default
 
       {% if page.sources %}
         <footer class="wiki-article__sources">
-          <h2>Sources</h2>
+          <h2>参考来源</h2>
           <ul>
             {% for source in page.sources %}
               <li><a href="{{ source.url | escape }}" rel="noopener">{{ source.title | escape }}</a></li>

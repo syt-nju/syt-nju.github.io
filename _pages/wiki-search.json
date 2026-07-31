@@ -8,6 +8,8 @@ permalink: /wiki/search.json
     "title": {{ article.title | jsonify }},
     "url": {{ article.url | relative_url | jsonify }},
     "summary": {{ article.summary | jsonify }},
+    "lang": {{ article.lang | jsonify }},
+    "updated": {{ article.updated | date: "%Y-%m-%d" | jsonify }},
     "content": {{ article.content | markdownify | strip_html | normalize_whitespace | jsonify }}
   }{% unless forloop.last %},{% endunless %}
 {% endfor %}
