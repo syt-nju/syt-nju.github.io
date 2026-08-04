@@ -54,3 +54,14 @@
 - Updated: _wiki/skill-management/skill-lifecycle.md
 - Cross-links: overview ↔ skill-lifecycle (hygiene vs AutoSkill lifecycle)
 - Note: Full text from arXiv PDF; extends workshop version arXiv:2605.19576.
+
+## 2026-08-04 ingest | MUSE-Autoskill: Self-Evolving Agents via Skill Creation, Memory, Management, and Evaluation
+- Disposition: New + Update + Disputed (partial)
+- Topic: skill-management
+- Raw: raw/skill-management/2026-05-26-muse-autoskill.md
+- Created: _wiki/skill-management/muse-autoskill.md
+- Updated: _wiki/skill-management/overview.md
+- Updated: _wiki/skill-management/skill-lifecycle.md
+- Updated: _wiki/skill-management/skill-library.md
+- Cross-links: overview ↔ muse-autoskill ↔ skill-lifecycle ↔ skill-library ↔ skill-curation-rl
+- Note: Full text from arXiv PDF v2; License CC BY 4.0. Disputed region: SkillsBench LLM-self-authored null result (Ratchet) vs MUSE self-created skill gains under lifecycle-managed protocol.

@@ -45,3 +45,4 @@ raw:
 - [技能管理概览](/wiki/skill-management/overview/)
 - [Skill Library](/wiki/skill-management/skill-library/)
 - [技能生命周期](/wiki/skill-management/skill-lifecycle/)
+- [MUSE-Autoskill](/wiki/skill-management/muse-autoskill/)（training-free 全生命周期对照）
