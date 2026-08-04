@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: muse-autoskill
+    title: "MUSE 怎么把一次成功做成可验证、可复用的 Agent 技能"
+    date: 2026-08-04
+    source_type: paper
+    source_url: "https://arxiv.org/abs/2605.27366"
   - slug: verl-v1-mainline-pipeline
     title: "verl 0.8.0：主线 pipeline 改了什么？"
     date: 2026-07-14
