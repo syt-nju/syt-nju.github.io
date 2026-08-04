@@ -25,3 +25,32 @@
 - Created: _wiki/skill-management/skill-library.md
 - Cross-links: overview ↔ skill-library
 - Note: Full text mirrored by maintainer decision; License recorded as arXiv perpetual non-exclusive (metadata only).
+
+## 2026-08-04 ingest | AutoSkill: Experience-Driven Lifelong Learning via Skill Self-Evolution
+- Disposition: Update + New
+- Topic: skill-management
+- Raw: raw/skill-management/2026-03-01-autoskill.md
+- Created: _wiki/skill-management/skill-lifecycle.md
+- Updated: _wiki/skill-management/overview.md
+- Updated: _wiki/skill-management/skill-library.md
+- Cross-links: overview ↔ skill-library ↔ skill-lifecycle
+- Note: Full text from arXiv PDF; License CC BY 4.0.
+
+## 2026-08-04 ingest | SkillOS: Learning Skill Curation for Self-Evolving Agents
+- Disposition: New + Update
+- Topic: skill-management
+- Raw: raw/skill-management/2026-05-07-skillos.md
+- Created: _wiki/skill-management/skill-curation-rl.md
+- Updated: _wiki/skill-management/overview.md
+- Updated: _wiki/skill-management/skill-library.md
+- Cross-links: overview ↔ skill-library ↔ skill-curation-rl ↔ skill-lifecycle
+- Note: Full text from arXiv PDF; License recorded as arXiv non-exclusive (metadata only).
+
+## 2026-08-04 ingest | Ratchet: A Minimal Hygiene Recipe for Self-Evolving LLM Agents
+- Disposition: Update
+- Topic: skill-management
+- Raw: raw/skill-management/2026-05-ratchet.md
+- Updated: _wiki/skill-management/overview.md
+- Updated: _wiki/skill-management/skill-lifecycle.md
+- Cross-links: overview ↔ skill-lifecycle (hygiene vs AutoSkill lifecycle)
+- Note: Full text from arXiv PDF; extends workshop version arXiv:2605.19576.

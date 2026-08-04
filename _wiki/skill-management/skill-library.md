@@ -1,43 +1,45 @@
 ---
 title: "Skill Library"
 topic: skill-management
-summary: "Voyager 把成功的可执行程序按描述 embedding 存入向量库，用 top-5 检索支撑组合式技能复用与跨任务泛化。"
+summary: "技能库是冻结 LLM 的外部程序性记忆；形态从 Voyager 的可执行代码，发展到 SKILL.md / Markdown SkillRepo 等可检视、可检索工件。"
 lang: zh-CN
 updated: 2026-08-04
 order: 2
 sources:
   - title: "Voyager: An Open-Ended Embodied Agent with Large Language Models"
     url: "https://arxiv.org/abs/2305.16291"
+  - title: "AutoSkill: Experience-Driven Lifelong Learning via Skill Self-Evolution"
+    url: "https://arxiv.org/abs/2603.01145"
+  - title: "SkillOS: Learning Skill Curation for Self-Evolving Agents"
+    url: "https://arxiv.org/abs/2605.06614"
 raw:
   - raw/skill-management/2023-05-25-voyager.md
+  - raw/skill-management/2026-03-01-autoskill.md
+  - raw/skill-management/2026-05-07-skillos.md
 ---
 
 ## Overview
 
-Skill library 是 Voyager 把「做过一次的事」变成「以后还能调」的外部记忆。技能不是对话摘要，而是通过 self-verification 的可执行程序；库随 curriculum 提出的任务不断写入，形成可组合、可解释、可迁移的行为资产。
+Skill library 把「做过一次的事」变成「以后还能调」的外部记忆。它不是原始对话回放，而是可检索、 ideally 可组合的程序性工件。表示形态随系统而变，但角色一致：在权重冻结时承载跨任务能力增长。
 
-## 表示与索引
+## Voyager：可执行代码技能
 
-每个技能是一段可复用函数式代码。写入时：GPT-3.5 生成程序描述，用其 embedding 作为向量库的 key，value 是程序本体。生成提示强调技能会被后续更复杂函数复用，因此应保持 generic。
+每个技能是通过 self-verification 的函数式程序。描述由 GPT-3.5 生成，embedding 作向量库 key，value 是程序本体。新任务时检索 top-5 相关技能，注入 GPT-4 代码生成上下文；复杂行为通过组合已有程序放大能力，并缓解 catastrophic forgetting。写入门槛高：环境反馈、解释器错误与 critic 式 self-verification 通过后才 commit。去掉 skill library 后后期探索趋于平台；完整系统相对基线约 3.3 倍独特物品、约 2.3 倍路程，并是唯一解锁 diamond 工具的方法。
 
-## 检索与组合
+## AutoSkill：SKILL.md 工件
 
-面对 curriculum 的新任务时，先用 GPT-3.5 生成解题建议，再与环境反馈一起作为 query；检索返回 top-5 相关技能，连同 control primitive API 注入 GPT-4 的代码生成上下文。复杂行为通过组合已有程序实现，使能力随库增长而复合放大，并减轻其他 continual learning 方法中的 catastrophic forgetting。
+技能是可编辑、可版本化的 **SKILL.md**（Agent Skill 标准）：身份、标签、触发器、提示与约束。SkillBank 按 Users / Common 持久化并用向量索引。相对 Voyager，这里的技能多为自然语言行为规范与工作流，面向对话助手的个性化与制度性偏好，而不是 Minecraft 电机级程序。
 
-## 写入门槛
+## SkillOS：Markdown SkillRepo
 
-技能并非每次尝试都入库。Iterative prompting 反复执行代码、收集环境反馈与解释器错误，并由另一 GPT-4 扮演 critic 做 self-verification：成功才 commit（如 `craftStoneShovel()`、`combatZombieWithSword()`）；失败则给出 critique 继续 refinement。超过 4 轮仍卡住则放弃当前任务、向 curriculum 要新目标。
+SkillOS 沿用社区「技能即文件夹 / Markdown 指令」设定，把外部 SkillRepo 交给可训练 curator 维护；冻结 executor 只负责检索与执行。分析表明，学习后的库会发展出更丰富内部结构与更高层 meta-skills，策展本身比单纯换更强生成模型更关键。
 
-## 证据：库是否关键
+## 共同边界
 
-去掉 skill library 的变体在后期探索趋于平台，说明库不只是缓存，而是推动「新技能建立在旧技能之上」的结构。完整 Voyager 在科技树上是唯一解锁 diamond 工具的方法；在新世界清空库存后，同一库支撑未见任务的零样本求解，并可作为 plug-and-play 资产提升 AutoGPT。
-
-相对基线的量级：约 3.3 倍独特物品、约 2.3 倍路程、木制节点约 15.3 倍更快。这些数字衡量的是整套系统，但消融把技能库标为后期不平台化的关键因素。
-
-## 边界
-
-Voyager 的库默认持续增长，检索靠相似度，缺少按任务贡献的退役与显式容量上限。这为后续「技能生命周期管理」留下缺口：库越大，噪声与冗余如何不拖垮有效检索，是 skill management 的下一层问题。
+三种表示都依赖检索质量；库增长后噪声、冗余与过时条目会拖垮有效上下文。表示问题与治理问题应分开看：见生命周期与策展 RL 页。
 
 ## See Also
 
 - [技能管理概览](/wiki/skill-management/overview/)
+- [技能生命周期](/wiki/skill-management/skill-lifecycle/)
+- [Skill Curation RL](/wiki/skill-management/skill-curation-rl/)

@@ -1,43 +1,43 @@
 ---
 title: "技能管理概览"
 topic: skill-management
-summary: "从 Voyager 起，冻结 LLM 通过可增长的外部技能库做终身学习；后续工作把焦点从‘会写技能’推进到检索、演化和治理。"
+summary: "冻结 LLM 靠外部技能库做终身学习：Voyager 奠基可增长库，AutoSkill 做抽取与版本演化，SkillOS 用 RL 学策展，Ratchet 用 hygiene 防库漂移。"
 lang: zh-CN
 updated: 2026-08-04
 order: 1
 sources:
   - title: "Voyager: An Open-Ended Embodied Agent with Large Language Models"
     url: "https://arxiv.org/abs/2305.16291"
+  - title: "AutoSkill: Experience-Driven Lifelong Learning via Skill Self-Evolution"
+    url: "https://arxiv.org/abs/2603.01145"
+  - title: "SkillOS: Learning Skill Curation for Self-Evolving Agents"
+    url: "https://arxiv.org/abs/2605.06614"
+  - title: "Ratchet: A Minimal Hygiene Recipe for Self-Evolving LLM Agents"
+    url: "https://arxiv.org/abs/2605.22148"
 raw:
   - raw/skill-management/2023-05-25-voyager.md
+  - raw/skill-management/2026-03-01-autoskill.md
+  - raw/skill-management/2026-05-07-skillos.md
+  - raw/skill-management/2026-05-ratchet.md
 ---
 
 ## Overview
 
-开放世界里的 LLM agent 若只做单次规划，跨任务知识无法沉淀。Voyager 在 Minecraft 上给出一条可复用路线：用黑盒 GPT-4 做 in-context 学习，把成功行为固化成可执行程序，写入不断增长的 skill library，再靠 curriculum 推动探索边界。权重不更新，能力增长发生在外部技能库里。
+开放世界里的 LLM agent 若只做单次规划，跨任务知识无法沉淀。一条持续出现的路线是：权重冻结，把可复用行为外置为技能库，再在检索与治理上下功夫。本主题按问题组织四篇来源的增量：库如何长出来、技能长什么样、谁来策展、库如何不漂坏。
 
-本主题后续页面会在此基础上整理：技能如何表示与检索、如何从交互中抽取与演化、以及生命周期治理（退役、容量、去重）如何避免库质量漂移。
+## 四条演进线
 
-## Voyager 的三件套
+1. **Voyager（奠基）**：Minecraft 上的终身探索 agent。automatic curriculum + 可执行代码 skill library + iterative prompting（环境反馈 / 执行错误 / self-verification）。160 次 iteration 内发现 63 个独特物品，约为对照的 3.3 倍；路程约 2.3 倍；木制节点约快 15.3 倍。库默认可增长，几乎不做 outcome-driven 退役。
+2. **AutoSkill（抽取与版本）**：从对话轨迹抽象 **SKILL.md**，模型无关 plug-in；online hybrid 检索注入，异步 judge 做 add / merge / discard 与 versioned merge。WildChat-1M（>8 turns）四子集共 N=1858 技能；English GPT-3.5 子集 10,243 对话 / 631 skills；案例 `professional_text_rewrite` 至版本 0.1.34。
+3. **SkillOS（学策展）**：冻结 executor + 可训练 curator，对外部 SkillRepo 做 RL（GRPO）；用 grouped task streams 与 composite rewards 归因延迟反馈。ALFWorld 上相对 ReasoningBank，Qwen3-8B executor 的平均 SR 从 55.7 到 61.2；同一 curator 可泛化到更强 executor（如 Gemini-2.5-Pro 从 66.4 到 80.2）。
+4. **Ratchet（hygiene / librarian）**：重述 SkillsBench：人写技能 +16.2pp，LLM 自写 +0.0pp，瓶颈在生命周期而非写作。四类机制——pattern canonicalisation、outcome-driven retirement、bounded active-cap、meta-skill authoring prior。MBPP+ hard-100 上 rolling-mean gain +0.328，late-window 0.584（peak 0.658）；SWE-bench Verified 有 +0.22 peak lift。消融显示 retirement 与 meta-skill 承重，显式去重可被 meta-skill 吸收。
 
-Voyager 由三块机制组成：
+## 共同主张与分歧
 
-1. **Automatic curriculum**：以「尽可能发现多样事物」为总目标，按当前状态与探索进度自下而上提出下一任务，可看作 in-context 的 novelty search。
-2. **Skill library**：技能是可执行代码，而不是低层电机指令；描述的 embedding 作检索键，复杂技能通过组合更简单程序快速放大能力，并缓解 catastrophic forgetting。
-3. **Iterative prompting**：环境反馈、代码解释器错误、以及 GPT-4 self-verification 共同驱动程序 refinement；验证通过后才写入技能库。卡住超过 4 轮代码生成则换任务。
-
-code as action 的动机是：程序天然表达时序扩展与可组合动作，适合 Minecraft 一类长程任务。
-
-## 实证锚点
-
-在 MineDojo 上相对 ReAct、Reflexion、AutoGPT 等基线，Voyager 在 160 次 prompting iteration 内发现 63 个独特物品，约为对照的 3.3 倍；路程约 2.3 倍；木制工具节点约快 15.3 倍，石制约 8.5 倍，铁制约 6.4 倍，且是唯一解锁 diamond 级的方法。清空背包、换新世界后，已学技能库可零样本支撑未见任务；同一技能库甚至可即插即用地提升 AutoGPT。
-
-消融显示：去掉 skill library 后后期探索趋于平台；curriculum、环境反馈、执行错误与 self-verification 各自贡献明显。
-
-## 主题开放问题
-
-Voyager 证明「可增长技能库」可行，但几乎不做 outcome-driven 退役与容量约束。后续工作是否仍以可执行代码为技能形态、如何从对话或轨迹中自动抽取自然语言技能、以及如何用 RL 或 hygiene 规则管理库质量，是本主题继续累积的主线。
+共同主张：能力增长可以发生在外部技能资产上，而不必更新权重。分歧在于「谁写技能、谁管库、反馈从哪来」——启发式 merge（AutoSkill）、RL 策展（SkillOS）、还是冻结作者加 hygiene 规则（Ratchet）。Voyager 证明库有用；后三者分别补抽取标准、策展学习与防漂移。
 
 ## See Also
 
 - [Skill Library](/wiki/skill-management/skill-library/)
+- [技能生命周期](/wiki/skill-management/skill-lifecycle/)
+- [Skill Curation RL](/wiki/skill-management/skill-curation-rl/)
