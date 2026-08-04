@@ -6,3 +6,7 @@
   title: "深度搜索智能体"
   description: "关于搜索任务合成、轨迹诊断与长程证据获取能力的持续整理。"
   order: 2
+- slug: skill-management
+  title: "技能管理"
+  description: "关于智能体技能库的表示、检索、组合、演化与生命周期治理的持续整理。"
+  order: 3
