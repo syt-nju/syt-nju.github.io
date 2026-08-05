@@ -57,4 +57,5 @@ MUSE-Autoskill（Memory-Utilizing Skill Evolution）把技能当作可长期治�
 - [技能管理概览](/wiki/skill-management/overview/)
 - [Skill Library](/wiki/skill-management/skill-library/)
 - [技能生命周期](/wiki/skill-management/skill-lifecycle/)
+- [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/)
 - [Skill Curation RL](/wiki/skill-management/skill-curation-rl/)

@@ -86,3 +86,14 @@
 - Updated: _wiki/deep-search/fort-searcher.md (zh-CN system page; concept split out)
 - Cross-links: overview ↔ realized-difficulty ↔ trajectory-signatures ↔ fort-searcher
 - Note: Reorganized from English paper-centric page into Chinese concept/system pages aligned with skill-management style.
+
+## 2026-08-05 ingest | Meta Context Engineering via Agentic Skill Evolution
+- Disposition: New + Update
+- Topic: skill-management
+- Raw: raw/skill-management/2026-01-29-meta-context-engineering.md
+- Created: _wiki/skill-management/meta-context-engineering.md
+- Updated: _wiki/skill-management/overview.md
+- Updated: _wiki/skill-management/skill-library.md
+- Updated: _wiki/skill-management/skill-lifecycle.md
+- Cross-links: overview ↔ meta-context-engineering ↔ skill-library ↔ skill-lifecycle ↔ muse-autoskill
+- Note: Full text from arXiv PDF via deepxiv (v2); License arXiv perpetual non-exclusive 1.0 (metadata only). Complementary to SkillsBench dispute (CE benchmarks, not task-skill self-authoring).
