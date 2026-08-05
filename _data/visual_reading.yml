@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: ace-agentic-context-engineering
+    title: "ACE：prompt/skill 细粒度修改"
+    date: 2026-08-05
+    source_type: paper
+    source_url: "https://arxiv.org/abs/2510.04618"
   - slug: muse-autoskill
     title: "MUSE 怎么把一次成功做成可验证、可复用的 Agent 技能"
     date: 2026-08-04

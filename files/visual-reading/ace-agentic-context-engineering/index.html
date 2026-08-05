@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ACE：让上下文成为会进化的作战手册</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fbf6ea;
+  --paper: #fffdf7;
+  --soft: #f4ead7;
+  --soft-2: #e8dcc7;
+  --ink: #2c2418;
+  --sub: #5f5240;
+  --muted: #8a7c68;
+  --accent: #9b6843;
+  --line: #ded1bc;
+  --shadow: 0 3px 12px rgba(60, 45, 25, .07);
+  --radius: 10px;
+  --sans: "Inter", "Noto Sans SC", system-ui, sans-serif;
+  --mono: "JetBrains Mono", monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.8 var(--sans); }
+a { color: var(--accent); }
+.container { width: min(860px, calc(100% - 40px)); margin: 0 auto; }
+.nav {
+  position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--line);
+  background: rgba(251, 246, 234, .94); backdrop-filter: blur(8px);
+}
+.nav-inner { height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.nav-links { display: flex; gap: 20px; overflow-x: auto; scrollbar-width: none; }
+.nav-links::-webkit-scrollbar { display: none; }
+.nav a { white-space: nowrap; text-decoration: none; font-size: 13px; font-weight: 600; color: var(--muted); }
+.nav a:hover { color: var(--accent); }
+.source-pill { border: 1px solid var(--line); border-radius: 5px; padding: 4px 10px; }
+.hero { padding: 54px 0 36px; border-bottom: 1px solid var(--line); }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.tag { background: var(--soft); color: var(--sub); border-radius: 4px; padding: 3px 9px; font-size: 12px; font-weight: 600; }
+.tag.primary { background: var(--accent); color: #fff; }
+h1 { max-width: 760px; font-size: clamp(29px, 5vw, 42px); line-height: 1.24; letter-spacing: -.03em; margin-bottom: 14px; }
+.subtitle { max-width: 760px; color: var(--sub); font-size: 17px; margin-bottom: 12px; }
+.authors { color: var(--muted); font-size: 13px; }
+.hero-source { display: inline-block; margin-top: 12px; font-size: 13px; font-weight: 600; text-decoration: none; }
+main { padding: 36px 0 20px; }
+section { margin-bottom: 54px; }
+h2 { font-size: 24px; line-height: 1.4; margin-bottom: 18px; padding-bottom: 9px; border-bottom: 2px solid var(--soft-2); }
+h3 { font-size: 18px; margin: 28px 0 12px; }
+p { margin-bottom: 15px; }
+strong { font-weight: 700; }
+.eyebrow { color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: .09em; margin-bottom: 7px; }
+.tldr { padding: 25px 28px; background: var(--soft); border-left: 4px solid var(--accent); border-radius: var(--radius); }
+.tldr-title { color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: .08em; margin-bottom: 8px; }
+.tldr p:last-child { margin-bottom: 0; }
+.question { margin: 22px 0; padding: 20px 24px; border: 1px solid var(--line); background: var(--paper); border-radius: var(--radius); box-shadow: var(--shadow); }
+.question-label { color: var(--muted); font-size: 12px; font-weight: 700; }
+.question-text { margin-top: 4px; font-size: 20px; font-weight: 700; line-height: 1.5; }
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; margin: 24px 0; }
+.metric { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 20px 15px; text-align: center; box-shadow: var(--shadow); }
+.metric-value { color: var(--accent); font: 700 30px/1.2 var(--mono); }
+.metric-label { margin-top: 7px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+.list { list-style: none; margin: 0 0 16px; }
+.list li { position: relative; padding: 6px 0 6px 19px; }
+.list li::before { content: ""; position: absolute; left: 1px; top: 16px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 22px 0; }
+.panel { padding: 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
+.panel-title { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .07em; margin-bottom: 10px; }
+.panel.accent { background: var(--soft); }
+.figure { margin: 26px 0; padding: 18px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.figure img { display: block; width: 100%; height: auto; max-height: 680px; object-fit: contain; border-radius: 5px; }
+.caption { margin-top: 12px; color: var(--sub); font-size: 13px; line-height: 1.6; }
+.fig-toggle { margin-top: 7px; border: 0; padding: 0; background: none; color: var(--accent); cursor: pointer; font: 600 13px var(--sans); }
+.fig-toggle:hover { text-decoration: underline; }
+.figure-detail { max-height: 0; overflow: hidden; opacity: 0; transform: translateY(-4px); transition: max-height .45s ease, opacity .25s ease, transform .25s ease; }
+.figure-detail.active { max-height: 1300px; opacity: 1; transform: none; margin-top: 9px; }
+.figure-detail ul { list-style: none; }
+.figure-detail li { position: relative; padding: 6px 0 6px 17px; color: var(--sub); font-size: 13px; }
+.figure-detail li::before { content: "—"; position: absolute; left: 0; color: var(--accent); }
+.collapse-story { margin: 20px 0; display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; align-items: center; gap: 10px; }
+.state { padding: 16px 10px; text-align: center; border: 1px solid var(--line); background: var(--paper); border-radius: 8px; }
+.state strong { display: block; font: 700 17px var(--mono); }
+.state small { display: block; margin-top: 5px; color: var(--muted); line-height: 1.4; }
+.arrow { color: var(--accent); font-weight: 700; }
+.related-card { margin-bottom: 13px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); overflow: hidden; box-shadow: var(--shadow); }
+.related-head { display: flex; gap: 12px; align-items: flex-start; padding: 17px 20px; cursor: pointer; transition: background .2s; }
+.related-head:hover { background: var(--soft); }
+.chevron { margin-top: 4px; color: var(--muted); transition: transform .25s; }
+.related-card.open .chevron { transform: rotate(90deg); }
+.related-title { font-size: 15px; font-weight: 700; }
+.paper-tag { display: inline-block; margin-right: 7px; padding: 1px 7px; border-radius: 3px; background: var(--soft-2); color: var(--sub); font-size: 10px; }
+.related-summary { margin-top: 4px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.related-body { max-height: 0; overflow: hidden; opacity: 0; transition: max-height .55s ease, opacity .3s ease; }
+.related-card.open .related-body { max-height: 3600px; opacity: 1; }
+.related-content { padding: 18px 20px 22px; border-top: 1px solid var(--line); }
+.related-content p, .related-content li { color: var(--sub); font-size: 14px; }
+.flow {
+  padding: 22px; margin: 23px 0; background: var(--paper); border: 1px solid var(--line);
+  border-radius: var(--radius); box-shadow: var(--shadow);
+}
+.case-query { padding: 12px 15px; border-radius: 7px; background: var(--soft); color: var(--sub); font-size: 13px; }
+.case-query strong { color: var(--ink); }
+.stage-track { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin: 15px 0; }
+.stage-chip { padding: 7px 8px; border: 1px solid var(--line); border-radius: 5px; color: var(--muted); text-align: center; font-size: 11px; transition: background .25s, color .25s, border-color .25s; }
+.stage-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.stage-chip.done { background: var(--soft); color: var(--sub); }
+.case-layout { display: grid; grid-template-columns: 1.05fr .95fr; gap: 14px; margin-bottom: 15px; }
+.playbook-case, .case-evidence { min-height: 230px; padding: 17px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.case-label { color: var(--muted); font-size: 10px; font-weight: 700; letter-spacing: .08em; }
+.playbook-heading { display: flex; justify-content: space-between; gap: 10px; margin: 5px 0 11px; font-weight: 700; }
+.playbook-version { color: var(--accent); font: 600 11px var(--mono); }
+.playbook-entry { padding: 13px; border-left: 3px solid var(--accent); border-radius: 0 6px 6px 0; background: var(--paper); transition: background .3s, transform .3s; }
+.playbook-entry.updated { background: var(--soft); transform: translateY(-2px); }
+.playbook-content { margin-top: 6px; font-size: 13px; line-height: 1.65; }
+.playbook-meta { margin-top: 8px; color: var(--muted); font: 10px var(--mono); }
+.case-evidence { display: grid; gap: 9px; }
+.case-event { padding: 10px 12px; border: 1px dashed var(--line); border-radius: 6px; background: var(--paper); color: var(--muted); font-size: 12px; line-height: 1.55; transition: opacity .25s, border-color .25s; }
+.case-event.revealed { border-style: solid; border-color: var(--accent); color: var(--sub); }
+.case-event strong { display: block; margin-bottom: 2px; color: var(--ink); font-size: 11px; }
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; }
+button.demo { padding: 8px 15px; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); cursor: pointer; color: var(--ink); font: 600 12px var(--sans); }
+button.demo.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.step-text { flex: 1; min-width: 220px; color: var(--sub); font-size: 13px; }
+.quote { margin: 22px 0; padding: 18px 22px; background: var(--soft); border-left: 3px solid var(--accent); color: var(--sub); }
+.evidence { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; margin: 20px 0; }
+.evidence-card { padding: 19px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); }
+.evidence-card strong { display: block; margin-bottom: 6px; }
+.evidence-card p { color: var(--sub); font-size: 14px; margin: 0; }
+.boundary { padding: 22px; background: var(--soft); border-radius: var(--radius); }
+.boundary-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+.boundary h3 { margin-top: 0; }
+details { margin: 15px 0; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+summary { padding: 14px 17px; cursor: pointer; color: var(--sub); font-size: 13px; font-weight: 600; }
+.details-body { padding: 16px 18px; border-top: 1px solid var(--line); color: var(--sub); font-size: 13px; }
+.code { white-space: pre-wrap; font: 12px/1.7 var(--mono); }
+footer { margin-top: 48px; padding: 30px 0 48px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+@media (max-width: 880px) {
+  .metrics, .compare, .evidence, .boundary-grid, .case-layout { grid-template-columns: 1fr; }
+  .stage-track { grid-template-columns: 1fr 1fr; }
+  .collapse-story { grid-template-columns: 1fr; }
+  .arrow { transform: rotate(90deg); text-align: center; }
+  .nav-links { gap: 14px; }
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <div class="container nav-inner">
+    <div class="nav-links">
+      <a href="#tldr">30 秒读懂</a>
+      <a href="#problem">为什么会塌</a>
+      <a href="#related">已有方案</a>
+      <a href="#method">ACE 方法</a>
+      <a href="#evidence">证据</a>
+      <a href="#boundary">边界</a>
+    </div>
+    <a class="source-pill" href="https://arxiv.org/abs/2510.04618" target="_blank" rel="noopener">原文 ↗</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="container">
+    <div class="meta">
+      <span class="tag primary">ICLR'26</span>
+      <span class="tag">2025.10</span>
+      <span class="tag">cs.LG · cs.AI · cs.CL</span>
+    </div>
+    <h1>ACE：让上下文成为会进化的作战手册</h1>
+    <p class="subtitle">不改模型权重，怎样让 Agent 从每次执行中积累经验，又不在反复改写中遗忘？</p>
+    <p class="authors">Qizheng Zhang, Changran Hu, Shubhangi Upasani 等 · Stanford · SambaNova Systems · UC Berkeley</p>
+    <a class="hero-source" href="https://arxiv.org/abs/2510.04618" target="_blank" rel="noopener">阅读原论文 · Agentic Context Engineering ↗</a>
+  </div>
+</header>
+
+<main class="container">
+  <section id="tldr">
+    <div class="tldr">
+      <div class="tldr-title">30 秒读懂</div>
+      <p>过去的上下文优化常把经验反复压成一段“更好、更短”的 prompt；压缩看似整洁，却会丢掉工具细节、边界条件和失败模式。严重时，整份记忆会从上万 token 突然缩成百余 token，性能随之下跌。</p>
+      <p><strong>ACE 的关键转变</strong>：把上下文视为一份由细粒度条目组成、可以持续演化的作战手册。Generator 执行任务，Reflector 从轨迹中提炼经验，Curator 只产出局部 delta，再由确定性逻辑合并、去重和修订。</p>
+      <p>因此，ACE 不是“再写一遍整份 prompt”，而是<strong>只改该改的那一条</strong>。它在 Agent 任务上平均提升 10.6%，在金融任务上平均提升 8.6%，但收益依赖可信的执行或标注反馈。</p>
+    </div>
+    <div class="question">
+      <div class="question-label">这篇文章究竟要回答什么问题？</div>
+      <div class="question-text">如何让 LLM 通过上下文长期积累经验，同时避免压缩偏差、整体重写和错误反馈把旧知识冲掉？</div>
+    </div>
+    <div class="metrics">
+      <div class="metric"><div class="metric-value">+10.6%</div><div class="metric-label">Agent 基准<br>相对强基线平均增益</div></div>
+      <div class="metric"><div class="metric-value">+8.6%</div><div class="metric-label">金融领域基准<br>相对强基线平均增益</div></div>
+      <div class="metric"><div class="metric-value">−86.9%</div><div class="metric-label">跨设置平均<br>上下文适配延迟</div></div>
+    </div>
+  </section>
+
+  <section id="problem">
+    <div class="eyebrow">01 · 问题</div>
+    <h2>上下文为什么越“优化”越容易塌？</h2>
+    <p>上下文适配的优势很直观：它<strong>可解释、更新快、可跨模型复用</strong>，也不需要昂贵的权重训练。但当任务依赖大量领域规则、API 用法与失败教训时，“写得更短”并不等于“学得更好”。</p>
+    <ul class="list">
+      <li><strong>简洁偏差（brevity bias）</strong>：优化器偏爱短而通用的指令，具体策略和边界情况被抽象掉。</li>
+      <li><strong>上下文塌缩（context collapse）</strong>：每一步都让 LLM 整体重写，旧知识没有稳定锚点，可能在一次更新中突然消失。</li>
+      <li><strong>职责拥挤</strong>：同一个模型既执行、又评估、又重写记忆，轨迹诊断和知识维护互相干扰。</li>
+    </ul>
+
+    <div class="collapse-story" aria-label="上下文塌缩示意">
+      <div class="state"><strong>18,282</strong><small>第 60 步上下文 token<br>准确率 66.7</small></div>
+      <div class="arrow">→</div>
+      <div class="state"><strong>整体重写</strong><small>LLM 尝试压缩并整理<br>没有局部保护</small></div>
+      <div class="arrow">→</div>
+      <div class="state"><strong>122</strong><small>第 61 步上下文 token<br>准确率跌至 57.1</small></div>
+    </div>
+
+    <div class="figure">
+      <img src="https://arxiv.org/html/2510.04618v3/x2.png" alt="论文中的上下文塌缩曲线：上下文长度骤降伴随准确率下降">
+      <div class="caption">论文 Figure 2：Dynamic Cheatsheet 的整份上下文重写在某一步突然压缩信息，性能同时跌破无适配基线。</div>
+      <button class="fig-toggle" type="button" onclick="toggleFigure(this, event)">展开说明 ▸</button>
+      <div class="figure-detail">
+        <ul>
+          <li><strong>横轴</strong>是连续适配步骤；上下文会随经验累积逐渐增长。</li>
+          <li><strong>长度变化</strong>并非平滑修剪：第 60 到 61 步从 18,282 token 断崖式跌到 122 token。</li>
+          <li><strong>性能变化</strong>与信息丢失同步：准确率从 66.7 降至 57.1，低于不做适配的 63.7。</li>
+          <li><strong>因果警示</strong>不是“长上下文必然好”，而是整体重写没有办法保证关键条目仍被保留。</li>
+          <li><strong>ACE 的对应设计</strong>是把知识拆成带 ID 的条目，只应用局部 delta，让未被修改的经验原样留下。</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section id="related">
+    <div class="eyebrow">02 · 已有方案</div>
+    <h2>两条重要路线，都还差了哪一步？</h2>
+    <p>ACE 不是从零开始。GEPA 证明了<strong>自然语言反思可以高效优化 prompt</strong>；Dynamic Cheatsheet 证明了<strong>模型可以在测试时积累外部记忆</strong>。ACE 接过这两条线，专门解决“细节必须长期留下”的场景。</p>
+
+    <article class="related-card">
+      <div class="related-head" onclick="toggleCard(this)">
+        <span class="chevron">▸</span>
+        <div>
+          <div class="related-title"><span class="paper-tag">ICLR'26 Oral</span>GEPA：反思式 Prompt 进化</div>
+          <div class="related-summary">角色：离线 prompt 优化强基线。它从轨迹反思并搜索完整 prompt 候选，但目标仍是选出一份高分指令，难以稳定承载大量细粒度知识。</div>
+        </div>
+      </div>
+      <div class="related-body">
+        <div class="related-content">
+          <p><strong>输入 → 处理 → 输出：</strong>GEPA 接收系统执行轨迹、评估分数和文本反馈；LLM 诊断失败并变异某个 prompt；Pareto 前沿保留在不同样本上各有所长的候选，最后输出高性能 prompt。</p>
+          <p>它的优势是把稀疏标量奖励变成可读的自然语言学习信号，并通过候选多样性避免贪心搜索陷入局部最优。它适合“找到更好的总体指令”，却不是为维护一份不断增长的领域知识库而设计。</p>
+          <p><strong>与 ACE 的关键区别：</strong>GEPA 的候选是完整 prompt；ACE 的状态是带 ID 和计数器的条目集合。前者在候选间搜索，后者对知识做增量维护。</p>
+          <div class="figure">
+            <img src="https://arxiv.org/html/2507.19457v1/x3.png" alt="GEPA 的反思式 prompt 进化流程">
+            <div class="caption">GEPA v1 Figure 3：每轮从 Pareto 前沿选择候选，通过反思式变异或合并提出新 prompt，再经小批量和更大集合评估；最新版 v2 的 arXiv HTML 暂不可用。</div>
+            <button class="fig-toggle" type="button" onclick="toggleFigure(this, event)">展开说明 ▸</button>
+            <div class="figure-detail">
+              <ul>
+                <li><strong>候选池</strong>保存历轮 prompt 及其在各样本上的表现，而非只保留单一全局冠军。</li>
+                <li><strong>Pareto 选择</strong>让在某些样本上最优的候选仍有机会被继续改进，维持搜索多样性。</li>
+                <li><strong>反思式变异</strong>读取轨迹与文本反馈，定位具体失败原因，再修改目标模块的 prompt。</li>
+                <li><strong>两阶段评估</strong>先用小批量筛选，再扩大评估；箭头形成“选择—变异—验证—入池”的迭代闭环。</li>
+                <li><strong>在 ACE 叙事中的缺口</strong>是候选仍以完整 prompt 为单位，没有为长期增长的知识条目提供稳定身份。</li>
+              </ul>
+            </div>
+          </div>
+          <p><a href="https://arxiv.org/abs/2507.19457" target="_blank" rel="noopener">阅读 GEPA 原论文 ↗</a></p>
+        </div>
+      </div>
+    </article>
+
+    <article class="related-card">
+      <div class="related-head" onclick="toggleCard(this)">
+        <span class="chevron">▸</span>
+        <div>
+          <div class="related-title"><span class="paper-tag">EACL'26</span>Dynamic Cheatsheet：测试时自适应记忆</div>
+          <div class="related-summary">角色：ACE 的直接起点。它让模型保存策略、代码和教训，但 cumulative 版本反复重写整份 cheatsheet，正是 context collapse 的风险来源。</div>
+        </div>
+      </div>
+      <div class="related-body">
+        <div class="related-content">
+          <p><strong>输入 → 处理 → 输出：</strong>模型解答连续问题，Curator 从新轨迹中提取可复用经验；DC-CU 把经验并入一份累计 cheatsheet，DC-RS 则检索相似历史再为当前问题合成记忆；Generator 使用这份外部记忆回答后续问题。</p>
+          <p>这项工作的重要贡献是把独立推理变成“带经验的连续推理”，无需更新权重，也不强制依赖人工标签。Game of 24 中，模型一旦保存 Python 暴力搜索程序，后续就能反复复用。</p>
+          <p><strong>ACE 补上的一步：</strong>不再让 Curator 输出重写后的整份 memory，而只输出新增或修订条目；稳定合并由轻量逻辑完成。</p>
+          <div class="figure">
+            <img src="https://arxiv.org/html/2504.07952v1/x2.png" alt="Dynamic Cheatsheet 多种记忆策略的算法流程">
+            <div class="caption">Dynamic Cheatsheet Figure 3：Generator、Curator 与 Retriever 如何组成累计记忆和检索合成两种测试时学习路线。</div>
+            <button class="fig-toggle" type="button" onclick="toggleFigure(this, event)">展开说明 ▸</button>
+            <div class="figure-detail">
+              <ul>
+                <li><strong>Generator</strong>读取当前问题和可用记忆，产生解答；它本身可以是黑盒 LLM。</li>
+                <li><strong>Curator</strong>观察问题、输出和已有经验，把新策略或代码整理进外部 cheatsheet。</li>
+                <li><strong>DC-CU</strong>让同一份 cheatsheet 跨查询累计更新，形成持续学习，但整份重写会逐轮压缩旧细节。</li>
+                <li><strong>DC-RS</strong>先用 Retriever 找相似历史，再为当前查询合成局部 cheatsheet，减少无关记忆。</li>
+                <li><strong>流向关系</strong>是“解题轨迹 → 经验整理 → 外部记忆 → 下一次解题”；ACE 保留这条闭环，替换了记忆写入机制。</li>
+              </ul>
+            </div>
+          </div>
+          <p><a href="https://arxiv.org/abs/2504.07952" target="_blank" rel="noopener">阅读 Dynamic Cheatsheet 原论文 ↗</a></p>
+        </div>
+      </div>
+    </article>
+
+    <p>两者共同留下的缺口可以压成一句话：<strong>反思能产生好建议，但建议如何写回长期上下文，仍缺少不丢旧知识的更新协议。</strong> ACE 的主要创新就在这个“写回”环节。</p>
+  </section>
+
+  <section id="method">
+    <div class="eyebrow">03 · 关键答案</div>
+    <h2>ACE：分工反思，只提交局部修改</h2>
+    <p>ACE 同时支持<strong>离线适配</strong>（用训练集优化系统 prompt）和<strong>在线适配</strong>（测试时根据自然执行反馈更新记忆）。两种设置共享同一条主线：把每次执行变成一份可审查、可合并的经验增量。</p>
+
+    <div class="figure">
+      <img src="https://arxiv.org/html/2510.04618v3/x3.png" alt="ACE 框架：Generator、Reflector 和 Curator 的上下文演化流程">
+      <div class="caption">论文 Figure 4：Generator 产生轨迹，Reflector 提取可复用洞察，Curator 生成 delta；确定性合并把 delta 写入结构化 playbook。</div>
+      <button class="fig-toggle" type="button" onclick="toggleFigure(this, event)">展开说明 ▸</button>
+      <div class="figure-detail">
+        <ul>
+          <li><strong>Generator</strong>接收查询与当前 playbook，执行推理、工具调用或领域任务，并标记哪些条目有帮助或有害。</li>
+          <li><strong>轨迹与反馈</strong>把结果、执行成功/失败、可选真值送给 Reflector；这条箭头承载的是“发生了什么以及结果如何”。</li>
+          <li><strong>Reflector</strong>把一次轨迹转成具体经验，可迭代多轮，目的是分离“判断哪里错了”和“如何维护上下文”。</li>
+          <li><strong>Curator</strong>不重写整份上下文，只把洞察变成新增、修改、计数更新等小型 delta entries。</li>
+          <li><strong>确定性合并</strong>按 ID 应用更新，并通过语义相似度去重；它避免让 LLM 在每轮重新生成所有旧内容。</li>
+          <li><strong>反馈闭环</strong>是“playbook → Generator → Reflector → Curator → delta → playbook”；多条 delta 还能并行生成后批量合并。</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>跟着一条 AppWorld playbook 更新走完四步</h3>
+    <p>用论文中的关系识别案例看 ACE 如何纠错：Agent 需要找到用户的室友并处理相关交易，但旧条目允许从交易描述猜关系，导致选错对象。点击下一步，看同一个 playbook 条目如何被局部修订。</p>
+    <div class="flow">
+      <div class="case-query"><strong>本轮任务：</strong>找到用户的室友，并处理上周与室友相关的交易。</div>
+      <div class="stage-track">
+        <div class="stage-chip" data-step="0">1 · 执行失败</div>
+        <div class="stage-chip" data-step="1">2 · 反思根因</div>
+        <div class="stage-chip" data-step="2">3 · 提交 delta</div>
+        <div class="stage-chip" data-step="3">4 · 局部合并</div>
+      </div>
+      <div class="case-layout">
+        <div class="playbook-case">
+          <div class="case-label">CONTEXT PLAYBOOK</div>
+          <div class="playbook-heading">
+            <span>关系与时间过滤</span>
+            <span class="playbook-version" id="playbookVersion">v12</span>
+          </div>
+          <div class="playbook-entry" id="playbookEntry">
+            <div class="playbook-version">shr-00009</div>
+            <div class="playbook-content" id="playbookContent">室友等关系可从交易描述推断；再按日期筛选相关记录。</div>
+            <div class="playbook-meta" id="playbookMeta">helpful: 2 · harmful: 0 · status: active</div>
+          </div>
+        </div>
+        <div class="case-evidence">
+          <div class="case-event" id="caseTrace"><strong>Generator 轨迹</strong>等待执行结果…</div>
+          <div class="case-event" id="caseInsight"><strong>Reflector 洞察</strong>等待错误分析…</div>
+          <div class="case-event" id="caseDelta"><strong>Curator delta</strong>等待结构化更新…</div>
+        </div>
+      </div>
+      <div class="controls">
+        <button class="demo primary" id="nextStep" type="button">下一步</button>
+        <button class="demo" id="resetStep" type="button">重置</button>
+        <div class="step-text" id="stepText">当前是更新前的 playbook。它包含一条会误导 Agent 的关系识别规则。</div>
+      </div>
+    </div>
+
+    <h3>这个 case 为什么必须用“带 ID 的 bullet”？</h3>
+    <p><code>shr-00009</code> 给这条关系规则一个稳定身份。Curator 因此可以<strong>精准更新这一条</strong>，把 helpful / harmful 计数和来源一并保留；其他 API、分页与认证条目完全不必重新生成。相比“请把整份手册重写得更完善”，信息损失的风险小得多。</p>
+
+    <h3>Grow-and-Refine：增长，但不任其膨胀</h3>
+    <ul class="list">
+      <li><strong>Grow</strong>：新 ID 直接追加；已有 ID 原位更新，旧条目不被无关改写波及。</li>
+      <li><strong>Refine</strong>：用语义 embedding 比较相似条目，合并重复知识，并结合 helpful / harmful 计数修订。</li>
+      <li><strong>两种时机</strong>：可在每次 delta 后主动去重，也可等到接近上下文窗口时再懒惰整理，交换延迟与紧凑度。</li>
+    </ul>
+
+    <details>
+      <summary>具体示例：论文中的 AppWorld playbook 长什么样？（展开查看）</summary>
+      <div class="details-body">
+        <p>论文展示的 ACE 上下文不是抽象口号，而是按领域组织的操作性知识：API 使用顺序、常见错误、可复用代码片段、实体解析规则以及失败后的修正。它更像工程团队维护的 runbook，而不是一句“谨慎使用工具”。</p>
+        <div class="figure">
+          <img src="https://arxiv.org/html/2510.04618v3/figures/figure_3_CR.png" alt="ACE 在 AppWorld 上生成的详细上下文条目示例">
+          <div class="caption">论文 Figure 3：ACE 生成的部分 AppWorld playbook，保留可直接复用的领域洞察、工具规则和代码。</div>
+          <button class="fig-toggle" type="button" onclick="toggleFigure(this, event)">展开说明 ▸</button>
+          <div class="figure-detail">
+            <ul>
+              <li><strong>组织方式</strong>是结构化条目而非连续散文，便于按任务检索和局部修订。</li>
+              <li><strong>内容粒度</strong>落在具体动作与失败条件上，让 Generator 能直接把经验用于下一次工具调用。</li>
+              <li><strong>代码与 API</strong>作为可执行知识保留，避免被压缩成失去参数细节的泛化描述。</li>
+              <li><strong>元数据</strong>为后续 helpful / harmful 反馈和去重提供锚点，使条目具备生命周期。</li>
+              <li><strong>教学要点</strong>是 ACE 追求“全面但可维护”，不是无筛选地保存完整历史轨迹。</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </details>
+  </section>
+
+  <section id="evidence">
+    <div class="eyebrow">04 · 必要证据</div>
+    <h2>实验支持了什么，又没有支持什么？</h2>
+    <p>论文在 AppWorld Agent 任务和金融领域任务上，同时评估离线与在线适配。最有说服力的不是单一榜单名次，而是<strong>增量更新的消融、无标签执行反馈，以及适配成本</strong>三条证据互相对齐。</p>
+    <div class="evidence">
+      <div class="evidence-card">
+        <strong>AppWorld：平均分 42.4 → 59.4</strong>
+        <p>离线 ACE 有真值时比 ReAct 平均提高 17.0 个点；无真值、只用自然执行反馈时仍达到 57.2。</p>
+      </div>
+      <div class="evidence-card">
+        <strong>在线适配：最高 +17.1</strong>
+        <p>ACE 在 AppWorld 在线设置中平均达到 59.5；难度更高的 challenge 切分提升尤其明显。</p>
+      </div>
+      <div class="evidence-card">
+        <strong>增量更新不是装饰</strong>
+        <p>AppWorld test-normal 上，不用增量更新平均 56.9；启用后达到 70.3，说明保住旧知识贡献了大部分收益。</p>
+      </div>
+      <div class="evidence-card">
+        <strong>适配更快、更省 rollout</strong>
+        <p>AppWorld 离线适配相对 GEPA 延迟降低 82.3%、rollout 减少 75.1%；FiNER 在线适配相对 DC 延迟降低 91.5%。</p>
+      </div>
+    </div>
+    <div class="quote">
+      <strong>一句话判断：</strong>实验支持“结构化、增量的上下文维护比整体 prompt 重写更适合知识密集型连续学习”；它并不证明上下文越长越好，也不证明没有可靠反馈时可以安全自我进化。
+    </div>
+    <details>
+      <summary>数字口径：为什么文中既有 +10.6%，又有 +17.1%？</summary>
+      <div class="details-body">
+        <p><strong>+10.6%</strong>是论文摘要中 ACE 相对所选强基线在 Agent 设置上的平均增益；<strong>+17.1</strong>是 AppWorld 在线适配相对 ReAct 基线的平均绝对提升；<strong>+17.0</strong>则是离线、有真值设置下的平均绝对提升。三者比较对象和设置不同，不应混为同一个数字。</p>
+      </div>
+    </details>
+  </section>
+
+  <section id="boundary">
+    <div class="eyebrow">05 · 适用边界</div>
+    <h2>什么时候值得用 ACE？</h2>
+    <div class="boundary">
+      <div class="boundary-grid">
+        <div>
+          <h3>更适合</h3>
+          <ul class="list">
+            <li><strong>工具密集 Agent</strong>：有明确执行成功、报错或环境反馈。</li>
+            <li><strong>知识密集领域</strong>：需要保留大量规则、例外和可复用代码。</li>
+            <li><strong>持续适配</strong>：模型不能频繁微调，但上下文可以审查、共享和删除。</li>
+          </ul>
+        </div>
+        <div>
+          <h3>未必适合</h3>
+          <ul class="list">
+            <li><strong>任务本来很简单</strong>：一份短固定规则已足够，三角色流程可能过重。</li>
+            <li><strong>反馈不可靠</strong>：金融任务没有真值或可信执行信号时，ACE 和 DC 都可能退化。</li>
+            <li><strong>反思持续被污染</strong>：若每轮都注入有害反馈，错误条目会累积并拖垮性能。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <p style="margin-top:18px">长 playbook 也不是“免费”的：ACE 评估时原始输入 token 多于 GEPA。论文认为 KV cache 复用能摊薄成本，并报告 91.8% 输入 token 命中缓存；这依赖实际服务基础设施，部署前仍应测量延迟、缓存命中率与账单口径。</p>
+  </section>
+</main>
+
+<footer>
+  <div class="container">
+    <p>原文：<a href="https://arxiv.org/abs/2510.04618" target="_blank" rel="noopener">Agentic Context Engineering: Evolving Contexts for Self-Improving Language Models</a> · Zhang, Hu et al. · ICLR 2026 · arXiv:2510.04618（2025.10）</p>
+    <p>关键对照：<a href="https://arxiv.org/abs/2507.19457" target="_blank" rel="noopener">GEPA</a> · <a href="https://arxiv.org/abs/2504.07952" target="_blank" rel="noopener">Dynamic Cheatsheet</a></p>
+  </div>
+</footer>
+
+<script>
+function toggleFigure(button, event) {
+  event.stopPropagation();
+  const detail = button.nextElementSibling;
+  const opened = detail.classList.toggle("active");
+  button.textContent = opened ? "收起说明 ▴" : "展开说明 ▸";
+}
+
+function toggleCard(header) {
+  header.closest(".related-card").classList.toggle("open");
+}
+
+const initialPlaybook = `室友等关系可从交易描述推断；再按日期筛选相关记录。`;
+const updatedPlaybook = `识别室友等关系时，必须从 Phone Contacts 等权威来源解析身份，不得从交易描述猜测；日期筛选使用明确的 datetime 范围，并在执行前同时验证关系与时间条件。`;
+const initialMeta = `helpful: 2 · harmful: 0 · status: active`;
+const updatedMeta = `helpful: 2 · harmful: 1 · status: refined`;
+const stepTexts = [
+  `Generator 使用 shr-00009 执行任务，但把交易描述中的名字当成室友证据，最终选错对象。`,
+  `Reflector 把失败定位到知识条目本身：关系必须来自 Phone Contacts，交易文本不能充当身份依据。`,
+  `Curator 只提交 UPDATE shr-00009，并保留日期过滤中仍然有效的部分。`,
+  `确定性合并按 ID 替换目标内容，playbook 从 v12 变为 v13；其他条目原样保留。`
+];
+let currentStep = -1;
+const stageChips = Array.from(document.querySelectorAll(".stage-chip[data-step]"));
+const stepText = document.getElementById("stepText");
+const playbookContent = document.getElementById("playbookContent");
+const playbookMeta = document.getElementById("playbookMeta");
+const playbookVersion = document.getElementById("playbookVersion");
+const playbookEntry = document.getElementById("playbookEntry");
+const caseTrace = document.getElementById("caseTrace");
+const caseInsight = document.getElementById("caseInsight");
+const caseDelta = document.getElementById("caseDelta");
+
+function setEvent(element, title, content, revealed) {
+  element.textContent = "";
+  const label = document.createElement("strong");
+  label.textContent = title;
+  element.append(label, document.createTextNode(content));
+  element.classList.toggle("revealed", revealed);
+}
+
+function renderCase(step) {
+  stageChips.forEach(function (chip, index) {
+    chip.classList.toggle("active", index === step);
+    chip.classList.toggle("done", index < step);
+  });
+  setEvent(caseTrace, "Generator 轨迹", step >= 0 ? "错误地把交易描述当作关系证据，选中了错误联系人。" : "等待执行结果…", step >= 0);
+  setEvent(caseInsight, "Reflector 洞察", step >= 1 ? "关系必须从 Phone Contacts 等权威来源解析；日期也要用明确范围。" : "等待错误分析…", step >= 1);
+  setEvent(caseDelta, "Curator delta", step >= 2 ? "UPDATE shr-00009 · 标记 harmful +1 · 保留有效的日期过滤目标。" : "等待结构化更新…", step >= 2);
+  const merged = step >= 3;
+  playbookContent.textContent = merged ? updatedPlaybook : initialPlaybook;
+  playbookMeta.textContent = merged ? updatedMeta : initialMeta;
+  playbookVersion.textContent = merged ? "v13" : "v12";
+  playbookEntry.classList.toggle("updated", merged);
+}
+
+document.getElementById("nextStep").addEventListener("click", function () {
+  currentStep = Math.min(currentStep + 1, stageChips.length - 1);
+  renderCase(currentStep);
+  stepText.textContent = stepTexts[currentStep];
+  this.textContent = currentStep === stageChips.length - 1 ? "已完成" : "下一步";
+});
+
+document.getElementById("resetStep").addEventListener("click", function () {
+  currentStep = -1;
+  renderCase(currentStep);
+  document.getElementById("nextStep").textContent = "下一步";
+  stepText.textContent = "当前是更新前的 playbook。它包含一条会误导 Agent 的关系识别规则。";
+});
+</script>
+</body>
+</html>
