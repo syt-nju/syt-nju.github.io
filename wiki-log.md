@@ -109,3 +109,21 @@
 - Updated: _wiki/skill-management/skill-lifecycle.md
 - Cross-links: overview ↔ meta-harness ↔ meta-context-engineering ↔ skill-library ↔ skill-lifecycle
 - Note: Full text from arXiv PDF via pdftotext (v1); License CC BY 4.0. Complementary to MCE (different base model / absolute Acc vs Avg. Rel. Gain); TerminalBench-2 is discovery-style same-split search.
+
+## 2026-08-07 maintain | Reframe skill-management overview inventory
+- Disposition: Update
+- Topic: skill-management
+- Updated: _wiki/skill-management/overview.md
+- Note: Replaced「七条演进线」with「已摄入代表系统」grouped by problem focus; clarify listed papers are not independent evolution directions.
+
+## 2026-08-07 maintain | Restructure wiki topics as problem maps
+- Disposition: Update
+- Topic: deep-search; skill-management
+- Created: _wiki/skill-management/self-authored-skills.md
+- Updated: _wiki/deep-search/overview.md
+- Updated: _wiki/skill-management/overview.md
+- Updated: _wiki/skill-management/skill-library.md
+- Updated: _wiki/skill-management/skill-lifecycle.md
+- Updated: _wiki/skill-management/muse-autoskill.md
+- Cross-links: skill-management overview ↔ self-authored-skills ↔ skill-lifecycle ↔ muse-autoskill
+- Note: Applied new page-role rules: overview pages are topic problem maps; system pages remain evidence anchors; disputed self-authored skill claims moved out of overview.

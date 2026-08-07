@@ -1,7 +1,7 @@
 ---
 title: "技能管理概览"
 topic: skill-management
-summary: "冻结 LLM 靠外部技能资产做终身学习：任务技能库之外，MCE 演化 CE 技能，Meta-Harness 再用全历史诊断搜索完整 harness 代码。"
+summary: "技能管理关注冻结 LLM 如何把经验外置为可检索、可组合、可治理的资产，以及 CE/harness 元优化与任务技能库的边界。"
 lang: zh-CN
 updated: 2026-08-07
 order: 1
@@ -32,30 +32,44 @@ raw:
 
 ## Overview
 
-开放世界里的 LLM agent 若只做单次规划，跨任务知识无法沉淀。一条持续出现的路线是：权重冻结，把可复用行为外置为技能资产，再在检索与治理上下功夫。本主题按问题组织来源增量：库如何长出来、技能长什么样、谁来策展、库如何不漂坏、创建—记忆—评估如何收成统一生命周期、如何把 *Context Engineering 策略本身* 也当成可演化技能，以及如何用 coding agent 外环直接搜索完整 harness 程序。
+冻结 LLM 的长期能力不一定来自更新权重，也可以来自外部资产：代码技能、自然语言规则、Agent Skills 包、可训练的 SkillRepo，或更靠近 harness 的上下文工程程序。技能管理关心的不是“又出现了哪个系统”，而是这些资产如何表示、如何被检索和组合、谁负责策展、如何避免库漂坏，以及哪些能力其实已经越过了任务技能库边界，进入 CE / harness 元优化。
 
-## 七条演进线
+当前 topic 的主骨架是问题地图；系统页只作为证据锚点。`MUSE-Autoskill`、`MCE`、`Meta-Harness` 等页面保留，是因为它们会被多个问题反复引用，而不是因为每篇来源都应该变成系统页。
 
-1. **Voyager（奠基）**：Minecraft 上的终身探索 agent。automatic curriculum + 可执行代码 skill library + iterative prompting（环境反馈 / 执行错误 / self-verification）。160 次 iteration 内发现 63 个独特物品，约为对照的 3.3 倍；路程约 2.3 倍；木制节点约快 15.3 倍。库默认可增长，几乎不做 outcome-driven 退役。
-2. **AutoSkill（抽取与版本）**：从对话轨迹抽象 **SKILL.md**，模型无关 plug-in；online hybrid 检索注入，异步 judge 做 add / merge / discard 与 versioned merge。WildChat-1M（>8 turns）四子集共 N=1858 技能；English GPT-3.5 子集 10,243 对话 / 631 skills；案例 `professional_text_rewrite` 至版本 0.1.34。勿与下方 MUSE-Autoskill 混淆。
-3. **MUSE-Autoskill（全生命周期 + 迁移）**：ByteDance 的训练无关框架，五阶段 creation / memory / management / evaluation / refinement；运行时 `skill_create`、`.memory.md` skill-level memory、单测门控注册。SkillsBench 75-task 上人写技能 59.67%（+12.72pp），自建 all-75 53.42%（+6.47pp），覆盖子集 85.24%（同子集人写 81.17%）；自建技能转入 Hermes 达 51.90%。详见 [MUSE-Autoskill](/wiki/skill-management/muse-autoskill/)。
-4. **SkillOS（学策展）**：冻结 executor + 可训练 curator，对外部 SkillRepo 做 RL（GRPO）；用 grouped task streams 与 composite rewards 归因延迟反馈。ALFWorld 上相对 ReasoningBank，Qwen3-8B executor 的平均 SR 从 55.7 到 61.2；同一 curator 可泛化到更强 executor（如 Gemini-2.5-Pro 从 66.4 到 80.2）。
-5. **Ratchet（hygiene / librarian）**：重述 SkillsBench 原文：人写技能 +16.2pp，LLM 自写 +0.0pp，瓶颈在生命周期而非写作。四类机制——pattern canonicalisation、outcome-driven retirement、bounded active-cap、meta-skill authoring prior。MBPP+ hard-100 上 rolling-mean gain +0.328，late-window 0.584（peak 0.658）；SWE-bench Verified 有 +0.22 peak lift。消融显示 retirement 与 meta-skill 承重，显式去重可被 meta-skill 吸收。
-6. **MCE（演化 CE 技能）**：Meta Context Engineering 把 ACE / GEPA 等固定 CE harness 视为设计空间中的单点；meta-agent 用 **agentic crossover** 演化 CE skills，base-agent 把 context 建成 files/code。五域 offline Avg. Rel. Gain 89.1（ACE 70.7），online 74.1（ACE 41.1）；相对 SOTA 相对改进 5.6–53.8%（均值 16.9%）；context 长度约可在 1.5K–86K tokens 间按任务调节。详见 [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/)。
-7. **Meta-Harness（搜索完整 harness）**：外环 coding agent 经 filesystem 访问历次源码、分数与执行轨迹，直接改写任务侧 harness。在线文本分类（GPT-OSS-120B）平均准确率 48.6，相对 ACE 高 7.7 points、相对 MCE 高 8.6 points，context 11.4K；200 道 IMO 级题上检索 harness 五模型平均高 4.7 points；TerminalBench-2 上 Opus 76.4% / Haiku 37.6%。与 MCE 同属元优化，但不是双层 CE skill，而是最小外环 + 全历史诊断。详见 [Meta-Harness](/wiki/skill-management/meta-harness/)。
+## 问题地图
 
-## 共同主张与分歧
+### 技能资产长什么样
 
-共同主张：能力增长可以发生在外部技能资产或外部 harness 上，而不必更新权重。分歧在于「谁写技能、谁管库、反馈从哪来」——启发式 merge（AutoSkill）、完整 lifecycle + 单测（MUSE）、RL 策展（SkillOS）、冻结作者加 hygiene（Ratchet）、把 *学习 context 的算法* 也当作可演化技能（MCE），或用 coding agent 对完整 harness 做端到端代码搜索（Meta-Harness）。Voyager 证明库有用；后续路线分别补抽取标准、运行时生命周期、策展学习、防漂移、CE skill 元优化，以及 harness 级程序搜索。
+技能不是一种固定格式。Voyager 把技能做成可执行代码；AutoSkill 把对话经验抽成 `SKILL.md`；MUSE-Autoskill 采用带 `tests/`、脚本和 `.memory.md` 的 Agent Skills 包；SkillOS 把外部 SkillRepo 交给 curator 维护。关键问题是：资产要保留多少程序性结构、多少自然语言规则，以及是否能被独立测试和迁移。详见 [Skill Library](/wiki/skill-management/skill-library/)。
 
-> **Status: Disputed**（SkillsBench 上「LLM 自写技能」是否无效）
-> Ratchet 以 SkillsBench 原论文的人写 +16.2pp / LLM 自写 +0.0pp 定调瓶颈在 librarian。MUSE-Autoskill 在 GPT-5.5 四 agent 设定下报告自建技能仍有 all-75 增益（+6.47pp），覆盖子集甚至超过人写；但 all-75 自建仍低于人写，且未覆盖任务计 0。争议应读作协议与系统栈差异，而非单一分数对决；细节见 [MUSE-Autoskill](/wiki/skill-management/muse-autoskill/) 与 [技能生命周期](/wiki/skill-management/skill-lifecycle/)。MCE / Meta-Harness 评测的是垂直域 CE 或 harness 搜索，不直接裁决该争议。
+### 库如何不漂坏
+
+库增长本身会制造噪声、冲突、重复与过时条目。AutoSkill 给出 add / merge / discard 与版本化合并；MUSE 把创建、评估、更新、合并和裁剪放进同一运行时；Ratchet 把瓶颈明确为 librarian / hygiene，并强调 retirement、active cap 与 meta-skill authoring prior。详见 [技能生命周期](/wiki/skill-management/skill-lifecycle/)。
+
+### 策展能否被学习
+
+启发式 librarian 只能表达人的先验。SkillOS 把 executor 冻结，只训练 skill curator，并用 grouped task streams 与 composite rewards 从延迟反馈中学习长期策展策略。这个方向把「如何改库」本身变成可优化策略，而不是固定规则。详见 [Skill Curation RL](/wiki/skill-management/skill-curation-rl/)。
+
+### LLM 自写技能到底有没有用
+
+这是本 topic 的主要争议。Ratchet 引用 SkillsBench 原文，把“LLM 自写技能无增益”解释为生命周期治理瓶颈；MUSE-Autoskill 在全生命周期 agent 中报告自建技能仍有正增益，并认为瓶颈更多在生成覆盖率。这个分歧不能靠单一分数裁决，必须保留协议、agent 栈、覆盖口径和技能治理差异。详见 [自写技能有效性争议](/wiki/skill-management/self-authored-skills/)。
+
+### CE / harness 元优化是否属于本主题
+
+MCE 和 Meta-Harness 已经不只是“任务技能库怎么管”，而是在优化 context engineering 或完整 harness 本身。它们仍放在本 topic，是因为都共享一个更高层主张：冻结模型的能力可以通过外部可检视资产增长。但阅读时应把它们当作**边界问题**：MCE 演化 CE skill，Meta-Harness 搜索任务侧 harness 程序；二者不是 task skill librarian。详见 [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/) 与 [Meta-Harness](/wiki/skill-management/meta-harness/)。
+
+## 共同主张与边界
+
+共同主张：能力增长可以发生在外部技能资产或外部 harness 上，而不必更新权重。真正的分歧在于资产边界与反馈回路：技能是代码、Markdown、带测试的包，还是完整 harness；维护靠启发式、单测、RL curator，还是 coding agent 搜索；评估看任务成功、覆盖率、迁移性，还是搜索/上下文成本。
+
+本 topic 暂时把 CE / harness 元优化作为相邻边界保留。若后续来源主要围绕 harness search、context optimization 或 workflow search 增长，应考虑拆出独立 topic，而不是继续扩张“技能管理”的含义。
 
 ## See Also
 
 - [Skill Library](/wiki/skill-management/skill-library/)
 - [技能生命周期](/wiki/skill-management/skill-lifecycle/)
 - [Skill Curation RL](/wiki/skill-management/skill-curation-rl/)
+- [自写技能有效性争议](/wiki/skill-management/self-authored-skills/)
 - [MUSE-Autoskill](/wiki/skill-management/muse-autoskill/)
 - [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/)
 - [Meta-Harness](/wiki/skill-management/meta-harness/)

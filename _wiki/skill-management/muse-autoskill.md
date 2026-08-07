@@ -3,7 +3,7 @@ title: "MUSE-Autoskill"
 topic: skill-management
 summary: "ByteDance 的训练无关技能生命周期框架：运行时创建、skill-level memory、单测评估与跨 agent 迁移，在 SkillsBench / SkillLearnBench 上验证。"
 lang: zh-CN
-updated: 2026-08-04
+updated: 2026-08-07
 order: 5
 sources:
   - title: "MUSE-Autoskill: Self-Evolving Agents via Skill Creation, Memory, Management, and Evaluation"
@@ -49,13 +49,13 @@ MUSE-Autoskill（Memory-Utilizing Skill Evolution）把技能当作可长期治�
 
 相对 [AutoSkill](/wiki/skill-management/skill-lifecycle/) 的对话抽取与 add/merge/discard，MUSE 更强调运行时创建、单测与 skill-level memory。相对 [SkillOS](/wiki/skill-management/skill-curation-rl/) 的可训练 curator，MUSE 为 **training-free**。相对 [Ratchet](/wiki/skill-management/skill-lifecycle/) 的 hygiene / retirement，MUSE 更偏完整创建—评估—迁移栈，而非最小 librarian 配方。
 
-> **Status: Disputed**（SkillsBench「LLM 自写无效」定调）
-> [Ratchet](/wiki/skill-management/skill-lifecycle/) 引用 SkillsBench 原文：人写技能约 +16.2pp，LLM 自写约 +0.0pp，据此主张瓶颈在生命周期治理。MUSE 在全生命周期 agent 下报告自建技能 all-75 仍有 +6.47pp，且覆盖子集可超过人写；但 all-75 自建（53.42%）仍低于人写（59.67%），覆盖失败仍计 0。双方评测协议、agent 栈与「自写」含义不同，不宜直接等同或互相否定；见 overview 中的争议摘要。
+MUSE 与 Ratchet 对“LLM 自写技能是否有效”的解释不同：MUSE 把主瓶颈放在生成覆盖率与运行时评估闭环，Ratchet 则把重点放在 librarian / hygiene。完整争议见 [自写技能有效性争议](/wiki/skill-management/self-authored-skills/)。
 
 ## See Also
 
 - [技能管理概览](/wiki/skill-management/overview/)
 - [Skill Library](/wiki/skill-management/skill-library/)
 - [技能生命周期](/wiki/skill-management/skill-lifecycle/)
+- [自写技能有效性争议](/wiki/skill-management/self-authored-skills/)
 - [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/)
 - [Skill Curation RL](/wiki/skill-management/skill-curation-rl/)

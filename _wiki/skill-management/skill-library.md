@@ -1,7 +1,7 @@
 ---
 title: "Skill Library"
 topic: skill-management
-summary: "技能库是冻结 LLM 的外部程序性记忆；形态从 Voyager 代码、SKILL.md、Agent Skills、MCE 的 CE skill 文件夹，到 Meta-Harness 搜索的 harness 程序种群。"
+summary: "技能库是冻结 LLM 的外部程序性记忆；核心形态包括可执行代码、SKILL.md、SkillRepo 和带测试的 Agent Skills 包。"
 lang: zh-CN
 updated: 2026-08-07
 order: 2
@@ -29,7 +29,9 @@ raw:
 
 ## Overview
 
-Skill library 把「做过一次的事」变成「以后还能调」的外部记忆。它不是原始对话回放，而是可检索、 ideally 可组合的程序性工件。表示形态随系统而变，但角色一致：在权重冻结时承载跨任务能力增长；在 [MCE](/wiki/skill-management/meta-context-engineering/) 中，同一文件夹抽象还被抬到「如何做 Context Engineering」一层；[Meta-Harness](/wiki/skill-management/meta-harness/) 则把可搜索资产做成任务侧 harness 程序及其执行痕迹。
+Skill library 把「做过一次的事」变成「以后还能调」的外部记忆。它不是原始对话回放，而是可检索、 ideally 可组合、可治理的程序性工件。核心问题是：技能应写成可执行代码、自然语言规范、Markdown 仓库，还是带测试和资源的 Agent Skills 包；这些表示如何影响检索、组合、评估和迁移。
+
+[MCE](/wiki/skill-management/meta-context-engineering/) 与 [Meta-Harness](/wiki/skill-management/meta-harness/) 使用相似的文件/代码资产，但它们的对象已经转向 CE skill 或完整 harness，属于本 topic 的边界问题，而非普通任务技能库形态。
 
 ## Voyager：可执行代码技能
 
@@ -47,13 +49,9 @@ SkillOS 沿用社区「技能即文件夹 / Markdown 指令」设定，把外部
 
 MUSE 采用 Anthropic Agent Skills 目录约定：`SKILL.md` 定义接口；可选 `scripts/`、`resources/`、`tests/`。执行时先读接口（progressive disclosure），再按需读资源或跑脚本；代码执行经 sandbox 工具隔离。每技能可附 **`.memory.md`**，跨任务追加失败模式、输入格式与性能备注，加载时与接口一并注入。注册前优先跑 unit tests；无测试则回退 sandbox / 轨迹检查。该表示同时服务本机复用与跨 agent 迁移实验（详见 [MUSE-Autoskill](/wiki/skill-management/muse-autoskill/)）。
 
-## MCE：Context Engineering skill 文件夹
+## 边界：CE skill 与 harness 程序
 
-MCE 的技能同样是 workspace 中的文件夹，但语义是 **CE 策略**：可含自然语言方法论、可执行脚本、结构化 context 模板、验证协议，以及按 query 过滤/组装的动态算子。Base 层产出的 context artifact 本身也是 files/code 目录，不受预定 itemized-list schema 约束。历史技能库 \(\mathcal{H}\) 保存 \((s,c,J_{\mathrm{train}},J_{\mathrm{val}})\)，供 **agentic crossover** 审议式重组。详见 [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/)。
-
-## Meta-Harness：被搜索的 harness 程序
-
-[Meta-Harness](/wiki/skill-management/meta-harness/) 优化对象通常是 **单文件 Python harness**（提示构造、检索、memory、编排），不是 SKILL.md 库条目。外环把历次候选的源码、分数与执行轨迹存进 filesystem，供 coding agent 按需读取后再提案。资产形态更接近「可版本化的任务侧程序种群」，而不是任务技能库或 CE skill 文件夹；与 MCE 的联系在于同属对 CE/harness 的元优化。
+MCE 的技能也是 workspace 文件夹，但语义是 **CE 策略**：可含自然语言方法论、可执行脚本、结构化 context 模板、验证协议，以及按 query 过滤/组装的动态算子。Meta-Harness 的候选资产通常是任务侧 harness 程序及其执行痕迹。二者说明文件/代码资产可以被抬到更高层优化对象，但阅读时应与 task skill library 区分。
 
 ## 共同边界
 
