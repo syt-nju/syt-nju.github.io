@@ -97,3 +97,15 @@
 - Updated: _wiki/skill-management/skill-lifecycle.md
 - Cross-links: overview ↔ meta-context-engineering ↔ skill-library ↔ skill-lifecycle ↔ muse-autoskill
 - Note: Full text from arXiv PDF via deepxiv (v2); License arXiv perpetual non-exclusive 1.0 (metadata only). Complementary to SkillsBench dispute (CE benchmarks, not task-skill self-authoring).
+
+## 2026-08-07 ingest | Meta-Harness: End-to-End Optimization of Model Harnesses
+- Disposition: New + Update
+- Topic: skill-management
+- Raw: raw/skill-management/2026-03-30-meta-harness.md
+- Created: _wiki/skill-management/meta-harness.md
+- Updated: _wiki/skill-management/overview.md
+- Updated: _wiki/skill-management/meta-context-engineering.md
+- Updated: _wiki/skill-management/skill-library.md
+- Updated: _wiki/skill-management/skill-lifecycle.md
+- Cross-links: overview ↔ meta-harness ↔ meta-context-engineering ↔ skill-library ↔ skill-lifecycle
+- Note: Full text from arXiv PDF via pdftotext (v1); License CC BY 4.0. Complementary to MCE (different base model / absolute Acc vs Avg. Rel. Gain); TerminalBench-2 is discovery-style same-split search.

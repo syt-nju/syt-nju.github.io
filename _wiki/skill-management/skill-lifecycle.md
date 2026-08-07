@@ -1,9 +1,9 @@
 ---
 title: "技能生命周期"
 topic: skill-management
-summary: "技能库瓶颈常在 librarian 与评估：AutoSkill / Ratchet / MUSE 管任务技能；MCE 则用验证信号在元层选择 CE 技能。"
+summary: "技能库瓶颈常在 librarian 与评估：AutoSkill / Ratchet / MUSE 管任务技能；MCE 用验证信号选 CE 技能；Meta-Harness 则维护可查询的 harness 种群。"
 lang: zh-CN
-updated: 2026-08-05
+updated: 2026-08-07
 order: 3
 sources:
   - title: "AutoSkill: Experience-Driven Lifelong Learning via Skill Self-Evolution"
@@ -14,16 +14,19 @@ sources:
     url: "https://arxiv.org/abs/2605.27366"
   - title: "Meta Context Engineering via Agentic Skill Evolution"
     url: "https://arxiv.org/abs/2601.21557"
+  - title: "Meta-Harness: End-to-End Optimization of Model Harnesses"
+    url: "https://arxiv.org/abs/2603.28052"
 raw:
   - raw/skill-management/2026-03-01-autoskill.md
   - raw/skill-management/2026-05-ratchet.md
   - raw/skill-management/2026-05-26-muse-autoskill.md
   - raw/skill-management/2026-01-29-meta-context-engineering.md
+  - raw/skill-management/2026-03-30-meta-harness.md
 ---
 
 ## Overview
 
-会写技能不等于库长期有用。SkillsBench 上「人写有效、朴素 LLM 自写无效」的对照，被 Ratchet 用来定调：瓶颈在版本、冲突与废弃等生命周期管理。后续系统给出不同 librarian 处方——AutoSkill 的 add/merge/discard、Ratchet 的 hygiene 最小配方，以及 MUSE-Autoskill 把创建、单测评估与精炼收进同一运行时回路。另有一条正交线：[MCE](/wiki/skill-management/meta-context-engineering/) 不主要管任务技能库条目，而是用 train/val 指标在元层保留更优的 **CE skill**。
+会写技能不等于库长期有用。SkillsBench 上「人写有效、朴素 LLM 自写无效」的对照，被 Ratchet 用来定调：瓶颈在版本、冲突与废弃等生命周期管理。后续系统给出不同 librarian 处方——AutoSkill 的 add/merge/discard、Ratchet 的 hygiene 最小配方，以及 MUSE-Autoskill 把创建、单测评估与精炼收进同一运行时回路。另有正交线：[MCE](/wiki/skill-management/meta-context-engineering/) 用 train/val 在元层保留更优 **CE skill**；[Meta-Harness](/wiki/skill-management/meta-harness/) 用 filesystem 中的候选种群与 Pareto 前沿驱动 harness 搜索，而非任务技能库 librarian。
 
 ## AutoSkill：add / merge / discard
 
@@ -65,6 +68,10 @@ SkillsBench 75-task（GPT-5.5）上，MUSE 人写技能 59.67%（相对无技能
 
 MCE 的「生命周期」发生在 CE skill 上：每轮 agentic crossover 生成 offspring，base 执行后写入 \(\mathcal{H}\)，再按 \(J_{\mathrm{val}}\) 做 \((1+1)\)-ES 式保留。meta-agent 可监测 train/val 并抑制过拟合，但没有 AutoSkill 式 merge/discard 目录，也没有 Ratchet 的 active-cap / retirement 配方。对象是 harness（如何学 context），不是任务技能库 librarian；评测在 FiNER 等 CE 域，不裁决 SkillsBench 争议。细节见 [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/)。
 
+## Meta-Harness：候选 harness 种群（对照）
+
+[Meta-Harness](/wiki/skill-management/meta-harness/) 也不做任务技能库的 add/merge/retire。它维护已评估 harness 的种群与 Pareto 前沿，把每次评估的代码、分数与 traces 追加进 filesystem；proposer 自行决定读哪些历史、做局部编辑还是重写。选择信号来自 search-set（及多目标时的 Pareto），外环本身几乎不写死亲本规则。对象是任务侧 harness 程序，评测覆盖分类、数学检索与 TerminalBench-2 discovery 设定。
+
 > **Status: Disputed**
 > Ratchet 引用的 SkillsBench「LLM 自写 +0.0pp」与 MUSE 自建技能的正增益并存于本主题。差异包括：所引 SkillsBench 原文设定 vs MUSE 的四 agent / 75-task 协议、是否含单测与 skill-level memory、以及 all-task（未覆盖计 0）vs 覆盖子集读数。保留双方主张；不要把其一写成已推翻另一。
 
@@ -74,4 +81,5 @@ MCE 的「生命周期」发生在 CE skill 上：每轮 agentic crossover 生�
 - [Skill Library](/wiki/skill-management/skill-library/)
 - [MUSE-Autoskill](/wiki/skill-management/muse-autoskill/)
 - [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/)
+- [Meta-Harness](/wiki/skill-management/meta-harness/)
 - [Skill Curation RL](/wiki/skill-management/skill-curation-rl/)
