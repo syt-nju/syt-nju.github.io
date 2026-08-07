@@ -1,18 +1,20 @@
 ---
 title: "Meta Context Engineering"
-topic: skill-management
+topic: harness-evolution
 summary: "MCE 用双层优化共演化 CE skills 与 context artifacts：meta 层 agentic crossover，base 层以 files/code 做完全 agentic 上下文工程。"
 lang: zh-CN
 updated: 2026-08-07
-order: 6
+order: 7
+redirect_from:
+  - /wiki/skill-management/meta-context-engineering/
 sources:
   - title: "Meta Context Engineering via Agentic Skill Evolution"
     url: "https://arxiv.org/abs/2601.21557"
   - title: "Meta-Harness: End-to-End Optimization of Model Harnesses"
     url: "https://arxiv.org/abs/2603.28052"
 raw:
-  - raw/skill-management/2026-01-29-meta-context-engineering.md
-  - raw/skill-management/2026-03-30-meta-harness.md
+  - raw/harness-evolution/2026-01-29-meta-context-engineering.md
+  - raw/harness-evolution/2026-03-30-meta-harness.md
 ---
 
 ## Overview
@@ -61,17 +63,20 @@ Base-agent 在技能文件夹、上一轮最优 context、训练 rollouts 与可
 
 作者自述：更利于领域知识与模式匹配；对已有强反思 harness 的推理密集型任务、以及超长复杂 trajectory 的细粒度 credit assignment 可能不占优。评测域是垂直 CE benchmark，**不是** SkillsBench；与 Ratchet / MUSE 关于「LLM 自写任务技能」的争议互补，不宜直接对撞。
 
-相对本主题：MCE 把「技能」抬到 *学习算法 / harness* 层，用验证信号做技能级选择，而不是任务技能库的 librarian（add/merge/retire）。表示上仍落在可执行文件夹技能，与 [Skill Library](/wiki/skill-management/skill-library/) 中 Agent Skills 传统一脉。
+相对本主题：MCE 把「技能」抬到 *学习算法 / harness* 层，用验证信号做技能级选择，而不是任务技能库的 librarian（add/merge/retire）。表示上仍落在可执行文件夹技能，与 [Skill Library](/wiki/harness-evolution/skill-library/) 中 Agent Skills 传统一脉。
 
 ## 与 Meta-Harness 的对照
 
-后续工作 [Meta-Harness](/wiki/skill-management/meta-harness/) 在 GPT-OSS-120B 的在线文本分类协议下，把 MCE 与 ACE 一并作为手工 harness 基线：其 Table 2 报告 MCE 平均准确率 40.0（Ctx 28.5K）、ACE 40.9（50.8K）、所发现 harness 48.6（11.4K）。这是 **另一基座与绝对准确率口径** 下的比较，不能用来改写上文 DeepSeek-V3.1 的 Avg. Rel. Gain（offline 89.1 / online 74.1）。机制上：MCE 共演化 CE skill 与 context artifact；Meta-Harness 用 coding agent + 全历史 filesystem 直接搜索完整 harness 程序，并进一步评测数学检索与 TerminalBench-2。
+后续工作 [Meta-Harness](/wiki/harness-evolution/meta-harness/) 在 GPT-OSS-120B 的在线文本分类协议下，把 MCE 与 ACE 一并作为手工 harness 基线：其 Table 2 报告 MCE 平均准确率 40.0（Ctx 28.5K）、ACE 40.9（50.8K）、所发现 harness 48.6（11.4K）。这是 **另一基座与绝对准确率口径** 下的比较，不能用来改写上文 DeepSeek-V3.1 的 Avg. Rel. Gain（offline 89.1 / online 74.1）。机制上：MCE 共演化 CE skill 与 context artifact；Meta-Harness 用 coding agent + 全历史 filesystem 直接搜索完整 harness 程序，并进一步评测数学检索与 TerminalBench-2。
+
+从 [Harness Engineering](/wiki/harness-evolution/harness-engineering/) 的层级看，MCE 位于 structured context 与 context-management mechanism 之间：它已经超过静态 prompt / memory 设计，但还没有像 Meta-Harness 那样直接搜索完整 harness code。
 
 ## See Also
 
-- [技能管理概览](/wiki/skill-management/overview/)
-- [Meta-Harness](/wiki/skill-management/meta-harness/)
-- [Skill Library](/wiki/skill-management/skill-library/)
-- [技能生命周期](/wiki/skill-management/skill-lifecycle/)
-- [MUSE-Autoskill](/wiki/skill-management/muse-autoskill/)
-- [Skill Curation RL](/wiki/skill-management/skill-curation-rl/)
+- [Harness Evolution 概览](/wiki/harness-evolution/overview/)
+- [Harness Engineering](/wiki/harness-evolution/harness-engineering/)
+- [Meta-Harness](/wiki/harness-evolution/meta-harness/)
+- [Skill Library](/wiki/harness-evolution/skill-library/)
+- [技能生命周期](/wiki/harness-evolution/skill-lifecycle/)
+- [MUSE-Autoskill](/wiki/harness-evolution/muse-autoskill/)
+- [Skill Curation RL](/wiki/harness-evolution/skill-curation-rl/)

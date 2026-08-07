@@ -14,7 +14,7 @@ const entries = [
     summary: "技能库是冻结 LLM 的外部程序性记忆。",
     content: "Voyager uses executable code skills in a vector library.",
     lang: "zh-CN",
-    url: "/wiki/skill-management/skill-library/"
+    url: "/wiki/harness-evolution/skill-library/"
   }
 ];
 

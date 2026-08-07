@@ -1,22 +1,27 @@
 ---
 title: "Self-Harness"
-topic: skill-management
+topic: harness-evolution
 summary: "Self-Harness 让固定模型依据自身失败轨迹提出 bounded harness edits，并用 held-in / held-out 非回归门控筛选可推广的 harness 改动。"
 lang: zh-CN
 updated: 2026-08-07
-order: 9
+order: 10
+redirect_from:
+  - /wiki/skill-management/self-harness/
 sources:
   - title: "Self-Harness: Harnesses That Improve Themselves"
     url: "https://arxiv.org/abs/2606.09498v1"
+  - title: "Harness Engineering for Self-Improvement"
+    url: "https://lilianweng.github.io/posts/2026-07-04-harness/"
 raw:
-  - raw/skill-management/2026-06-08-self-harness.md
+  - raw/harness-evolution/2026-06-08-self-harness.md
+  - raw/harness-evolution/2026-07-04-harness-engineering-for-self-improvement.md
 ---
 
 ## Overview
 
-Self-Harness 研究一个比 [Meta-Harness](/wiki/skill-management/meta-harness/) 更内化的 harness 改进设定：固定模型不依赖人类工程师，也不依赖更强外部 agent，而是在当前 harness 下读取自己的执行失败证据，提出下一版 harness 的 bounded edit。模型权重、评估器与任务协议保持固定，只有围绕模型的非参数 scaffold 被修改。
+Self-Harness 研究一个比 [Meta-Harness](/wiki/harness-evolution/meta-harness/) 更内化的 harness 改进设定：固定模型不依赖人类工程师，也不依赖更强外部 agent，而是在当前 harness 下读取自己的执行失败证据，提出下一版 harness 的 bounded edit。模型权重、评估器与任务协议保持固定，只有围绕模型的非参数 scaffold 被修改。
 
-这使它成为本 topic 中 CE / harness 元优化边界的一条新证据线：能力增长不只来自任务技能库或外部搜索器，也可能来自 agent 对自身执行协议的受控修订。
+这使它成为 [Harness Engineering](/wiki/harness-evolution/harness-engineering/) 中最接近 recursive self-improvement 的证据线之一：能力增长不只来自任务技能库或外部搜索器，也可能来自 agent 对自身执行协议的受控修订。
 
 ## 三阶段闭环
 
@@ -67,9 +72,12 @@ Self-Harness 的定性分析显示，被接受的改动不是一条统一提示�
 
 Self-Harness 仍是 bounded harness edits under fixed benchmarks，不是开放式递归自我改进。接受门主要基于 pass-rate non-regression；在高风险环境中，仅靠 held-in / held-out pass count 不足以证明安全性或鲁棒性。实验也依赖 verifier outcome 与 trace record 的质量，若评估器看不见关键失败机制，Weakness Mining 会缺少可靠证据。
 
+Weng 的综述进一步强调：如果可演化程序能编辑自身运行环境，抽象边界会被打破；editable surface、permission control、security layer 和 evaluator 应设计在自我编辑 loop 外部，否则 reward hacking 与 verifier tampering 仍会成为核心风险。
+
 ## See Also
 
-- [技能管理概览](/wiki/skill-management/overview/)
-- [Meta-Harness](/wiki/skill-management/meta-harness/)
-- [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/)
-- [技能生命周期](/wiki/skill-management/skill-lifecycle/)
+- [Harness Evolution 概览](/wiki/harness-evolution/overview/)
+- [Harness Engineering](/wiki/harness-evolution/harness-engineering/)
+- [Meta-Harness](/wiki/harness-evolution/meta-harness/)
+- [Meta Context Engineering](/wiki/harness-evolution/meta-context-engineering/)
+- [技能生命周期](/wiki/harness-evolution/skill-lifecycle/)

@@ -1,10 +1,12 @@
 ---
 title: "Skill Library"
-topic: skill-management
-summary: "技能库是冻结 LLM 的外部程序性记忆；核心形态包括可执行代码、SKILL.md、SkillRepo 和带测试的 Agent Skills 包。"
+topic: harness-evolution
+summary: "技能库是 harness evolution 的外部程序性记忆层；核心形态包括可执行代码、SKILL.md、SkillRepo 和带测试的 Agent Skills 包。"
 lang: zh-CN
 updated: 2026-08-07
 order: 2
+redirect_from:
+  - /wiki/skill-management/skill-library/
 sources:
   - title: "Voyager: An Open-Ended Embodied Agent with Large Language Models"
     url: "https://arxiv.org/abs/2305.16291"
@@ -19,19 +21,19 @@ sources:
   - title: "Meta-Harness: End-to-End Optimization of Model Harnesses"
     url: "https://arxiv.org/abs/2603.28052"
 raw:
-  - raw/skill-management/2023-05-25-voyager.md
-  - raw/skill-management/2026-03-01-autoskill.md
-  - raw/skill-management/2026-05-07-skillos.md
-  - raw/skill-management/2026-05-26-muse-autoskill.md
-  - raw/skill-management/2026-01-29-meta-context-engineering.md
-  - raw/skill-management/2026-03-30-meta-harness.md
+  - raw/harness-evolution/2023-05-25-voyager.md
+  - raw/harness-evolution/2026-03-01-autoskill.md
+  - raw/harness-evolution/2026-05-07-skillos.md
+  - raw/harness-evolution/2026-05-26-muse-autoskill.md
+  - raw/harness-evolution/2026-01-29-meta-context-engineering.md
+  - raw/harness-evolution/2026-03-30-meta-harness.md
 ---
 
 ## Overview
 
-Skill library 把「做过一次的事」变成「以后还能调」的外部记忆。它不是原始对话回放，而是可检索、 ideally 可组合、可治理的程序性工件。核心问题是：技能应写成可执行代码、自然语言规范、Markdown 仓库，还是带测试和资源的 Agent Skills 包；这些表示如何影响检索、组合、评估和迁移。
+Skill library 把「做过一次的事」变成「以后还能调」的外部记忆。它不是原始对话回放，而是可检索、 ideally 可组合、可治理的程序性工件。在 [Harness Engineering](/wiki/harness-evolution/harness-engineering/) 语境下，skill library 是 persistent state / tool protocol 的一个资产层；核心问题是：技能应写成可执行代码、自然语言规范、Markdown 仓库，还是带测试和资源的 Agent Skills 包；这些表示如何影响检索、组合、评估和迁移。
 
-[MCE](/wiki/skill-management/meta-context-engineering/) 与 [Meta-Harness](/wiki/skill-management/meta-harness/) 使用相似的文件/代码资产，但它们的对象已经转向 CE skill 或完整 harness，属于本 topic 的边界问题，而非普通任务技能库形态。
+[MCE](/wiki/harness-evolution/meta-context-engineering/) 与 [Meta-Harness](/wiki/harness-evolution/meta-harness/) 使用相似的文件/代码资产，但它们的对象已经转向 CE skill 或完整 harness，属于本 topic 的边界问题，而非普通任务技能库形态。
 
 ## Voyager：可执行代码技能
 
@@ -47,7 +49,7 @@ SkillOS 沿用社区「技能即文件夹 / Markdown 指令」设定，把外部
 
 ## MUSE-Autoskill：可测试的 Agent Skills 包
 
-MUSE 采用 Anthropic Agent Skills 目录约定：`SKILL.md` 定义接口；可选 `scripts/`、`resources/`、`tests/`。执行时先读接口（progressive disclosure），再按需读资源或跑脚本；代码执行经 sandbox 工具隔离。每技能可附 **`.memory.md`**，跨任务追加失败模式、输入格式与性能备注，加载时与接口一并注入。注册前优先跑 unit tests；无测试则回退 sandbox / 轨迹检查。该表示同时服务本机复用与跨 agent 迁移实验（详见 [MUSE-Autoskill](/wiki/skill-management/muse-autoskill/)）。
+MUSE 采用 Anthropic Agent Skills 目录约定：`SKILL.md` 定义接口；可选 `scripts/`、`resources/`、`tests/`。执行时先读接口（progressive disclosure），再按需读资源或跑脚本；代码执行经 sandbox 工具隔离。每技能可附 **`.memory.md`**，跨任务追加失败模式、输入格式与性能备注，加载时与接口一并注入。注册前优先跑 unit tests；无测试则回退 sandbox / 轨迹检查。该表示同时服务本机复用与跨 agent 迁移实验（详见 [MUSE-Autoskill](/wiki/harness-evolution/muse-autoskill/)）。
 
 ## 边界：CE skill 与 harness 程序
 
@@ -59,9 +61,10 @@ MCE 的技能也是 workspace 文件夹，但语义是 **CE 策略**：可含自
 
 ## See Also
 
-- [技能管理概览](/wiki/skill-management/overview/)
-- [技能生命周期](/wiki/skill-management/skill-lifecycle/)
-- [MUSE-Autoskill](/wiki/skill-management/muse-autoskill/)
-- [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/)
-- [Meta-Harness](/wiki/skill-management/meta-harness/)
-- [Skill Curation RL](/wiki/skill-management/skill-curation-rl/)
+- [Harness Evolution 概览](/wiki/harness-evolution/overview/)
+- [Harness Engineering](/wiki/harness-evolution/harness-engineering/)
+- [技能生命周期](/wiki/harness-evolution/skill-lifecycle/)
+- [MUSE-Autoskill](/wiki/harness-evolution/muse-autoskill/)
+- [Meta Context Engineering](/wiki/harness-evolution/meta-context-engineering/)
+- [Meta-Harness](/wiki/harness-evolution/meta-harness/)
+- [Skill Curation RL](/wiki/harness-evolution/skill-curation-rl/)

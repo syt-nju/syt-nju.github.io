@@ -1,10 +1,12 @@
 ---
 title: "技能生命周期"
-topic: skill-management
-summary: "技能库瓶颈常在 librarian 与评估：AutoSkill / Ratchet / MUSE 管任务技能；MCE、Meta-Harness 与 Self-Harness 是相邻的 CE/harness 元优化边界。"
+topic: harness-evolution
+summary: "技能库瓶颈常在 librarian 与评估：AutoSkill / Ratchet / MUSE 管任务技能；MCE、Meta-Harness 与 Self-Harness 则把生命周期问题抬到 harness 层。"
 lang: zh-CN
 updated: 2026-08-07
 order: 3
+redirect_from:
+  - /wiki/skill-management/skill-lifecycle/
 sources:
   - title: "AutoSkill: Experience-Driven Lifelong Learning via Skill Self-Evolution"
     url: "https://arxiv.org/abs/2603.01145"
@@ -19,17 +21,19 @@ sources:
   - title: "Self-Harness: Harnesses That Improve Themselves"
     url: "https://arxiv.org/abs/2606.09498v1"
 raw:
-  - raw/skill-management/2026-03-01-autoskill.md
-  - raw/skill-management/2026-05-ratchet.md
-  - raw/skill-management/2026-05-26-muse-autoskill.md
-  - raw/skill-management/2026-01-29-meta-context-engineering.md
-  - raw/skill-management/2026-03-30-meta-harness.md
-  - raw/skill-management/2026-06-08-self-harness.md
+  - raw/harness-evolution/2026-03-01-autoskill.md
+  - raw/harness-evolution/2026-05-ratchet.md
+  - raw/harness-evolution/2026-05-26-muse-autoskill.md
+  - raw/harness-evolution/2026-01-29-meta-context-engineering.md
+  - raw/harness-evolution/2026-03-30-meta-harness.md
+  - raw/harness-evolution/2026-06-08-self-harness.md
 ---
 
 ## Overview
 
-会写技能不等于库长期有用。技能库会遇到版本、冲突、重复、闲置和失效问题，因此需要 librarian：什么时候 add、merge、discard、retire，什么时候通过测试或任务反馈阻断注册。AutoSkill、Ratchet 与 MUSE-Autoskill分别给出不同生命周期处方。关于“LLM 自写技能是否有效”的冲突证据，单独见 [自写技能有效性争议](/wiki/skill-management/self-authored-skills/)。
+会写技能不等于库长期有用。技能库会遇到版本、冲突、重复、闲置和失效问题，因此需要 librarian：什么时候 add、merge、discard、retire，什么时候通过测试或任务反馈阻断注册。AutoSkill、Ratchet 与 MUSE-Autoskill分别给出不同生命周期处方。关于“LLM 自写技能是否有效”的冲突证据，单独见 [自写技能有效性争议](/wiki/harness-evolution/self-authored-skills/)。
+
+在更宽的 [Harness Engineering](/wiki/harness-evolution/harness-engineering/) 语境下，技能生命周期是外部能力演化的局部问题：同样的“生成候选 → 评估 → 保留 / 合并 / 回滚”结构，也会出现在 context function、workflow 和 harness code 的迭代中。
 
 ## AutoSkill：add / merge / discard
 
@@ -54,7 +58,7 @@ AutoSkill 强调可检视与可编辑，但对「按任务贡献退役」与「�
 
 MUSE 把五阶段（creation / memory / management / evaluation / refinement）放进同一 ReAct agent。关键差别是：**skill_create 在执行回路内调用**，代码型技能用 `tests/` unit tests 门控注册，失败则 `update_skill` 再检；管理侧支持精炼、合并与裁剪。记忆上除短/长期层外，每技能有 `.memory.md` 积累跨任务经验。
 
-SkillsBench 75-task（GPT-5.5）上，MUSE 人写技能 59.67%（相对无技能 +12.72pp），自建技能严格 all-75 为 53.42%（+6.47pp）；覆盖 47/75 时覆盖子集 85.24% vs 同子集人写 81.17%。跨 agent：MUSE 自建技能转入 Hermes 达 51.90%，高于 Hermes 人写 48.02%。作者将主瓶颈定为生成覆盖率。完整数字与争议语境见 [MUSE-Autoskill](/wiki/skill-management/muse-autoskill/)。
+SkillsBench 75-task（GPT-5.5）上，MUSE 人写技能 59.67%（相对无技能 +12.72pp），自建技能严格 all-75 为 53.42%（+6.47pp）；覆盖 47/75 时覆盖子集 85.24% vs 同子集人写 81.17%。跨 agent：MUSE 自建技能转入 Hermes 达 51.90%，高于 Hermes 人写 48.02%。作者将主瓶颈定为生成覆盖率。完整数字与争议语境见 [MUSE-Autoskill](/wiki/harness-evolution/muse-autoskill/)。
 
 ## 对照
 
@@ -69,23 +73,24 @@ SkillsBench 75-task（GPT-5.5）上，MUSE 人写技能 59.67%（相对无技能
 
 ## MCE：元层技能选择（对照）
 
-MCE 的「生命周期」发生在 CE skill 上：每轮 agentic crossover 生成 offspring，base 执行后写入 \(\mathcal{H}\)，再按 \(J_{\mathrm{val}}\) 做 \((1+1)\)-ES 式保留。meta-agent 可监测 train/val 并抑制过拟合，但没有 AutoSkill 式 merge/discard 目录，也没有 Ratchet 的 active-cap / retirement 配方。对象是 harness（如何学 context），不是任务技能库 librarian；评测在 FiNER 等 CE 域，不裁决 SkillsBench 争议。细节见 [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/)。
+MCE 的「生命周期」发生在 CE skill 上：每轮 agentic crossover 生成 offspring，base 执行后写入 \(\mathcal{H}\)，再按 \(J_{\mathrm{val}}\) 做 \((1+1)\)-ES 式保留。meta-agent 可监测 train/val 并抑制过拟合，但没有 AutoSkill 式 merge/discard 目录，也没有 Ratchet 的 active-cap / retirement 配方。对象是 harness（如何学 context），不是任务技能库 librarian；评测在 FiNER 等 CE 域，不裁决 SkillsBench 争议。细节见 [Meta Context Engineering](/wiki/harness-evolution/meta-context-engineering/)。
 
 ## Meta-Harness：候选 harness 种群（对照）
 
-[Meta-Harness](/wiki/skill-management/meta-harness/) 也不做任务技能库的 add/merge/retire。它维护已评估 harness 的种群与 Pareto 前沿，把每次评估的代码、分数与 traces 追加进 filesystem；proposer 自行决定读哪些历史、做局部编辑还是重写。选择信号来自 search-set（及多目标时的 Pareto），外环本身几乎不写死亲本规则。对象是任务侧 harness 程序，评测覆盖分类、数学检索与 TerminalBench-2 discovery 设定。
+[Meta-Harness](/wiki/harness-evolution/meta-harness/) 也不做任务技能库的 add/merge/retire。它维护已评估 harness 的种群与 Pareto 前沿，把每次评估的代码、分数与 traces 追加进 filesystem；proposer 自行决定读哪些历史、做局部编辑还是重写。选择信号来自 search-set（及多目标时的 Pareto），外环本身几乎不写死亲本规则。对象是任务侧 harness 程序，评测覆盖分类、数学检索与 TerminalBench-2 discovery 设定。
 
 ## Self-Harness：失败簇驱动的 harness 迭代（对照）
 
-[Self-Harness](/wiki/skill-management/self-harness/) 的生命周期对象同样不是任务技能，而是当前模型运行所依赖的 harness。它先从 held-in 失败轨迹中构造 verifier-grounded failure patterns，再让同一固定模型提出多个 minimal harness edits，最后用 held-in / held-out 非回归规则接受或拒绝候选；多个通过的候选可合并为下一版 harness。相对 Meta-Harness 的外部 coding-agent 搜索，这条路线把 proposer 内化到目标模型自身，但也更依赖 failure signature 与 verifier outcome 是否能暴露真实机制。
+[Self-Harness](/wiki/harness-evolution/self-harness/) 的生命周期对象同样不是任务技能，而是当前模型运行所依赖的 harness。它先从 held-in 失败轨迹中构造 verifier-grounded failure patterns，再让同一固定模型提出多个 minimal harness edits，最后用 held-in / held-out 非回归规则接受或拒绝候选；多个通过的候选可合并为下一版 harness。相对 Meta-Harness 的外部 coding-agent 搜索，这条路线把 proposer 内化到目标模型自身，但也更依赖 failure signature 与 verifier outcome 是否能暴露真实机制。
 
 ## See Also
 
-- [技能管理概览](/wiki/skill-management/overview/)
-- [Skill Library](/wiki/skill-management/skill-library/)
-- [自写技能有效性争议](/wiki/skill-management/self-authored-skills/)
-- [MUSE-Autoskill](/wiki/skill-management/muse-autoskill/)
-- [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/)
-- [Meta-Harness](/wiki/skill-management/meta-harness/)
-- [Self-Harness](/wiki/skill-management/self-harness/)
-- [Skill Curation RL](/wiki/skill-management/skill-curation-rl/)
+- [Harness Evolution 概览](/wiki/harness-evolution/overview/)
+- [Harness Engineering](/wiki/harness-evolution/harness-engineering/)
+- [Skill Library](/wiki/harness-evolution/skill-library/)
+- [自写技能有效性争议](/wiki/harness-evolution/self-authored-skills/)
+- [MUSE-Autoskill](/wiki/harness-evolution/muse-autoskill/)
+- [Meta Context Engineering](/wiki/harness-evolution/meta-context-engineering/)
+- [Meta-Harness](/wiki/harness-evolution/meta-harness/)
+- [Self-Harness](/wiki/harness-evolution/self-harness/)
+- [Skill Curation RL](/wiki/harness-evolution/skill-curation-rl/)

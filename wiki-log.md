@@ -138,3 +138,33 @@
 - Updated: _wiki/skill-management/skill-lifecycle.md
 - Cross-links: overview ↔ meta-harness ↔ self-harness ↔ skill-lifecycle
 - Note: Full text from ar5iv HTML rendering of arXiv v1; License Unknown. Complements Meta-Harness by internalizing harness proposal into the target model with held-in / held-out non-regression validation.
+
+## 2026-08-07 maintain | Rename skill-management to harness-evolution
+- Disposition: Update
+- Topic: harness-evolution
+- Updated: _data/wiki_topics.yml
+- Updated: _wiki/harness-evolution/overview.md
+- Updated: _wiki/harness-evolution/skill-library.md
+- Updated: _wiki/harness-evolution/skill-lifecycle.md
+- Updated: _wiki/harness-evolution/skill-curation-rl.md
+- Updated: _wiki/harness-evolution/muse-autoskill.md
+- Updated: _wiki/harness-evolution/meta-context-engineering.md
+- Updated: _wiki/harness-evolution/meta-harness.md
+- Updated: _wiki/harness-evolution/self-authored-skills.md
+- Updated: _wiki/harness-evolution/self-harness.md
+- Cross-links: old /wiki/skill-management/* URLs preserved via redirect_from
+- Note: Topic reframed from task skill management to the broader external harness evolution problem map.
+
+## 2026-08-07 ingest | Harness Engineering for Self-Improvement
+- Disposition: New + Update
+- Topic: harness-evolution
+- Raw: raw/harness-evolution/2026-07-04-harness-engineering-for-self-improvement.md
+- Created: _wiki/harness-evolution/harness-engineering.md
+- Updated: _wiki/harness-evolution/overview.md
+- Updated: _wiki/harness-evolution/skill-library.md
+- Updated: _wiki/harness-evolution/skill-lifecycle.md
+- Updated: _wiki/harness-evolution/meta-context-engineering.md
+- Updated: _wiki/harness-evolution/meta-harness.md
+- Updated: _wiki/harness-evolution/self-harness.md
+- Cross-links: overview ↔ harness-engineering ↔ skill-library ↔ skill-lifecycle ↔ meta-context-engineering ↔ meta-harness ↔ self-harness
+- Note: Full text from original Lil'Log HTML via WebFetch; License Unknown. Provides the frame for harness design patterns, optimization depth, RSI relevance, and evaluator/permission boundaries.

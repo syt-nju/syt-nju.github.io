@@ -1,20 +1,22 @@
 ---
 title: "MUSE-Autoskill"
-topic: skill-management
+topic: harness-evolution
 summary: "ByteDance 的训练无关技能生命周期框架：运行时创建、skill-level memory、单测评估与跨 agent 迁移，在 SkillsBench / SkillLearnBench 上验证。"
 lang: zh-CN
 updated: 2026-08-07
 order: 5
+redirect_from:
+  - /wiki/skill-management/muse-autoskill/
 sources:
   - title: "MUSE-Autoskill: Self-Evolving Agents via Skill Creation, Memory, Management, and Evaluation"
     url: "https://arxiv.org/abs/2605.27366"
 raw:
-  - raw/skill-management/2026-05-26-muse-autoskill.md
+  - raw/harness-evolution/2026-05-26-muse-autoskill.md
 ---
 
 ## Overview
 
-MUSE-Autoskill（Memory-Utilizing Skill Evolution）把技能当作可长期治理的资产，而不是一次性生成物。它在同一 agent 回路里覆盖五阶段生命周期——**creation、memory、management、evaluation、refinement**——并强调 skill-level memory、单测评估与跨 agent 可迁移的技能包。名称含 Autoskill，但与 ECNU 的 [AutoSkill](/wiki/skill-management/skill-lifecycle/)（对话轨迹抽象 SKILL.md）是不同系统。
+MUSE-Autoskill（Memory-Utilizing Skill Evolution）把技能当作可长期治理的资产，而不是一次性生成物。它在同一 agent 回路里覆盖五阶段生命周期——**creation、memory、management、evaluation、refinement**——并强调 skill-level memory、单测评估与跨 agent 可迁移的技能包。名称含 Autoskill，但与 ECNU 的 [AutoSkill](/wiki/harness-evolution/skill-lifecycle/)（对话轨迹抽象 SKILL.md）是不同系统。
 
 ## 五阶段生命周期
 
@@ -47,15 +49,15 @@ MUSE-Autoskill（Memory-Utilizing Skill Evolution）把技能当作可长期治�
 
 ## 与主题内其他路线的关系
 
-相对 [AutoSkill](/wiki/skill-management/skill-lifecycle/) 的对话抽取与 add/merge/discard，MUSE 更强调运行时创建、单测与 skill-level memory。相对 [SkillOS](/wiki/skill-management/skill-curation-rl/) 的可训练 curator，MUSE 为 **training-free**。相对 [Ratchet](/wiki/skill-management/skill-lifecycle/) 的 hygiene / retirement，MUSE 更偏完整创建—评估—迁移栈，而非最小 librarian 配方。
+相对 [AutoSkill](/wiki/harness-evolution/skill-lifecycle/) 的对话抽取与 add/merge/discard，MUSE 更强调运行时创建、单测与 skill-level memory。相对 [SkillOS](/wiki/harness-evolution/skill-curation-rl/) 的可训练 curator，MUSE 为 **training-free**。相对 [Ratchet](/wiki/harness-evolution/skill-lifecycle/) 的 hygiene / retirement，MUSE 更偏完整创建—评估—迁移栈，而非最小 librarian 配方。
 
-MUSE 与 Ratchet 对“LLM 自写技能是否有效”的解释不同：MUSE 把主瓶颈放在生成覆盖率与运行时评估闭环，Ratchet 则把重点放在 librarian / hygiene。完整争议见 [自写技能有效性争议](/wiki/skill-management/self-authored-skills/)。
+MUSE 与 Ratchet 对“LLM 自写技能是否有效”的解释不同：MUSE 把主瓶颈放在生成覆盖率与运行时评估闭环，Ratchet 则把重点放在 librarian / hygiene。完整争议见 [自写技能有效性争议](/wiki/harness-evolution/self-authored-skills/)。
 
 ## See Also
 
-- [技能管理概览](/wiki/skill-management/overview/)
-- [Skill Library](/wiki/skill-management/skill-library/)
-- [技能生命周期](/wiki/skill-management/skill-lifecycle/)
-- [自写技能有效性争议](/wiki/skill-management/self-authored-skills/)
-- [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/)
-- [Skill Curation RL](/wiki/skill-management/skill-curation-rl/)
+- [Harness Evolution 概览](/wiki/harness-evolution/overview/)
+- [Skill Library](/wiki/harness-evolution/skill-library/)
+- [技能生命周期](/wiki/harness-evolution/skill-lifecycle/)
+- [自写技能有效性争议](/wiki/harness-evolution/self-authored-skills/)
+- [Meta Context Engineering](/wiki/harness-evolution/meta-context-engineering/)
+- [Skill Curation RL](/wiki/harness-evolution/skill-curation-rl/)

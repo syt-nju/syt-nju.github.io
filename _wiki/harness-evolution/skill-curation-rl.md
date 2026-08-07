@@ -1,15 +1,17 @@
 ---
 title: "Skill Curation RL"
-topic: skill-management
+topic: harness-evolution
 summary: "SkillOS 把冻结 executor 与可训练 curator 拆开，用 grouped task streams 与 composite rewards 从延迟反馈中学习长期技能策展策略。"
 lang: zh-CN
 updated: 2026-08-04
 order: 4
+redirect_from:
+  - /wiki/skill-management/skill-curation-rl/
 sources:
   - title: "SkillOS: Learning Skill Curation for Self-Evolving Agents"
     url: "https://arxiv.org/abs/2605.06614"
 raw:
-  - raw/skill-management/2026-05-07-skillos.md
+  - raw/harness-evolution/2026-05-07-skillos.md
 ---
 
 ## Overview
@@ -42,7 +44,7 @@ raw:
 
 ## See Also
 
-- [技能管理概览](/wiki/skill-management/overview/)
-- [Skill Library](/wiki/skill-management/skill-library/)
-- [技能生命周期](/wiki/skill-management/skill-lifecycle/)
-- [MUSE-Autoskill](/wiki/skill-management/muse-autoskill/)（training-free 全生命周期对照）
+- [Harness Evolution 概览](/wiki/harness-evolution/overview/)
+- [Skill Library](/wiki/harness-evolution/skill-library/)
+- [技能生命周期](/wiki/harness-evolution/skill-lifecycle/)
+- [MUSE-Autoskill](/wiki/harness-evolution/muse-autoskill/)（training-free 全生命周期对照）

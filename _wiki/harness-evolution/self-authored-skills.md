@@ -1,18 +1,20 @@
 ---
 title: "自写技能有效性争议"
-topic: skill-management
+topic: harness-evolution
 summary: "Ratchet 将 SkillsBench 的 LLM 自写技能 null result 解释为 librarian 问题；MUSE-Autoskill 则显示全生命周期 agent 下自建技能仍有正增益。"
 lang: zh-CN
 updated: 2026-08-07
-order: 8
+order: 9
+redirect_from:
+  - /wiki/skill-management/self-authored-skills/
 sources:
   - title: "Ratchet: A Minimal Hygiene Recipe for Self-Evolving LLM Agents"
     url: "https://arxiv.org/abs/2605.22148"
   - title: "MUSE-Autoskill: Self-Evolving Agents via Skill Creation, Memory, Management, and Evaluation"
     url: "https://arxiv.org/abs/2605.27366"
 raw:
-  - raw/skill-management/2026-05-ratchet.md
-  - raw/skill-management/2026-05-26-muse-autoskill.md
+  - raw/harness-evolution/2026-05-ratchet.md
+  - raw/harness-evolution/2026-05-26-muse-autoskill.md
 ---
 
 ## Overview
@@ -45,6 +47,6 @@ MUSE 进一步报告：在成功覆盖的子集上，自建技能为 85.24%，�
 
 ## See Also
 
-- [技能管理概览](/wiki/skill-management/overview/)
-- [技能生命周期](/wiki/skill-management/skill-lifecycle/)
-- [MUSE-Autoskill](/wiki/skill-management/muse-autoskill/)
+- [Harness Evolution 概览](/wiki/harness-evolution/overview/)
+- [技能生命周期](/wiki/harness-evolution/skill-lifecycle/)
+- [MUSE-Autoskill](/wiki/harness-evolution/muse-autoskill/)
