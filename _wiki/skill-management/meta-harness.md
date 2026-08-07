@@ -8,8 +8,11 @@ order: 7
 sources:
   - title: "Meta-Harness: End-to-End Optimization of Model Harnesses"
     url: "https://arxiv.org/abs/2603.28052"
+  - title: "Self-Harness: Harnesses That Improve Themselves"
+    url: "https://arxiv.org/abs/2606.09498v1"
 raw:
   - raw/skill-management/2026-03-30-meta-harness.md
+  - raw/skill-management/2026-06-08-self-harness.md
 ---
 
 ## Overview
@@ -25,6 +28,8 @@ Meta-Harness 是搜索 harness 的外环：proposer 是 coding agent（实验中
 Table 1 对照 OPRO、TextGrad、AlphaEvolve、GEPA、Feedback Descent、TTT-Discover 等：其单次评估可用上下文多在约 0.002–0.026 MTok，而 Meta-Harness 设定下单次评估诊断可达约 **10.0** MTok。主张是：harness 决策影响长程行为，压缩反馈会切断失败与早期设计选择之间的因果链。
 
 相对 [MCE](/wiki/skill-management/meta-context-engineering/)：两者都在「元优化 CE / harness」线上，但机制不同。MCE 用双层优化共演化 **CE skill** 与 **context artifact**；Meta-Harness 直接在 **完整 harness 程序空间** 搜索，并把外环诊断信息暴露为可查询的全历史文件系统。ACE / MCE 在本文中是在线文本分类设定下的强手工基线，而非被重构的唯一设计点。
+
+相对 [Self-Harness](/wiki/skill-management/self-harness/)：两者都把 harness 当成可修改对象，但优化者的位置相反。Meta-Harness 依赖外部 coding agent 读取历史源码、分数和 traces 后搜索候选 harness；Self-Harness 则要求被评估的同一固定模型依据自身 held-in 失败聚类提出 bounded edits，再用 held-in / held-out 非回归规则接受。前者强调全历史诊断接口和完整程序空间，后者强调减少对更强外部优化器的依赖。
 
 ## 在线文本分类
 
@@ -67,10 +72,12 @@ OOD 九数据集（Table 5）：Meta-Harness 平均 **73.1**（Ctx 7.3），ACE 
 - TerminalBench-2 非严格 held-out 划分；应读作发现型基准优化，并依赖其过拟合检查叙述。
 - 相对任务技能库路线（Voyager / MUSE / SkillOS / Ratchet），本文优化的是 **任务侧 harness 程序**（分类 memory、检索策略、agent 编排），不是 librarian 对 SKILL.md 库的 add/merge/retire。
 - 相对 MCE：同属 CE/harness 元优化，但一个演化「如何做 CE 的 skill」，一个用全历史诊断搜索「整份 harness 代码」。
+- 相对 Self-Harness：两者共享 TerminalBench-2 作为 harness 改进证据场景，但 Meta-Harness 是外部搜索器优化 harness，Self-Harness 是目标模型自我提出并验证 bounded harness edit。
 
 ## See Also
 
 - [技能管理概览](/wiki/skill-management/overview/)
 - [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/)
+- [Self-Harness](/wiki/skill-management/self-harness/)
 - [Skill Library](/wiki/skill-management/skill-library/)
 - [技能生命周期](/wiki/skill-management/skill-lifecycle/)

@@ -20,6 +20,8 @@ sources:
     url: "https://arxiv.org/abs/2601.21557"
   - title: "Meta-Harness: End-to-End Optimization of Model Harnesses"
     url: "https://arxiv.org/abs/2603.28052"
+  - title: "Self-Harness: Harnesses That Improve Themselves"
+    url: "https://arxiv.org/abs/2606.09498v1"
 raw:
   - raw/skill-management/2023-05-25-voyager.md
   - raw/skill-management/2026-03-01-autoskill.md
@@ -28,13 +30,14 @@ raw:
   - raw/skill-management/2026-05-26-muse-autoskill.md
   - raw/skill-management/2026-01-29-meta-context-engineering.md
   - raw/skill-management/2026-03-30-meta-harness.md
+  - raw/skill-management/2026-06-08-self-harness.md
 ---
 
 ## Overview
 
 冻结 LLM 的长期能力不一定来自更新权重，也可以来自外部资产：代码技能、自然语言规则、Agent Skills 包、可训练的 SkillRepo，或更靠近 harness 的上下文工程程序。技能管理关心的不是“又出现了哪个系统”，而是这些资产如何表示、如何被检索和组合、谁负责策展、如何避免库漂坏，以及哪些能力其实已经越过了任务技能库边界，进入 CE / harness 元优化。
 
-当前 topic 的主骨架是问题地图；系统页只作为证据锚点。`MUSE-Autoskill`、`MCE`、`Meta-Harness` 等页面保留，是因为它们会被多个问题反复引用，而不是因为每篇来源都应该变成系统页。
+当前 topic 的主骨架是问题地图；系统页只作为证据锚点。`MUSE-Autoskill`、`MCE`、`Meta-Harness`、`Self-Harness` 等页面保留，是因为它们会被多个问题反复引用，而不是因为每篇来源都应该变成系统页。
 
 ## 问题地图
 
@@ -56,11 +59,11 @@ raw:
 
 ### CE / harness 元优化是否属于本主题
 
-MCE 和 Meta-Harness 已经不只是“任务技能库怎么管”，而是在优化 context engineering 或完整 harness 本身。它们仍放在本 topic，是因为都共享一个更高层主张：冻结模型的能力可以通过外部可检视资产增长。但阅读时应把它们当作**边界问题**：MCE 演化 CE skill，Meta-Harness 搜索任务侧 harness 程序；二者不是 task skill librarian。详见 [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/) 与 [Meta-Harness](/wiki/skill-management/meta-harness/)。
+MCE、Meta-Harness 和 Self-Harness 已经不只是“任务技能库怎么管”，而是在优化 context engineering 或完整 harness 本身。它们仍放在本 topic，是因为都共享一个更高层主张：冻结模型的能力可以通过外部可检视资产增长。但阅读时应把它们当作**边界问题**：MCE 演化 CE skill，Meta-Harness 用外部 coding agent 搜索任务侧 harness 程序，Self-Harness 则让目标模型依据自身失败轨迹提出 bounded harness edits；三者都不是 task skill librarian。详见 [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/)、[Meta-Harness](/wiki/skill-management/meta-harness/) 与 [Self-Harness](/wiki/skill-management/self-harness/)。
 
 ## 共同主张与边界
 
-共同主张：能力增长可以发生在外部技能资产或外部 harness 上，而不必更新权重。真正的分歧在于资产边界与反馈回路：技能是代码、Markdown、带测试的包，还是完整 harness；维护靠启发式、单测、RL curator，还是 coding agent 搜索；评估看任务成功、覆盖率、迁移性，还是搜索/上下文成本。
+共同主张：能力增长可以发生在外部技能资产或外部 harness 上，而不必更新权重。真正的分歧在于资产边界与反馈回路：技能是代码、Markdown、带测试的包，还是完整 harness；维护靠启发式、单测、RL curator、外部 coding agent 搜索，还是目标模型自提 harness edit；评估看任务成功、覆盖率、迁移性，还是搜索/上下文成本与 held-out 非回归。
 
 本 topic 暂时把 CE / harness 元优化作为相邻边界保留。若后续来源主要围绕 harness search、context optimization 或 workflow search 增长，应考虑拆出独立 topic，而不是继续扩张“技能管理”的含义。
 
@@ -73,3 +76,4 @@ MCE 和 Meta-Harness 已经不只是“任务技能库怎么管”，而是在�
 - [MUSE-Autoskill](/wiki/skill-management/muse-autoskill/)
 - [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/)
 - [Meta-Harness](/wiki/skill-management/meta-harness/)
+- [Self-Harness](/wiki/skill-management/self-harness/)

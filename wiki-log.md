@@ -127,3 +127,14 @@
 - Updated: _wiki/skill-management/muse-autoskill.md
 - Cross-links: skill-management overview ↔ self-authored-skills ↔ skill-lifecycle ↔ muse-autoskill
 - Note: Applied new page-role rules: overview pages are topic problem maps; system pages remain evidence anchors; disputed self-authored skill claims moved out of overview.
+
+## 2026-08-07 ingest | Self-Harness: Harnesses That Improve Themselves
+- Disposition: New + Update
+- Topic: skill-management
+- Raw: raw/skill-management/2026-06-08-self-harness.md
+- Created: _wiki/skill-management/self-harness.md
+- Updated: _wiki/skill-management/overview.md
+- Updated: _wiki/skill-management/meta-harness.md
+- Updated: _wiki/skill-management/skill-lifecycle.md
+- Cross-links: overview ↔ meta-harness ↔ self-harness ↔ skill-lifecycle
+- Note: Full text from ar5iv HTML rendering of arXiv v1; License Unknown. Complements Meta-Harness by internalizing harness proposal into the target model with held-in / held-out non-regression validation.

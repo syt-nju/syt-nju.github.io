@@ -1,7 +1,7 @@
 ---
 title: "技能生命周期"
 topic: skill-management
-summary: "技能库瓶颈常在 librarian 与评估：AutoSkill / Ratchet / MUSE 管任务技能；MCE 与 Meta-Harness 是相邻的 CE/harness 元优化边界。"
+summary: "技能库瓶颈常在 librarian 与评估：AutoSkill / Ratchet / MUSE 管任务技能；MCE、Meta-Harness 与 Self-Harness 是相邻的 CE/harness 元优化边界。"
 lang: zh-CN
 updated: 2026-08-07
 order: 3
@@ -16,12 +16,15 @@ sources:
     url: "https://arxiv.org/abs/2601.21557"
   - title: "Meta-Harness: End-to-End Optimization of Model Harnesses"
     url: "https://arxiv.org/abs/2603.28052"
+  - title: "Self-Harness: Harnesses That Improve Themselves"
+    url: "https://arxiv.org/abs/2606.09498v1"
 raw:
   - raw/skill-management/2026-03-01-autoskill.md
   - raw/skill-management/2026-05-ratchet.md
   - raw/skill-management/2026-05-26-muse-autoskill.md
   - raw/skill-management/2026-01-29-meta-context-engineering.md
   - raw/skill-management/2026-03-30-meta-harness.md
+  - raw/skill-management/2026-06-08-self-harness.md
 ---
 
 ## Overview
@@ -72,6 +75,10 @@ MCE 的「生命周期」发生在 CE skill 上：每轮 agentic crossover 生�
 
 [Meta-Harness](/wiki/skill-management/meta-harness/) 也不做任务技能库的 add/merge/retire。它维护已评估 harness 的种群与 Pareto 前沿，把每次评估的代码、分数与 traces 追加进 filesystem；proposer 自行决定读哪些历史、做局部编辑还是重写。选择信号来自 search-set（及多目标时的 Pareto），外环本身几乎不写死亲本规则。对象是任务侧 harness 程序，评测覆盖分类、数学检索与 TerminalBench-2 discovery 设定。
 
+## Self-Harness：失败簇驱动的 harness 迭代（对照）
+
+[Self-Harness](/wiki/skill-management/self-harness/) 的生命周期对象同样不是任务技能，而是当前模型运行所依赖的 harness。它先从 held-in 失败轨迹中构造 verifier-grounded failure patterns，再让同一固定模型提出多个 minimal harness edits，最后用 held-in / held-out 非回归规则接受或拒绝候选；多个通过的候选可合并为下一版 harness。相对 Meta-Harness 的外部 coding-agent 搜索，这条路线把 proposer 内化到目标模型自身，但也更依赖 failure signature 与 verifier outcome 是否能暴露真实机制。
+
 ## See Also
 
 - [技能管理概览](/wiki/skill-management/overview/)
@@ -80,4 +87,5 @@ MCE 的「生命周期」发生在 CE skill 上：每轮 agentic crossover 生�
 - [MUSE-Autoskill](/wiki/skill-management/muse-autoskill/)
 - [Meta Context Engineering](/wiki/skill-management/meta-context-engineering/)
 - [Meta-Harness](/wiki/skill-management/meta-harness/)
+- [Self-Harness](/wiki/skill-management/self-harness/)
 - [Skill Curation RL](/wiki/skill-management/skill-curation-rl/)
