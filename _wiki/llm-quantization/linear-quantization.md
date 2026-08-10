@@ -32,9 +32,9 @@ raw:
 
 对浮点值 \(x\)，常用仿射量化：
 
-\[
+$$
 q = \mathrm{round}(x / S + Z),\quad x \approx S \cdot (q - Z)
-\]
+$$
 
 - \(S\)（scale）：浮点范围与整数范围之比。
 - \(Z\)（zero-point）：浮点 0 对应的整数，保证零值可精确表示。
