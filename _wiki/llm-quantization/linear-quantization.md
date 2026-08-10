@@ -46,7 +46,7 @@ $$
 | 方案 | 范围假设 | 参数 | 直观取舍 |
 |------|----------|------|----------|
 | Symmetric | 关于 0 对称，\(Z=0\) | 主要靠 \(S\) | 算子更简单；偏斜分布会浪费网格 |
-| Asymmetric / Affine | 用真实 \([\min,\max]\) | \(S\) 与 \(Z\) | 更贴分布；权重量化时算力开销更大 |
+| Asymmetric / Affine | 用真实 min–max 区间 | \(S\) 与 \(Z\) | 更贴分布；权重量化时算力开销更大 |
 
 PyTorch 实践指出：非负激活更适合仿射；权重量化常偏好对称 per-channel，因为跨通道方差大时 per-tensor 表现差。
 
@@ -68,7 +68,7 @@ FP8 保留浮点结构（常见 E4M3 / E5M2），推理侧 A8W8 可同时压激�
 
 ## 校准在基础层做什么
 
-校准（calibration）是选定裁剪范围 \([\alpha,\beta]\) 并由此算 \(S,Z\) 的过程。常见观察器包括 running min/max、滑动平均 min/max、直方图；也可用 KL / MSE / 分位数。不同 observer 给出的 qparams 不同，需要按任务实证。
+校准（calibration）是选定裁剪范围 \(\alpha\)–\(\beta\) 并由此算 \(S,Z\) 的过程。常见观察器包括 running min/max、滑动平均 min/max、直方图；也可用 KL / MSE / 分位数。不同 observer 给出的 qparams 不同，需要按任务实证。
 
 ## See Also
 

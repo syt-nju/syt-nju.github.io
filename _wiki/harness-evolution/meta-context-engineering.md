@@ -27,9 +27,9 @@ Meta Context Engineering（MCE）把 Context Engineering（CE）从「人工固�
 
 Context 函数 \(c\) 由静态组件 \(\rho\) 与动态算子 \(F\)（检索、筛选、格式化等）组成。MCE 引入技能 \(s\)，由 base-agent 执行得到 \(c_s\)，并求解：
 
-\[
+$$
 s^{*}=\arg\max_{s} J_{\mathrm{val}}(c_{s}^{*})\quad\text{s.t.}\quad c_{s}^{*}=\arg\max_{c_{s}} J_{\mathrm{train}}(c_{s};s).
-\]
+$$
 
 编排采用 history-informed \((1+1)\)-ES：每轮 meta-agent 生成一个 offspring skill → base-agent 产出 context → 用验证集与当前最优比较并保留更优者；技能历史 \(\mathcal{H}\) 记录 \((s,c,J_{\mathrm{train}},J_{\mathrm{val}})\)。meta / base 均使用通用工具集（Read / Write / Edit / Bash / Glob / Grep / TodoWrite），权限按角色与迭代限定。
 

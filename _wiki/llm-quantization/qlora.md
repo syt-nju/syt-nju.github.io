@@ -32,7 +32,7 @@ QLoRA（Quantized LoRA）把基座存成 4-bit，只训练高精低秩 adapter�
 
 ## NF4
 
-NF4（4-bit NormalFloat）假设权重大致正态，把 \([-1,1]\) 分成 16 个非均匀档，零点附近更密，尾部更疏。相对均匀 INT4，对集中在 0 附近的权重更省量化误差。
+NF4（4-bit NormalFloat）假设权重大致正态，把 \(-1\) 到 \(1\) 分成 16 个非均匀档，零点附近更密，尾部更疏。相对均匀 INT4，对集中在 0 附近的权重更省量化误差。
 
 反量化可写为 \(w = n(Q_1) \times c_1\)：\(n(Q_1)\) 来自 LUT，\(c_1\) 是 block 共享的 FP32 缩放。按每 block 32 个权重计，\(c_1\) 均摊约 1 bit/param，叠加 4-bit 索引约 5 bit/param。
 
