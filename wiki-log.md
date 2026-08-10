@@ -236,3 +236,14 @@
 - Updated: _wiki/llm-quantization/ptq-vs-qat.md
 - Cross-links: overview ↔ qlora ↔ qat-for-llms ↔ ptq-vs-qat
 - Note: License Unknown; Published date Unknown.
+
+## 2026-08-10 ingest | 当谈论 FP8 训练的时候，我们到底在聊什么?
+- Disposition: New + Update
+- Topic: llm-quantization
+- Raw: raw/llm-quantization/2025-11-09-fp8-training-recipes.md
+- Created: _wiki/llm-quantization/fp8-training.md
+- Updated: _wiki/llm-quantization/overview.md
+- Updated: _wiki/llm-quantization/linear-quantization.md
+- Updated: _wiki/llm-quantization/ptq-vs-qat.md
+- Cross-links: overview ↔ fp8-training ↔ linear-quantization ↔ ptq-vs-qat
+- Note: License Unknown; qingkeai mirror of Zhihu post; Published 2025-11-09. Figure-only memory tables not transcribed as precise Wiki claims.

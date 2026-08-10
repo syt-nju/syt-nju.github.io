@@ -28,6 +28,8 @@ raw:
 
 按误差消化时机，量化分成两条主路线：训练后量化（PTQ）与量化感知训练（QAT）。LLM 生产推理默认 PTQ；需要回收大幅精度损失时再上 QAT。
 
+另有一条常被混谈的线：**训练期 FP8 混合精度**（TE/MCore recipe 加速 GEMM）。它既不是训后 INT4 PTQ，也不是经典 fake-quant QAT；见 [FP8 训练 Recipe](/wiki/llm-quantization/fp8-training/)。
+
 ## PTQ：训完再压
 
 PTQ 在模型已训完后施加量化，通常不需要完整训练数据与反向传播。
@@ -91,3 +93,4 @@ InferLoop 的实践判断：到 2025 年实践中 PTQ 仍是绝对主流；除�
 - [GPTQ 与 AWQ](/wiki/llm-quantization/gptq-awq/)
 - [LLM 上的 QAT](/wiki/llm-quantization/qat-for-llms/)
 - [QLoRA](/wiki/llm-quantization/qlora/)
+- [FP8 训练 Recipe](/wiki/llm-quantization/fp8-training/)
