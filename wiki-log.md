@@ -168,3 +168,71 @@
 - Updated: _wiki/harness-evolution/self-harness.md
 - Cross-links: overview ↔ harness-engineering ↔ skill-library ↔ skill-lifecycle ↔ meta-context-engineering ↔ meta-harness ↔ self-harness
 - Note: Full text from original Lil'Log HTML via WebFetch; License Unknown. Provides the frame for harness design patterns, optimization depth, RSI relevance, and evaluator/permission boundaries.
+
+## 2026-08-10 ingest | Quantization concepts (Hugging Face)
+- Disposition: New
+- Topic: llm-quantization (new topic added to _data/wiki_topics.yml)
+- Raw: raw/llm-quantization/hf-quantization-concepts.md
+- Created: _wiki/llm-quantization/overview.md
+- Created: _wiki/llm-quantization/linear-quantization.md
+- Created: _wiki/llm-quantization/ptq-vs-qat.md
+- Cross-links: overview ↔ linear-quantization ↔ ptq-vs-qat
+- Note: License Unknown; full Transformers docs page mirrored.
+
+## 2026-08-10 ingest | Practical Quantization in PyTorch
+- Disposition: Update
+- Topic: llm-quantization
+- Raw: raw/llm-quantization/2024-11-15-pytorch-quantization-in-practice.md
+- Updated: _wiki/llm-quantization/linear-quantization.md
+- Updated: _wiki/llm-quantization/ptq-vs-qat.md
+- Cross-links: linear-quantization ↔ ptq-vs-qat
+- Note: License Unknown; Published/Last updated 2024-11-15.
+
+## 2026-08-10 ingest | 第 7 章 量化：用更少的显存跑更大的模型
+- Disposition: Update + New
+- Topic: llm-quantization
+- Raw: raw/llm-quantization/inferloop-llm-infra-quantization.md
+- Created: _wiki/llm-quantization/gptq-awq.md
+- Updated: _wiki/llm-quantization/overview.md
+- Updated: _wiki/llm-quantization/linear-quantization.md
+- Updated: _wiki/llm-quantization/ptq-vs-qat.md
+- Cross-links: overview ↔ gptq-awq ↔ ptq-vs-qat
+- Note: License Unknown; Published date Unknown.
+
+## 2026-08-10 ingest | Understanding Post-Training Quantization with LLM Compressor
+- Disposition: Update
+- Topic: llm-quantization
+- Raw: raw/llm-quantization/2026-06-17-understanding-ptq-with-llm-compressor.md
+- Updated: _wiki/llm-quantization/gptq-awq.md
+- Updated: _wiki/llm-quantization/overview.md
+- Cross-links: overview ↔ gptq-awq
+- Note: License Unknown; Published 2026-06-17.
+
+## 2026-08-10 ingest | 模型量化算法详解：从 PTQ 到 AWQ 的大模型压缩实战指南
+- Disposition: Update
+- Topic: llm-quantization
+- Raw: raw/llm-quantization/2026-07-02-tencent-ptq-to-awq-guide.md
+- Updated: _wiki/llm-quantization/linear-quantization.md
+- Updated: _wiki/llm-quantization/ptq-vs-qat.md
+- Updated: _wiki/llm-quantization/gptq-awq.md
+- Note: License Unknown; Published 2026-07-02.
+
+## 2026-08-10 ingest | Quantization-Aware Training for Large Language Models with PyTorch
+- Disposition: New + Update
+- Topic: llm-quantization
+- Raw: raw/llm-quantization/2024-11-12-pytorch-qat-for-llms.md
+- Created: _wiki/llm-quantization/qat-for-llms.md
+- Updated: _wiki/llm-quantization/overview.md
+- Updated: _wiki/llm-quantization/ptq-vs-qat.md
+- Cross-links: overview ↔ qat-for-llms ↔ ptq-vs-qat
+- Note: License Unknown; Published/Last updated 2024-11-12.
+
+## 2026-08-10 ingest | QLoRA Deep Dive: Efficient LLM Fine-Tuning with NF4 & Paged Optimizers
+- Disposition: New + Update
+- Topic: llm-quantization
+- Raw: raw/llm-quantization/qlora-nf4-double-quantization-deep-dive.md
+- Created: _wiki/llm-quantization/qlora.md
+- Updated: _wiki/llm-quantization/overview.md
+- Updated: _wiki/llm-quantization/ptq-vs-qat.md
+- Cross-links: overview ↔ qlora ↔ qat-for-llms ↔ ptq-vs-qat
+- Note: License Unknown; Published date Unknown.
