@@ -10,6 +10,9 @@
 #   url   : link to the original article
 #   date  : YYYY-MM-DD, the day this link was added (used for sorting only)
 entries:
+  - title: "量化：用更少的显存跑更大的模型"
+    url: "https://inferloop.dev/llm-infra/quantization/"
+    date: 2026-08-10
   - title: "Harness Engineering for Self-Improvement"
     url: "https://lilianweng.github.io/posts/2026-07-04-harness/"
     date: 2026-08-05
