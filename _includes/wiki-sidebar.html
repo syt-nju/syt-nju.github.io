@@ -6,8 +6,8 @@
       {% assign topics = site.data.wiki_topics | sort: "order" %}
       {% for topic in topics %}
         {% assign articles = site.wiki | where: "topic", topic.slug | sort: "order" %}
-        <section class="wiki-sidebar__topic">
-          <h2>{{ topic.title | escape }}</h2>
+        <details class="wiki-sidebar__topic"{% if topic.slug == page.topic %} open{% endif %}>
+          <summary>{{ topic.title | escape }}</summary>
           <ul>
             {% for article in articles %}
               <li>
@@ -18,7 +18,7 @@
               </li>
             {% endfor %}
           </ul>
-        </section>
+        </details>
       {% endfor %}
     </nav>
   </details>

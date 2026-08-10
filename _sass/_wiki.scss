@@ -11,12 +11,33 @@
   }
 
   summary {
+    list-style: none;
+    cursor: pointer;
+  }
+
+  summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .wiki-sidebar__panel > summary {
     padding: 0.65em 0 1em;
     font-family: $sans-serif;
     font-size: $type-size-6;
     font-weight: 700;
     letter-spacing: 0.04em;
-    cursor: pointer;
+  }
+
+  .wiki-sidebar__panel > summary::before {
+    content: "▼";
+    display: inline-block;
+    margin-right: 0.4em;
+    font-size: 0.75em;
+    transform: rotate(-90deg);
+    transition: transform 0.15s ease;
+  }
+
+  .wiki-sidebar__panel[open] > summary::before {
+    transform: rotate(0deg);
   }
 
   nav {
@@ -37,6 +58,12 @@
       background: $lighter-gray;
     }
 
+    span {
+      min-width: 0;
+      overflow-wrap: anywhere;
+      line-height: 1.35;
+    }
+
     small {
       flex-shrink: 0;
       color: $gray;
@@ -54,30 +81,66 @@
 
 .wiki-sidebar__home {
   display: block;
-  margin-bottom: 1.25em;
+  margin-bottom: 1em;
   font-family: $sans-serif;
   font-size: $type-size-6;
 }
 
 .wiki-sidebar__topic {
-  margin-bottom: 1.25em;
+  margin-bottom: 0.35em;
+  border: 1px solid transparent;
+  border-radius: $border-radius;
 
-  h2 {
-    margin: 0 0 0.55em;
-    padding-left: 0.55em;
+  > summary {
+    display: flex;
+    align-items: center;
+    gap: 0.45em;
+    margin: 0;
+    padding: 0.45em 0.55em;
     color: $gray;
+    font-family: $sans-serif;
     font-size: $type-size-6;
-    letter-spacing: 0.06em;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    border-radius: $border-radius;
+
+    &:hover {
+      background: $lighter-gray;
+      color: $text-color;
+    }
+  }
+
+  > summary::before {
+    content: "▸";
+    flex-shrink: 0;
+    width: 0.85em;
+    color: mix($gray, #fff, 65%);
+    font-size: 0.85em;
+    line-height: 1;
+    transition: transform 0.15s ease;
+  }
+
+  &[open] {
+    margin-bottom: 0.85em;
+  }
+
+  &[open] > summary {
+    color: $text-color;
+  }
+
+  &[open] > summary::before {
+    transform: rotate(90deg);
   }
 
   ul {
-    margin: 0;
-    padding: 0;
+    margin: 0.15em 0 0.35em;
+    padding: 0 0 0 0.35em;
     list-style: none;
+    border-left: 2px solid mix($border-color, #fff, 80%);
   }
 
   li {
-    margin-bottom: 0.45em;
+    margin-bottom: 0.2em;
   }
 }
 
