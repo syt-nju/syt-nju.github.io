@@ -3,7 +3,7 @@ title: "大模型量化问题地图"
 topic: llm-quantization
 summary: "大模型量化的核心问题是如何在降精度省显存的同时控制量化噪声，以及何时用校准式 PTQ、何时回到 QAT 或 QLoRA 训练。"
 lang: zh-CN
-updated: 2026-08-10
+updated: 2026-08-11
 order: 1
 sources:
   - title: "Quantization concepts"
@@ -20,6 +20,8 @@ sources:
     url: "https://kuriko-iwai.com/research/qlora-efficient-llm-finetuning-nf4-double-quantization"
   - title: "当谈论 FP8 训练的时候，我们到底在聊什么?"
     url: "https://qingkeai.online/archives/aaxcavut"
+  - title: "Tricks from OpenAI gpt-oss YOU can use with transformers"
+    url: "https://huggingface.co/blog/faster-transformers"
 raw:
   - raw/llm-quantization/hf-quantization-concepts.md
   - raw/llm-quantization/2024-11-15-pytorch-quantization-in-practice.md
@@ -28,19 +30,20 @@ raw:
   - raw/llm-quantization/2024-11-12-pytorch-qat-for-llms.md
   - raw/llm-quantization/qlora-nf4-double-quantization-deep-dive.md
   - raw/llm-quantization/2025-11-09-fp8-training-recipes.md
+  - raw/llm-quantization/2025-09-11-hf-faster-transformers-gpt-oss.md
 ---
 
 ## Overview
 
 大模型量化不是单一算法，而是一组互相耦合的选择：把哪些张量降到多少比特、用什么映射与粒度、误差在校准阶段还是训练阶段消化、以及最终服务场景是 GPU 推理、端侧部署、低显存微调，还是大规模预训练里的 FP8 混合精度。
 
-本 topic 先回答五类问题：数值如何映射、PTQ 与 QAT 的流程边界、LLM 上主流 INT4 权重量化、后训练里的 QLoRA，以及训练期 FP8 recipe。
+本 topic 先回答六类问题：数值如何映射、PTQ 与 QAT 的流程边界、LLM 上主流 INT4 权重量化、后训练里的 QLoRA、训练期 FP8 recipe，以及推理侧 MXFP4 / microscaling FP4。
 
 ## 问题地图
 
 ### 精度怎么降下去
 
-量化把浮点范围映射到更少的离散档位，引入 scale / zero-point，并在 per-tensor、per-channel、per-group 等粒度上折中精度与元数据开销。INT4 还常依赖 packing；FP8 则依赖新硬件。详见 [线性量化基础](/wiki/llm-quantization/linear-quantization/)。
+量化把浮点范围映射到更少的离散档位，引入 scale / zero-point，并在 per-tensor、per-channel、per-group 等粒度上折中精度与元数据开销。INT4 还常依赖 packing；FP8 则依赖新硬件；推理 MXFP4 则用 E2M1 + block-32 scale。详见 [线性量化基础](/wiki/llm-quantization/linear-quantization/)。
 
 ### 误差在什么时候消化
 
@@ -58,6 +61,10 @@ PTQ 在训完后用校准数据估参数或做层内补偿；QAT 在训练前向
 
 预训练 FP8 是 TE/MCore recipe：加速 linear 的三个 GEMM，并处理 Hopper/Blackwell layout、primary weights 与 TP/EP 通信。它与推理 FP8 PTQ 不是同一条流水线。详见 [FP8 训练 Recipe](/wiki/llm-quantization/fp8-training/)。
 
+### 推理侧 MXFP4 解决什么
+
+当权重以 MXFP4（E2M1 + 每 32 元一块 scale）交付时，首要问题是单卡显存能否装下，以及 GEMM 是否有感知 block scale 的 kernel；它与校准式 INT4 PTQ、训练期 FP8/MXFP8 都不是同一条线。详见 [MXFP4 推理量化](/wiki/llm-quantization/mxfp4/)。
+
 ## 共同主张
 
 - 量化的主收益首先是显存与带宽，不一定等于算力加速；weight-only 场景尤其如此。
@@ -65,6 +72,7 @@ PTQ 在训完后用校准数据估参数或做层内补偿；QAT 在训练前向
 - QAT 在更低比特或端侧 8da4w 等设定上能显著回收精度，但训练成本更高。
 - QLoRA 解决的是「训练时塞得下基座」，与「导出可部署量化权重」不是同一条流水线。
 - FP8 训练的显存/通信收益取决于 recipe 与是否启用 FP8 primary weights，不能默认减半。
+- MXFP4 的落地取决于专用 kernel 与运行环境；不满足时可能 fallback 到约 4× 显存的 BF16 路径。
 
 ## See Also
 
@@ -73,4 +81,5 @@ PTQ 在训完后用校准数据估参数或做层内补偿；QAT 在训练前向
 - [GPTQ 与 AWQ](/wiki/llm-quantization/gptq-awq/)
 - [LLM 上的 QAT](/wiki/llm-quantization/qat-for-llms/)
 - [QLoRA](/wiki/llm-quantization/qlora/)
+- [MXFP4 推理量化](/wiki/llm-quantization/mxfp4/)
 - [FP8 训练 Recipe](/wiki/llm-quantization/fp8-training/)

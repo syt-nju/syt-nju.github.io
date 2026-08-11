@@ -3,7 +3,7 @@ title: "FP8 训练 Recipe"
 topic: llm-quantization
 summary: "FP8 训练靠 TE/MCore recipe 在 GEMM 上用 E4M3/E5M2 或 MXFP8；显存与通信收益取决于 primary weights 与并行策略，不等于推理侧 FP8 PTQ。"
 lang: zh-CN
-updated: 2026-08-10
+updated: 2026-08-11
 order: 7
 sources:
   - title: "当谈论 FP8 训练的时候，我们到底在聊什么?"
@@ -87,9 +87,11 @@ Blockwise 在 Hopper 上实质需要两类 GEMM：`128×128 @ 1×128`（2D×1D�
 - 训练 FP8 的关键设计选择是：**activation 沿 token 1D，weight 用 2D**——利于通信与少存双份 weight。
 - Blockwise（DeepSeek-V3-like）是当下生产背书最多的 recipe；MXFP8 绑 Blackwell。
 - 推理侧「模型存成 FP8」与训练侧「GEMM 输入 FP8 + master/BF16 权重策略」不要混为一谈。
+- 训练侧 MXFP8（tile + E8M0）与推理侧 [MXFP4](/wiki/llm-quantization/mxfp4/)（E2M1 + block-32）同属 microscaling 直觉，但场景与比特宽不同。
 
 ## See Also
 
 - [线性量化基础](/wiki/llm-quantization/linear-quantization/)
 - [PTQ 与 QAT](/wiki/llm-quantization/ptq-vs-qat/)
+- [MXFP4 推理量化](/wiki/llm-quantization/mxfp4/)
 - [大模型量化问题地图](/wiki/llm-quantization/overview/)

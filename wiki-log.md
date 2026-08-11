@@ -247,3 +247,15 @@
 - Updated: _wiki/llm-quantization/ptq-vs-qat.md
 - Cross-links: overview ↔ fp8-training ↔ linear-quantization ↔ ptq-vs-qat
 - Note: License Unknown; qingkeai mirror of Zhihu post; Published 2025-11-09. Figure-only memory tables not transcribed as precise Wiki claims.
+
+## 2026-08-11 ingest | Tricks from OpenAI gpt-oss YOU can use with transformers
+- Disposition: New + Update
+- Topic: llm-quantization
+- Raw: raw/llm-quantization/2025-09-11-hf-faster-transformers-gpt-oss.md
+- Created: _wiki/llm-quantization/mxfp4.md
+- Updated: _wiki/llm-quantization/overview.md
+- Updated: _wiki/llm-quantization/linear-quantization.md
+- Updated: _wiki/llm-quantization/gptq-awq.md
+- Updated: _wiki/llm-quantization/fp8-training.md
+- Cross-links: overview ↔ mxfp4 ↔ linear-quantization ↔ gptq-awq ↔ fp8-training
+- Note: License Unknown; knowledge compile focused on MXFP4 section; TP/EP/cache chapters not compiled.

@@ -3,7 +3,7 @@ title: "GPTQ 与 AWQ"
 topic: llm-quantization
 summary: "GPTQ 用 Hessian 做层内误差补偿，AWQ 保护高激活通道；两者都是面向 LLM 的校准式 INT4 权重量化，常见配方为 W4A16。"
 lang: zh-CN
-updated: 2026-08-10
+updated: 2026-08-11
 order: 4
 sources:
   - title: "Understanding Post-Training Quantization with LLM Compressor"
@@ -74,10 +74,12 @@ AWQ 观察：少数通道对应的激活幅度特别大，这些通道的量化�
 | AWQ | GPU | 激活感知 INT4 PTQ，服务端常用 |
 | GGUF | CPU / 混合 | llama.cpp 生态本地部署 |
 | FP8 | Hopper+ | 硬件原生，精度掉点通常更小 |
+| MXFP4 | GPU（需专用 kernel） | E2M1 + block-32 浮点权重路径；与校准式 INT4 不同 |
 | bitsandbytes | GPU | 即时量化，利于实验与 QLoRA，不如 AWQ kernel 利于生产吞吐 |
 
 ## See Also
 
 - [PTQ 与 QAT](/wiki/llm-quantization/ptq-vs-qat/)
 - [线性量化基础](/wiki/llm-quantization/linear-quantization/)
+- [MXFP4 推理量化](/wiki/llm-quantization/mxfp4/)
 - [大模型量化问题地图](/wiki/llm-quantization/overview/)
