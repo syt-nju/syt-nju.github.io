@@ -1,7 +1,7 @@
 ---
 title: "SFT、RL 与 OPD"
 topic: on-policy-distillation
-summary: "OPD 是学生自采样加上 dense 老师监督；它补的是 SFT 的状态错配和 RL 的稀疏奖励，默认用 token-level reverse KL 实现。"
+summary: "OPD 是学生自采样加上 dense 老师监督；它补的是 SFT 的状态错配和 RL 的稀疏奖励。Thinking Machines 的默认实现是 sampled-token reverse KL。"
 lang: zh-CN
 updated: 2026-08-17
 order: 2
@@ -42,7 +42,7 @@ RL 在学生自己的 rollout 上学习，因此能直接惩罚自己会犯的�
 
 OPD 保留学生采样，把老师当成逐步评分器。直觉是棋手自己下棋，引擎给每步标好坏，而不是只看终局，也不是只看大师棋谱。
 
-默认目标是 token-level reverse KL：在学生自己的前缀上，最小化 \(\log\pi_\theta-\log\pi_{\text{teacher}}\)。它 mode-seeking，期望在学生分布下计算，因此是 on-policy。Thinking Machines 取 discount 为 0，只优化当前 token；他们写明实践中 \(\gt 0\) 的 discount 没有带来收益。Tinker cookbook 同样表示提高 `kl_discount_factor` 一般无帮助。
+Thinking Machines 的默认目标是 sampled-token reverse KL：在学生自己的前缀上，最小化 \(\log\pi_\theta-\log\pi_{\text{teacher}}\)。它 mode-seeking，期望在学生分布下计算，因此是 on-policy。他们取 discount 为 0，只优化当前 token；实践中 \(\gt 0\) 的 discount 没有带来收益。Tinker cookbook 同样表示提高 `kl_discount_factor` 一般无帮助。这只是 [比较粒度](/wiki/on-policy-distillation/teacher-signal-granularity/) 里的一格，不是 OPD 的唯一定义。
 
 实现上可以是 RL trainer 的一行改动：把 KL regularizer 的 reference 换成老师，把 per-token advantage 设为负的 reverse KL，再用 importance sampling 更新学生。老师只需一次 `compute_logprobs`，不必反传。轨迹由较小的学生生成。
 
@@ -66,9 +66,10 @@ LoRA 在大规模 SFT 上落后更明显；Thinking Machines 写 rank = 32 时�
 
 对模型自己 `temperature = 1.0` 的样本做 SFT，即使期望 KL 为 0，实用学习率仍会让 IF-eval 下降：有限 batch 使训练逐渐变成 off-policy。锁行为要用老师固定的 OPD，而不是 self-SFT。
 
-这些数字说明 OPD 可以当行为恢复工具，但不单独构成一条与 2×2 平级的设计轴。何时蒸得动，见 [老师信号何时可靠](/wiki/on-policy-distillation/when-opd-works/)。
+这些数字说明 OPD 可以当行为恢复工具，但不单独构成一条与 2×2 平级的设计轴。每个 prefix 上比较什么，见 [sampled-token、top-k 与 full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/)。何时蒸得动，见 [老师信号何时可靠](/wiki/on-policy-distillation/when-opd-works/)。
 
 ## See Also
 
 - [On-Policy Distillation 问题地图](/wiki/on-policy-distillation/overview/)
+- [sampled-token、top-k 与 full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/)
 - [老师信号何时可靠](/wiki/on-policy-distillation/when-opd-works/)

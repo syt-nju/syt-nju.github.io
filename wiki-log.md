@@ -311,3 +311,14 @@
 - Topic: on-policy-distillation
 - Raw: raw/on-policy-distillation/zhihu-opd-deep-dive.md
 - Note: Completeness Partial. Direct fetch HTTP 503; star-proxy 403 acl_denied; archive.org timeout; Jina reader empty. No body obtained; Wiki pages must not infer this source.
+
+## 2026-08-17 ingest | OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践
+- Disposition: New + Update
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+- Created: _wiki/on-policy-distillation/teacher-signal-granularity.md
+- Updated: _wiki/on-policy-distillation/overview.md
+- Updated: _wiki/on-policy-distillation/sft-rl-opd.md
+- Updated: _wiki/on-policy-distillation/when-opd-works.md
+- Cross-links: overview ↔ sft-rl-opd ↔ teacher-signal-granularity ↔ when-opd-works
+- Note: License Unknown. Prior raw was Partial/empty; this v2 is a complete Jina retrieval (zhuanlan 403/503; Zhihu CLI had no Access Secret in this environment). Split the third field axis: sampled-token vs top-k vs full-vocab. SWIFT/verl/V4 recipes folded into operational notes, not system pages. V4 report itself not ingested.

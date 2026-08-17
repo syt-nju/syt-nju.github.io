@@ -1,10 +1,10 @@
 ---
 title: "老师信号何时可靠"
 topic: on-policy-distillation
-summary: "OPD 要老师与学生共享 thinking pattern、老师带有可迁移的新能力，并且不要把 dense 监督收成单个 sampled token。"
+summary: "OPD 要老师与学生共享 thinking pattern、老师带有可迁移的新能力；否则 dense 监督只是更密的噪声。"
 lang: zh-CN
 updated: 2026-08-17
-order: 3
+order: 4
 sources:
   - title: "On-Policy Distillation"
     url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
@@ -14,16 +14,19 @@ sources:
     url: "https://arxiv.org/abs/2604.13016"
   - title: "Revisiting On-Policy Distillation: Empirical Failure Modes and Simple Fixes"
     url: "https://arxiv.org/abs/2603.25562"
+  - title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+    url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
 raw:
   - raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
   - raw/on-policy-distillation/tinker-cookbook-distillation.md
   - raw/on-policy-distillation/2026-04-14-rethinking-on-policy-distillation.md
   - raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+  - raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
 ---
 
 ## Overview
 
-Thinking Machines 把 OPD 写成几乎免费的 dense 监督。后续工作把这句话拆开：监督密，不等于老师在学生前缀上的分数可学。失败来自两类问题——老师和学生根本不在同一套 reasoning 上，或局部比较方式把分布差收成一个 sampled token。
+Thinking Machines 把 OPD 写成几乎免费的 dense 监督。后续工作把这句话拆开：监督密，不等于老师在学生前缀上的分数可学。失败可以来自老师选错（pattern 不一致、没有新能力），也可以来自比较粒度选错。后者是独立设计轴，见 [sampled-token、top-k 与 full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/)。本页管老师何时值得听。
 
 ## 老师和学生要先对上
 
@@ -54,19 +57,11 @@ TML 默认用 sampled-token reverse KL：只在学生抽出的那个 token 上�
 
 估计器上还有 bias–variance：sequence-level reverse KL 把未来 reward 耦进来，token-level 丢掉这些项，相对有偏，但 worst-case 方差上界是 \(O(T^{2})\) 而不是 \(O(T^{4})\)。增大 \(\gamma\) 会抬高梯度方差。这与 TML「discount = 0」一致：长序列上应保持局部更新，但局部比较本身要改。
 
-## 局部 support 匹配
+## 比较方式也会让 dense 变成噪声
 
-Revisiting 的修法是 teacher top-K local support matching：在每个前缀上取老师 top-K，把师生分布限制在这个集合上 renormalize，再算 truncated reverse KL。仍然是 token-level，但比较的是老师认为可行的局部支持，而不是一个 sampled token。
+把分布差收成单个 sampled token，本身就会让老师分数不可用；改成老师 top-K 局部分布后，Revisiting 的单任务数学平均从 36.4 升到 41.5。方法细节在 [sampled-token、top-k 与 full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/)。
 
-配套稳定化：
-
-- **Support 上必须 renormalize**，否则两边质量不可比，训练会不稳。
-- **Rollout 用 top-\(p\)。** 他们默认 \(p=0.9\)。无截断采样会打出极低概率 token，老师信号变差。
-- **Mask special token。** 对 sampled-token 基线帮助很大；support matching 对它不那么敏感。
-
-单任务数学上，完整方法平均 41.5，高于 sampled-token 的 36.4 和加 mask 后的 40.7。Ablation（AIME24 avg@32）：sampled-token 20.4；只加 teacher top-K 掉到 17.7；top-K + top-\(p\) 才到 23.6。Top-K 本身不够，还要管采样。
-
-Rethinking 另外观察到 dense 监督随轨迹变深而退化，不稳从后缀往前传。中等长度（3K 和 7K）最好，10K 和 15K 变差。这限制了「越长越能蒸」的假设。
+即便粒度选对，老师在长后缀上仍可能劣化。Rethinking 观察到不稳从后缀往前传：中等长度（3K 和 7K）最好，10K 和 15K 变差。这限制了「越长越能蒸」的假设。知乎的综合判断是：OPD 的核心风险，是密集监督在错误 prefix、错误 token 粒度、错误 KL 方向下变成密集噪声。OPD 也不替代 RL——它迁移老师已有的能力，不负责发现老师不会的策略。
 
 ## 操作要点
 
@@ -76,8 +71,7 @@ Rethinking 另外观察到 dense 监督随轨迹变深而退化，不稳从后�
 - 老师应带 RL 或其它后训练得到的新能力，而不是同数据放大号。
 - 先 SFT 再 OPD。Tinker：LoRA SFT lr `1e-3`，OPD lr `1e-4`；full FT 的 OPD 用 `5e-5`。
 - Support 不够就加大 `groups_per_batch`；DeepMath 用 512，行为恢复用 64。
-- Token 级、discount 0；不要为了「更数学正确」上 sequence-level return。
-- 长推理用 top-\(p\) rollout，并对 special token 做 mask；有条件则用老师 top-K truncated KL 替代纯 sampled-token。
+- Token 级、discount 0；不要为了「更数学正确」上 sequence-level return。比较对象用 top-K 或 full-vocab，而不是单个 sampled token。
 - 环境 token（system、user、tool response、assistant header）全部 mask，只在学生生成 token 上算 KL。
 - Prompt 可以反复用。TML 甚至用 1 条 prompt、每步 256 条、共 20 step（5120 条打分序列）去逼近老师的 AIME’24；RL 在同样设定更容易背答案。
 - 多轮 tool-use 不要混环境奖励，除非明确要做 hybrid；Tinker Harbor recipe 用 `zero_reward`，只留老师 KL。
@@ -87,3 +81,4 @@ Rethinking 另外观察到 dense 监督随轨迹变深而退化，不稳从后�
 
 - [On-Policy Distillation 问题地图](/wiki/on-policy-distillation/overview/)
 - [SFT、RL 与 OPD](/wiki/on-policy-distillation/sft-rl-opd/)
+- [sampled-token、top-k 与 full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/)
