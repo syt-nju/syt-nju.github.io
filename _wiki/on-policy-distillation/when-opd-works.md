@@ -26,19 +26,19 @@ raw:
 
 ## Overview
 
-Thinking Machines 把 OPD 写成几乎免费的 dense 监督。后续工作把这句话拆开：监督密，不等于老师在学生前缀上的分数可学。失败可以来自老师选错（pattern 不一致、没有新能力），也可以来自比较粒度选错。后者是独立设计轴，见 [sampled-token、top-k 与 full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/)。本页管老师何时值得听。
+Thinking Machines 把 OPD 写成几乎免费的 dense 监督。后续工作把这句话拆开：监督密，不等于老师在学生前缀上的分数可学。失败可以来自老师选错（pattern 不一致、没有新能力），也可以来自比较粒度选错。后者是独立设计轴，见 [sampled-token、top-k 与 full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/)。本页管老师何时值得听。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)、[Rethinking OPD](https://arxiv.org/abs/2604.13016)。
 
-## 老师和学生要先对上
+## Thinking-pattern consistency {#thinking-pattern}
 
-Rethinking OPD 给了两条成功条件。
-
-**Thinking-pattern consistency。** 更强老师不保证更好蒸馏。用 Qwen3-1.7B-Base 当学生时，Qwen3-4B-Base-GRPO 弱于或接近 Qwen3-4B（Non-thinking）的榜，但初始 top-k overlap 更高，蒸出来也更好。后期 overlap 曲线会靠拢，性能差距却留着：早期 pattern 错配造成的损失后面补不回。
-
-**更高分数 ≠ 新知识。** 同家族、同配方、只是更大的老师（如 R1-Distill-7B 蒸 R1-Distill-1.5B）对学生几乎不可区分，OPD 增益有限。对同一 checkpoint 再做 RL 的老师（Skywork-OR1-Math-7B、Qwen3-4B-Non-Thinking-RL-Math）才能明显拉高 gap recovery rate。
+[Rethinking OPD](https://arxiv.org/abs/2604.13016) 的第一条成功条件：更强老师不保证更好蒸馏。用 Qwen3-1.7B-Base 当学生时，Qwen3-4B-Base-GRPO 弱于或接近 Qwen3-4B（Non-thinking）的榜，但初始 top-k overlap 更高，蒸出来也更好。后期 overlap 曲线会靠拢，性能差距却留着：早期 pattern 错配造成的损失后面补不回。
 
 成功 run 的 token 级签名：overlap 从 72% 升到 91%，共享 top-k 集中 97%–99% 的概率质量，熵差收窄。失败 run 从一开始 overlap 就卡住。只在 overlap token 上算监督，效果可以对齐 full top-k，说明梯度主要打在这组高概率交集上。
 
-## 冷启动和 prompt 怎么救
+## 更高分数不等于新能力 {#new-capability}
+
+同家族、同配方、只是更大的老师（如 R1-Distill-7B 蒸 R1-Distill-1.5B）对学生几乎不可区分，OPD 增益有限。对同一 checkpoint 再做 RL 的老师（Skywork-OR1-Math-7B、Qwen3-4B-Non-Thinking-RL-Math）才能明显拉高 gap recovery rate。原文：[Rethinking OPD](https://arxiv.org/abs/2604.13016)。
+
+## 冷启动和 prompt {#cold-start}
 
 两条 complementary 策略：
 
@@ -47,9 +47,9 @@ Rethinking OPD 给了两条成功条件。
 
 Thinking Machines 还写：SFT（forward KL）先给新 token 加 support，reverse KL 再在 support 里 mode-seeking。老师策略若不在学生 support 里，需要显著更大的 batch。他们 math 实验用 4 samples / prompt；cookbook 里 DeepMath OPD 的 `groups_per_batch=512`，personalization 用 64。
 
-## Sampled-token 比较为什么脆
+## Sampled-token 比较为什么脆 {#sampled-token-failure}
 
-TML 默认用 sampled-token reverse KL：只在学生抽出的那个 token 上算 log-ratio。Revisiting OPD 认为这在长轨迹上有三个失败模式。
+TML 默认用 sampled-token reverse KL：只在学生抽出的那个 token 上算 log-ratio。[Revisiting OPD](https://arxiv.org/abs/2603.25562) 认为这在长轨迹上有三个失败模式。
 
 1. **单 token 信号极不均衡。** 多数 sampled token 得负分，优化被少数局部正 advantage 带着走，容易强化语气词或犹豫标记。
 2. **学生前缀上老师不可靠。** 轨迹一旦进入老师少见的状态，老师仍可能给重复循环、自我重置、畸形续写高概率。log-ratio 随位置变宽、极值变多。

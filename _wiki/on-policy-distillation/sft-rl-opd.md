@@ -12,15 +12,19 @@ sources:
     url: "https://saraswatmks.github.io/2026/07/on-policy-distillation-thinking-machines.html"
   - title: "Distillation (Tinker Cookbook)"
     url: "https://tinker-docs.thinkingmachines.ai/cookbook/recipes/distillation/"
+  - title: "Rethinking On-Policy Distillation of Large Language Models"
+    url: "https://arxiv.org/abs/2604.13016"
 raw:
   - raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
   - raw/on-policy-distillation/2026-07-on-policy-distillation-floating-bytes.md
   - raw/on-policy-distillation/tinker-cookbook-distillation.md
+  - raw/on-policy-distillation/2026-04-14-rethinking-on-policy-distillation.md
+  - raw/on-policy-distillation/2026-04-14-rethinking-on-policy-distillation.md
 ---
 
 ## Overview
 
-按采样来源和监督密度，常见后训练可以画成一张表。Thinking Machines Lab 把 OPD 放在「on-policy + dense」这一格：学生生成轨迹，老师给每个 token 打分。
+按采样来源和监督密度，常见后训练可以画成一张表。[Thinking Machines Lab](https://thinkingmachines.ai/blog/on-policy-distillation/) 把 OPD 放在「on-policy + dense」这一格：学生生成轨迹，老师给每个 token 打分。
 
 | 方法 | 采样 | 监督 |
 | --- | --- | --- |
@@ -28,21 +32,25 @@ raw:
 | Reinforcement learning | on-policy | sparse |
 | On-policy distillation | on-policy | dense |
 
-## Off-policy 密，但对齐的是老师的世界
+## Exposure bias {#exposure-bias}
 
-SFT / 普通蒸馏在老师轨迹上做 next-token 学习。老师可以提供完整思维链，也可以提供 full next-token 分布（logit distillation）。序列采样是对老师分布的无偏估计，目标与 logit 蒸馏一致。
+SFT / 普通蒸馏在老师或数据的轨迹上做 next-token 学习。老师可以提供完整思维链，也可以提供 full next-token 分布（logit distillation）。训练时每一步的前缀几乎都是「正确的那条路」。
 
-问题是 compounding error：学生一旦走出老师从未访问的前缀，后续 token 都在训练分布之外。长序列上这个问题更重。学生还可能只学会老师的语气和自信，而不是事实正确性。
+推理时前缀换成模型自己采出来的 token。前面一旦写错，后面就进入训练时没见过的状态，下一步更容易再错，错误沿序列放大。这就是 exposure bias，也叫 compounding error。长序列更重。学生还可能只学会老师的语气和自信，而不是事实正确性。
 
-## On-policy 疏，但状态是对的
+术语来自 Bengio 等人 2015 的 scheduled sampling；[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/) 和 [Floating Bytes](https://saraswatmks.github.io/2026/07/on-policy-distillation-thinking-machines.html) 用它指 off-policy 蒸馏的结构问题，不只是数据不够。[Rethinking OPD](https://arxiv.org/abs/2604.13016) 同样把 train–inference 分布错配写成所有 off-policy 方法的共同限制。
 
-RL 在学生自己的 rollout 上学习，因此能直接惩罚自己会犯的错。代价是每条轨迹通常只有对错这一类稀疏信号。Thinking Machines 用信息论说法：RL 每 episode 教 \(O(1)\) bit，蒸馏教 \(O(N)\) bit，\(N\) 是 token 数。
+## Sparse credit {#sparse-credit}
+
+RL 在学生自己的 rollout 上学习，因此能直接惩罚自己会犯的错，状态是对的。代价是每条轨迹通常只有对错这一类稀疏信号：知道结局不好，很难知道是哪一步害的。这就是稀疏 credit assignment。
+
+[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/) 的信息论说法：RL 每 episode 教 \(O(1)\) bit，蒸馏教 \(O(N)\) bit，\(N\) 是 token 数。OPD 保留学生采样，但把老师的 token 级分数换成 dense 监督，用来补这个洞。
 
 ## OPD：学生走，老师评
 
 OPD 保留学生采样，把老师当成逐步评分器。直觉是棋手自己下棋，引擎给每步标好坏，而不是只看终局，也不是只看大师棋谱。
 
-Thinking Machines 的默认目标是 sampled-token reverse KL：在学生自己的前缀上，最小化 \(\log\pi_\theta-\log\pi_{\text{teacher}}\)。它 mode-seeking，期望在学生分布下计算，因此是 on-policy。他们取 discount 为 0，只优化当前 token；实践中 \(\gt 0\) 的 discount 没有带来收益。Tinker cookbook 同样表示提高 `kl_discount_factor` 一般无帮助。这只是 [比较粒度](/wiki/on-policy-distillation/teacher-signal-granularity/) 里的一格，不是 OPD 的唯一定义。
+[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/) 的默认目标是 [sampled-token reverse KL](/wiki/on-policy-distillation/teacher-signal-granularity/#sampled-token)：在学生自己的前缀上，最小化 \(\log\pi_\theta-\log\pi_{\text{teacher}}\)。它 [mode-seeking](/wiki/on-policy-distillation/teacher-signal-granularity/#kl-direction)，期望在学生分布下计算，因此是 on-policy。他们取 discount 为 0，只优化当前 token；实践中 \(\gt 0\) 的 discount 没有带来收益。[Tinker cookbook](https://tinker-docs.thinkingmachines.ai/cookbook/recipes/distillation/) 同样表示提高 `kl_discount_factor` 一般无帮助。这只是 [比较粒度](/wiki/on-policy-distillation/teacher-signal-granularity/) 里的一格，不是 OPD 的唯一定义。
 
 实现上可以是 RL trainer 的一行改动：把 KL regularizer 的 reference 换成老师，把 per-token advantage 设为负的 reverse KL，再用 importance sampling 更新学生。老师只需一次 `compute_logprobs`，不必反传。轨迹由较小的学生生成。
 

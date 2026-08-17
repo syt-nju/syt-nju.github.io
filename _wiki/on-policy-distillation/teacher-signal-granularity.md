@@ -24,9 +24,9 @@ Prefix 已经是学生自己的之后，还要决定老师在这个 prefix 上�
 
 老师是否值得听，见 [老师信号何时可靠](/wiki/on-policy-distillation/when-opd-works/)。
 
-## 每个 prefix 比较什么
+## 每个 prefix 比较什么 {#granularity}
 
-知乎文把三种粒度收成一句话：sampled-token 是老师评价学生这一步实际说出的 token；top-k 是老师给出它最看好的 K 个候选；full-vocab 是老师把完整分布都给学生。
+[知乎文](https://zhuanlan.zhihu.com/p/2033212181823608430) 把三种粒度收成一句话：sampled-token 是老师评价学生这一步实际说出的 token；top-k 是老师给出它最看好的 K 个候选；full-vocab 是老师把完整分布都给学生。
 
 | 形式 | 老师返回 | 每个 prefix 的信息 | 成本 | 稳定性 |
 | --- | --- | --- | --- | --- |
@@ -34,13 +34,19 @@ Prefix 已经是学生自己的之后，还要决定老师在这个 prefix 上�
 | top-k | top-k ids + logprobs | 中 | 中 | 较好 |
 | full-vocab | full logits | 高 | 高 | 最好但昂贵 |
 
-**sampled-token。** 学生抽出 \(y_t\) 后，advantage 是 \(\log q(y_t)-\log\pi_\theta(y_t)\)。不需要 top-k 或 full logits。Thinking Machines / verl 的 `k1` + policy gradient 就是这一格：把 KL regularizer 换成老师。失败模式见 [老师信号何时可靠](/wiki/on-policy-distillation/when-opd-works/)：单 token 信号失衡、OOD prefix 上老师不可靠、tokenizer 错配。
+### sampled-token {#sampled-token}
 
-**top-k。** 取老师 \(S_t=\mathrm{TopK}_q(c_t)\)，在支持集上比较。Revisiting 要求两边 renormalize 再算 truncated reverse KL；只加 top-K、不改采样会更差。知乎指出 top-k 仍有截断偏差：忽略老师 top-k 外的质量，即使重归一化也改了 full-vocab 目标。
+学生抽出 \(y_t\) 后，advantage 是 \(\log q(y_t)-\log\pi_\theta(y_t)\)。不需要 top-k 或 full logits。[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/) / verl 的 `k1` + policy gradient 就是这一格：把 KL regularizer 换成老师。失败模式见 [老师信号何时可靠](/wiki/on-policy-distillation/when-opd-works/#sampled-token-failure)：单 token 信号失衡、OOD prefix 上老师不可靠、tokenizer 错配。
 
-**full-vocab。** 每个 prefix 对整个词表做 \(D(P_S\|P_T)\)。知乎转述 DeepSeek V4：多教师、学生自己的 generated trajectories、full-vocabulary reverse KL logit distillation，明确反对把 full-vocab KL 收成 sampled-token gap 再当 advantage。V4 能负担是因为缓存 last-layer hidden、用 prediction head 重构 logits、按 teacher index 排序、专用 kernel 算 exact KL。本 topic 尚未摄入 V4 报告原文，以上只来自知乎对报告的阅读。
+### top-k {#top-k}
 
-## KL 方向和怎么反传
+取老师 \(S_t=\mathrm{TopK}_q(c_t)\)，在支持集上比较。[Revisiting OPD](https://arxiv.org/abs/2603.25562) 要求两边 renormalize 再算 truncated reverse KL；只加 top-K、不改采样会更差。知乎指出 top-k 仍有截断偏差：忽略老师 top-k 外的质量，即使重归一化也改了 full-vocab 目标。
+
+### full-vocab {#full-vocab}
+
+每个 prefix 对整个词表做 \(D(P_S\|P_T)\)。[知乎](https://zhuanlan.zhihu.com/p/2033212181823608430) 转述 DeepSeek V4：多教师、学生自己的 generated trajectories、full-vocabulary reverse KL logit distillation，明确反对把 full-vocab KL 收成 sampled-token gap 再当 advantage。V4 能负担是因为缓存 last-layer hidden、用 prediction head 重构 logits、按 teacher index 排序、专用 kernel 算 exact KL。本 topic 尚未摄入 V4 报告原文，以上只来自知乎对报告的阅读。
+
+## KL 方向和怎么反传 {#kl-direction}
 
 粒度选定之后，还有两个正交选择。
 

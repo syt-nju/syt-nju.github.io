@@ -322,3 +322,13 @@
 - Updated: _wiki/on-policy-distillation/when-opd-works.md
 - Cross-links: overview ↔ sft-rl-opd ↔ teacher-signal-granularity ↔ when-opd-works
 - Note: License Unknown. Prior raw was Partial/empty; this v2 is a complete Jina retrieval (zhuanlan 403/503; Zhihu CLI had no Access Secret in this environment). Split the third field axis: sampled-token vs top-k vs full-vocab. SWIFT/verl/V4 recipes folded into operational notes, not system pages. V4 report itself not ingested.
+
+## 2026-08-17 update | OPD wiki linking
+- Disposition: Update
+- Topic: on-policy-distillation
+- Updated: _wiki/on-policy-distillation/overview.md
+- Updated: _wiki/on-policy-distillation/sft-rl-opd.md
+- Updated: _wiki/on-policy-distillation/teacher-signal-granularity.md
+- Updated: _wiki/on-policy-distillation/when-opd-works.md
+- Cross-links: overview terms and claims now deep-link to definition headings and original source URLs
+- Note: Added `{#exposure-bias}`, `{#sparse-credit}`, `{#sampled-token}`, `{#top-k}`, `{#full-vocab}`, `{#kl-direction}`, `{#thinking-pattern}`, `{#new-capability}`, `{#cold-start}`, `{#sampled-token-failure}`. Footer sources are no longer the only citation path.
