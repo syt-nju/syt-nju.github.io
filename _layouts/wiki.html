@@ -22,7 +22,7 @@ layout: default
   {% endfor %}
 {% endfor %}
 
-<div id="main" class="wiki-shell" role="main">
+<div id="main" class="wiki-shell" role="main" data-wiki-index="{{ '/wiki/search.json' | relative_url }}">
   {% include wiki-sidebar.html %}
 
   <article class="page wiki-article" itemscope itemtype="https://schema.org/TechArticle">
