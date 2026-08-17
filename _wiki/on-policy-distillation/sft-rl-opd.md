@@ -1,7 +1,7 @@
 ---
 title: "SFT、RL 与 OPD"
 topic: on-policy-distillation
-summary: "OPD 是学生自采样加上 dense 老师监督；它补的是 SFT 的状态错配和 RL 的稀疏奖励。Thinking Machines 的默认实现是 sampled-token reverse KL。"
+summary: "OPD 是学生自采样加上 dense 老师监督；它补的是 SFT 的状态错配和 RL 的稀疏奖励。承重的是 on-policy 数据，不是显式 KL 惩罚。"
 lang: zh-CN
 updated: 2026-08-17
 order: 2
@@ -14,12 +14,14 @@ sources:
     url: "https://tinker-docs.thinkingmachines.ai/cookbook/recipes/distillation/"
   - title: "Rethinking On-Policy Distillation of Large Language Models"
     url: "https://arxiv.org/abs/2604.13016"
+  - title: "SFT, RL, and On-Policy Distillation Through a Distributional Lens"
+    url: "https://nrehiew.github.io/blog/sft_rl_opd/"
 raw:
   - raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
   - raw/on-policy-distillation/2026-07-on-policy-distillation-floating-bytes.md
   - raw/on-policy-distillation/tinker-cookbook-distillation.md
   - raw/on-policy-distillation/2026-04-14-rethinking-on-policy-distillation.md
-  - raw/on-policy-distillation/2026-04-14-rethinking-on-policy-distillation.md
+  - raw/on-policy-distillation/2026-05-10-sft-rl-opd-distributional-lens.md
 ---
 
 ## Overview
@@ -38,7 +40,7 @@ SFT / 普通蒸馏在老师或数据的轨迹上做 next-token 学习。老师�
 
 推理时前缀换成模型自己采出来的 token。前面一旦写错，后面就进入训练时没见过的状态，下一步更容易再错，错误沿序列放大。这就是 exposure bias，也叫 compounding error。长序列更重。学生还可能只学会老师的语气和自信，而不是事实正确性。
 
-术语来自 Bengio 等人 2015 的 scheduled sampling；[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/) 和 [Floating Bytes](https://saraswatmks.github.io/2026/07/on-policy-distillation-thinking-machines.html) 用它指 off-policy 蒸馏的结构问题，不只是数据不够。[Rethinking OPD](https://arxiv.org/abs/2604.13016) 同样把 train–inference 分布错配写成所有 off-policy 方法的共同限制。
+术语来自 Bengio 等人 2015 的 scheduled sampling；[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/) 和 [Floating Bytes](https://saraswatmks.github.io/2026/07/on-policy-distillation-thinking-machines.html) 用它指 off-policy 蒸馏的结构问题，不只是数据不够。[Rethinking OPD](https://arxiv.org/abs/2604.13016) 同样把 train–inference 分布错配写成所有 off-policy 方法的共同限制。[nrehiew](https://nrehiew.github.io/blog/sft_rl_opd/) 还引 Ross 等人：SFT 只见老师访问的状态，推理时一步走偏就会 compounding error；on-policy 数据聚合能减小这个错配。
 
 ## Sparse credit {#sparse-credit}
 
@@ -55,6 +57,35 @@ OPD 保留学生采样，把老师当成逐步评分器。直觉是棋手自己�
 实现上可以是 RL trainer 的一行改动：把 KL regularizer 的 reference 换成老师，把 per-token advantage 设为负的 reverse KL，再用 importance sampling 更新学生。老师只需一次 `compute_logprobs`，不必反传。轨迹由较小的学生生成。
 
 Floating Bytes 把同一 loop 写成：无梯度采样 → 学生再前向拿带梯度 logprob → 老师前向打分 → reverse KL。采样不可微，所以学生需要第二次前向。
+
+## On-policy 数据为什么承重 {#on-policy-data}
+
+[nrehiew](https://nrehiew.github.io/blog/sft_rl_opd/) 把 2×2 再写成分布几何：后训练是在改序列分布，关键问题是目标分布是什么、拉得有多直接。
+
+SFT 把模型拉向训练前就固定好的外部数据集。负对数似然不在乎起点，所以目标可以离原策略任意远；这是 catastrophic forgetting 的自然失败模式，也解释了它适合需要大改输出格式的冷启动。RL 没有任意外部目标：梯度只通过当前策略采到的样本走，主要改模型已经会去的高概率区域。
+
+常见「SFT 是 forward KL、RL 是 reverse KL」只能解释一部分。nrehiew 认为它过度依赖对 reference 的显式 KL：RLVR 里 KL 约束往往比 RLHF 弱很多，抗遗忘却还在。SFT 每个 demonstrated token 都被均匀推高（任务关键 token 和 “therefore” 一类 style token 一视同仁）；RL 的 group-normalized advantage 会在不确定时缩小更新。这些观察对 SFT vs RL 成立，但不足以单独说明 OPD。
+
+他更认同的解释来自 Shenfeld 等人。用最简单的 REINFORCE、二元 0/1 奖励：reward=1 才给正信号，reward=0 相当于丢掉，很像 rejection sampling。最优策略有很多，但 on-policy 采样迫使训练去拟合**离当前策略最近**的那个可解任务策略，每一步目标都隐式低 KL。SFT 的目标可以很远；OPD 的老师给信号，状态分布仍是学生的，所以能继承 RL 的抗遗忘，而不必靠显式 KL 惩罚。
+
+Brown 2026 把后训练写成能力 vs 相对先验的 KL 预算。nrehiew 的结论是：任何还想停在这条 Pareto 前沿、又比 RL 更省算力的算法，都必须靠 on-policy 数据。OPD 和 RL 走到相近的地方，说明承重件是 on-policy，不是「RL 这个算法本身」。剩下的旋钮仍是 [稀疏 credit](/wiki/on-policy-distillation/sft-rl-opd/#sparse-credit)：outcome reward 太疏，老师 logit 太密但有偏。
+
+## 老师可以 SFT overtrain，学生仍少忘 {#sft-teacher-opd}
+
+最小代码编辑任务上，nrehiew 先分别 SFT / RL 出两个老师，再对同一学生做 OPD。评测是 out-of-domain 损坏类型上的最小编辑，以及 LiveCodeBench v6 上的遗忘。
+
+| Model | Pass@1 ↑ | Norm. Levenshtein ↓ | Added CC ↓ | LiveCodeBench v6 ↑ |
+| --- | --- | --- | --- | --- |
+| SFT teacher | 0.775 | 0.450 | 0.450 | 0.286 |
+| RL teacher | 0.792 | 0.063 | 0.206 | 0.320 |
+| OPD from SFT teacher | 0.800 | 0.059 | 0.206 | 0.297 |
+| OPD from RL teacher | 0.787 | 0.055 | 0.228 | 0.314 |
+
+两个 OPD 学生几乎一样：都明显好于 SFT teacher，并略超 RL teacher；LiveCodeBench 上的遗忘都轻于 SFT teacher，即使老师自己已经忘了。若老师分布是主因，SFT teacher 的学生应继承更多遗忘，但没有。原文：[nrehiew](https://nrehiew.github.io/blog/sft_rl_opd/)。
+
+这不是「老师从不重要」的普遍定理，实验只在最小编辑上。它说明**学生状态从哪来**和**老师分布长什么样**是两支旋钮。Rethinking 管后者，见 [更高分数不等于新能力](/wiki/on-policy-distillation/when-opd-works/#new-capability)。实践含义是：可以先把专家 SFT overtrain，再用 OPD 把能力迁回通用模型，少带上 forgetting。
+
+学生超过老师也不是孤例。Agarwal 等人的 OPD 原作里，蒸出的学生在 GSM8K 上超过老师。nrehiew 的假说：监督打在学生自己会去的 prefix 上；KL matching 也不是 reward 最大化，老师分布里的 style、不确定性和备选续写可以改采样行为，而不必复现老师的 greedy 输出。OPD 的 entropy collapse 比 RL 更陡，和他预期的 reverse KL mode-seeking 一致。
 
 ## 算力证据
 
@@ -74,7 +105,7 @@ LoRA 在大规模 SFT 上落后更明显；Thinking Machines 写 rank = 32 时�
 
 对模型自己 `temperature = 1.0` 的样本做 SFT，即使期望 KL 为 0，实用学习率仍会让 IF-eval 下降：有限 batch 使训练逐渐变成 off-policy。锁行为要用老师固定的 OPD，而不是 self-SFT。
 
-这些数字说明 OPD 可以当行为恢复工具，但不单独构成一条与 2×2 平级的设计轴。每个 prefix 上比较什么，见 [sampled-token、top-k 与 full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/)。何时蒸得动，见 [老师信号何时可靠](/wiki/on-policy-distillation/when-opd-works/)。
+这些数字说明 OPD 可以当行为恢复工具，但不单独构成一条与 2×2 平级的设计轴。on-policy 为什么少忘、学生为何能超老师，见 [On-policy 数据为什么承重](/wiki/on-policy-distillation/sft-rl-opd/#on-policy-data)。每个 prefix 上比较什么，见 [sampled-token、top-k 与 full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/)。何时蒸得动，见 [老师信号何时可靠](/wiki/on-policy-distillation/when-opd-works/)。
 
 ## See Also
 

@@ -332,3 +332,14 @@
 - Updated: _wiki/on-policy-distillation/when-opd-works.md
 - Cross-links: overview terms and claims now deep-link to definition headings and original source URLs
 - Note: Added `{#exposure-bias}`, `{#sparse-credit}`, `{#sampled-token}`, `{#top-k}`, `{#full-vocab}`, `{#kl-direction}`, `{#thinking-pattern}`, `{#new-capability}`, `{#cold-start}`, `{#sampled-token-failure}`. Footer sources are no longer the only citation path.
+
+## 2026-08-17 ingest | SFT, RL, and On-Policy Distillation Through a Distributional Lens
+- Disposition: Update
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/2026-05-10-sft-rl-opd-distributional-lens.md
+- Updated: _wiki/on-policy-distillation/overview.md
+- Updated: _wiki/on-policy-distillation/sft-rl-opd.md
+- Updated: _wiki/on-policy-distillation/when-opd-works.md
+- Updated: _wiki/on-policy-distillation/teacher-signal-granularity.md
+- Cross-links: overview ↔ sft-rl-opd ↔ when-opd-works ↔ teacher-signal-granularity
+- Note: All rights reserved. On-policy data as load-bearing anti-forgetting constraint folded into sft-rl-opd; OPSD / privileged prefix into when-opd-works. Rethinking teacher-importance and nrehiew teacher-matters-less kept as two knobs, not a disputed verdict. No system pages for Minimal Editing, MiMo, GLM 5, or OPSD.

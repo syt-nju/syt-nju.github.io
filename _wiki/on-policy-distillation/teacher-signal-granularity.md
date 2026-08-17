@@ -12,10 +12,13 @@ sources:
     url: "https://arxiv.org/abs/2603.25562"
   - title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
     url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+  - title: "SFT, RL, and On-Policy Distillation Through a Distributional Lens"
+    url: "https://nrehiew.github.io/blog/sft_rl_opd/"
 raw:
   - raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
   - raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
   - raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+  - raw/on-policy-distillation/2026-05-10-sft-rl-opd-distributional-lens.md
 ---
 
 ## Overview
@@ -67,6 +70,7 @@ Prefix 已经是学生自己的之后，还要决定老师在这个 prefix 上�
 - SWIFT 的 `lmbda` 还会改 prefix 来源：`1` 才是纯学生 rollout；`0` 加 `seq_kd` 是老师轨迹；否则是 dataset。那是 [SFT、RL 与 OPD](/wiki/on-policy-distillation/sft-rl-opd/) 的轴，不要和粒度混成一个开关。
 - 大规模 teacher server 常见 `--n-logprobs 256`，仍是 top-k，不是 full-vocab。
 - 自己跑时的粗超参（知乎建议，不是 TML 默认）：rollout top-p `0.8-0.95`、temperature `0.7-1.0`、top-k 做 `32/64/128` ablation；response 先走 3K-7K。
+- 同模型 [OPSD](/wiki/on-policy-distillation/when-opd-works/#opsd)：style token 的 KL 可能高于任务 token，不要按 KL 大小无差别更新；需要 per-token clipping。原文：[nrehiew](https://nrehiew.github.io/blog/sft_rl_opd/)。
 
 ## See Also
 
