@@ -14,3 +14,7 @@
   title: "On-Policy Distillation"
   description: "关于学生自采样、老师 token 级监督的后训练方法、成功条件与稳定化做法的持续整理。"
   order: 4
+- slug: test-time-training
+  title: "测试时训练"
+  description: "关于测试时改参数或增加算力以获取新技能的方法，以及它与冻结后训练、ICL、ARC-AGI 测量的边界。"
+  order: 5

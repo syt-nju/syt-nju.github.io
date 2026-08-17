@@ -343,3 +343,13 @@
 - Updated: _wiki/on-policy-distillation/teacher-signal-granularity.md
 - Cross-links: overview ↔ sft-rl-opd ↔ when-opd-works ↔ teacher-signal-granularity
 - Note: All rights reserved. On-policy data as load-bearing anti-forgetting constraint folded into sft-rl-opd; OPSD / privileged prefix into when-opd-works. Rethinking teacher-importance and nrehiew teacher-matters-less kept as two knobs, not a disputed verdict. No system pages for Minimal Editing, MiMo, GLM 5, or OPSD.
+
+## 2026-08-17 ingest | On the Measure of Intelligence
+- Disposition: New
+- Topic: test-time-training (new topic added to _data/wiki_topics.yml)
+- Raw: raw/test-time-training/2019-11-05-on-the-measure-of-intelligence.md
+- Created: _wiki/test-time-training/overview.md
+- Created: _wiki/test-time-training/skill-acquisition-efficiency.md
+- Created: _wiki/test-time-training/measuring-general-intelligence.md
+- Cross-links: overview ↔ skill-acquisition-efficiency ↔ measuring-general-intelligence; overview → harness-evolution/overview (boundary only)
+- Note: arXiv perpetual non-exclusive license 1.0, not Creative Commons. Full text mirrored at the maintainer's explicit decision. ARC folded into measuring-general-intelligence; no paper-titled page and no ARC system page. TTT vs TTC left as an open interface.
