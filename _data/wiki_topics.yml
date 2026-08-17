@@ -10,3 +10,7 @@
   title: "大模型量化"
   description: "关于大模型量化基本原理、PTQ/QAT 训练流程、GPTQ/AWQ 与 QLoRA 的持续整理。"
   order: 3
+- slug: on-policy-distillation
+  title: "On-Policy Distillation"
+  description: "关于学生自采样、老师 token 级监督的后训练方法、成功条件与稳定化做法的持续整理。"
+  order: 4

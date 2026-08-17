@@ -259,3 +259,55 @@
 - Updated: _wiki/llm-quantization/fp8-training.md
 - Cross-links: overview ↔ mxfp4 ↔ linear-quantization ↔ gptq-awq ↔ fp8-training
 - Note: License Unknown; knowledge compile focused on MXFP4 section; TP/EP/cache chapters not compiled.
+
+## 2026-08-17 ingest | On-Policy Distillation
+- Disposition: New
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+- Created: _wiki/on-policy-distillation/overview.md
+- Created: _wiki/on-policy-distillation/sft-rl-opd.md
+- Cross-links: overview ↔ sft-rl-opd
+- Note: License Unknown; first source for this topic. Page cut is the 2×2 of sampling source vs supervision density, not the blog's experiment list.
+
+## 2026-08-17 ingest | Training LLMs using Off-Policy vs On-Policy Distillation
+- Disposition: Update
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/2026-07-on-policy-distillation-floating-bytes.md
+- Updated: _wiki/on-policy-distillation/sft-rl-opd.md
+- Updated: _wiki/on-policy-distillation/overview.md
+- Cross-links: overview ↔ sft-rl-opd
+- Note: License Unknown; HTML-to-text of the blog. Folded the two-forward-pass loop into sft-rl-opd; Colab 0.5B/1.5B numbers were not compiled as TML results.
+
+## 2026-08-17 ingest | Distillation (Tinker Cookbook)
+- Disposition: Update
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/tinker-cookbook-distillation.md
+- Updated: _wiki/on-policy-distillation/sft-rl-opd.md
+- Updated: _wiki/on-policy-distillation/overview.md
+- Cross-links: overview ↔ sft-rl-opd
+- Note: License Unknown; HTML parse of the cookbook recipe. Hyperparameters folded into concept-page operational notes; no Tinker system page.
+
+## 2026-08-17 ingest | Rethinking On-Policy Distillation of Large Language Models
+- Disposition: New + Update
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/2026-04-14-rethinking-on-policy-distillation.md
+- Created: _wiki/on-policy-distillation/when-opd-works.md
+- Updated: _wiki/on-policy-distillation/overview.md
+- Updated: _wiki/on-policy-distillation/sft-rl-opd.md
+- Cross-links: overview ↔ sft-rl-opd ↔ when-opd-works
+- Note: CC BY 4.0; arXiv 2604.13016 v2. Split the second field axis: when teacher signal is learnable (pattern consistency + new capability). Cold-start recipe folded into that page, not a separate SFT recipe page.
+
+## 2026-08-17 ingest | Revisiting On-Policy Distillation: Empirical Failure Modes and Simple Fixes
+- Disposition: Update
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+- Updated: _wiki/on-policy-distillation/when-opd-works.md
+- Updated: _wiki/on-policy-distillation/overview.md
+- Cross-links: overview ↔ sft-rl-opd ↔ when-opd-works
+- Note: arXiv non-exclusive license; arXiv 2603.25562. Sampled-token failure modes and teacher top-K local support matching folded into when-opd-works rather than a new estimator page.
+
+## 2026-08-17 ingest | OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践
+- Disposition: No material
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/zhihu-opd-deep-dive.md
+- Note: Completeness Partial. Direct fetch HTTP 503; star-proxy 403 acl_denied; archive.org timeout; Jina reader empty. No body obtained; Wiki pages must not infer this source.
