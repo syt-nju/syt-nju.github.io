@@ -8,15 +8,18 @@ order: 1
 sources:
   - title: "On the Measure of Intelligence"
     url: "https://arxiv.org/abs/1911.01547"
+  - title: "Test-Time Training with Self-Supervision for Generalization under Distribution Shifts"
+    url: "https://arxiv.org/abs/1909.13231"
 raw:
   - raw/test-time-training/2019-11-05-on-the-measure-of-intelligence.md
+  - raw/test-time-training/2019-09-29-test-time-training.md
 ---
 
 ## Overview
 
 冻结模型在已知任务上刷高分，测到的是已经结晶的技能，不是智力。Chollet 把智力写成 [技能获取效率](/wiki/test-time-training/skill-acquisition-efficiency/#skill-acquisition-efficiency)：在给定任务范围上，相对先验、经验和泛化难度，把信息转成新技能的速率。原文：[On the Measure of Intelligence](https://arxiv.org/abs/1911.01547)。
 
-本 topic 的主骨架是这张测量地图。后续来源才会填上测试时改参数、测试时算力、ICL 与冻结后训练的方法比较；当前证据只来自 2019 年这篇定义与 [ARC](/wiki/test-time-training/measuring-general-intelligence/#arc-2019) 测量物。
+本 topic 的主骨架仍是这张测量地图。方法侧已经有一条可更新的机制：[测试时用当前样本上的损失改权重](/wiki/test-time-training/parameter-update/#theta-of-x)。测试时加算力、ICL 与冻结后训练的对照仍等后续来源。
 
 ## 问题地图
 
@@ -32,15 +35,20 @@ raw:
 
 通用基准应显式穷尽先验，并只假设人类 [Core Knowledge](/wiki/test-time-training/measuring-general-intelligence/#core-knowledge)。[ARC](/wiki/test-time-training/measuring-general-intelligence/#arc-2019) 是按这条契约做的测量物，不是又一个技能榜。原文：[Chollet 2019](https://arxiv.org/abs/1911.01547)。
 
+### 测试时如何改权重
+
+分布一旦在测试时才出现，冻结 \(\theta\) 就无法用当前 \(x\) 里的提示。[TTT](/wiki/test-time-training/parameter-update/#theta-of-x) 把无标签 \(x\) 做成自监督问题，更新共享特征再预测。这解决的是已知任务上的分布偏移，不是评价集对开发者未知的新任务。原文：[Sun et al. 2020](https://arxiv.org/abs/1909.13231)。
+
 ## 共同主张
 
 - 智力不是二进制属性，而是相对某个 scope 的谱：local / broad / extreme。原文：[Chollet 2019](https://arxiv.org/abs/1911.01547)。
 - 技能是智力过程的结晶输出；要测的是把先验和经验转成新技能的效率。原文：[Chollet 2019](https://arxiv.org/abs/1911.01547)。
 - 对人机公平的通用基准必须控制先验、经验，并测量 developer-aware generalization。原文：[Chollet 2019](https://arxiv.org/abs/1911.01547)。
+- 测试时改 \(\theta\) 需要一个不依赖 \(y\) 的损失；辅助任务与主任务的[梯度需要正相关](/wiki/test-time-training/parameter-update/#gradient-correlation)，否则更新会伤害主任务。原文：[Sun et al. 2020](https://arxiv.org/abs/1909.13231)。
 
 ## 开放接口
 
-本稿已写出、但尚未展开的效率轴包括 skill program 的计算代价、训练时计算、时间、能量与风险。测试时改参数、测试时加算力、ICL 与冻结后训练的对照，等后续来源再切页。ARC 的竞赛协议与数据集修订同样留给后续 ARC Prize 报告。
+Chollet 已写出、但尚未展开的效率轴包括 skill program 的计算代价、训练时计算、时间、能量与风险。测试时加算力、ICL、熵最小式 TTA，以及把 TTT 接到有示范对的新任务上，留给后续来源。ARC 的竞赛协议与数据集修订同样留给 ARC Prize 报告。
 
 ## 边界
 
@@ -50,4 +58,5 @@ raw:
 
 - [技能获取效率](/wiki/test-time-training/skill-acquisition-efficiency/)
 - [通用智能测量](/wiki/test-time-training/measuring-general-intelligence/)
+- [测试时参数更新](/wiki/test-time-training/parameter-update/)
 - [Harness Evolution 概览](/wiki/harness-evolution/overview/)

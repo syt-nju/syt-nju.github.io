@@ -49,3 +49,4 @@ II.2.2 还列出 skill program 的计算效率，以及训练时计算、时间�
 
 - [测试时训练问题地图](/wiki/test-time-training/overview/)
 - [通用智能测量](/wiki/test-time-training/measuring-general-intelligence/)
+- [测试时参数更新](/wiki/test-time-training/parameter-update/)

@@ -61,3 +61,4 @@ Chollet 自己列出：泛化难度未量化、测验效度未建立、全集约
 
 - [测试时训练问题地图](/wiki/test-time-training/overview/)
 - [技能获取效率](/wiki/test-time-training/skill-acquisition-efficiency/)
+- [测试时参数更新](/wiki/test-time-training/parameter-update/)

@@ -353,3 +353,14 @@
 - Created: _wiki/test-time-training/measuring-general-intelligence.md
 - Cross-links: overview ↔ skill-acquisition-efficiency ↔ measuring-general-intelligence; overview → harness-evolution/overview (boundary only)
 - Note: arXiv perpetual non-exclusive license 1.0, not Creative Commons. Full text mirrored at the maintainer's explicit decision. ARC folded into measuring-general-intelligence; no paper-titled page and no ARC system page. TTT vs TTC left as an open interface.
+
+## 2026-08-17 ingest | Test-Time Training with Self-Supervision for Generalization under Distribution Shifts
+- Disposition: Update + New
+- Topic: test-time-training
+- Raw: raw/test-time-training/2019-09-29-test-time-training.md
+- Created: _wiki/test-time-training/parameter-update.md
+- Updated: _wiki/test-time-training/overview.md
+- Updated: _wiki/test-time-training/skill-acquisition-efficiency.md
+- Updated: _wiki/test-time-training/measuring-general-intelligence.md
+- Cross-links: overview ↔ parameter-update ↔ skill-acquisition-efficiency ↔ measuring-general-intelligence
+- Note: License CC0 1.0. Rotation-prediction recipe, CIFAR-10-C / CIFAR-10.1 numbers, and TTT-Online folded into parameter-update. No TTT vs TTA or TTT vs TTC page yet.
