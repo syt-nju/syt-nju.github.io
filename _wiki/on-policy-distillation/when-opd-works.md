@@ -29,7 +29,7 @@ raw:
 
 ## Overview
 
-Thinking Machines 把 OPD 写成几乎免费的 dense 监督。后续工作把这句话拆开：监督密，不等于老师在学生前缀上的分数可学。失败可以来自老师选错（pattern 不一致、没有新能力），也可以来自比较粒度选错。后者是独立设计轴，见 [每个 prefix 比较什么](/wiki/on-policy-distillation/teacher-signal-granularity/#granularity)。本页管老师何时值得听。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)、[Rethinking OPD](https://arxiv.org/abs/2604.13016)。
+本页负责 OPD 主线里的**老师可靠性**问题：即使训练状态来自学生、监督也足够密，老师分数仍可能不可学。失败可以来自老师选错（pattern 不一致、没有新能力），也可以来自比较粒度选错。后者是独立设计轴，见 [每个 prefix 比较什么](/wiki/on-policy-distillation/teacher-signal-granularity/#granularity)。本页只保留会影响“该不该听老师”的条件和证据。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)、[Rethinking OPD](https://arxiv.org/abs/2604.13016)。
 
 ## Thinking-pattern consistency {#thinking-pattern}
 
@@ -62,7 +62,7 @@ TML 默认用 sampled-token reverse KL：只在学生抽出的那个 token 上�
 
 估计器上还有 bias–variance：sequence-level reverse KL 把未来 reward 耦进来，token-level 丢掉这些项，相对有偏，但 worst-case 方差上界是 \(O(T^{2})\) 而不是 \(O(T^{4})\)。增大 \(\gamma\) 会抬高梯度方差。这与 TML「discount = 0」一致：长序列上应保持局部更新，但局部比较本身要改。
 
-## 比较方式也会让 dense 变成噪声
+## 证据：比较方式也会让 dense 变成噪声 {#granularity-noise}
 
 把分布差收成单个 sampled token，本身就会让老师分数不可用；改成老师 top-K 局部分布后，Revisiting 的单任务数学平均从 36.4 升到 41.5。
 
@@ -74,7 +74,7 @@ On-Policy Self Distillation（OPSD）里，老师和学生是同一个模型，�
 
 [nrehiew](https://nrehiew.github.io/blog/sft_rl_opd/) 转述：因为师生是同一套权重，多数 token 上输出很接近；per-token KL 分析里，"wait" / "alright" 一类 style 或 pivot token 的 KL 高于 "power" / "exponent" / "logarithm" 一类 math token。更新太猛会在不重要的 token 上塌缩，所以要 per-token clipping。这让 OPSD 更接近 RLHF（信号有偏，需要 trust-region），而不是低偏的 RLVR。相对 [稀疏 credit](/wiki/on-policy-distillation/sft-rl-opd/#sparse-credit) 的 \(O(1)\) bit / episode，OPSD 走到另一极端：每个 token 都有「奖励」，但每步噪声和偏差也更大。本 topic 没有摄入 OPSD 原论文，以上只来自这篇整理。
 
-## 操作要点
+## 实践约束 {#practice-constraints}
 
 把上面收成可执行约束，而不是另一套算法：
 

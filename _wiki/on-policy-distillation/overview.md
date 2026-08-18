@@ -32,23 +32,37 @@ raw:
 
 ## Overview
 
-On-Policy Distillation（OPD）把后训练拆成彼此独立的选择：训练状态从谁来、每个 prefix 上比较什么、以及老师分数何时可学。学生在自己的 rollout 上学习，老师在这些前缀上给 dense 反馈。这同时针对 SFT 的 [exposure bias](/wiki/on-policy-distillation/sft-rl-opd/#exposure-bias) 和 RL 的 [稀疏 credit](/wiki/on-policy-distillation/sft-rl-opd/#sparse-credit)。OPD 不是单一算法。
+On-Policy Distillation（OPD）的出发点很简单：SFT 信号密，但训练在老师或数据的轨迹上；RL 训练在学生自己的轨迹上，但奖励通常太稀疏。OPD 试图把两者接起来：让学生自己 rollout，再让老师在学生已经走到的 prefix 上给 dense 反馈。这样它同时针对 SFT 的 [exposure bias](/wiki/on-policy-distillation/sft-rl-opd/#exposure-bias) 和 RL 的 [稀疏 credit](/wiki/on-policy-distillation/sft-rl-opd/#sparse-credit)。
 
 本 topic 覆盖白盒、可取老师 logprob 的设定，以及同模型、参考答案作特权前缀的 [OPSD](/wiki/on-policy-distillation/when-opd-works/#opsd)。黑盒老师尚未摄入。DeepSeek V4 报告本身未摄入，相关主张来自[知乎对该报告的阅读](https://zhuanlan.zhihu.com/p/2033212181823608430)和 [nrehiew 对工业管线的转述](https://nrehiew.github.io/blog/sft_rl_opd/)。
 
-## 问题地图
+## 主线
 
-### 训练状态该跟谁对齐
+### 1. SFT 信号密，但状态错
 
-Off-policy 蒸馏训练的是老师常去的前缀；推理时学生走自己的错路，错误会沿序列放大。OPD 改成学生采样、老师打分，让训练分布贴近推理分布。这条比较构成后训练的 [2×2](/wiki/on-policy-distillation/sft-rl-opd/#sampling-density)：SFT 是 off-policy + dense，RL 是 on-policy + sparse，OPD 是 on-policy + dense。on-policy 还有一层几何后果：更新被约束在当前策略附近，抗遗忘靠的是数据来源，不是显式 KL 惩罚。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)、[nrehiew](https://nrehiew.github.io/blog/sft_rl_opd/)。
+普通蒸馏和 SFT 都在外部轨迹上训练：数据里每一步通常是正确前缀，学生推理时却会走到自己的错误前缀。前面一步偏掉，后面就进入训练没见过的状态，错误沿序列放大。这就是 [exposure bias](/wiki/on-policy-distillation/sft-rl-opd/#exposure-bias)。所以只把老师答案喂给学生，不等于学生会在自己的分布上走稳。
 
-### 每个 prefix 上比较什么
+### 2. RL 状态对，但 credit 太疏
 
-Dense 仍有粒度。[sampled-token](/wiki/on-policy-distillation/teacher-signal-granularity/#sampled-token) 只评价学生抽出的那一个 token；[top-k](/wiki/on-policy-distillation/teacher-signal-granularity/#top-k) 比较老师支持的一小撮候选；[full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/#full-vocab) 比较整个词表。KL 还可以选 [forward / reverse / JSD](/wiki/on-policy-distillation/teacher-signal-granularity/#kl-direction)，loss 可以是直接反传或 policy-gradient。[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/) 的默认实现只是这个格子里的一格。
+RL 让学生在自己的 rollout 上学习，因此状态分布是对的。问题是反馈往往只有最终对错，知道整条轨迹失败，不代表知道哪一步该改。这是 [稀疏 credit](/wiki/on-policy-distillation/sft-rl-opd/#sparse-credit)。Thinking Machines 的说法是：RL 每条 episode 只给 \(O(1)\) bit，而蒸馏可以在 token 级给 \(O(N)\) bit。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)。
 
-### 老师信号何时可靠
+### 3. OPD 的最小想法：学生走，老师评
 
-监督密，不等于老师在学生前缀上的分数可学。老师与学生的 [thinking pattern](/wiki/on-policy-distillation/when-opd-works/#thinking-pattern) 要对上，老师还要带来学生训练中没见过的[新能力](/wiki/on-policy-distillation/when-opd-works/#new-capability)；否则更强老师也可能蒸不动。原文：[Rethinking OPD](https://arxiv.org/abs/2604.13016)。
+OPD 把训练状态改成学生自己的 prefix，同时把反馈从 outcome reward 换成老师的 token 级分数。最小实现可以是 [sampled-token reverse KL](/wiki/on-policy-distillation/teacher-signal-granularity/#sampled-token)：只看学生这一步实际采出的 token，比较学生和老师给它的 logprob。这很便宜，也能复用 RL trainer，把 KL regularizer 的 reference 换成老师。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)。
+
+### 4. 最小实现不是 OPD 的全部
+
+一旦 prefix 已经来自学生，还要决定老师在这个 prefix 上给什么。[sampled-token](/wiki/on-policy-distillation/teacher-signal-granularity/#sampled-token) 只评价学生抽出的一个 token；[top-k](/wiki/on-policy-distillation/teacher-signal-granularity/#top-k) 比较老师最看好的候选集合；[full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/#full-vocab) 比较整个词表。KL 方向、是否直接反传、是否用 policy-gradient，都是独立旋钮。把 sampled-token 当成 OPD 的定义，会漏掉后续工作真正修的失败点。
+
+### 5. Dense 监督也可能变成 dense 噪声
+
+监督密，不代表老师信号一定可学。失败有两类：一类是比较粒度太窄，单 token 信号会被噪声、OOD prefix、tokenizer 或 special token 错配放大；另一类是老师和学生的 [thinking pattern](/wiki/on-policy-distillation/when-opd-works/#thinking-pattern) 不一致，或老师没有学生可迁移的[新能力](/wiki/on-policy-distillation/when-opd-works/#new-capability)。这时更强老师也可能蒸不动。原文：[Rethinking OPD](https://arxiv.org/abs/2604.13016)、[Revisiting OPD](https://arxiv.org/abs/2603.25562)。
+
+## 设计轴
+
+- **状态从谁来。** SFT 是 off-policy + dense，RL 是 on-policy + sparse，OPD 是 on-policy + dense。on-policy 数据也是抗遗忘和 KL 预算的关键承重件。证据见 [状态来源和监督密度](/wiki/on-policy-distillation/sft-rl-opd/#sampling-density) 与 [on-policy 数据为什么承重](/wiki/on-policy-distillation/sft-rl-opd/#on-policy-data)。
+- **每个 prefix 上比较什么。** OPD 可以比较 sampled token、top-k 局部分布或 full vocab 分布。便宜程度、信息量和稳定性都不同。机制见 [每个 prefix 比较什么](/wiki/on-policy-distillation/teacher-signal-granularity/#granularity)。
+- **老师信号何时可靠。** 老师要和学生共享足够的 pattern，还要提供可迁移的新能力；必要时先 off-policy cold start，再 OPD。条件见 [thinking-pattern consistency](/wiki/on-policy-distillation/when-opd-works/#thinking-pattern) 和 [冷启动和 prompt](/wiki/on-policy-distillation/when-opd-works/#cold-start)。
 
 ## 共同主张
 

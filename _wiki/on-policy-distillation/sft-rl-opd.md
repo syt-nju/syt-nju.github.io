@@ -26,6 +26,8 @@ raw:
 
 ## Overview {#sampling-density}
 
+本页只负责 OPD 主线里的**状态来源**问题：SFT 为什么会错在 off-policy 轨迹，RL 为什么赢在 on-policy 状态，OPD 为什么把 on-policy 数据和 dense 老师监督接起来。粒度选择放在 [每个 prefix 比较什么](/wiki/on-policy-distillation/teacher-signal-granularity/#granularity)，老师是否值得听放在 [thinking-pattern consistency](/wiki/on-policy-distillation/when-opd-works/#thinking-pattern)。
+
 按采样来源和监督密度，常见后训练可以画成一张表。[Thinking Machines Lab](https://thinkingmachines.ai/blog/on-policy-distillation/) 把 OPD 放在「on-policy + dense」这一格：学生生成轨迹，老师给每个 token 打分。
 
 | 方法 | 采样 | 监督 |
@@ -70,7 +72,7 @@ SFT 把模型拉向训练前就固定好的外部数据集。负对数似然不�
 
 Brown 2026 把后训练写成能力 vs 相对先验的 KL 预算。nrehiew 的结论是：任何还想停在这条 Pareto 前沿、又比 RL 更省算力的算法，都必须靠 on-policy 数据。OPD 和 RL 走到相近的地方，说明承重件是 on-policy，不是「RL 这个算法本身」。剩下的旋钮仍是 [稀疏 credit](/wiki/on-policy-distillation/sft-rl-opd/#sparse-credit)：outcome reward 太疏，老师 logit 太密但有偏。
 
-## 老师可以 SFT overtrain，学生仍少忘 {#sft-teacher-opd}
+## 证据：老师可以 SFT overtrain，学生仍少忘 {#sft-teacher-opd}
 
 最小代码编辑任务上，nrehiew 先分别 SFT / RL 出两个老师，再对同一学生做 OPD。评测是 out-of-domain 损坏类型上的最小编辑，以及 LiveCodeBench v6 上的遗忘。
 
@@ -87,7 +89,7 @@ Brown 2026 把后训练写成能力 vs 相对先验的 KL 预算。nrehiew 的�
 
 学生超过老师也不是孤例。Agarwal 等人的 OPD 原作里，蒸出的学生在 GSM8K 上超过老师。nrehiew 的假说：监督打在学生自己会去的 prefix 上；KL matching 也不是 reward 最大化，老师分布里的 style、不确定性和备选续写可以改采样行为，而不必复现老师的 greedy 输出。OPD 的 entropy collapse 比 RL 更陡，和他预期的 reverse KL mode-seeking 一致。
 
-## 算力证据
+## 证据：算力效率 {#compute-evidence}
 
 Qwen3 技术报告 Table 21（Thinking Machines 转引）：off-policy 蒸馏 AIME’24 55.0%、GPQA-Diamond 55.6%；加 RL 后 67.6% / 61.3%，17,920 GPU hours；加 OPD 后 74.4% / 63.3%，1,800 GPU hours。
 
@@ -99,7 +101,7 @@ Tinker cookbook 把学生/老师换成 Qwen3.5-9B-Base / Qwen3.5-9B 后：rank-1
 
 LoRA 在大规模 SFT 上落后更明显；Thinking Machines 写 rank = 32 时，SFT 后 LoRA 落后 full finetuning 13%，OPD 后只落后 6%。
 
-## 行为恢复是同一机制的应用
+## 证据：行为恢复 {#behavior-recovery}
 
 域数据 mid-train 会打掉指令跟随。Qwen3-8B 的 IF-eval 从 85% 降到纯文档 mid-train 的 45%；70% 文档 + 30% chat 混训后是 79%。再用**旧版 Qwen3-8B** 当老师、在 Tulu3 prompt 上 OPD，IF-eval 回到 83%，internal QA 从 36% 升到 41%。Tinker 写 IF-eval 大约 100 steps 内恢复。
 

@@ -23,7 +23,7 @@ raw:
 
 ## Overview
 
-Prefix 已经是学生自己的之后，还要决定老师在这个 prefix 上给什么。Thinking Machines 默认只比较学生采出的那一个 token；Revisiting OPD 改成老师 top-K 上的局部分布；知乎对 DeepSeek V4 / SWIFT / verl 的整理把 full-vocab reverse KL 写成第三条、信息最完整也最贵的选项。这是设计轴，不是某一篇的修 bug 附录。
+本页负责 OPD 主线里的**监督粒度**问题：prefix 已经来自学生之后，老师到底返回什么监督。Thinking Machines 默认只比较学生采出的那一个 token；Revisiting OPD 改成老师 top-K 上的局部分布；知乎对 DeepSeek V4 / SWIFT / verl 的整理把 full-vocab reverse KL 写成第三条、信息最完整也最贵的选项。这是设计轴，不是某一篇的修 bug 附录。
 
 老师是否值得听，见 [thinking-pattern consistency](/wiki/on-policy-distillation/when-opd-works/#thinking-pattern)。
 
@@ -59,7 +59,7 @@ Prefix 已经是学生自己的之后，还要决定老师在这个 prefix 上�
 
 只有 sampled-token logprob 时，k1 / k2 / k3 是单样本 reverse KL 估计器：k1 无偏、可正可负、作 PG advantage 最自然；k2 是平方近似，非负、方差低、有偏；k3 无偏且非负。verl 的 `k3+` 前向走 k3、反向走 k2。能拿到 top-k 或 full logits 时，应在支持集或词表上显式求和，而不是继续用 k1/k2/k3。
 
-## 操作要点
+## 实践映射 {#implementation-mapping}
 
 把实现映射回上面的格子，而不是给 SWIFT / verl 单独建系统页。
 
