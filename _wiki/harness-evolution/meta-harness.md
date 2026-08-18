@@ -22,7 +22,7 @@ raw:
 
 ## Overview
 
-**Harness** 是包裹冻结 LLM 的有状态程序：决定每一步存什么、取什么、给模型看什么。作者指出同一 benchmark 上仅改 harness 可造成约 \(6\times\) 性能差距；实践中 harness engineering 仍多靠人工改启发式。
+**Harness** 是包裹冻结 LLM 的有状态程序：决定每一步存什么、取什么、给模型看什么。作者指出同一 benchmark 上仅改 harness 可造成约 $6\times$ 性能差距；实践中 harness engineering 仍多靠人工改启发式。
 
 Meta-Harness 是搜索 harness 的外环：proposer 是 coding agent（实验中为 Claude Code + Opus-4.6），反馈通道是不断增长的 **filesystem**——每个候选目录含源码、评估分数与执行轨迹（prompts、工具调用、模型输出、状态更新）。proposer 用 grep / cat 等按需读取，而不是把历史压成标量分或短摘要。外环刻意极简：维护种群与 Pareto 前沿，但不硬编码亲本选择；诊断与改写交给 agent。典型跑法约 20 轮、共评估约 60 个 harness。
 
@@ -50,9 +50,9 @@ Table 2 测试集（Avg Acc / Ctx↓，Ctx 为额外 context tokens，千）：
 | ACE† | 16.0 | 77.8 | 29.0 | 40.9 | 50.8 |
 | Meta-Harness | 14.0 | 86.8 | 45.0 | **48.6** | **11.4** |
 
-相对 ACE 高出 7.7 points、相对 MCE 高出 8.6 points；context 约为 ACE 的 \(1/4\) 量级（11.4K vs 50.8K）。† 实现来自 Ye et al.。这些是 **本文化协议下的绝对平均准确率**，与 MCE 原文在 DeepSeek-V3.1 上的 Avg. Rel. Gain 口径不同，不宜直接对撞。
+相对 ACE 高出 7.7 points、相对 MCE 高出 8.6 points；context 约为 ACE 的 $1/4$ 量级（11.4K vs 50.8K）。† 实现来自 Ye et al.。这些是 **本文化协议下的绝对平均准确率**，与 MCE 原文在 DeepSeek-V3.1 上的 Avg. Rel. Gain 口径不同，不宜直接对撞。
 
-相对 text optimizer（同 proposer 配置、同评估预算、仅用 search-set 选优）：Meta-Harness 以约 \(0.1\times\) 评估次数追平 OpenEvolve / TTT-Discover 的最终水平，最终再高出 **10** 点以上。Table 4（search-set）：Meta-Harness median **50.0** / best **56.7**；OpenEvolve 39.1 / 43.3；TTT-Discover 34.1 / 45.6；GEPA 32.6 / 40.2。
+相对 text optimizer（同 proposer 配置、同评估预算、仅用 search-set 选优）：Meta-Harness 以约 $0.1\times$ 评估次数追平 OpenEvolve / TTT-Discover 的最终水平，最终再高出 **10** 点以上。Table 4（search-set）：Meta-Harness median **50.0** / best **56.7**；OpenEvolve 39.1 / 43.3；TTT-Discover 34.1 / 45.6；GEPA 32.6 / 40.2。
 
 Table 3 消融：Scores Only median 34.6 / best 41.3；Scores + Summary 34.9 / 38.7；Full（含 traces）**50.0 / 56.7**。作者据此认为 raw execution traces 是关键接口成分，摘要无法恢复诊断信号。
 
@@ -60,7 +60,7 @@ OOD 九数据集（Table 5）：Meta-Harness 平均 **73.1**（Ctx 7.3），ACE 
 
 ## 检索增强数学推理
 
-在 \(\geq\) 500,000 题语料上搜索 retrieval harness（40 轮、109 候选；search set 250 道 Olympiad 难度题）。选出的单一 harness 在 **200** 道未见过的 IMO 级题上，于五个 held-out 模型平均相对无检索高出 4.7 points（Table 6：No Retriever 34.1 → Meta-Harness 38.8），并略高于 BM25（37.5）。同一 harness 在搜索未见的模型上仍为正增益。
+在 $\geq$ 500,000 题语料上搜索 retrieval harness（40 轮、109 候选；search set 250 道 Olympiad 难度题）。选出的单一 harness 在 **200** 道未见过的 IMO 级题上，于五个 held-out 模型平均相对无检索高出 4.7 points（Table 6：No Retriever 34.1 → Meta-Harness 38.8），并略高于 BM25（37.5）。同一 harness 在搜索未见的模型上仍为正增益。
 
 ## TerminalBench-2
 

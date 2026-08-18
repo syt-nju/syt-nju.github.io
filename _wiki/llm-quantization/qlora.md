@@ -21,7 +21,7 @@ QLoRA（Quantized LoRA）把基座存成 4-bit，只训练高精低秩 adapter�
 
 ## 为什么需要混合精度
 
-若整网用 4-bit 训练，极小梯度（如 \(10^{-7}\) 量级）可能落在同一量化档，优化器失去有效更新。QLoRA 的折中：
+若整网用 4-bit 训练，极小梯度（如 $10^{-7}$ 量级）可能落在同一量化档，优化器失去有效更新。QLoRA 的折中：
 
 - 基座权重：NF4 存储（省显存）
 - LoRA adapter：16-bit 训练（保梯度）
@@ -32,15 +32,15 @@ QLoRA（Quantized LoRA）把基座存成 4-bit，只训练高精低秩 adapter�
 
 ## NF4
 
-NF4（4-bit NormalFloat）假设权重大致正态，把 \(-1\) 到 \(1\) 分成 16 个非均匀档，零点附近更密，尾部更疏。相对均匀 INT4，对集中在 0 附近的权重更省量化误差。
+NF4（4-bit NormalFloat）假设权重大致正态，把 $-1$ 到 $1$ 分成 16 个非均匀档，零点附近更密，尾部更疏。相对均匀 INT4，对集中在 0 附近的权重更省量化误差。
 
-反量化可写为 \(w = n(Q_1) \times c_1\)：\(n(Q_1)\) 来自 LUT，\(c_1\) 是 block 共享的 FP32 缩放。按每 block 32 个权重计，\(c_1\) 均摊约 1 bit/param，叠加 4-bit 索引约 5 bit/param。
+反量化可写为 $w = n(Q_1) \times c_1$：$n(Q_1)$ 来自 LUT，$c_1$ 是 block 共享的 FP32 缩放。按每 block 32 个权重计，$c_1$ 均摊约 1 bit/param，叠加 4-bit 索引约 5 bit/param。
 
 Block-wise 的意义：局部 outlier 不至于用一个全局 scale 毁掉整张量分辨率。
 
 ## Double Quantization
 
-把 \(c_1\)（FP32）再量化成 8-bit 的 \(Q_2\)，并引入第二级常数 \(c_2\)：
+把 $c_1$（FP32）再量化成 8-bit 的 $Q_2$，并引入第二级常数 $c_2$：
 
 $$
 w = n(Q_1) \times (Q_2 \times c_2)

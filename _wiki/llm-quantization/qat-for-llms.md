@@ -30,7 +30,7 @@ torchao 流程两步：
 
 ## 与后训练的衔接方式
 
-预训练全量数据往往不可及，因此实践是在 finetune 阶段做 QAT。PyTorch blog 在 C4（en）上对 Llama2-7B / Llama3-8B 跑 5000 steps：batch size 2，lr \(2\times10^{-5}\)，Llama2 max seq 4096、Llama3 8192，FSDP + activation checkpointing；8da4w 权重 group size 256。
+预训练全量数据往往不可及，因此实践是在 finetune 阶段做 QAT。PyTorch blog 在 C4（en）上对 Llama2-7B / Llama3-8B 跑 5000 steps：batch size 2，lr $2\times10^{-5}$，Llama2 max seq 4096、Llama3 8192，FSDP + activation checkpointing；8da4w 权重 group size 256。
 
 经验技巧：前 N 步关闭伪量化，让权重先稳定再引入量化噪声；实验统一用前 1000 steps 关闭。
 
@@ -46,7 +46,7 @@ torchao 流程两步：
 
 ## 成本
 
-伪量化遍布整网。Llama3-8B 约有 \((32 \times 7) + 1 = 225\) 个 linear，每个至少有权重伪量化，还可能有激活伪量化。微基准：8da4w QAT finetune 约比普通 full finetune 慢 34%；开启 activation checkpointing 后每 GPU 显存约多 2.35 GB（中位峰值 67.501 → 69.850 GB；吞吐 546.314 → 359.637 tok/s）。
+伪量化遍布整网。Llama3-8B 约有 $(32 \times 7) + 1 = 225$ 个 linear，每个至少有权重伪量化，还可能有激活伪量化。微基准：8da4w QAT finetune 约比普通 full finetune 慢 34%；开启 activation checkpointing 后每 GPU 显存约多 2.35 GB（中位峰值 67.501 → 69.850 GB；吞吐 546.314 → 359.637 tok/s）。
 
 ## 边界
 

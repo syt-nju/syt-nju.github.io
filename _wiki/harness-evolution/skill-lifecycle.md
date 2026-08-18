@@ -73,7 +73,7 @@ SkillsBench 75-task（GPT-5.5）上，MUSE 人写技能 59.67%（相对无技能
 
 ## MCE：元层技能选择（对照）
 
-MCE 的「生命周期」发生在 CE skill 上：每轮 agentic crossover 生成 offspring，base 执行后写入 \(\mathcal{H}\)，再按 \(J_{\mathrm{val}}\) 做 \((1+1)\)-ES 式保留。meta-agent 可监测 train/val 并抑制过拟合，但没有 AutoSkill 式 merge/discard 目录，也没有 Ratchet 的 active-cap / retirement 配方。对象是 harness（如何学 context），不是任务技能库 librarian；评测在 FiNER 等 CE 域，不裁决 SkillsBench 争议。细节见 [Meta Context Engineering](/wiki/harness-evolution/meta-context-engineering/)。
+MCE 的「生命周期」发生在 CE skill 上：每轮 agentic crossover 生成 offspring，base 执行后写入 $\mathcal{H}$，再按 $J_{\mathrm{val}}$ 做 $(1+1)$-ES 式保留。meta-agent 可监测 train/val 并抑制过拟合，但没有 AutoSkill 式 merge/discard 目录，也没有 Ratchet 的 active-cap / retirement 配方。对象是 harness（如何学 context），不是任务技能库 librarian；评测在 FiNER 等 CE 域，不裁决 SkillsBench 争议。细节见 [Meta Context Engineering](/wiki/harness-evolution/meta-context-engineering/)。
 
 ## Meta-Harness：候选 harness 种群（对照）
 

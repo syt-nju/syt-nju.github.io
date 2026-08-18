@@ -37,14 +37,14 @@ raw:
 
 ### 测试时如何改权重
 
-分布一旦在测试时才出现，冻结 \(\theta\) 就无法用当前 \(x\) 里的提示。[TTT](/wiki/test-time-training/parameter-update/#theta-of-x) 把无标签 \(x\) 做成自监督问题，更新共享特征再预测。这解决的是已知任务上的分布偏移，不是评价集对开发者未知的新任务。原文：[Sun et al. 2020](https://arxiv.org/abs/1909.13231)。
+分布一旦在测试时才出现，冻结 $\theta$ 就无法用当前 $x$ 里的提示。[TTT](/wiki/test-time-training/parameter-update/#theta-of-x) 把无标签 $x$ 做成自监督问题，更新共享特征再预测。这解决的是已知任务上的分布偏移，不是评价集对开发者未知的新任务。原文：[Sun et al. 2020](https://arxiv.org/abs/1909.13231)。
 
 ## 共同主张
 
 - 智力不是二进制属性，而是相对某个 scope 的谱：local / broad / extreme。原文：[Chollet 2019](https://arxiv.org/abs/1911.01547)。
 - 技能是智力过程的结晶输出；要测的是把先验和经验转成新技能的效率。原文：[Chollet 2019](https://arxiv.org/abs/1911.01547)。
 - 对人机公平的通用基准必须控制先验、经验，并测量 developer-aware generalization。原文：[Chollet 2019](https://arxiv.org/abs/1911.01547)。
-- 测试时改 \(\theta\) 需要一个不依赖 \(y\) 的损失；辅助任务与主任务的[梯度需要正相关](/wiki/test-time-training/parameter-update/#gradient-correlation)，否则更新会伤害主任务。原文：[Sun et al. 2020](https://arxiv.org/abs/1909.13231)。
+- 测试时改 $\theta$ 需要一个不依赖 $y$ 的损失；辅助任务与主任务的[梯度需要正相关](/wiki/test-time-training/parameter-update/#gradient-correlation)，否则更新会伤害主任务。原文：[Sun et al. 2020](https://arxiv.org/abs/1909.13231)。
 
 ## 开放接口
 

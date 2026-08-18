@@ -14,20 +14,20 @@ raw:
 
 ## Overview
 
-Sun 等人把 Test-Time Training（TTT）定义成：测试样本 \(x\) 没有主任务标签 \(y\)，但仍给出关于测试分布的提示；让参数 \(\theta\) 依赖 \(x\) 而不依赖 \(y\)。做法是把单张无标签图做成自监督问题，更新共享特征提取器，再用原来的主任务头预测。原文：[Sun et al. 2020](https://arxiv.org/abs/1909.13231)。
+Sun 等人把 Test-Time Training（TTT）定义成：测试样本 $x$ 没有主任务标签 $y$，但仍给出关于测试分布的提示；让参数 $\theta$ 依赖 $x$ 而不依赖 $y$。做法是把单张无标签图做成自监督问题，更新共享特征提取器，再用原来的主任务头预测。原文：[Sun et al. 2020](https://arxiv.org/abs/1909.13231)。
 
 这条机制回答的是 [local generalization](/wiki/test-time-training/skill-acquisition-efficiency/#skill-acquisition-efficiency) 下的分布偏移，不是 [ARC](/wiki/test-time-training/measuring-general-intelligence/#arc-2019) 那种对开发者未知的新任务。辅助损失的配方会变，但「用当前测试输入上的可计算损失改权重」会被后续来源反复更新。
 
-## 决策边界可以依赖 \(x\) {#theta-of-x}
+## 决策边界可以依赖 $x$ {#theta-of-x}
 
-标准经验风险最小化在训练集 \(P\) 上得到固定 \(\theta\)。TTT 允许 \(\theta(x)\)：先在 \(x\) 上最小化辅助损失 \(l_s(x)\)，再在更新后的共享层上算主任务。网络做成 Y 形：共享底部 \(\theta_e\)，主任务分支 \(\theta_m\)，自监督分支 \(\theta_s\)。训练时在 \(P\) 上联合优化 \(l_m+l_s\)（joint training）；测试时只对 \(\theta_e\) 做辅助损失上的梯度步，\(\theta_m\) 保持训练结束时的值。原文：[Sun et al. 2020 §2](https://arxiv.org/abs/1909.13231)。
+标准经验风险最小化在训练集 $P$ 上得到固定 $\theta$。TTT 允许 $\theta(x)$：先在 $x$ 上最小化辅助损失 $l_s(x)$，再在更新后的共享层上算主任务。网络做成 Y 形：共享底部 $\theta_e$，主任务分支 $\theta_m$，自监督分支 $\theta_s$。训练时在 $P$ 上联合优化 $l_m+l_s$（joint training）；测试时只对 $\theta_e$ 做辅助损失上的梯度步，$\theta_m$ 保持训练结束时的值。原文：[Sun et al. 2020 §2](https://arxiv.org/abs/1909.13231)。
 
 对照实验必须包含「训练时也用自监督、测试时冻住」的 joint training。Hendrycks 等人已表明训练时自监督能提高鲁棒性；TTT 的增量是测试时还要再走一步。
 
 ## 标准版与在线版 {#standard-online}
 
-- **标准 TTT：** 每张测试图从联合训练得到的 \(\theta\) 重新初始化，在该图的增强副本上走若干步，预测后丢掉 \(\theta_e^*\)。
-- **TTT-Online：** 测试样本顺序到达且分布相同或平滑变化时，\(x_t\) 的优化从 \(\theta(x_{t-1})\) 接着走，保留对已见测试分布的记忆。
+- **标准 TTT：** 每张测试图从联合训练得到的 $\theta$ 重新初始化，在该图的增强副本上走若干步，预测后丢掉 $\theta_e^*$。
+- **TTT-Online：** 测试样本顺序到达且分布相同或平滑变化时，$x_t$ 的优化从 $\theta(x_{t-1})$ 接着走，保留对已见测试分布的记忆。
 
 本稿实验里的自监督任务是把图旋转 0 / 90 / 180 / 270 度并做四分类（Gidaris et al. 2018）。增强与训练时相同（随机裁剪与水平翻转），一个 batch 只含同一张图的增强副本。因此用 Group Normalization 而不是 Batch Normalization：单图小 batch 会让 BN 统计失真。原文：[Sun et al. 2020 §2–3](https://arxiv.org/abs/1909.13231)。
 
@@ -50,7 +50,7 @@ Sun 等人把 Test-Time Training（TTT）定义成：测试样本 \(x\) 没有�
 
 原文：[Sun et al. 2020 §3](https://arxiv.org/abs/1909.13231)。
 
-这些数字测的是已知任务、未知腐蚀或采集偏移，属于 Chollet 谱上的 local generalization。后续 ARC 式 TTT 会把同一「测试时改 \(\theta\)」接到有示范对的监督损失上；Tent 会把损失换成熵、把可更新参数缩到 BN affine。那些对照等对应来源再写入。
+这些数字测的是已知任务、未知腐蚀或采集偏移，属于 Chollet 谱上的 local generalization。后续 ARC 式 TTT 会把同一「测试时改 $\theta$」接到有示范对的监督损失上；Tent 会把损失换成熵、把可更新参数缩到 BN affine。那些对照等对应来源再写入。
 
 ## See Also
 

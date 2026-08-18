@@ -25,17 +25,17 @@ Meta Context Engineering（MCE）把 Context Engineering（CE）从「人工固�
 
 ## 双层问题与编排
 
-Context 函数 \(c\) 由静态组件 \(\rho\) 与动态算子 \(F\)（检索、筛选、格式化等）组成。MCE 引入技能 \(s\)，由 base-agent 执行得到 \(c_s\)，并求解：
+Context 函数 $c$ 由静态组件 $\rho$ 与动态算子 $F$（检索、筛选、格式化等）组成。MCE 引入技能 $s$，由 base-agent 执行得到 $c_s$，并求解：
 
 $$
 s^{*}=\arg\max_{s} J_{\mathrm{val}}(c_{s}^{*})\quad\text{s.t.}\quad c_{s}^{*}=\arg\max_{c_{s}} J_{\mathrm{train}}(c_{s};s).
 $$
 
-编排采用 history-informed \((1+1)\)-ES：每轮 meta-agent 生成一个 offspring skill → base-agent 产出 context → 用验证集与当前最优比较并保留更优者；技能历史 \(\mathcal{H}\) 记录 \((s,c,J_{\mathrm{train}},J_{\mathrm{val}})\)。meta / base 均使用通用工具集（Read / Write / Edit / Bash / Glob / Grep / TodoWrite），权限按角色与迭代限定。
+编排采用 history-informed $(1+1)$-ES：每轮 meta-agent 生成一个 offspring skill → base-agent 产出 context → 用验证集与当前最优比较并保留更优者；技能历史 $\mathcal{H}$ 记录 $(s,c,J_{\mathrm{train}},J_{\mathrm{val}})$。meta / base 均使用通用工具集（Read / Write / Edit / Bash / Glob / Grep / TodoWrite），权限按角色与迭代限定。
 
 ## Meta：Agentic Skill Evolution
 
-**Agentic crossover** 相对固定遗传重组：LLM agent 审议任务规格 \(\tau\)、任意检查历史技能文件夹与执行评估，再合成新技能。技能在 workspace 中是文件夹，实践中可含：自然语言方法论、可执行脚本、结构化模板、验证协议、以及按 query 过滤/组装的动态检索算子。
+**Agentic crossover** 相对固定遗传重组：LLM agent 审议任务规格 $\tau$、任意检查历史技能文件夹与执行评估，再合成新技能。技能在 workspace 中是文件夹，实践中可含：自然语言方法论、可执行脚本、结构化模板、验证协议、以及按 query 过滤/组装的动态检索算子。
 
 作者观察：演化技能会调节自主性与粒度（刚性工作流 vs 全权委托）、按任务与模型容量调节 verbosity，并利用 train/val 信号监测过拟合、偏向泛化。
 
@@ -55,7 +55,7 @@ Base-agent 在技能文件夹、上一轮最优 context、训练 rollouts 与可
 | ACE (online) | 64.0 | 13.0 | 62.3 | 0.63 | 0.57 | 41.1 |
 | MCE (online) | 68.0 | 20.0 | 76.4 | 0.66 | 0.63 | 74.1 |
 
-适应性：有效 context 长度可随任务约在 **1.5K–86K** tokens（FiNER 最优约 1.5K / 20K；LawBench / USPTO50k 可达 44K / 86K）。FiNER 效率：约 1.5K tokens 时 MCE-S 73% vs ACE Step-20 的 65%；MCE-L 20K tokens 达 75%，高于 ACE 5 epoch 的 70%（约 79K tokens）。训练：FiNER 上 MCE 5 epoch 约 **1.9** hours vs ACE **25.8** hours（约 \(13.6\times\)）；达 95% train acc 约 **450** rollouts vs ACE 峰值 94% 的 **2169**（约 \(4.8\times\) 更少）。强→弱迁移时，MCE 的 Avg. Rel. Drop 通常低于 ACE（如至 Qwen3-8B：Table 2 中 MCE 为 17.1，ACE 为 23.6）。
+适应性：有效 context 长度可随任务约在 **1.5K–86K** tokens（FiNER 最优约 1.5K / 20K；LawBench / USPTO50k 可达 44K / 86K）。FiNER 效率：约 1.5K tokens 时 MCE-S 73% vs ACE Step-20 的 65%；MCE-L 20K tokens 达 75%，高于 ACE 5 epoch 的 70%（约 79K tokens）。训练：FiNER 上 MCE 5 epoch 约 **1.9** hours vs ACE **25.8** hours（约 $13.6\times$）；达 95% train acc 约 **450** rollouts vs ACE 峰值 94% 的 **2169**（约 $4.8\times$ 更少）。强→弱迁移时，MCE 的 Avg. Rel. Drop 通常低于 ACE（如至 Qwen3-8B：Table 2 中 MCE 为 17.1，ACE 为 23.6）。
 
 消融：online 的 MCE (w/o skills) Avg. Rel. Gain 为 Table 1 的 71.3，完整 MCE 为 74.1，说明技能演化有贡献但 base agentic CE 已很强。
 
