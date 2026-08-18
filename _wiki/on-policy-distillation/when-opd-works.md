@@ -29,7 +29,7 @@ raw:
 
 ## Overview
 
-Thinking Machines 把 OPD 写成几乎免费的 dense 监督。后续工作把这句话拆开：监督密，不等于老师在学生前缀上的分数可学。失败可以来自老师选错（pattern 不一致、没有新能力），也可以来自比较粒度选错。后者是独立设计轴，见 [sampled-token、top-k 与 full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/)。本页管老师何时值得听。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)、[Rethinking OPD](https://arxiv.org/abs/2604.13016)。
+Thinking Machines 把 OPD 写成几乎免费的 dense 监督。后续工作把这句话拆开：监督密，不等于老师在学生前缀上的分数可学。失败可以来自老师选错（pattern 不一致、没有新能力），也可以来自比较粒度选错。后者是独立设计轴，见 [每个 prefix 比较什么](/wiki/on-policy-distillation/teacher-signal-granularity/#granularity)。本页管老师何时值得听。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)、[Rethinking OPD](https://arxiv.org/abs/2604.13016)。
 
 ## Thinking-pattern consistency {#thinking-pattern}
 
@@ -64,7 +64,7 @@ TML 默认用 sampled-token reverse KL：只在学生抽出的那个 token 上�
 
 ## 比较方式也会让 dense 变成噪声
 
-把分布差收成单个 sampled token，本身就会让老师分数不可用；改成老师 top-K 局部分布后，Revisiting 的单任务数学平均从 36.4 升到 41.5。方法细节在 [sampled-token、top-k 与 full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/)。
+把分布差收成单个 sampled token，本身就会让老师分数不可用；改成老师 top-K 局部分布后，Revisiting 的单任务数学平均从 36.4 升到 41.5。
 
 即便粒度选对，老师在长后缀上仍可能劣化。Rethinking 观察到不稳从后缀往前传：中等长度（3K 和 7K）最好，10K 和 15K 变差。这限制了「越长越能蒸」的假设。知乎的综合判断是：OPD 的核心风险，是密集监督在错误 prefix、错误 token 粒度、错误 KL 方向下变成密集噪声。OPD 也不替代 RL——它迁移老师已有的能力，不负责发现老师不会的策略。
 
@@ -87,7 +87,7 @@ On-Policy Self Distillation（OPSD）里，老师和学生是同一个模型，�
 - Prompt 可以反复用。TML 甚至用 1 条 prompt、每步 256 条、共 20 step（5120 条打分序列）去逼近老师的 AIME’24；RL 在同样设定更容易背答案。
 - 多轮 tool-use 不要混环境奖励，除非明确要做 hybrid；Tinker Harbor recipe 用 `zero_reward`，只留老师 KL。
 - 监控 overlap 是否在涨、熵差是否在收。overlap 卡住，先查 pattern mismatch 和冷启动，而不是加学习率。
-- 同模型 OPSD：style token 的 KL 可能高于任务 token，不要按 KL 大小无差别猛更新；需要 clipping。详见 [OPSD](/wiki/on-policy-distillation/when-opd-works/#opsd)。
+- 同模型 [OPSD](/wiki/on-policy-distillation/when-opd-works/#opsd)：style token 的 KL 可能高于任务 token，不要按 KL 大小无差别猛更新；需要 clipping。
 
 ## See Also
 

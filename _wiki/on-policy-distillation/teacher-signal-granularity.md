@@ -25,7 +25,7 @@ raw:
 
 Prefix 已经是学生自己的之后，还要决定老师在这个 prefix 上给什么。Thinking Machines 默认只比较学生采出的那一个 token；Revisiting OPD 改成老师 top-K 上的局部分布；知乎对 DeepSeek V4 / SWIFT / verl 的整理把 full-vocab reverse KL 写成第三条、信息最完整也最贵的选项。这是设计轴，不是某一篇的修 bug 附录。
 
-老师是否值得听，见 [老师信号何时可靠](/wiki/on-policy-distillation/when-opd-works/)。
+老师是否值得听，见 [thinking-pattern consistency](/wiki/on-policy-distillation/when-opd-works/#thinking-pattern)。
 
 ## 每个 prefix 比较什么 {#granularity}
 
@@ -39,7 +39,7 @@ Prefix 已经是学生自己的之后，还要决定老师在这个 prefix 上�
 
 ### sampled-token {#sampled-token}
 
-学生抽出 \(y_t\) 后，advantage 是 \(\log q(y_t)-\log\pi_\theta(y_t)\)。不需要 top-k 或 full logits。[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/) / verl 的 `k1` + policy gradient 就是这一格：把 KL regularizer 换成老师。失败模式见 [老师信号何时可靠](/wiki/on-policy-distillation/when-opd-works/#sampled-token-failure)：单 token 信号失衡、OOD prefix 上老师不可靠、tokenizer 错配。
+学生抽出 \(y_t\) 后，advantage 是 \(\log q(y_t)-\log\pi_\theta(y_t)\)。不需要 top-k 或 full logits。[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/) / verl 的 `k1` + policy gradient 就是这一格：把 KL regularizer 换成老师。失败模式见 [sampled-token 比较为什么脆](/wiki/on-policy-distillation/when-opd-works/#sampled-token-failure)：单 token 信号失衡、OOD prefix 上老师不可靠、tokenizer 错配。
 
 ### top-k {#top-k}
 
@@ -67,7 +67,7 @@ Prefix 已经是学生自己的之后，还要决定老师在这个 prefix 上�
 - sampled-token 但想低方差 direct loss：verl `k3`，`use_policy_gradient=false`。
 - 要 Revisiting 那一格：支持集内重归一化 reverse KL。SWIFT `lmbda=1,beta=1,gkd_logits_topk=64`（gather 后 `log_softmax`）；verl-recipe/gkd 的 `rkl`。verl 主仓 `forward_kl_topk` 是截断 forward KL，**不**重归一化。
 - 最接近知乎所写的单教师 V4 目标：SWIFT `lmbda=1,beta=1,gkd_logits_topk=None`。多教师、hidden-state 重构不在这些开源 recipe 里。
-- SWIFT 的 `lmbda` 还会改 prefix 来源：`1` 才是纯学生 rollout；`0` 加 `seq_kd` 是老师轨迹；否则是 dataset。那是 [SFT、RL 与 OPD](/wiki/on-policy-distillation/sft-rl-opd/) 的轴，不要和粒度混成一个开关。
+- SWIFT 的 `lmbda` 还会改 prefix 来源：`1` 才是纯学生 rollout；`0` 加 `seq_kd` 是老师轨迹；否则是 dataset。那是 [状态来源和监督密度](/wiki/on-policy-distillation/sft-rl-opd/#sampling-density) 的轴，不要和粒度混成一个开关。
 - 大规模 teacher server 常见 `--n-logprobs 256`，仍是 top-k，不是 full-vocab。
 - 自己跑时的粗超参（知乎建议，不是 TML 默认）：rollout top-p `0.8-0.95`、temperature `0.7-1.0`、top-k 做 `32/64/128` ablation；response 先走 3K-7K。
 - 同模型 [OPSD](/wiki/on-policy-distillation/when-opd-works/#opsd)：style token 的 KL 可能高于任务 token，不要按 KL 大小无差别更新；需要 per-token clipping。原文：[nrehiew](https://nrehiew.github.io/blog/sft_rl_opd/)。

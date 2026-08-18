@@ -40,19 +40,19 @@ On-Policy Distillation（OPD）把后训练拆成彼此独立的选择：训练�
 
 ### 训练状态该跟谁对齐
 
-Off-policy 蒸馏训练的是老师常去的前缀；推理时学生走自己的错路，错误会沿序列放大。OPD 改成学生采样、老师打分，让训练分布贴近推理分布。这条比较构成后训练的 2×2：SFT 是 off-policy + dense，RL 是 on-policy + sparse，OPD 是 on-policy + dense。on-policy 还有一层几何后果：更新被约束在当前策略附近，抗遗忘靠的是数据来源，不是显式 KL 惩罚。详见 [SFT、RL 与 OPD](/wiki/on-policy-distillation/sft-rl-opd/)，原文见 [Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)、[nrehiew](https://nrehiew.github.io/blog/sft_rl_opd/)。
+Off-policy 蒸馏训练的是老师常去的前缀；推理时学生走自己的错路，错误会沿序列放大。OPD 改成学生采样、老师打分，让训练分布贴近推理分布。这条比较构成后训练的 [2×2](/wiki/on-policy-distillation/sft-rl-opd/#sampling-density)：SFT 是 off-policy + dense，RL 是 on-policy + sparse，OPD 是 on-policy + dense。on-policy 还有一层几何后果：更新被约束在当前策略附近，抗遗忘靠的是数据来源，不是显式 KL 惩罚。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)、[nrehiew](https://nrehiew.github.io/blog/sft_rl_opd/)。
 
 ### 每个 prefix 上比较什么
 
-Dense 仍有粒度。[sampled-token](/wiki/on-policy-distillation/teacher-signal-granularity/#sampled-token) 只评价学生抽出的那一个 token；[top-k](/wiki/on-policy-distillation/teacher-signal-granularity/#top-k) 比较老师支持的一小撮候选；[full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/#full-vocab) 比较整个词表。KL 还可以选 [forward / reverse / JSD](/wiki/on-policy-distillation/teacher-signal-granularity/#kl-direction)，loss 可以是直接反传或 policy-gradient。[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/) 的默认实现只是这个格子里的一格。详见 [sampled-token、top-k 与 full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/)。
+Dense 仍有粒度。[sampled-token](/wiki/on-policy-distillation/teacher-signal-granularity/#sampled-token) 只评价学生抽出的那一个 token；[top-k](/wiki/on-policy-distillation/teacher-signal-granularity/#top-k) 比较老师支持的一小撮候选；[full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/#full-vocab) 比较整个词表。KL 还可以选 [forward / reverse / JSD](/wiki/on-policy-distillation/teacher-signal-granularity/#kl-direction)，loss 可以是直接反传或 policy-gradient。[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/) 的默认实现只是这个格子里的一格。
 
 ### 老师信号何时可靠
 
-监督密，不等于老师在学生前缀上的分数可学。老师与学生的 [thinking pattern](/wiki/on-policy-distillation/when-opd-works/#thinking-pattern) 要对上，老师还要带来学生训练中没见过的[新能力](/wiki/on-policy-distillation/when-opd-works/#new-capability)；否则更强老师也可能蒸不动。详见 [老师信号何时可靠](/wiki/on-policy-distillation/when-opd-works/)，原文见 [Rethinking OPD](https://arxiv.org/abs/2604.13016)。
+监督密，不等于老师在学生前缀上的分数可学。老师与学生的 [thinking pattern](/wiki/on-policy-distillation/when-opd-works/#thinking-pattern) 要对上，老师还要带来学生训练中没见过的[新能力](/wiki/on-policy-distillation/when-opd-works/#new-capability)；否则更强老师也可能蒸不动。原文：[Rethinking OPD](https://arxiv.org/abs/2604.13016)。
 
 ## 共同主张
 
-- 后训练的关键差在[状态来源和监督密度](/wiki/on-policy-distillation/sft-rl-opd/)，不在「像不像 RL 的代码路径」。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)。
+- 后训练的关键差在[状态来源和监督密度](/wiki/on-policy-distillation/sft-rl-opd/#sampling-density)，不在「像不像 RL 的代码路径」。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)。
 - [on-policy 数据](/wiki/on-policy-distillation/sft-rl-opd/#on-policy-data)是抗遗忘和 KL 预算的承重件，不是显式 KL 惩罚。老师分布和学生对齐的状态是两支旋钮。原文：[nrehiew](https://nrehiew.github.io/blog/sft_rl_opd/)。
 - [sampled-token reverse KL](/wiki/on-policy-distillation/teacher-signal-granularity/#sampled-token) 是便宜的默认实现，可当作把 RL 的 KL regularizer 换成老师；它不是 OPD 的唯一定义。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)。
 - [top-k](/wiki/on-policy-distillation/teacher-signal-granularity/#top-k) 是信息量和成本之间最常被采用的折中；[full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/#full-vocab) 最完整，但一般团队很难负担。原文：[Revisiting OPD](https://arxiv.org/abs/2603.25562)、[知乎整理](https://zhuanlan.zhihu.com/p/2033212181823608430)。

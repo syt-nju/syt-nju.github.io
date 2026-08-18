@@ -1,10 +1,6 @@
 <script src="{{ base_path }}/assets/js/main.min.js"></script>
 {% if page.layout == "wiki" %}
-  {% if site.github.build_revision %}
-    {% assign wiki_asset_version = site.github.build_revision %}
-  {% else %}
-    {% assign wiki_asset_version = site.time | date: "%s" %}
-  {% endif %}
+  {% assign wiki_asset_version = site.time | date: "%s" %}
   {% if page.url == "/wiki/" %}
     <script src="{{ base_path }}/assets/js/wiki-search.js?v={{ wiki_asset_version }}"></script>
   {% endif %}

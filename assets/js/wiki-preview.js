@@ -8,6 +8,15 @@
 }(this, function() {
   "use strict";
 
+  var MAX_EXCERPT = 480;
+  var SKIP_TAGS = {
+    TABLE: true,
+    PRE: true,
+    FIGURE: true,
+    SCRIPT: true,
+    STYLE: true,
+    NAV: true
+  };
   var HOST_LABELS = {
     "arxiv.org": "arXiv",
     "thinkingmachines.ai": "Thinking Machines",
@@ -70,6 +79,96 @@
     return HOST_LABELS[host] || host;
   }
 
+  function isHeading(node) {
+    return Boolean(node && /^H[1-6]$/i.test(node.tagName || ""));
+  }
+
+  function headingElement(node) {
+    if (!node) {
+      return null;
+    }
+    if (isHeading(node)) {
+      return node;
+    }
+    if (node.parentElement && isHeading(node.parentElement)) {
+      return node.parentElement;
+    }
+    return node;
+  }
+
+  function nodeText(node) {
+    if (!node) {
+      return "";
+    }
+    return String(node.innerText || node.textContent || "").replace(/\s+/g, " ").trim();
+  }
+
+  function clipExcerpt(text, maxChars) {
+    var limit = maxChars || MAX_EXCERPT;
+    var value = String(text || "").replace(/\s+/g, " ").trim();
+    if (value.length <= limit) {
+      return value;
+    }
+    var slice = value.slice(0, limit);
+    var punct = Math.max(
+      slice.lastIndexOf("。"),
+      slice.lastIndexOf("！"),
+      slice.lastIndexOf("？"),
+      slice.lastIndexOf(". ")
+    );
+    if (punct >= 0 && punct >= Math.min(4, limit * 0.3)) {
+      return slice.slice(0, punct + (slice.charAt(punct) === "." ? 2 : 1)).trim();
+    }
+    return slice.replace(/\s+\S*$/, "").trim() + "…";
+  }
+
+  function collectSectionText(heading, maxChars) {
+    var limit = maxChars || MAX_EXCERPT;
+    var parts = [];
+    var total = 0;
+    var node = heading && heading.nextElementSibling;
+    while (node) {
+      if (isHeading(node)) {
+        break;
+      }
+      if (!SKIP_TAGS[String(node.tagName || "").toUpperCase()]) {
+        var text = nodeText(node);
+        if (text) {
+          parts.push(text);
+          total += text.length;
+          if (total >= limit) {
+            break;
+          }
+        }
+      }
+      node = node.nextElementSibling;
+    }
+    return clipExcerpt(parts.join(" "), limit);
+  }
+
+  function extractFromDocument(doc, hash, maxChars) {
+    if (!doc || !hash || typeof doc.getElementById !== "function") {
+      return null;
+    }
+    var target = doc.getElementById(hash);
+    if (!target) {
+      return null;
+    }
+    var heading = headingElement(target);
+    var title = nodeText(heading);
+    var summary = collectSectionText(heading, maxChars);
+    if (!summary) {
+      summary = clipExcerpt(nodeText(target), maxChars);
+    }
+    if (!title && !summary) {
+      return null;
+    }
+    return {
+      title: title,
+      summary: summary
+    };
+  }
+
   function previewForLink(entries, href, origin) {
     var parsed = parseHref(href, origin);
     if (!parsed) {
@@ -79,20 +178,23 @@
       if (parsed.path === "/wiki/search.json/") {
         return null;
       }
+      if (!parsed.hash) {
+        return null;
+      }
       var entry = findEntry(entries, parsed.path);
       if (!entry) {
         return {
           kind: "知识库",
           title: parsed.path,
           summary: "",
-          section: parsed.hash
+          hash: parsed.hash
         };
       }
       return {
         kind: "知识库",
         title: entry.title,
         summary: entry.summary || "",
-        section: parsed.hash
+        hash: parsed.hash
       };
     }
     if (parsed.sameOrigin) {
@@ -102,7 +204,7 @@
       kind: "原文",
       title: hostLabel(parsed.host),
       summary: parsed.host + parsed.path.replace(/\/$/, ""),
-      section: ""
+      hash: ""
     };
   }
 
@@ -134,11 +236,6 @@
     title.textContent = preview.title;
     card.appendChild(kind);
     card.appendChild(title);
-    if (preview.section) {
-      var section = document.createElement("em");
-      section.textContent = preview.section.replace(/-/g, " ");
-      card.appendChild(section);
-    }
     if (preview.summary) {
       var summary = document.createElement("span");
       summary.textContent = preview.summary;
@@ -157,6 +254,13 @@
       return true;
     }
     return false;
+  }
+
+  function parseHtmlDocument(html) {
+    if (typeof DOMParser === "undefined") {
+      return null;
+    }
+    return new DOMParser().parseFromString(html, "text/html");
   }
 
   function init(options) {
@@ -181,10 +285,15 @@
 
     var hideTimer = 0;
     var showTimer = 0;
+    var token = 0;
     var active = null;
     var entries = [];
+    var pageCache = {};
+    var currentPath = trailingSlash((settings.path || (window.location && window.location.pathname) || "/"));
+    var origin = settings.origin || window.location.origin;
 
     function hide() {
+      token += 1;
       window.clearTimeout(showTimer);
       card.hidden = true;
       if (active) {
@@ -202,18 +311,66 @@
       anchor.setAttribute("aria-describedby", "wiki-link-preview");
     }
 
-    function previewFrom(anchor) {
-      return previewForLink(entries, anchor.getAttribute("href") || "", settings.origin || window.location.origin);
+    function loadPage(path) {
+      if (trailingSlash(path) === currentPath) {
+        return Promise.resolve(settings.document || document);
+      }
+      if (pageCache[path]) {
+        return pageCache[path];
+      }
+      pageCache[path] = fetch(path).then(function(response) {
+        if (!response.ok) {
+          throw new Error("Wiki preview page failed with " + response.status);
+        }
+        return response.text();
+      }).then(function(html) {
+        var doc = parseHtmlDocument(html);
+        if (!doc) {
+          throw new Error("Wiki preview HTML parser is unavailable");
+        }
+        return doc;
+      }).catch(function(error) {
+        delete pageCache[path];
+        throw error;
+      });
+      return pageCache[path];
+    }
+
+    function resolvePreview(anchor) {
+      var href = anchor.getAttribute("href") || "";
+      var preview = previewForLink(entries, href, origin);
+      if (!preview || preview.kind !== "知识库" || !preview.hash) {
+        return Promise.resolve(preview);
+      }
+      return loadPage(parseHref(href, origin).path).then(function(doc) {
+        var extracted = extractFromDocument(doc, preview.hash, MAX_EXCERPT);
+        if (!extracted) {
+          return preview;
+        }
+        return {
+          kind: preview.kind,
+          title: extracted.title || preview.title,
+          summary: extracted.summary || preview.summary,
+          hash: preview.hash
+        };
+      }).catch(function(error) {
+        console.error("Unable to load Wiki section preview:", error);
+        return preview;
+      });
     }
 
     function scheduleShow(anchor) {
       window.clearTimeout(hideTimer);
       window.clearTimeout(showTimer);
+      var my = token + 1;
+      token = my;
       showTimer = window.setTimeout(function() {
-        var preview = previewFrom(anchor);
-        if (preview) {
+        resolvePreview(anchor).then(function(preview) {
+          if (my !== token || !preview) {
+            return;
+          }
           show(anchor, preview);
-        }
+        });
       }, 160);
     }
 
@@ -263,11 +420,8 @@
         if (!anchor || shouldSkip(anchor) || !scope.contains(anchor)) {
           return;
         }
-        var preview = previewFrom(anchor);
-        if (preview) {
-          window.clearTimeout(hideTimer);
-          show(anchor, preview);
-        }
+        window.clearTimeout(hideTimer);
+        scheduleShow(anchor);
       });
       scope.addEventListener("focusout", function() {
         scheduleHide();
@@ -287,6 +441,9 @@
   }
 
   return {
+    clipExcerpt: clipExcerpt,
+    collectSectionText: collectSectionText,
+    extractFromDocument: extractFromDocument,
     findEntry: findEntry,
     hostLabel: hostLabel,
     parseHref: parseHref,

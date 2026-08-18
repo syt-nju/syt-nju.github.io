@@ -536,10 +536,14 @@
   }
 
   span:not(.wiki-link-preview__kind) {
+    display: -webkit-box;
     margin-top: 0.45em;
+    overflow: hidden;
     color: $gray;
     font-size: $type-size-6;
     line-height: 1.5;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 6;
   }
 }
 
