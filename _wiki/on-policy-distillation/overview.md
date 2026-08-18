@@ -1,86 +1,93 @@
 ---
-title: "On-Policy Distillation 问题地图"
+title: "On-Policy Distillation"
 topic: on-policy-distillation
-summary: "OPD 的核心问题是：在学生自己访问的状态上，用多密、多可靠的老师信号做后训练，而不是继续模仿老师轨迹或只拿稀疏对错奖励。"
+summary: "OPD 是在学生自采样前缀上用 reverse KL 把学生分布拉向老师；最便宜的是 sampled-token，top-k 与全词表主要贵在显存和搬运，训练上没有统一配方。"
 lang: zh-CN
-updated: 2026-08-17
+updated: 2026-08-18
 order: 1
 sources:
   - title: "On-Policy Distillation"
     url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
-  - title: "Training LLMs using Off-Policy vs On-Policy Distillation"
-    url: "https://saraswatmks.github.io/2026/07/on-policy-distillation-thinking-machines.html"
-  - title: "Distillation (Tinker Cookbook)"
-    url: "https://tinker-docs.thinkingmachines.ai/cookbook/recipes/distillation/"
-  - title: "Rethinking On-Policy Distillation of Large Language Models"
-    url: "https://arxiv.org/abs/2604.13016"
   - title: "Revisiting On-Policy Distillation: Empirical Failure Modes and Simple Fixes"
     url: "https://arxiv.org/abs/2603.25562"
+  - title: "Rethinking On-Policy Distillation of Large Language Models"
+    url: "https://arxiv.org/abs/2604.13016"
   - title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
     url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
-  - title: "SFT, RL, and On-Policy Distillation Through a Distributional Lens"
-    url: "https://nrehiew.github.io/blog/sft_rl_opd/"
 raw:
   - raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
-  - raw/on-policy-distillation/2026-07-on-policy-distillation-floating-bytes.md
-  - raw/on-policy-distillation/tinker-cookbook-distillation.md
-  - raw/on-policy-distillation/2026-04-14-rethinking-on-policy-distillation.md
   - raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+  - raw/on-policy-distillation/2026-04-14-rethinking-on-policy-distillation.md
   - raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
-  - raw/on-policy-distillation/2026-05-10-sft-rl-opd-distributional-lens.md
 ---
 
 ## Overview
 
-On-Policy Distillation（OPD）的出发点很简单：SFT 信号密，但训练在老师或数据的轨迹上；RL 训练在学生自己的轨迹上，但奖励通常太稀疏。OPD 试图把两者接起来：让学生自己 rollout，再让老师在学生已经走到的 prefix 上给 dense 反馈。这样它同时针对 SFT 的 [exposure bias](/wiki/on-policy-distillation/sft-rl-opd/#exposure-bias) 和 RL 的 [稀疏 credit](/wiki/on-policy-distillation/sft-rl-opd/#sparse-credit)。
+[OPD](#opd) 的操作定义是：学生用当前策略采样轨迹，老师只在这些学生前缀上给 token 级监督，把 \(\pi_\theta\) 往 \(\pi_{\mathrm{teacher}}\) 拉。最基本、也最便宜的损失是 [sampled-token reverse KL](#sampled-token)。扩到 [top-k](#top-k) 或 [full-vocab](#full-vocab) 几乎不增加前面层的反传算力，贵的是 \(V\) 维分布的物化和搬运。[clip](#clipfrac) 不是这条蒸馏损失的一部分。训练效果上没有统一配方：师生已经对上高概率区时，sampled-token 往往够用；长程一漂，才值得换成局部支持集。
 
-本 topic 覆盖白盒、可取老师 logprob 的设定，以及同模型、参考答案作特权前缀的 [OPSD](/wiki/on-policy-distillation/when-opd-works/#opsd)。黑盒老师尚未摄入。DeepSeek V4 报告本身未摄入，相关主张来自[知乎对该报告的阅读](https://zhuanlan.zhihu.com/p/2033212181823608430)和 [nrehiew 对工业管线的转述](https://nrehiew.github.io/blog/sft_rl_opd/)。
+## OPD 在优化什么 {#what-is-opd}
 
-## 主线
+**On-Policy Distillation（OPD）** {#opd} 指：轨迹来自学生自己的当前策略，老师在学生走到的前缀 \(c_t=(x,y_{<t})\) 上提供监督。它不是 SFT 那种学老师写好的序列，也不是整条轨迹只拿一个对错分的 RL。
 
-### 1. SFT 信号密，但状态错
+最基本的损失是 per-token [reverse KL](#reverse-kl)。Thinking Machines Lab 写成：
 
-普通蒸馏和 SFT 都在外部轨迹上训练：数据里每一步通常是正确前缀，学生推理时却会走到自己的错误前缀。前面一步偏掉，后面就进入训练没见过的状态，错误沿序列放大。这就是 [exposure bias](/wiki/on-policy-distillation/sft-rl-opd/#exposure-bias)。所以只把老师答案喂给学生，不等于学生会在自己的分布上走稳。
+\[
+\mathrm{KL}\bigl(\pi_\theta \Vert \pi_{\mathrm{teacher}}\bigr)
+=
+\mathbb{E}_{x\sim\pi_\theta}
+\Bigl[
+\log\pi_\theta(x_{t+1}\mid x_{1:t})
+-
+\log\pi_{\mathrm{teacher}}(x_{t+1}\mid x_{1:t})
+\Bigr]
+\]
 
-### 2. RL 状态对，但 credit 太疏
+**reverse KL** {#reverse-kl} 是 mode-seeking：在学生已经会走到的状态里追老师的模式。学生 support 里根本没有老师那些 token 时，这一项 steers 不动，所以他们默认先 SFT 再 OPD。折扣取 0，只看当前下一步。原文：[On-Policy Distillation](https://thinkingmachines.ai/blog/on-policy-distillation/)。
 
-RL 让学生在自己的 rollout 上学习，因此状态分布是对的。问题是反馈往往只有最终对错，知道整条轨迹失败，不代表知道哪一步该改。这是 [稀疏 credit](/wiki/on-policy-distillation/sft-rl-opd/#sparse-credit)。Thinking Machines 的说法是：RL 每条 episode 只给 \(O(1)\) bit，而蒸馏可以在 token 级给 \(O(N)\) bit。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)。
+## sampled-token 成本为什么像 RL 正则 {#sampled-token-cost}
 
-### 3. OPD 的最小想法：学生走，老师评
+**sampled-token** {#sampled-token} 每个位置只比较学生实际采到的那个 token。老师对这条轨迹做一次 forward，取出 \(\log\pi_{\mathrm{teacher}}(y_t)\) 即可。实现上常把 \(A_t=-\mathrm{KL}\) 丢进现成的 importance-sampling 更新。TML 的说法是：在带 KL regularization 的 RL 脚本上，往往只改一行——把 regularizer 模型换成 teacher。
 
-OPD 把训练状态改成学生自己的 prefix，同时把反馈从 outcome reward 换成老师的 token 级分数。最小实现可以是 [sampled-token reverse KL](/wiki/on-policy-distillation/teacher-signal-granularity/#sampled-token)：只看学生这一步实际采出的 token，比较学生和老师给它的 logprob。这很便宜，也能复用 RL trainer，把 KL regularizer 的 reference 换成老师。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)。
+算力形态像 RL 的 KL 正则：多一个模型，对学生已采 token 做 `compute_logprobs`。作用相反。RL 里这项通常拉住 \(\pi_{\mathrm{ref}}\)（多半是自己的起点）；OPD 里同一项是主信号，teacher 是更强的目标。
 
-### 4. 最小实现不是 OPD 的全部
+**top-k** {#top-k} 在老师（或学生）的局部支持集上比一小块分布，通常还要在集合内重归一化。**full-vocab** {#full-vocab} 对整个词表做 KL。三者 backbone FLOPs 几乎一样。sampled-token 的 \(\partial\log\pi(y)/\partial z\) 和 full-vocab reverse KL 的 \(\partial\mathrm{KL}/\partial z\) 都是 \(V\) 维，再乘同一个 \(W_{\mathrm{lm}}\)，前面层看到的上游梯度一直是 \([B,T,d]\)。多出来的算术几乎只在最后一层旁边扫 \(\pi_T\)，相对 LM head GEMM 约是 \(1/d\)。
 
-一旦 prefix 已经来自学生，还要决定老师在这个 prefix 上给什么。[sampled-token](/wiki/on-policy-distillation/teacher-signal-granularity/#sampled-token) 只评价学生抽出的一个 token；[top-k](/wiki/on-policy-distillation/teacher-signal-granularity/#top-k) 比较老师最看好的候选集合；[full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/#full-vocab) 比较整个词表。KL 方向、是否直接反传、是否用 policy-gradient，都是独立旋钮。把 sampled-token 当成 OPD 的定义，会漏掉后续工作真正修的失败点。
+真正涨的是显存和访存：要不要把 \(V\) 维老师分布写出来、搬走、对齐着留下来。DeepSeek V4 能做 full-vocab，靠的是 teacher forward 不缓存完整 logits，只留 last-layer hidden，loss 时再乘 head。这条工程转述来自知乎对 V4 报告的整理，V4 原文尚未入库。
 
-### 5. Dense 监督也可能变成 dense 噪声
+## top-p、top-k、clip 分别管什么 {#knobs}
 
-监督密，不代表老师信号一定可学。失败有两类：一类是比较粒度太窄，单 token 信号会被噪声、OOD prefix、tokenizer 或 special token 错配放大；另一类是老师和学生的 [thinking pattern](/wiki/on-policy-distillation/when-opd-works/#thinking-pattern) 不一致，或老师没有学生可迁移的[新能力](/wiki/on-policy-distillation/when-opd-works/#new-capability)。这时更强老师也可能蒸不动。原文：[Rethinking OPD](https://arxiv.org/abs/2604.13016)、[Revisiting OPD](https://arxiv.org/abs/2603.25562)。
+这是三个旋钮，不要拧成一个。
 
-## 设计轴
+**top-p 管采样，不管 loss。** {#top-p-rollout} Revisiting 默认温度不变，用 nucleus sampling 砍掉尾部，避免抽出极低概率 token、造出老师信号已经不可信的前缀。它是把 rollout 按回典型续写，不是升温去探索。只改 loss 支持集、不用 top-p，他们的消融里比 sampled-token 还差。
 
-- **状态从谁来。** SFT 是 off-policy + dense，RL 是 on-policy + sparse，OPD 是 on-policy + dense。on-policy 数据也是抗遗忘和 KL 预算的关键承重件。证据见 [状态来源和监督密度](/wiki/on-policy-distillation/sft-rl-opd/#sampling-density) 与 [on-policy 数据为什么承重](/wiki/on-policy-distillation/sft-rl-opd/#on-policy-data)。
-- **每个 prefix 上比较什么。** OPD 可以比较 sampled token、top-k 局部分布或 full vocab 分布。便宜程度、信息量和稳定性都不同。机制见 [每个 prefix 比较什么](/wiki/on-policy-distillation/teacher-signal-granularity/#granularity)。
-- **老师信号何时可靠。** 老师要和学生共享足够的 pattern，还要提供可迁移的新能力；必要时先 off-policy cold start，再 OPD。条件见 [thinking-pattern consistency](/wiki/on-policy-distillation/when-opd-works/#thinking-pattern) 和 [冷启动和 prompt](/wiki/on-policy-distillation/when-opd-works/#cold-start)。
+**top-k 管每个前缀的 loss 在哪几个 token 上比。** \(K\) 是固定超参，不是按当步 overlap 动态调。主方法取 **teacher** 的 \(\mathrm{TopK}_q(c_t)\)，师生都在这个集合上重归一化再算截断 reverse KL。消融里 student top-\(K\)、以及 teacher top-\(K\) 并上学生 sampled token，都能用；没有唯一赢家。关键是「别只比一个 token」，不是「必须用老师的 \(K\)」。Rethinking 里 overlap 上的质量占比是事后诊断，不是选 \(K\) 的算法。
 
-## 共同主张
+**clip 不是 OPD 损失里的项。** {#clipfrac} Revisiting 报告的 clipping-boundary fraction，是外层 RL 管线里 importance ratio \(r_t=\pi_\theta/\pi_{\mathrm{old}}\) 打到 PPO/GRPO clip 边的比例。蒸馏公式本身没有 \(\epsilon\)。若实现走 TML 那种 \(A_t=-\mathrm{KL}\) + IS，clip 会挡住一部分更新；若走直接对 KL 反传，这层 clip 往往不存在。他们拿更低的 clipfrac 当「更好训」的诊断，不是给 OPD 又加了一个损失项。
 
-- 后训练的关键差在[状态来源和监督密度](/wiki/on-policy-distillation/sft-rl-opd/#sampling-density)，不在「像不像 RL 的代码路径」。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)。
-- [on-policy 数据](/wiki/on-policy-distillation/sft-rl-opd/#on-policy-data)是抗遗忘和 KL 预算的承重件，不是显式 KL 惩罚。老师分布和学生对齐的状态是两支旋钮。原文：[nrehiew](https://nrehiew.github.io/blog/sft_rl_opd/)。
-- [sampled-token reverse KL](/wiki/on-policy-distillation/teacher-signal-granularity/#sampled-token) 是便宜的默认实现，可当作把 RL 的 KL regularizer 换成老师；它不是 OPD 的唯一定义。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)。
-- [top-k](/wiki/on-policy-distillation/teacher-signal-granularity/#top-k) 是信息量和成本之间最常被采用的折中；[full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/#full-vocab) 最完整，但一般团队很难负担。原文：[Revisiting OPD](https://arxiv.org/abs/2603.25562)、[知乎整理](https://zhuanlan.zhihu.com/p/2033212181823608430)。
-- 先用老师轨迹做 SFT、再 OPD，是工业上反复出现的[冷启动](/wiki/on-policy-distillation/when-opd-works/#cold-start)，不是可有可无的细节。原文：[Rethinking OPD](https://arxiv.org/abs/2604.13016)、[Tinker cookbook](https://tinker-docs.thinkingmachines.ai/cookbook/recipes/distillation/)。
-- 老师分数更高既不充分也不必要；[pattern 匹配](/wiki/on-policy-distillation/when-opd-works/#thinking-pattern)和[可迁移的新能力](/wiki/on-policy-distillation/when-opd-works/#new-capability)更重要。原文：[Rethinking OPD](https://arxiv.org/abs/2604.13016)。在老师已经会做任务时，[SFT overtrain 再 OPD](/wiki/on-policy-distillation/sft-rl-opd/#sft-teacher-opd) 可以少继承 SFT 的遗忘。原文：[nrehiew](https://nrehiew.github.io/blog/sft_rl_opd/)。
-- 长轨迹上应保持局部监督（discount 接近 0），但不要把局部比较收成单个 sampled token。原文：[Thinking Machines](https://thinkingmachines.ai/blog/on-policy-distillation/)、[Revisiting OPD](https://arxiv.org/abs/2603.25562)。
-- OPD 擅长把老师已经发现的能力迁给学生，不擅长发现老师不会的新策略；它更像 post-training glue，不是 RL 的替代品。原文：[知乎整理](https://zhuanlan.zhihu.com/p/2033212181823608430)。
+## sampled-token / top-k / full-vocab 训练上怎么选 {#estimator-choice}
 
-## 边界
+没有统一标准做法。现有来源在「sampled-token 够不够」上直接分歧。
 
-当前证据主要来自数学推理、指令跟随恢复，以及最小代码编辑上的遗忘/泛化对照。多轮 tool-use 已有 [Tinker Harbor recipe](https://tinker-docs.thinkingmachines.ai/cookbook/recipes/distillation/)，但还没有与 math 同等强度的对照实验写入本 topic。失败模式页只讨论白盒 logprob 监督；outcome-gated 或 black-box OPD 留待后续来源。SWIFT / verl 的配置映射写在粒度页的操作要点，不单独建系统页。GLM 5 / DeepSeek V4 / MiMo-V2 Flash 的管线数字未经那些报告原文核验，只保留 nrehiew 的转述方向。
+> **Status: Disputed**
+> Rethinking 在师生已经能对上高概率 token 的设定里，认为 sampled-token 与 \(k\in\{4,16,64\}\) 的 top-k 下游接近；明显更差的是 Top-1（argmax），不是「只看一个按 \(\pi_\theta\) 抽出的 token」。共享 top-k 集合能攒住绝大部分概率质量，再把 \(k\) 加大收益很小。
+> Revisiting 在长程、前缀容易漂、tokenizer 会拧的设定里，认为 sampled-token 信号一边倒。他们的 top-\(K\) 截断 reverse KL 加上 top-p rollout 后更稳，梯度 norm 和 clipfrac 更低。很大一块增益其实来自 special-token mask，不完全是 estimator。他们自己写：这是截断 surrogate，不等于 full-vocab。
 
-## See Also
+可以按设定选，而不是认一个配方：
 
-- [SFT、RL 与 OPD](/wiki/on-policy-distillation/sft-rl-opd/)
-- [sampled-token、top-k 与 full-vocab](/wiki/on-policy-distillation/teacher-signal-granularity/)
-- [老师信号何时可靠](/wiki/on-policy-distillation/when-opd-works/)
+- 师生同族、学生已经会走到老师 support 里：sampled-token 做默认。不要用 Top-1。
+- 长程、agent、tokenizer 容易拧：top-k 截断 KL + 集合内重归一化 + top-p rollout，必要时再 mask 特殊 token。\(K\) 不用很大。
+- full-vocab：只有显存、通信和 kernel 都准备好、又特别在意方差时才值得。没有已入库来源在同一设定里把头对头打过三档。
+
+原文：[Rethinking On-Policy Distillation](https://arxiv.org/abs/2604.13016)，[Revisiting On-Policy Distillation](https://arxiv.org/abs/2603.25562)。
+
+## Open Questions
+
+- sampled-token 何时会训崩：是 overlap 涨不起来，还是 tokenizer / 特殊 token 把单点比较打歪。
+- 同一设定下 full-vocab 是否稳定地赢 top-k。V4 选全词表，但报告本身尚未入库。
+
+## Sources
+
+- [On-Policy Distillation](https://thinkingmachines.ai/blog/on-policy-distillation/)
+- [Revisiting On-Policy Distillation: Empirical Failure Modes and Simple Fixes](https://arxiv.org/abs/2603.25562)
+- [Rethinking On-Policy Distillation of Large Language Models](https://arxiv.org/abs/2604.13016)
+- [OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践](https://zhuanlan.zhihu.com/p/2033212181823608430)

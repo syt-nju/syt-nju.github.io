@@ -364,3 +364,31 @@
 - Updated: _wiki/test-time-training/measuring-general-intelligence.md
 - Cross-links: overview ↔ parameter-update ↔ skill-acquisition-efficiency ↔ measuring-general-intelligence
 - Note: License CC0 1.0. Rotation-prediction recipe, CIFAR-10-C / CIFAR-10.1 numbers, and TTT-Online folded into parameter-update. No TTT vs TTA or TTT vs TTC page yet.
+
+## 2026-08-18 reset | On-Policy Distillation frontend notes
+- Disposition: No material
+- Topic: on-policy-distillation
+- Deleted: _wiki/on-policy-distillation/overview.md
+- Deleted: _wiki/on-policy-distillation/sft-rl-opd.md
+- Deleted: _wiki/on-policy-distillation/when-opd-works.md
+- Deleted: _wiki/on-policy-distillation/teacher-signal-granularity.md
+- Note: User requested a frontend reset before re-digest. All raw/on-policy-distillation/ sources kept. Topic remains in _data/wiki_topics.yml. No proof index existed.
+
+## 2026-08-18 compile | OPD basic loss, cost, and estimator knobs
+- Disposition: Update note
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+- Raw: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+- Raw: raw/on-policy-distillation/2026-04-14-rethinking-on-policy-distillation.md
+- Raw: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+- Note: _wiki/on-policy-distillation/overview.md#what-is-opd
+- Note: _wiki/on-policy-distillation/overview.md#sampled-token-cost
+- Note: _wiki/on-policy-distillation/overview.md#knobs
+- Note: _wiki/on-policy-distillation/overview.md#estimator-choice
+- Proof: _data/wiki_proofs/on-policy-distillation.yml
+- Created: _wiki/on-policy-distillation/overview.md
+- Created: _data/wiki_proofs/on-policy-distillation.yml
+- Deleted: _wiki/on-policy-distillation/sft-rl-opd.md
+- Deleted: _wiki/on-policy-distillation/when-opd-works.md
+- Deleted: _wiki/on-policy-distillation/teacher-signal-granularity.md
+- Note: Conversation-first recompile after frontend reset. No new raw. Rethinking vs Revisiting on sampled-token sufficiency kept as Disputed. V4 full-vocab engineering is Zhihu paraphrase; report itself not ingested.

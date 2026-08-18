@@ -1,0 +1,218 @@
+topic: on-policy-distillation
+note_path: "_wiki/on-policy-distillation/overview.md"
+updated: "2026-08-18"
+
+sections:
+  what-is-opd:
+    note_path: "_wiki/on-policy-distillation/overview.md"
+    section_id: what-is-opd
+    section_title: "OPD 在优化什么"
+    user_concern: "OPD 的基本概念和最基本的损失函数是什么"
+    claims:
+      - id: opd-definition
+        text: "OPD 是学生自采样轨迹，老师在学生前缀上给 token 级监督。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+            source_title: "On-Policy Distillation"
+            source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
+            source_section: "On-policy distillation — best of both worlds"
+            quote: "The core idea of on-policy distillation is to sample trajectories from the student model and use a high-performing teacher to grade each token of each trajectory."
+      - id: reverse-kl-formula
+        text: "最基本损失是 per-token reverse KL，折扣取 0。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+            source_title: "On-Policy Distillation"
+            source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
+            source_section: "Loss function: reverse KL"
+            quote: "For simplicity, we choose the per-token reverse KL"
+          - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+            source_title: "On-Policy Distillation"
+            source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
+            source_section: "Loss function: reverse KL"
+            quote: "we use a discount factor of zero"
+      - id: reverse-kl-needs-support
+        text: "reverse KL 是 mode-seeking，需要老师 token 落在学生 support 里。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+            source_title: "On-Policy Distillation"
+            source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
+            source_section: "Loss function: reverse KL"
+            quote: "Two other useful properties of reverse KL are that it is “mode seeking”"
+          - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+            source_title: "On-Policy Distillation"
+            source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
+            source_section: "after Pseudocode"
+            quote: "SFT, using forwards KL, adds support for new tokens. Reverse-KL methods can then perform mode seeking within the initialization’s support."
+
+  sampled-token-cost:
+    note_path: "_wiki/on-policy-distillation/overview.md"
+    section_id: sampled-token-cost
+    section_title: "sampled-token 成本为什么像 RL 正则"
+    user_concern: "OPD 是否就是 online 把学生分布靠向老师；sampled-token 成本是否等价于 RL 正则；扩到 top-k/全词表到底贵在哪"
+    claims:
+      - id: one-line-regularizer-swap
+        text: "sampled-token OPD 在带 KL 正则的 RL 脚本上往往只换 regularizer 模型；形态像正则，作用是主信号。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+            source_title: "On-Policy Distillation"
+            source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
+            source_section: "Pseudocode"
+            quote: "Our implementation can actually be a one-line change on top of RL implementations which use KL regularization: we merely swap out the regularizer model."
+          - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+            source_title: "On-Policy Distillation"
+            source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
+            source_section: "Pseudocode step 4"
+            quote: "We set the per-token advantage to the negative reverse KL, and call the RL importance-sampling loss function"
+      - id: sampled-token-only-logprob
+        text: "sampled-token 只需要老师对 sampled token 的 logprob，不要 top-k 或 full logits。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+            source_title: "On-Policy Distillation"
+            source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
+            source_section: "Pseudocode step 3"
+            quote: "In this post, we do not consider logit (top-k) distillation in any of our experiments"
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "6.1 sampled-token OPD"
+            quote: "它不需要 teacher top-k，也不需要 full logits，只需要："
+      - id: full-vocab-memory
+        text: "full-vocab 的主成本是显存和搬运，不是前面层反传变贵；V4 靠不缓存 logits、只留 hidden。"
+        status: partial
+        proof:
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "6.3 full-vocab OPD"
+            quote: "这是信息最完整的版本，但显存和计算代价最大。"
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "13.1 为什么它能做 full-vocab？"
+            quote: "teacher forward 时不显式缓存完整 logits"
+            note: "V4 工程细节转述自知乎文，V4 技术报告本身未入库。前面层反传复杂度不变是实现层推理，不是来源原句。"
+
+  knobs:
+    note_path: "_wiki/on-policy-distillation/overview.md"
+    section_id: knobs
+    section_title: "top-p、top-k、clip 分别管什么"
+    user_concern: "clip 是不是作用在 OPD 损失上；top-p 和 top-k 是不是一回事；K 看老师还是学生"
+    claims:
+      - id: topp-is-rollout
+        text: "top-p 只约束 rollout 采样，默认温度 1、top-p=0.9；不是升温，也不是 loss 支持集。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+            source_title: "Revisiting On-Policy Distillation"
+            source_url: "https://arxiv.org/abs/2603.25562"
+            source_section: "4.2 Top-p rollout sampling"
+            quote: "We generate rollouts with top-p sampling. Unconstrained sampling occasionally produces extremely low-probability tokens"
+          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+            source_title: "Revisiting On-Policy Distillation"
+            source_url: "https://arxiv.org/abs/2603.25562"
+            source_section: "5.1 Setup"
+            quote: "All runs use batch size 128, mini-batch size 64, learning rate \(2\times 10^{-6}\), and temperature 1 by default. Rollouts are sampled with top-\(p=0.9\)."
+            note: "raw 里 temperature 与 top-p 写在同一句；LaTeX 转义可能是 top-$p\\=0.9。"
+      - id: topk-is-teacher-support
+        text: "主方法的支持集是 teacher top-K；student top-K 或并上 sampled token 也可，没有唯一赢家。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+            source_title: "Revisiting On-Policy Distillation"
+            source_url: "https://arxiv.org/abs/2603.25562"
+            source_section: "4.1 Teacher top-K local support matching"
+            quote: "define the teacher support set"
+          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+            source_title: "Revisiting On-Policy Distillation"
+            source_url: "https://arxiv.org/abs/2603.25562"
+            source_section: "Table 4"
+            quote: "the main benefit coming from replacing single-token comparison with local distribution-level matching rather than from one uniquely optimal support-set choice"
+      - id: topp-needed-with-topk
+        text: "只加 teacher top-K、不用 top-p rollout，AIME24 avg@32 从 20.4 掉到 17.7；两者一起到 23.6。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+            source_title: "Revisiting On-Policy Distillation"
+            source_url: "https://arxiv.org/abs/2603.25562"
+            source_section: "Table 3"
+            quote: "Sampled-token OPD (point estimate) | 20.4"
+          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+            source_title: "Revisiting On-Policy Distillation"
+            source_url: "https://arxiv.org/abs/2603.25562"
+            source_section: "Table 3"
+            quote: "+ teacher top-$K$ (truncated reverse-KL) | 17.7"
+          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+            source_title: "Revisiting On-Policy Distillation"
+            source_url: "https://arxiv.org/abs/2603.25562"
+            source_section: "Table 3"
+            quote: "+ teacher top-$K$ + top-$p$ | 23.6"
+      - id: clip-is-pipeline
+        text: "clipping-boundary fraction 是外层 RL 管线的 IS clip 诊断，不是 OPD 损失项。"
+        status: partial
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+            source_title: "Revisiting On-Policy Distillation"
+            source_url: "https://arxiv.org/abs/2603.25562"
+            source_section: "5.4 Training dynamics and alignment"
+            quote: "Our method yields smaller gradient norms and lower clipping-boundary fractions while maintaining sufficient policy entropy"
+          - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+            source_title: "On-Policy Distillation"
+            source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
+            source_section: "Pseudocode"
+            quote: "call the RL importance-sampling loss function to perform the training update"
+            note: "论文没有写出 PPO ε。clip 作用于 IS 更新是按管线术语推断；直接 KL 反传的实现通常没有这一层。"
+
+  estimator-choice:
+    note_path: "_wiki/on-policy-distillation/overview.md"
+    section_id: estimator-choice
+    section_title: "sampled-token / top-k / full-vocab 训练上怎么选"
+    user_concern: "三档训练表现差在哪，有没有统一推荐做法"
+    claims:
+      - id: rethinking-sampled-enough
+        text: "Rethinking：在已对齐设定里 sampled-token 与 k=4/16/64 接近；Top-1 明显更差；共享 top-k 集中 97%–99% 质量。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-04-14-rethinking-on-policy-distillation.md
+            source_title: "Rethinking On-Policy Distillation"
+            source_url: "https://arxiv.org/abs/2604.13016"
+            source_section: "6.3 Sampled-Token Reward Is Already Sufficient"
+            quote: "sampled-token OPD achieves performance comparable to that of the Top-$k$ settings averaged on three benchmarks. The only clearly worse configuration is Top-$1$"
+          - raw_path: raw/on-policy-distillation/2026-04-14-rethinking-on-policy-distillation.md
+            source_title: "Rethinking On-Policy Distillation"
+            source_url: "https://arxiv.org/abs/2604.13016"
+            source_section: "Abstract / Appendix B.1"
+            quote: "a small shared token set that concentrates most of the probability mass (97%–99%)"
+      - id: revisiting-topk-more-stable
+        text: "Revisiting：长程设定里 top-K local support matching 比 sampled-token 更稳；不等于 full-vocab。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+            source_title: "Revisiting On-Policy Distillation"
+            source_url: "https://arxiv.org/abs/2603.25562"
+            source_section: "Table 1"
+            quote: "Sampled-token OPD already raises the average score from 28.2 to 36.4"
+          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+            source_title: "Revisiting On-Policy Distillation"
+            source_url: "https://arxiv.org/abs/2603.25562"
+            source_section: "5.2 Single-task math reasoning"
+            quote: "Special-token masking alone further improves the sampled-token baseline to 40.7"
+          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+            source_title: "Revisiting On-Policy Distillation"
+            source_url: "https://arxiv.org/abs/2603.25562"
+            source_section: "6 Discussion"
+            quote: "It is therefore not equivalent to full-vocabulary reverse-KL"
+      - id: no-unified-recipe
+        text: "没有已入库来源在同一设定里把头对头比较 sampled-token / top-k / full-vocab。"
+        status: partial
+        proof:
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "13 DeepSeek V4"
+            quote: "很多工作把 full-vocab KL 简化成 token-level KL estimate，再用 teacher-student logprob gap 当 advantage；DeepSeek V4 认为这样资源省，但梯度方差高、训练不稳定。"
+            note: "V4 报告未入库；此条只证明存在产线选择 full-vocab 的转述，不能当作三档头对头实验。"
