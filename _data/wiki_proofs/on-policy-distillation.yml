@@ -116,8 +116,8 @@ sections:
             source_title: "Revisiting On-Policy Distillation"
             source_url: "https://arxiv.org/abs/2603.25562"
             source_section: "5.1 Setup"
-            quote: "All runs use batch size 128, mini-batch size 64, learning rate \(2\times 10^{-6}\), and temperature 1 by default. Rollouts are sampled with top-\(p=0.9\)."
-            note: "raw 里 temperature 与 top-p 写在同一句；LaTeX 转义可能是 top-$p\\=0.9。"
+            quote: 'All runs use batch size 128, mini-batch size 64, learning rate $2\times 10^{-6}$, and temperature 1 by default. Rollouts are sampled with top-$p\=0.9$.'
+            note: 'raw 里 temperature 与 top-p 写在同一句。'
       - id: topk-is-teacher-support
         text: "主方法的支持集是 teacher top-K；student top-K 或并上 sampled token 也可，没有唯一赢家。"
         status: solid
