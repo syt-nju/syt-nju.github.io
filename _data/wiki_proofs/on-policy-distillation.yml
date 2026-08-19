@@ -54,7 +54,7 @@ sections:
     user_concern: "OPD 是否就是 online 把学生分布靠向老师；sampled-token 成本是否等价于 RL 正则；扩到 top-k/全词表到底贵在哪"
     claims:
       - id: one-line-regularizer-swap
-        text: "sampled-token OPD 在带 KL 正则的 RL 脚本上往往只换 regularizer 模型；形态像正则，作用是主信号。"
+        text: "sampled-token OPD 在带 KL 正则的 RL 脚本上往往只换 regularizer 模型；算力结构像正则，作用是主信号。"
         status: solid
         proof:
           - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
