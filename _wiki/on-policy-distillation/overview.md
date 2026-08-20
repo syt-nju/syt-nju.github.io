@@ -21,11 +21,6 @@ raw:
   - raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
 ---
 
-- [OPD 在优化什么](#what-is-opd)
-- [sampled-token 成本为什么像 RL 正则](#sampled-token-cost)
-- [top-p、top-k、clip 分别管什么](#knobs)
-- [sampled-token / top-k / full-vocab 训练上怎么选](#estimator-choice)
-
 ## OPD 在优化什么 {#what-is-opd}
 
 容易和两条邻居混：SFT 学的是老师写好的序列；常见 RL 则整条轨迹只拿一个对错分。

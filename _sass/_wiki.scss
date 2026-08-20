@@ -144,6 +144,17 @@
   }
 }
 
+.wiki-sidebar__toc {
+  a {
+    align-items: flex-start;
+    font-weight: 500;
+
+    span {
+      line-height: 1.4;
+    }
+  }
+}
+
 .wiki-shell .wiki-article {
   @include breakpoint($large) {
     @include span(10 of 12 last);

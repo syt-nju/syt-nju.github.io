@@ -1,0 +1,18 @@
+{% assign toc_parts = include.toc_doc.content | split: "<h2" %}
+<ul class="wiki-sidebar__toc">
+  {% for toc_part in toc_parts offset: 1 %}
+    {% assign toc_inner = toc_part | split: "</h2>" | first %}
+    {% assign toc_title = toc_inner | split: ">" | last | strip_html | strip %}
+    {% assign toc_id = "" %}
+    {% if toc_inner contains 'id="' %}
+      {% assign toc_id = toc_inner | split: 'id="' | last | split: '"' | first %}
+    {% endif %}
+    {% if toc_title != "" and toc_title != "Overview" and toc_title != "提问顺序" and toc_title != "Sources" and toc_title != "参考来源" %}
+      <li>
+        <a href="{{ include.toc_doc.url | relative_url }}{% if toc_id != "" %}#{{ toc_id }}{% endif %}">
+          <span>{{ toc_title | escape }}</span>
+        </a>
+      </li>
+    {% endif %}
+  {% endfor %}
+</ul>

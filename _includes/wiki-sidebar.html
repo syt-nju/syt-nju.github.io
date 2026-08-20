@@ -8,16 +8,21 @@
         {% assign articles = site.wiki | where: "topic", topic.slug | sort: "order" %}
         <details class="wiki-sidebar__topic"{% if topic.slug == page.topic %} open{% endif %}>
           <summary>{{ topic.title | escape }}</summary>
-          <ul>
-            {% for article in articles %}
-              <li>
-                <a href="{{ article.url | relative_url }}"{% if article.url == page.url %} class="is-active" aria-current="page"{% endif %}>
-                  <span>{{ article.title | escape }}</span>
-                  <small>{% if article.lang == "zh-CN" %}中文{% else %}EN{% endif %}</small>
-                </a>
-              </li>
-            {% endfor %}
-          </ul>
+          {% if articles.size == 1 %}
+            {% assign only_article = articles | first %}
+            {% include wiki-heading-nav.html toc_doc=only_article %}
+          {% else %}
+            <ul>
+              {% for article in articles %}
+                <li>
+                  <a href="{{ article.url | relative_url }}"{% if article.url == page.url %} class="is-active" aria-current="page"{% endif %}>
+                    <span>{{ article.title | escape }}</span>
+                    <small>{% if article.lang == "zh-CN" %}中文{% else %}EN{% endif %}</small>
+                  </a>
+                </li>
+              {% endfor %}
+            </ul>
+          {% endif %}
         </details>
       {% endfor %}
     </nav>
