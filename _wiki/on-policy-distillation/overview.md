@@ -21,9 +21,12 @@ raw:
   - raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
 ---
 
-## Overview
+## 提问顺序
 
-[OPD](#opd) 是：学生用当前策略采样轨迹，老师只在这些前缀上给 token 级监督。基本损失是每一步的 [reverse KL](#reverse-kl)。最便宜的实现是 [sampled-token](#sampled-token)：只比较实际采到的那个 token。扩到 [top-k](#top-k) 或 [full-vocab](#full-vocab)，前面层的反传形状基本不变，多出来的是 $V$ 维老师分布的显存和访存。[clip](#clipfrac) 不是这条蒸馏损失里的项。训练上没有统一配方：师生 top-k token 大量重合、高概率质量接近时，sampled-token 往往够用；rollout / 轨迹变长、前缀偏离老师 support 时，更常改成在局部支持集上比分布。
+- [OPD 在优化什么](#what-is-opd)
+- [sampled-token 成本为什么像 RL 正则](#sampled-token-cost)
+- [top-p、top-k、clip 分别管什么](#knobs)
+- [sampled-token / top-k / full-vocab 训练上怎么选](#estimator-choice)
 
 ## OPD 在优化什么 {#what-is-opd}
 
