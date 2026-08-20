@@ -21,8 +21,6 @@ raw:
   - raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
 ---
 
-## 提问顺序
-
 - [OPD 在优化什么](#what-is-opd)
 - [sampled-token 成本为什么像 RL 正则](#sampled-token-cost)
 - [top-p、top-k、clip 分别管什么](#knobs)
