@@ -7,7 +7,8 @@
     {% if toc_inner contains 'id="' %}
       {% assign toc_id = toc_inner | split: 'id="' | last | split: '"' | first %}
     {% endif %}
-    {% if toc_title != "" and toc_title != "Overview" and toc_title != "提问顺序" and toc_title != "Sources" and toc_title != "参考来源" %}
+    {% comment %}Sources 在页脚另写。其它 ## 一律进目录，不再为 Overview 留空槽。{% endcomment %}
+    {% if toc_title != "" and toc_title != "Sources" and toc_title != "参考来源" %}
       <li>
         <a href="{{ include.toc_doc.url | relative_url }}{% if toc_id != "" %}#{{ toc_id }}{% endif %}">
           <span>{{ toc_title | escape }}</span>

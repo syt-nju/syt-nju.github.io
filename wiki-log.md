@@ -416,5 +416,13 @@
 - Updated: _wiki/on-policy-distillation/overview.md
 - Note: Removed `### On-Policy Distillation`; first question section starts in prose. `{#opd}` term heading was recreating the Overview slot.
 
+## 2026-08-21 maintain | Drop reserved Overview chrome
+- Disposition: Update note
+- Topic: on-policy-distillation
+- Updated: _sass/_wiki.scss
+- Updated: _includes/wiki-heading-nav.html
+- Note: Theme `.page__content h2` bar plus header gap left an empty Overview slot even with no Overview heading. First wiki h2 no longer draws that bar. TOC no longer skips Overview as a reserved first section.
+
+
 
 
