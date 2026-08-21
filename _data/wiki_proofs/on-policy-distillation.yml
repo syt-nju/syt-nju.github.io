@@ -1,6 +1,6 @@
 topic: on-policy-distillation
 note_path: "_wiki/on-policy-distillation/overview.md"
-updated: "2026-08-18"
+updated: "2026-08-21"
 
 sections:
   what-is-opd:
@@ -51,10 +51,10 @@ sections:
     note_path: "_wiki/on-policy-distillation/overview.md"
     section_id: sampled-token-cost
     section_title: "sampled-token v.s. RL 正则项"
-    user_concern: "sampled-token 和 RL 的 KL 正则项是不是一回事；扩到 top-k / 全词表贵在哪"
+    user_concern: "怎么把 GRPO loss 改成 sampled-token OPD；和 KL 正则是不是一回事；扩到 top-k / 全词表贵在哪"
     claims:
       - id: one-line-regularizer-swap
-        text: "sampled-token OPD 在带 KL 正则的 RL 脚本上往往只换 regularizer 模型；算力结构像正则，作用是主信号。"
+        text: "sampled-token OPD 在 GRPO 上只改 advantage：去掉 group-norm 的 verifier 分，改成 token 级 A_{i,t}=log π_teacher - log π_old；ρ 和 clip 不动。"
         status: solid
         proof:
           - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
@@ -67,6 +67,7 @@ sections:
             source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
             source_section: "Pseudocode step 4"
             quote: "We set the per-token advantage to the negative reverse KL, and call the RL importance-sampling loss function"
+            note: "原文写 generic IS，不是点名 GRPO。页面上的 GRPO 公式是同一套 clip IS，把序列级 group-norm A 换成 token 级 -KL。"
       - id: sampled-token-only-logprob
         text: "sampled-token 只需要老师对 sampled token 的 logprob，不要 top-k 或 full logits。"
         status: solid

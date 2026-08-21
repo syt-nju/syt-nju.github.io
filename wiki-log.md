@@ -423,6 +423,15 @@
 - Updated: _includes/wiki-heading-nav.html
 - Note: Theme `.page__content h2` bar plus header gap left an empty Overview slot even with no Overview heading. First wiki h2 no longer draws that bar. TOC no longer skips Overview as a reserved first section.
 
+## 2026-08-21 compile | GRPO to sampled-token OPD
+- Disposition: Update note
+- Topic: on-policy-distillation
+- Note: _wiki/on-policy-distillation/overview.md#sampled-token
+- Proof: _data/wiki_proofs/on-policy-distillation.yml#sampled-token-cost
+- Updated: _wiki/on-policy-distillation/overview.md
+- Note: sampled-token section now writes the GRPO loss surgery: keep ρ/clip/token-mean, replace group-norm verifier A with per-token A_{i,t}=-KL.
+
+
 
 
 

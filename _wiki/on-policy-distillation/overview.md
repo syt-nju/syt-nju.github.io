@@ -3,7 +3,7 @@ title: "On-Policy Distillation"
 topic: on-policy-distillation
 summary: "OPD 是学生自采样轨迹，老师在这些前缀上做 per-token reverse KL；最便宜的是只比较采到的 token，扩到 top-k 或全词表主要贵在 V 维分布的显存。训练上没有统一配方。"
 lang: zh-CN
-updated: 2026-08-18
+updated: 2026-08-21
 order: 1
 sources:
   - title: "On-Policy Distillation"
@@ -48,9 +48,71 @@ reverse KL 是 mode-seeking：只在学生 rollout 里实际出现的前缀上�
 
 ### sampled-token {#sampled-token}
 
-每个位置只比较学生实际采到的那个 token 的 logprob。老师对这条轨迹做一次 forward，取出 $\log\pi_{\mathrm{teacher}}(y_t)$。实现上常设 $A_t=-\mathrm{KL}$，走现成的 importance-sampling 更新。带 KL regularization 的 RL 脚本往往只把 regularizer 模型换成 teacher：多一个模型，对学生已采 token 做 `compute_logprobs`。
+每个位置只比较学生实际采到的那个 token 的 logprob。老师对这条轨迹做 `compute_logprobs`，取出 $\log\pi_{\mathrm{teacher}}(y_t)$，不要词表上的完整分布。
 
-计算路径和 RL 的 KL 正则相同；角色不同。RL 里这项把 $\pi_\theta$ 约束在 $\pi_{\mathrm{ref}}$ 附近；OPD 里它是主监督，目标是更强的 teacher。
+在 GRPO 脚本上改，不是另写一套 loss。rollout、$\rho_{i,t}$、clip、token-mean 聚合都不动，只改 advantage 从哪来。
+
+原版 GRPO（token-mean）里，每个 prompt 从 $\pi_{\mathrm{old}}$ 采 $G$ 条，$r_i$ 是 verifier 给整条回答的对错分。advantage 是组内相对分数，和 $t$ 无关：
+
+$$
+\rho_{i,t}
+=
+\frac{\pi_\theta(y_{i,t}\mid c_{i,t})}{\pi_{\mathrm{old}}(y_{i,t}\mid c_{i,t})}
+$$
+
+$$
+\hat A_i
+=
+\frac{r_i-\mathrm{mean}(\{r_j\}_{j=1}^{G})}{\mathrm{std}(\{r_j\}_{j=1}^{G})}
+$$
+
+$$
+\mathcal{L}_{\mathrm{GRPO}}
+=
+-\mathbb{E}
+\frac{1}{G}
+\sum_{i=1}^{G}
+\frac{1}{|y_i|}
+\sum_{t}
+\min\bigl(
+\rho_{i,t}\hat A_i,\;
+\mathrm{clip}(\rho_{i,t},1-\varepsilon,1+\varepsilon)\hat A_i
+\bigr)
+$$
+
+若脚本里还有 $-\beta\,\mathrm{KL}(\pi_\theta\Vert\pi_{\mathrm{ref}})$，那是另加的正则。
+
+改成 sampled-token OPD：不再算 $r_i$，也不再做 group mean/std。每个位置单独设
+
+$$
+A_{i,t}
+=
+\log\pi_{\mathrm{teacher}}(y_{i,t}\mid c_{i,t})
+-
+\log\pi_{\mathrm{old}}(y_{i,t}\mid c_{i,t})
+$$
+
+也就是 $A_{i,t}=-\mathrm{KL}_t$，KL 只在 sampled token 上估。把原来广播的 $\hat A_i$ 换成这个 $A_{i,t}$：
+
+$$
+\mathcal{L}_{\mathrm{OPD}}
+=
+-\mathbb{E}
+\frac{1}{G}
+\sum_{i=1}^{G}
+\frac{1}{|y_i|}
+\sum_{t}
+\min\bigl(
+\rho_{i,t}A_{i,t},\;
+\mathrm{clip}(\rho_{i,t},1-\varepsilon,1+\varepsilon)A_{i,t}
+\bigr)
+$$
+
+原来的 $-\beta\,\mathrm{KL}(\pi_\theta\Vert\pi_{\mathrm{ref}})$ 删掉。teacher 已经在 $A_{i,t}$ 里了。
+
+代码上就是原来 `advantages = group_norm(verifier_reward)` 那一行改成 `advantages = teacher_logprobs - old_logprobs`，shape 从 $[G]$ 变成 $[G,T]$。clip 用的 $\rho$ 仍是 $\pi_\theta/\pi_{\mathrm{old}}$，不是 $\pi_\theta/\pi_{\mathrm{teacher}}$。$G$ 还在采，但已经不参与 baseline。
+
+计算路径和原来的 KL 正则相同：多一个模型，对学生已采 token 做 `compute_logprobs`。角色不同：GRPO 的 $\hat A_i$ 是序列级、组内相对的对错分；这里 $A_{i,t}$ 是 token 级、相对 teacher 的 logprob 差，而且它是主监督，不是把 $\pi_\theta$ 约束在 $\pi_{\mathrm{ref}}$ 附近的正则。
 
 ### top-k {#top-k}
 
