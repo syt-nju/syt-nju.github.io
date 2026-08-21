@@ -446,6 +446,11 @@
 - Updated: _wiki/on-policy-distillation/overview.md
 - Note: Removed GRPO group-norm/clip expansion. Restored Tinker claims only: swap KL regularizer; optional A_t=-KL plus importance sampling.
 
+## 2026-08-21 ingest | PG-Style and GKD-Style OPD
+- Disposition: Interview
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+- Note: raw-only commit; frontend notes wait for the next question switch
 ## 2026-08-21 compile | sampled-token v.s. GRPO 训练框架
 - Disposition: Update note + Update proof
 - Topic: on-policy-distillation
