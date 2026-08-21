@@ -438,6 +438,15 @@
 - Updated: _wiki/on-policy-distillation/overview.md
 - Note: Kramdown/MathJax delimiter fix only. Keep GRPO → sampled-token OPD advantage swap. Split subscripted inline `$` so `_` cannot merge math spans.
 
+## 2026-08-21 compile | Drop invented GRPO OPD loss
+- Disposition: Update note
+- Topic: on-policy-distillation
+- Note: _wiki/on-policy-distillation/overview.md#sampled-token
+- Proof: _data/wiki_proofs/on-policy-distillation.yml#sampled-token-cost
+- Updated: _wiki/on-policy-distillation/overview.md
+- Note: Removed GRPO group-norm/clip expansion. Restored Tinker claims only: swap KL regularizer; optional A_t=-KL plus importance sampling.
+
+
 
 
 
