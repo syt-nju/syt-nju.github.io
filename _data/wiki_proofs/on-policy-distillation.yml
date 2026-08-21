@@ -50,23 +50,48 @@ sections:
   sampled-token-cost:
     note_path: "_wiki/on-policy-distillation/overview.md"
     section_id: sampled-token-cost
-    section_title: "sampled-token v.s. RL 正则项"
-    user_concern: "sampled-token 和 RL 的 KL 正则项是不是一回事；扩到 top-k / 全词表贵在哪"
+    section_title: "sampled-token v.s. GRPO 训练框架"
+    user_concern: "sampled-token 是不是最早的 OPD，以及能否在基于 GRPO 的训练框架里快速改出"
     claims:
-      - id: one-line-regularizer-swap
-        text: "sampled-token OPD 在带 KL 正则的 RL 脚本上把 regularizer 换成 teacher；有的实现再设 A_t=-KL 走 IS。算力结构像正则，作用是主信号。"
+      - id: sampled-token-not-first
+        text: "sampled-token 不是最早的 OPD 方案；此前已有学生自生成轨迹上的语言模型蒸馏工作。"
         status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+            source_title: "On-Policy Distillation"
+            source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
+            source_section: "On-policy distillation — best of both worlds"
+            quote: "We extend prior on-policy distillation work by Agarwal et al, On-Policy Distillation of Language Models: Learning from Self-Generated Mistakes(Agarwal et al, 2023) Gu et al, MiniLLM: Knowledge Distillation of Large Language Models(Gu et al, 2023) and the Qwen3 team"
+      - id: rl-skeleton-reuse
+        text: "具备逐 token rollout、logprob、advantage 与 importance-sampling 接口时可以复用 RL/GRPO 类训练骨架，但 raw 没有证明任意 GRPO trainer 都只需一两行修改。"
+        status: partial
         proof:
           - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
             source_title: "On-Policy Distillation"
             source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
             source_section: "Pseudocode"
             quote: "Our implementation can actually be a one-line change on top of RL implementations which use KL regularization: we merely swap out the regularizer model."
+            note: "原文范围是带 KL regularization 的 RL implementations，不是任意 GRPO trainer。"
           - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
             source_title: "On-Policy Distillation"
             source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
             source_section: "Pseudocode step 4"
             quote: "We set the per-token advantage to the negative reverse KL, and call the RL importance-sampling loss function"
+            note: "支持复用 per-token advantage 与 importance-sampling 更新接口；不支持扩写 group normalization 或 clip 公式。"
+      - id: teacher-token-signal
+        text: "老师给出的逐 token logprob 差是 OPD 主监督，不是按组归一化的 sequence-level verifier advantage。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+            source_title: "On-Policy Distillation"
+            source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
+            source_section: "Pseudocode steps 3–4"
+            quote: "teacher’s logprobs log pi_teacher(x) on the tokens x sampled by the student"
+          - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+            source_title: "On-Policy Distillation"
+            source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
+            source_section: "Pseudocode"
+            quote: "reverse_kl = sampled_logprobs - teacher_logprobs"
       - id: sampled-token-only-logprob
         text: "sampled-token 只需要老师对 sampled token 的 logprob，不要 top-k 或 full logits。"
         status: solid

@@ -48,13 +48,19 @@ $$
 
 reverse KL 是 mode-seeking：只在学生 rollout 里实际出现的前缀上，匹配老师下一步分布的众数。学生 support 里没有的 token 没有有效梯度，所以常见做法是先 SFT、再 OPD。折扣取 0，只看当前下一步。
 
-## sampled-token v.s. RL 正则项 {#sampled-token-cost}
+## sampled-token v.s. GRPO 训练框架 {#sampled-token-cost}
 
 ### sampled-token {#sampled-token}
 
-每个位置只比较学生实际采到的那个 token 的 logprob。老师对这条轨迹做 `compute_logprobs`，取出已采 token 上的 teacher logprob，不要词表上的完整分布。这是 reverse KL 的单样本估计，不是对两侧 logits 做 full-vocab 求和。
+sampled-token 不是最早的 OPD 方案；在这种实现出现前，已经有工作用学生自生成轨迹做语言模型蒸馏。它更准确的定位是实现最简单、最接近现有 RL 训练管线的一档：每个位置只比较学生实际采到的那个 token 的 logprob。老师对这条轨迹做 `compute_logprobs`，取出已采 token 上的 teacher logprob，不需要词表上的完整分布。这是 reverse KL 的单样本估计，不是对两侧 logits 做 full-vocab 求和。
 
-带 KL 正则的 RL 脚本上，实现是把 regularizer 模型换成 teacher：多一个模型，对学生已采 token 做 `compute_logprobs`。有的实现再把 per-token advantage 设成负的 reverse KL，走现成的 importance-sampling 更新。
+在已经具备学生 rollout、sampled-token student logprob、teacher sampled-token logprob、per-token advantage 和 importance-sampling 更新接口的 RL/GRPO 类框架里，训练骨架可以快速复用。老师提供的逐 token 信号是
+
+$$
+A_t=\log\pi_{\mathrm{teacher}}(y_t\mid c_t)-\log\pi_\theta(y_t\mid c_t)
+$$
+
+它是主监督，不是按组归一化的 sequence-level verifier advantage。已有实现明确展示的是：在带 KL 正则的 RL 脚本里把 regularizer 模型换成 teacher，再把 per-token advantage 设为负的 reverse KL，调用现成的 importance-sampling loss。这个结论不能直接扩成任意 GRPO trainer 都只需一两行修改；能否快速改出取决于上述逐 token 接口是否已经存在。
 
 计算路径和原来的 KL 正则相同。角色不同：原来把学生约束在参考策略附近；这里这项是主监督，目标是 teacher。
 

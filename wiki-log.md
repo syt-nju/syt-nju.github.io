@@ -446,6 +446,16 @@
 - Updated: _wiki/on-policy-distillation/overview.md
 - Note: Removed GRPO group-norm/clip expansion. Restored Tinker claims only: swap KL regularizer; optional A_t=-KL plus importance sampling.
 
+## 2026-08-21 compile | sampled-token v.s. GRPO 训练框架
+- Disposition: Update note + Update proof
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+- Note: _wiki/on-policy-distillation/overview.md#sampled-token-cost
+- Proof: _data/wiki_proofs/on-policy-distillation.yml#sampled-token-cost
+- Updated: _wiki/on-policy-distillation/overview.md
+- Updated: _data/wiki_proofs/on-policy-distillation.yml
+- Note: Clarified that sampled-token was not the earliest OPD, and bounded fast framework reuse to existing per-token RL interfaces without inventing a generic GRPO loss rewrite.
+
 
 
 
