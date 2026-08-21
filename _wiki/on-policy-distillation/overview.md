@@ -1,7 +1,7 @@
 ---
 title: "On-Policy Distillation"
 topic: on-policy-distillation
-summary: "OPD 是学生自采样轨迹，老师在这些前缀上做 per-token reverse KL；最便宜的是只比较采到的 token，扩到 top-k 或全词表主要贵在 V 维分布的显存。clip 不是这条损失。训练上没有统一配方。"
+summary: "OPD 是学生自采样轨迹，老师在这些前缀上做 per-token reverse KL；最便宜的是只比较采到的 token，扩到 top-k 或全词表主要贵在 V 维分布的显存。训练上没有统一配方。"
 lang: zh-CN
 updated: 2026-08-18
 order: 1
@@ -46,7 +46,7 @@ $$
 
 reverse KL 是 mode-seeking：只在学生当前会走到的前缀上，匹配老师下一步分布的众数。学生 support 里没有老师那些 token 时，没有有效梯度。所以常见做法是先 SFT、再 OPD。折扣取 0，只看当前下一步。
 
-## sampled-token 成本为什么像 RL 正则 {#sampled-token-cost}
+## sampled-token v.s. RL 正则项 {#sampled-token-cost}
 
 容易把「算力结构和 RL 的 KL 正则一样」听成「作用也是正则」。结构和角色要分开看。
 
@@ -66,9 +66,9 @@ reverse KL 是 mode-seeking：只在学生当前会走到的前缀上，匹配�
 
 真正增加的是显存和访存：要不要把完整 $V$ 维老师分布写到显存、按位置对齐后算 loss。可以不缓存完整 logits，只留 last-layer hidden，算 loss 时再乘 head。
 
-## top-p、top-k、clip 分别管什么 {#knobs}
+## top-p v.s. top-k {#knobs}
 
-容易把三个量当成一件事。它们分别管采样、loss 支持集、外层 RL 的 IS 截断统计。
+容易把采样约束和 loss 支持集当成一件事。
 
 ### top-p {#top-p-rollout}
 
@@ -76,17 +76,13 @@ reverse KL 是 mode-seeking：只在学生当前会走到的前缀上，匹配�
 
 [top-k](#top-k) 管每个前缀的 loss 在哪几个 token 上比。容易以为 $K$ 必须取老师的、或按当步 overlap 动态调。$K$ 是固定超参。主方法用老师的 $\mathrm{TopK}_q(c_t)$，师生在这个集合上重归一化再算截断 reverse KL。学生 top-$K$、以及老师 top-$K$ 并上学生 sampled token，都能用。关键是不要只比一个 token，不是必须用老师的 $K$。overlap 上的概率质量占比是事后诊断，不是选 $K$ 的算法。
 
-### clip {#clipfrac}
-
-名字像损失里的 clip。它不是 OPD 公式里的项。clipping-boundary fraction 是外层 RL 管线里 $r_t=\pi_\theta/\pi_{\mathrm{old}}$ 打到 PPO/GRPO 截断边的比例。蒸馏公式没有 $\epsilon$。若实现走 $A_t=-\mathrm{KL}$ 再做 IS，clip 会挡住一部分更新；若直接对 KL 反传，这层 clip 往往不存在。更低的 clipfrac 只是「这次更新更少撞上截断边」的诊断，不是又加了一个蒸馏损失项。
-
 ## sampled-token / top-k / full-vocab 训练上怎么选 {#estimator-choice}
 
 没有统一配方。现有结论在「sampled-token 够不够」上不一致。
 
 一边是：师生 top-k token 高度重合、共享 token 已占绝大部分概率质量时，sampled-token 与 $k\in\{4,16,64\}$ 的 top-k 下游接近；明显更差的是 Top-1（argmax），不是「只看一个按 $\pi_\theta$ 抽出的 token」。再把 $k$ 加大收益很小。
 
-另一边是：rollout / 轨迹较长、前缀容易偏离老师 support、tokenizer 切分或特殊 token 干扰单点比较时，sampled-token 的监督偏斜、不稳定。改成 top-$K$ 截断 reverse KL，再加上 top-p rollout，梯度 norm 和 clipfrac 更低。其中不少增益来自 special-token mask，不完全是 estimator 本身。截断 reverse KL 是 surrogate，不等于 full-vocab。
+另一边是：rollout / 轨迹较长、前缀容易偏离老师 support、tokenizer 切分或特殊 token 干扰单点比较时，sampled-token 的监督偏斜、不稳定。改成 top-$K$ 截断 reverse KL，再加上 top-p rollout，梯度 norm 更低。其中不少增益来自 special-token mask，不完全是 estimator 本身。截断 reverse KL 是 surrogate，不等于 full-vocab。
 
 可以先按设定选：
 

@@ -50,8 +50,8 @@ sections:
   sampled-token-cost:
     note_path: "_wiki/on-policy-distillation/overview.md"
     section_id: sampled-token-cost
-    section_title: "sampled-token 成本为什么像 RL 正则"
-    user_concern: "OPD 是否就是 online 把学生分布靠向老师；sampled-token 成本是否等价于 RL 正则；扩到 top-k/全词表到底贵在哪"
+    section_title: "sampled-token v.s. RL 正则项"
+    user_concern: "sampled-token 和 RL 的 KL 正则项是不是一回事；扩到 top-k / 全词表贵在哪"
     claims:
       - id: one-line-regularizer-swap
         text: "sampled-token OPD 在带 KL 正则的 RL 脚本上往往只换 regularizer 模型；算力结构像正则，作用是主信号。"
@@ -100,8 +100,8 @@ sections:
   knobs:
     note_path: "_wiki/on-policy-distillation/overview.md"
     section_id: knobs
-    section_title: "top-p、top-k、clip 分别管什么"
-    user_concern: "clip 是不是作用在 OPD 损失上；top-p 和 top-k 是不是一回事；K 看老师还是学生"
+    section_title: "top-p v.s. top-k"
+    user_concern: "top-p 和 top-k 是不是一回事；K 看老师还是学生"
     claims:
       - id: topp-is-rollout
         text: "top-p 只约束 rollout 采样，默认温度 1、top-p=0.9；不是升温，也不是 loss 支持集。"
@@ -151,21 +151,6 @@ sections:
             source_url: "https://arxiv.org/abs/2603.25562"
             source_section: "Table 3"
             quote: "+ teacher top-$K$ + top-$p$ | 23.6"
-      - id: clip-is-pipeline
-        text: "clipping-boundary fraction 是外层 RL 管线的 IS clip 诊断，不是 OPD 损失项。"
-        status: partial
-        proof:
-          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
-            source_title: "Revisiting On-Policy Distillation"
-            source_url: "https://arxiv.org/abs/2603.25562"
-            source_section: "5.4 Training dynamics and alignment"
-            quote: "Our method yields smaller gradient norms and lower clipping-boundary fractions while maintaining sufficient policy entropy"
-          - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
-            source_title: "On-Policy Distillation"
-            source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
-            source_section: "Pseudocode"
-            quote: "call the RL importance-sampling loss function to perform the training update"
-            note: "论文没有写出 PPO ε。clip 作用于 IS 更新是按管线术语推断；直接 KL 反传的实现通常没有这一层。"
 
   estimator-choice:
     note_path: "_wiki/on-policy-distillation/overview.md"

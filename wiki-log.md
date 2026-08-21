@@ -392,3 +392,13 @@
 - Deleted: _wiki/on-policy-distillation/when-opd-works.md
 - Deleted: _wiki/on-policy-distillation/teacher-signal-granularity.md
 - Note: Conversation-first recompile after frontend reset. No new raw. Rethinking vs Revisiting on sampled-token sufficiency kept as Disputed. V4 full-vocab engineering is Zhihu paraphrase; report itself not ingested.
+
+## 2026-08-21 compile | Drop clip section; retitle cuts
+- Disposition: Update note
+- Topic: on-policy-distillation
+- Note: _wiki/on-policy-distillation/overview.md#sampled-token-cost
+- Note: _wiki/on-policy-distillation/overview.md#knobs
+- Proof: _data/wiki_proofs/on-policy-distillation.yml
+- Updated: _wiki/on-policy-distillation/overview.md
+- Note: Incidental clip/clipfrac follow-up removed from frontend and proof. Headings follow user cuts (`sampled-token v.s. RL 正则项`, `top-p v.s. top-k`).
+
