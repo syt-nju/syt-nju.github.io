@@ -23,8 +23,6 @@ raw:
 
 ## OPD 在优化什么 {#what-is-opd}
 
-### On-Policy Distillation {#opd}
-
 OPD 的轨迹来自学生当前策略 $\pi_\theta$。老师只在学生已经生成的前缀 $c_t=(x,y_{<t})$ 上给下一步的分布监督。
 
 和 SFT 的差别是数据从哪来：SFT 的序列是老师写的。和常见 outcome RL 的差别是监督有多密：那里整条轨迹只有一个对错标。

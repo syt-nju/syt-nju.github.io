@@ -409,4 +409,12 @@
 - Updated: _wiki/on-policy-distillation/overview.md
 - Note: Language pass only. Drop lecture openers and motion stand-ins (走到 / 落到 / 容易把…听成…). Nest distinctions in the argument. Same accepted model.
 
+## 2026-08-21 compile | Drop leftover OPD definition heading
+- Disposition: Update note
+- Topic: on-policy-distillation
+- Note: _wiki/on-policy-distillation/overview.md#what-is-opd
+- Updated: _wiki/on-policy-distillation/overview.md
+- Note: Removed `### On-Policy Distillation`; first question section starts in prose. `{#opd}` term heading was recreating the Overview slot.
+
+
 
