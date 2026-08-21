@@ -23,7 +23,11 @@ raw:
 
 ## OPD 在优化什么 {#what-is-opd}
 
-OPD 的轨迹来自学生当前策略 $\pi_\theta$。老师只在学生已经生成的前缀 $c_t=(x,y_{<t})$ 上给下一步的分布监督。
+OPD 的轨迹来自学生当前策略 $\pi_\theta$。老师只在学生已经生成的前缀上给下一步的分布监督：
+
+$$
+c_{t}=(x,y_{<t})
+$$
 
 和 SFT 的差别是数据从哪来：SFT 的序列是老师写的。和常见 outcome RL 的差别是监督有多密：那里整条轨迹只有一个对错标。
 
@@ -48,11 +52,19 @@ reverse KL 是 mode-seeking：只在学生 rollout 里实际出现的前缀上�
 
 ### sampled-token {#sampled-token}
 
-每个位置只比较学生实际采到的那个 token 的 logprob。老师对这条轨迹做 `compute_logprobs`，取出 $\log\pi_{\mathrm{teacher}}(y_t)$，不要词表上的完整分布。
+每个位置只比较学生实际采到的那个 token 的 logprob。老师对这条轨迹做 `compute_logprobs`，取出
+
+$$
+\log\pi_{\mathrm{teacher}}(y_{t})
+$$
+
+不要词表上的完整分布。
 
 在 GRPO 脚本上改，不是另写一套 loss。rollout、$\rho_{i,t}$、clip、token-mean 聚合都不动，只改 advantage 从哪来。
 
-原版 GRPO（token-mean）里，每个 prompt 从 $\pi_{\mathrm{old}}$ 采 $G$ 条，$r_i$ 是 verifier 给整条回答的对错分。advantage 是组内相对分数，和 $t$ 无关：
+原版 GRPO（token-mean）里，每个 prompt 从 $\pi_{\mathrm{old}}$ 采 $G$ 条。
+
+$r_i$ 是 verifier 给整条回答的对错分。advantage 是组内相对分数，和 $t$ 无关：
 
 $$
 \rho_{i,t}
@@ -61,7 +73,7 @@ $$
 $$
 
 $$
-\hat A_i
+\hat{A}_i
 =
 \frac{r_i-\mathrm{mean}(\{r_j\}_{j=1}^{G})}{\mathrm{std}(\{r_j\}_{j=1}^{G})}
 $$
@@ -75,12 +87,18 @@ $$
 \frac{1}{|y_i|}
 \sum_{t}
 \min\bigl(
-\rho_{i,t}\hat A_i,\;
-\mathrm{clip}(\rho_{i,t},1-\varepsilon,1+\varepsilon)\hat A_i
+\rho_{i,t}\hat{A}_i,\;
+\mathrm{clip}(\rho_{i,t},1-\varepsilon,1+\varepsilon)\hat{A}_i
 \bigr)
 $$
 
-若脚本里还有 $-\beta\,\mathrm{KL}(\pi_\theta\Vert\pi_{\mathrm{ref}})$，那是另加的正则。
+若脚本里还有
+
+$$
+-\beta\,\mathrm{KL}(\pi_\theta\Vert\pi_{\mathrm{ref}})
+$$
+
+那是另加的正则。
 
 改成 sampled-token OPD：不再算 $r_i$，也不再做 group mean/std。每个位置单独设
 
@@ -92,7 +110,19 @@ A_{i,t}
 \log\pi_{\mathrm{old}}(y_{i,t}\mid c_{i,t})
 $$
 
-也就是 $A_{i,t}=-\mathrm{KL}_t$，KL 只在 sampled token 上估。把原来广播的 $\hat A_i$ 换成这个 $A_{i,t}$：
+也就是
+
+$$
+A_{i,t} = -\mathrm{KL}_{t}
+$$
+
+KL 只在 sampled token 上估。把原来广播的
+
+$$
+\hat{A}_{i}
+$$
+
+换成这个 $A_{i,t}$：
 
 $$
 \mathcal{L}_{\mathrm{OPD}}
@@ -108,11 +138,33 @@ $$
 \bigr)
 $$
 
-原来的 $-\beta\,\mathrm{KL}(\pi_\theta\Vert\pi_{\mathrm{ref}})$ 删掉。teacher 已经在 $A_{i,t}$ 里了。
+原来的
 
-代码上就是原来 `advantages = group_norm(verifier_reward)` 那一行改成 `advantages = teacher_logprobs - old_logprobs`，shape 从 $[G]$ 变成 $[G,T]$。clip 用的 $\rho$ 仍是 $\pi_\theta/\pi_{\mathrm{old}}$，不是 $\pi_\theta/\pi_{\mathrm{teacher}}$。$G$ 还在采，但已经不参与 baseline。
+$$
+-\beta\,\mathrm{KL}(\pi_\theta\Vert\pi_{\mathrm{ref}})
+$$
 
-计算路径和原来的 KL 正则相同：多一个模型，对学生已采 token 做 `compute_logprobs`。角色不同：GRPO 的 $\hat A_i$ 是序列级、组内相对的对错分；这里 $A_{i,t}$ 是 token 级、相对 teacher 的 logprob 差，而且它是主监督，不是把 $\pi_\theta$ 约束在 $\pi_{\mathrm{ref}}$ 附近的正则。
+删掉。teacher 已经在 $A_{i,t}$ 里了。
+
+代码上就是原来 `advantages = group_norm(verifier_reward)` 那一行改成 `advantages = teacher_logprobs - old_logprobs`，shape 从 $[G]$ 变成 $[G,T]$。clip 用的 $\rho$ 仍是
+
+$$
+\pi_\theta/\pi_{\mathrm{old}}
+$$
+
+不是
+
+$$
+\pi_\theta/\pi_{\mathrm{teacher}}
+$$
+
+$G$ 还在采，但已经不参与 baseline。
+
+计算路径和原来的 KL 正则相同：多一个模型，对学生已采 token 做 `compute_logprobs`。角色不同：GRPO 的 $\hat{A}_i$ 是序列级、组内相对的对错分。
+
+这里 $A_{i,t}$ 是 token 级、相对 teacher 的 logprob 差，而且它是主监督。
+
+不是把 $\pi_\theta$ 约束在参考策略附近的正则。
 
 ### top-k {#top-k}
 
@@ -120,7 +172,25 @@ $$
 
 ### full-vocab {#full-vocab}
 
-对整个词表做 KL。支持集变大，并不等于前面层反传变重。三者 backbone FLOPs 几乎一样。sampled-token 的 $\partial\log\pi(y)/\partial z$ 和 full-vocab reverse KL 的 $\partial\mathrm{KL}/\partial z$ 都是 $V$ 维，再乘同一个 $W_{\mathrm{lm}}$，前面层看到的上游梯度一直是 $[B,T,d]$。多出来的算术几乎只在最后一层附近对 $\pi_T$ 做一次 $V$ 维计算，相对 LM head GEMM 约是 $1/d$。
+对整个词表做 KL。支持集变大，并不等于前面层反传变重。三者 backbone FLOPs 几乎一样。sampled-token 的
+
+$$
+\partial\log\pi(y)/\partial z
+$$
+
+和 full-vocab reverse KL 的
+
+$$
+\partial\mathrm{KL}/\partial z
+$$
+
+都是 $V$ 维，再乘同一个
+
+$$
+W_{\mathrm{lm}}
+$$
+
+前面层看到的上游梯度一直是 $[B,T,d]$。多出来的算术几乎只在最后一层附近对 $\pi_T$ 做一次 $V$ 维计算，相对 LM head GEMM 约是 $1/d$。
 
 真正增加的是显存和访存：要不要把完整 $V$ 维老师分布写到显存、按位置对齐后算 loss。可以不缓存完整 logits，只留 last-layer hidden，算 loss 时再乘 head。
 
@@ -130,7 +200,13 @@ $$
 
 top-p 约束的是 rollout 怎么采，不改每个位置 loss 比哪些 token。温度保持 1，用 nucleus sampling 丢掉低概率尾巴，避免采到极低概率 token，否则后续前缀上老师的 logprob 已经不可信。目的是 rollout 仍是典型续写，不是升温探索。只改 loss 支持集、不用 top-p，消融里比 sampled-token 更差。
 
-[top-k](#top-k) 管每个前缀的 loss 在哪几个 token 上比。$K$ 是固定超参，不是按当步 overlap 动态选。主方法用老师的 $\mathrm{TopK}_q(c_t)$，师生在这个集合上重归一化再算截断 reverse KL。学生 top-$K$、以及老师 top-$K$ 并上学生 sampled token，都能用。关键是不要只比一个 token，不是必须用老师的 $K$。overlap 上的概率质量占比是事后诊断，不是选 $K$ 的算法。
+[top-k](#top-k) 管每个前缀的 loss 在哪几个 token 上比。$K$ 是固定超参，不是按当步 overlap 动态选。主方法用老师的
+
+$$
+\mathrm{TopK}_{q}(c_{t})
+$$
+
+师生在这个集合上重归一化再算截断 reverse KL。学生 top-$K$、以及老师 top-$K$ 并上学生 sampled token，都能用。关键是不要只比一个 token，不是必须用老师的 $K$。overlap 上的概率质量占比是事后诊断，不是选 $K$ 的算法。
 
 ## sampled-token / top-k / full-vocab 训练上怎么选 {#estimator-choice}
 

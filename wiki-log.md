@@ -431,6 +431,13 @@
 - Updated: _wiki/on-policy-distillation/overview.md
 - Note: sampled-token section now writes the GRPO loss surgery: keep ρ/clip/token-mean, replace group-norm verifier A with per-token A_{i,t}=-KL.
 
+## 2026-08-21 compile | sampled-token v.s. RL 正则项
+- Disposition: Update note
+- Topic: on-policy-distillation
+- Note: _wiki/on-policy-distillation/overview.md#sampled-token-cost
+- Updated: _wiki/on-policy-distillation/overview.md
+- Note: Kramdown/MathJax delimiter fix only. Keep GRPO → sampled-token OPD advantage swap. Split subscripted inline `$` so `_` cannot merge math spans.
+
 
 
 
