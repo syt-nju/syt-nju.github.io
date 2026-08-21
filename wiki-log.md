@@ -402,3 +402,11 @@
 - Updated: _wiki/on-policy-distillation/overview.md
 - Note: Incidental clip/clipfrac follow-up removed from frontend and proof. Headings follow user cuts (`sampled-token v.s. RL 正则项`, `top-p v.s. top-k`).
 
+## 2026-08-21 compile | Rewrite OPD prose as rereadable notes
+- Disposition: Update note
+- Topic: on-policy-distillation
+- Note: _wiki/on-policy-distillation/overview.md
+- Updated: _wiki/on-policy-distillation/overview.md
+- Note: Language pass only. Drop lecture openers and motion stand-ins (走到 / 落到 / 容易把…听成…). Nest distinctions in the argument. Same accepted model.
+
+
