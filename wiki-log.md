@@ -484,6 +484,11 @@
 - Updated: _data/wiki_proofs/on-policy-distillation.yml
 - Note: Corrected K2 to a biased local quadratic surrogate, distinguished it from GRPO's K3 form, separated value-estimator unbiasedness from gradient unbiasedness, and retained the conflicting raw claims in proof.
 
+## 2026-08-24 ingest | Entropy-Aware On-Policy Distillation
+- Disposition: Interview
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+- Note: raw-only commit; frontend notes wait for the next question switch
 
 
 
