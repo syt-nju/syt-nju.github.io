@@ -490,7 +490,13 @@
 - Raw: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
 - Note: raw-only commit; frontend notes wait for the next question switch
 
-
-
-
-
+## 2026-08-24 compile | EOPD 的熵门控混合
+- Disposition: Update note + Update proof
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+- Raw: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+- Note: _wiki/on-policy-distillation/overview.md#eopd
+- Proof: _data/wiki_proofs/on-policy-distillation.yml#eopd
+- Updated: _wiki/on-policy-distillation/overview.md
+- Updated: _data/wiki_proofs/on-policy-distillation.yml
+- Note: Recorded EOPD as student-rollout clipped RKL plus entropy-gated teacher top-k direct FKL, including support normalization, cost, ablations, and evidence limits.

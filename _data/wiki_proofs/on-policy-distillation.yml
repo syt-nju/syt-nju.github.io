@@ -421,3 +421,122 @@ sections:
             source_section: "13 DeepSeek V4"
             quote: "很多工作把 full-vocab KL 简化成 token-level KL estimate，再用 teacher-student logprob gap 当 advantage；DeepSeek V4 认为这样资源省，但梯度方差高、训练不稳定。"
             note: "V4 报告未入库；此条只证明存在产线选择 full-vocab 的转述，不能当作三档头对头实验。"
+
+  eopd:
+    note_path: "_wiki/on-policy-distillation/overview.md"
+    section_id: eopd
+    section_title: "EOPD 的熵门控混合"
+    user_concern: "EOPD 为什么能在 student rollout 上混合 FKL；top-k 属于谁；梯度路径、实现成本和实验收益分别是什么"
+    claims:
+      - id: student-rollout-mixed-objective
+        text: "EOPD 始终采用 student rollout；所有 token 保留 clipped RKL PG 项，teacher 高熵位置额外加入 direct FKL，因此整体是 PG-Style 与 GKD-Style 的混合。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Equation 9 and Algorithm 1"
+            quote: "L_t^EOPD = L_t^OPD + I[H_t^te > tau] L_t^FKL"
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Algorithm 1, lines 6 and 9"
+            quote: "Sample x ... from pi_theta_old ... Query teacher Q_t"
+          - raw_path: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+            source_title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+            source_url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
+            source_section: "PG-Style 与 GKD-Style 的混合"
+            quote: "当教师分布的熵较高时，额外加上一个直接对top-k词表求和的前向 KL 项——后者是纯粹的GKD-Style 直接微分"
+      - id: prefix-and-kl-axes
+        text: "on-policy 的外层 student prefix 分布与固定 prefix 上 FKL/RKL 的词表加权方向正交；FKL 不要求 teacher 生成轨迹。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+            source_title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+            source_url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
+            source_section: "深入分析：两个维度"
+            quote: "维度 A：token-level 分布上计算 KL 的方向 ... 维度 B：外层前缀分布是谁"
+          - raw_path: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+            source_title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+            source_url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
+            source_section: "Hinton’s KD 下的 fKL 与 rKL"
+            quote: "这里，正向的含义并不是标签由教师生成，而仅仅是 ... 教师分布放在前面"
+      - id: teacher-topk-fkl
+        text: "FKL 使用 teacher top-k；teacher 在集合内重归一化，student 在这些 teacher token IDs 上提供未注明集合内重归一化的概率，主实验 k=16。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Equation 10"
+            quote: "computed over the teacher’s top-k tokens S_t^k"
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Equation 10, definition below"
+            quote: "tilde pi_te denotes the teacher distribution renormalized over the top-k tokens"
+            note: "Equation 10 uses pi_theta(x|c_t) directly in the denominator; it does not define a student-side top-k renormalization."
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Appendix A, Table 8"
+            quote: "Top-k (for FKL) | 16"
+      - id: uncertainty-transfer
+        text: "高 teacher 熵意味着多个候选有非忽略概率；额外 FKL 传递 teacher 的多候选结构，而不是无条件保护 student 原分布。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Sections 2.1 and 3.1"
+            quote: "It penalizes the student for assigning low probability to any token the teacher considers likely."
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Section 5.4 Token-Level Entropy Analysis"
+            quote: "High-entropy tokens correspond to intrinsically ambiguous decision points where the teacher assigns non-negligible probability to multiple plausible continuations."
+      - id: gate-and-memory-cost
+        text: "精确 teacher entropy 由 full vocabulary 求和；收敛后约 15%–20% token 触发 FKL，k=16 的 top-k 存储开销约 144 MiB。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Equation 9"
+            quote: "H_t^te = - sum_{x in V} pi_te(x|c_t) log pi_te(x|c_t)"
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Appendix E High Entropy Token Ratio"
+            quote: "After convergence, the ratio stabilizes at approximately 15% to 20%."
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Appendix F"
+            quote: "k=16 retains most of the probability mass while incurring a relatively small memory overhead of 144 MiB."
+            note: "不缓存或跨设备传输完整 [B,T,V] 是基于只保留 top-k query 输出的工程解释；精确 entropy reduction 本身仍读取 full-vocab teacher 分布。"
+      - id: qwen-results-and-scope
+        text: "Qwen3 三个规模相对 OPD 的 Avg@8 为 +1.16/+0.99/+1.80，Pass@8 为 +1.37/+2.39/+5.05；结果不构成普适优越性证明。"
+        status: partial
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Table 2 and Section 5.2"
+            quote: "improves Avg@8 by +1.16 and Pass@8 by +1.37 ... +0.99 and +2.39 ... +1.80 ... and +5.05"
+            note: "主结果集中于数学推理与 Qwen 设置，部分收益较小，表中未提供充分多 seed 统计。"
+      - id: placement-ablation
+        text: "random 20% FKL 比门控更差；full-position FKL 与门控大致相当，且并非每项指标都更差。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Table 6 and Section 5.6"
+            quote: "random forward KL underperforms the other two approaches across all benchmarks"
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Table 6"
+            quote: "Full | Random | EOPD"
+            note: "Full 在 AIME24/25 Pass@8 高于 EOPD，EOPD 在 MATH500/AMC23 更高，因此只能写大致相当，不能写门控全面更优。"

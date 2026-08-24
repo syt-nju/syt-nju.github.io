@@ -1,7 +1,7 @@
 ---
 title: "On-Policy Distillation"
 topic: on-policy-distillation
-summary: "OPD 在学生自采样前缀上训练；teacher 信号支持集与 PG/GKD 梯度路径是两个正交轴，训练上没有统一配方。"
+summary: "OPD 在学生自采样前缀上训练；teacher 信号支持集与 PG/GKD 梯度路径是两个正交轴，也可以按 teacher 熵混合两种路径。"
 lang: zh-CN
 updated: 2026-08-24
 order: 1
@@ -16,12 +16,15 @@ sources:
     url: "https://arxiv.org/abs/2604.13016"
   - title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
     url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+  - title: "Entropy-Aware On-Policy Distillation of Language Models"
+    url: "https://arxiv.org/abs/2603.07079"
 raw:
   - raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
   - raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
   - raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
   - raw/on-policy-distillation/2026-04-14-rethinking-on-policy-distillation.md
   - raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+  - raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
 ---
 
 ## OPD 在优化什么 {#what-is-opd}
@@ -175,6 +178,30 @@ $$
 - 轨迹变长、agent、tokenizer 切分不一致或特殊 token 多：top-k 截断 KL + 集合内重归一化 + top-p rollout，必要时再 mask 特殊 token。$K$ 不用很大。
 - full-vocab：显存、通信和 kernel 都准备好、又在意方差时才值得。同一设定下三档还没有头对头比较。
 
+## EOPD 的熵门控混合 {#eopd}
+
+EOPD 始终使用 student rollout；on-policy 决定外层训练前缀来自学生，FKL / RKL 决定固定学生前缀上的词表 loss 分别按 teacher / student 分布加权。这两个选择正交，因此学生生成轨迹并不排斥在这些前缀上计算 FKL。
+
+每个 token 都保留 sampled-token clipped RKL 的 PG-Style 项。只有 teacher 的 token-level entropy 满足 $H_T(c_t)>\tau$ 时，才额外加入可直接反传的 teacher top-$k$ FKL：
+
+$$
+\mathcal{L}_t^{\mathrm{EOPD}}
+=
+\mathcal{L}_t^{\mathrm{OPD}}
++
+\mathbb{I}[H_T(c_t)>\tau]\mathcal{L}_t^{\mathrm{FKL}}.
+$$
+
+因此低熵位置是纯 PG-Style；高熵位置是 PG-Style RKL 加 GKD-Style direct FKL。EOPD 整体是混合方法，不是纯 PG-Style。等价的批量实现可以先取得各位置的 teacher top-$k$，再把 $H_T(c_t)\le\tau$ 位置的 FKL mask 掉。
+
+这里的 top-$k$ 明确来自 teacher。teacher 概率在这个集合内重归一化，student 则在同一批 teacher token IDs 上提供概率；该 FKL 公式没有再把 student 概率在集合内重归一化。主实验取 $k=16$。精确计算 teacher entropy 仍需要对 teacher full-vocab 分布做 reduction，但训练不必跨设备缓存或传输整个 $[B,T,V]$ 张量；只保留 top-$k$ 概率和 token IDs 时，额外存储约为 144 MiB。
+
+门控依据是 teacher 在当前位置是否同时支持多个候选。低熵时，单个 student sampled token 提供的 RKL 信号更集中；高熵时，单点 RKL 的噪声更大，也容易只保留少数候选，额外 FKL 会同时提高 student 遗漏但 teacher 支持的候选，并降低 student 赋值过高的候选。它保护的是 teacher 表达的不确定性，不是原样保护 student 已有分布。
+
+和 baseline 的差别也不是在同一支持集上做纯 FKL / RKL 对照：baseline 是 sampled-token clipped RKL PG，EOPD 是该项加 entropy-gated teacher top-$k$ direct FKL。收敛后约 15%–20% 的 token 触发 FKL。三组 Qwen3 主实验相对 baseline 的 Avg@8 提升分别为 $+1.16/+0.99/+1.80$，Pass@8 提升为 $+1.37/+2.39/+5.05$，收益更集中在多样性和 Pass@$k$。随机选择 20% 位置加入 FKL 更差；所有位置都加入 FKL 与熵门控大致相当，并非每个任务都落后于门控。
+
+这些结果只来自一套数学任务与 Qwen 主设置，部分提升较小，主结果也缺少充分的多 seed 验证。它支持「在该设置中按 teacher 熵选择 direct FKL 位置有效」，不能推出 EOPD 在所有模型、任务或预算下都优于其他 OPD 配方。
+
 ## Open Questions
 
 - sampled-token 何时会不稳定：是师生 top-k overlap 起不来，还是 tokenizer / 特殊 token 把单点 KL 比较扭曲了。
@@ -187,3 +214,4 @@ $$
 - [Revisiting On-Policy Distillation: Empirical Failure Modes and Simple Fixes](https://arxiv.org/abs/2603.25562)
 - [Rethinking On-Policy Distillation of Large Language Models](https://arxiv.org/abs/2604.13016)
 - [OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践](https://zhuanlan.zhihu.com/p/2033212181823608430)
+- [Entropy-Aware On-Policy Distillation of Language Models](https://arxiv.org/abs/2603.07079)
