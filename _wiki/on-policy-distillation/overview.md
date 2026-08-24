@@ -79,6 +79,30 @@ PG-Style 只需要 teacher 对 sampled token 的 logprob，容易复用 PPO/GRPO
 
 一种 PG-Style 实现会对同一 prompt 做组采样，但不启用组内 advantage normalization。它把 discount factor 设为 0，所以每个 token 只使用当前位置的信号，不是带完整 reward-to-go 的 sequence-level reverse-KL policy gradient。
 
+## K1 / K2 / K3 {#k1-k2-k3}
+
+令 $y\sim q=\pi_\theta$，$p$ 是 teacher 或 reference，$r=p(y)/q(y)$。目标 reverse KL 为
+
+$$
+\mathrm{KL}(q\Vert p)=\mathbb{E}_{y\sim q}[-\log r].
+$$
+
+K1、K2、K3 是 sampled-token 上三种不同的数值量：
+
+$$
+K1=-\log r,\qquad
+K2=\frac{1}{2}(\log r)^2,\qquad
+K3=r-1-\log r.
+$$
+
+K1 的数值期望严格等于目标 KL，但单样本可以为正或为负，方差通常较高，因而最自然地用于 PG-Style 的 sampled-token advantage。K2 始终非负且平滑，通常方差较低，但它对 KL 有偏；它只在 $p$ 与 $q$ 接近时是 KL 的局部二阶 surrogate，不是逐点近似 $-\log r$。
+
+K3 利用 $\mathbb{E}_{q}[r-1]=0$ 作为 control variate，因此数值期望也严格等于目标 KL，并且逐样本非负。策略接近参考模型时，它通常比 K1 方差低；这不是普适保证，极端 probability ratio 仍可能造成高方差，计算 `exp` 时也可能需要 FP32 或 clamp。因为 $r=e^{\log r}$，在 $\log r\approx0$ 时 Taylor 展开得到 $K3\approx K2$，但两者不是同一个 estimator。原始 GRPO 的 KL 项是 K3，不是 K2。
+
+这三种 estimator 早于 OPD。把 $p/q$ 换成 teacher/student ratio 只改变比较的模型，不构成新的估计理论；OPD 的实质差异仍是学生实时生成 prefix、teacher 在这些 prefix 上提供信号，以及信号通过 PG surrogate 还是 direct loss 回传。数值估计无偏也不等于优化梯度无偏：直接反传 estimator，或先 detach 再把它作为 PG reward，会形成不同的梯度估计器，不能仅凭 K1/K3 的数值无偏就无害互换。
+
+拿到两组 sampled-token logprob 后，三者都只需对 $[B,T]$ 张量做逐元素运算：K1 是减法，K2 多一次平方，K3 多一次 `exp` 和加减；这些差异相对模型 forward/backward 可以忽略。主要成本来自额外的 teacher/reference forward，以及把信号从 sampled-token 的 $[B,T]$ 扩到 top-k 的 $[B,T,K]$ 或 full-vocab 的 $[B,T,V]$。K3 和 forward 用 K3、backward 用 K2 的 straight-through 变体会多一两个 $[B,T]$ 临时张量，但通常不是显存主项。
+
 ## sampled-token v.s. GRPO 训练框架 {#sampled-token-cost}
 
 ### sampled-token {#sampled-token}

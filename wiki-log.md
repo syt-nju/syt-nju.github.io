@@ -473,6 +473,17 @@
 - Updated: _data/wiki_proofs/on-policy-distillation.yml
 - Note: Separated teacher signal support from gradient path, kept per-token advantage signs distinct from their negative-reverse-KL expectation, and preserved the lack of a controlled universal benchmark winner.
 
+## 2026-08-24 compile | K1 / K2 / K3
+- Disposition: Update note + Update proof + Disputed
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+- Raw: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+- Note: _wiki/on-policy-distillation/overview.md#k1-k2-k3
+- Proof: _data/wiki_proofs/on-policy-distillation.yml#k1-k2-k3
+- Updated: _wiki/on-policy-distillation/overview.md
+- Updated: _data/wiki_proofs/on-policy-distillation.yml
+- Note: Corrected K2 to a biased local quadratic surrogate, distinguished it from GRPO's K3 form, separated value-estimator unbiasedness from gradient unbiasedness, and retained the conflicting raw claims in proof.
+
 
 
 

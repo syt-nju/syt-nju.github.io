@@ -151,6 +151,97 @@ sections:
             source_section: "Pseudocode step 4"
             quote: "call the RL importance-sampling loss function to perform the training update"
 
+  k1-k2-k3:
+    note_path: "_wiki/on-policy-distillation/overview.md"
+    section_id: k1-k2-k3
+    section_title: "K1 / K2 / K3"
+    user_concern: "K1、K2、K3 的偏差、方差、非负性和训练成本有何差别；K2 是否是 GRPO 的 KL；这些 estimator 是否只是被复用到 OPD"
+    claims:
+      - id: estimator-properties
+        text: "K1 数值无偏但可正可负；K2 非负、平滑但有偏，只是分布接近时的局部二阶 surrogate；K3 借助 control variate 保持数值无偏和非负。"
+        status: disputed
+        proof:
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "12.2–12.4 k1 / k2 / k3"
+            quote: "始终非负、方差更小；对真实 KL 有偏，是其局部二阶近似。"
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "12.4 k3：无偏且非负"
+            quote: "利用恒等式 E_{y~P_S}[P_T(y)/P_S(y)]=1 即可得到 E[k_3]=D_{KL}(P_S||P_T)"
+          - raw_path: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+            source_title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+            source_url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
+            source_section: "GKD-Style OPD 的推广"
+            quote: "K2是 1/2(log pi_theta-log pi_T)^2这样的无偏、恒非负的近似"
+            note: "该 raw 把 K2 写成无偏，与另一份 raw 的公式和结论冲突；公开笔记采用 K2 有偏的矫正结论。"
+      - id: k3-variance-scope
+        text: "K3 在策略接近参考模型时通常比 K1 方差低，但极端 ratio 下不保证低方差，exp 需要数值稳定处理。"
+        status: partial
+        proof:
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "12.4–12.6 k3 与 verl 实现"
+            quote: "所以 k3 保留无偏性，同时非负、方差低于 k1。"
+            note: "raw 支持低方差方向和 exp 实现；‘接近时通常’及极端 ratio 限定来自 estimator 性质判断，避免把低方差写成普适保证。"
+      - id: grpo-uses-k3
+        text: "原始 GRPO 的 KL 项是 K3，不是 K2；K3 在 log-ratio 接近零时二阶展开近似 K2。"
+        status: disputed
+        proof:
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "12.3–12.4 k2 / k3"
+            quote: "k_3=P_T(y_t|c_t)/P_S(y_t|c_t)-log(P_T(y_t|c_t)/P_S(y_t|c_t))-1"
+            note: "该 raw 给出 K3 公式，但未直接引用原始 GRPO 公式；GRPO 归属证据在当前 named raw 中不完整。"
+          - raw_path: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+            source_title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+            source_url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
+            source_section: "GKD-Style OPD 的推广"
+            quote: "K2的形式恰好和 DeepSeek-R1官方训练方法所使用的参考模型KL惩罚项一致"
+            note: "该归属与矫正结论冲突，proof 保留冲突；公开笔记不重复该说法。"
+      - id: value-vs-gradient-unbiasedness
+        text: "数值无偏不等于 direct backprop 或 detached PG reward 的梯度无偏，不能仅凭 estimator 数值期望相同就互换。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "12.6 verl 里的 k1/k2/k3 与 k3+"
+            quote: "k1/k3 的数值期望等于 KL，但直接反传它们时，梯度期望不一定等于真实 KL 的梯度"
+          - raw_path: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+            source_title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+            source_url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
+            source_section: "PG-Style OPD 的推广"
+            quote: "这种替换改变的是信号的计算方式，并不影响整个优化器仍然是 advantage × logπ(sampled action) 这个PG surrogate"
+      - id: estimators-predate-opd
+        text: "K1/K2/K3 是早于 OPD 的 KL approximation；替换为 teacher/student ratio 不构成新的估计理论。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "12. k1/k2/k3"
+            quote: "k1、k2、k3 都是对 reverse KL 的单样本估计器，常见于 Schulman 的 KL approximation 讨论。"
+      - id: estimator-compute-cost
+        text: "已有 sampled-token 双方 logprob 后，K1/K2/K3 只增加 [B,T] 逐元素运算；主要成本是 teacher/reference forward，以及 top-k/full-vocab 扩大信号张量。"
+        status: partial
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+            source_title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+            source_url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
+            source_section: "GKD-Style OPD 的推广"
+            quote: "K2/K3 不花额外开销就能改善一些性质；full-vocab 则是精度最高但成本最贵。"
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "15.1 verl 支持两类 distillation"
+            quote: "teacher_logprobs: [B, L, K]"
+            note: "逐元素算子与临时张量数量是基于公式和张量形状的工程判断，raw 没有直接给出端到端成本测量。"
+
   sampled-token-cost:
     note_path: "_wiki/on-policy-distillation/overview.md"
     section_id: sampled-token-cost
