@@ -260,6 +260,85 @@ sections:
             quote: "EOPD retains substantially more probability mass in this region and stays much closer to the teacher"
             note: "仅限论文中的数学任务、模型与训练设置，不构成 FKL 方向的普适优越性证明。"
 
+  kl-logit-gradients:
+    note_path: "_wiki/on-policy-distillation/overview.md"
+    section_id: kl-logit-gradients
+    section_title: "FKL / RKL / JSD 的 logits 梯度"
+    user_concern: "JSD loss 的形式是什么；FKL、RKL、JSD 对 student logits 的梯度如何推导，以及这些梯度如何解释实际训练差异"
+    claims:
+      - id: fkl-rkl-logit-gradients
+        text: "固定 teacher 分布 T、student logits z 与 S=softmax(z) 时，FKL 的 logits 梯度为 S-T；RKL 的 logits 梯度为 S_j[log(S_j/T_j)-KL(S||T)]。"
+        status: partial
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Equations 2–3"
+            quote: "The forward KL divergence is defined as an expectation over the teacher’s distribution"
+            note: "raw 给出 FKL/RKL 定义；logits 梯度由 softmax Jacobian 直接推导，不是来源原句，因此状态为 partial。teacher 固定，不参与求导。"
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Equation 3"
+            quote: "The reverse KL divergence is defined as an expectation over the student’s distribution"
+            note: "RKL 梯度中的 student 概率同时来自期望权重和被优化分布；这不表示 teacher 参数参与梯度。"
+      - id: missing-mode-asymptotics
+        text: "当 student 对 teacher 支持的 token 概率趋零时，FKL 梯度趋近负 teacher 概率，而 RKL 与 JSD 的对应 logits 梯度趋零。"
+        status: partial
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Section 2.1, Equations 2–3"
+            quote: "It penalizes the student for assigning low probability to any token the teacher considers likely."
+            note: "raw 支持 FKL mode-covering；精确低概率极限由 logits 梯度公式推导。"
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Section 2.1, Equation 3"
+            quote: "ignores teacher modes that the student does not visit"
+            note: "raw 支持 RKL mode-seeking；JSD 渐近结论由其定义和 softmax Jacobian 推导。"
+      - id: jsd-definition-gradient
+        text: "标准 JSD 使用 M=(T+S)/2 与 0.5 KL(T||M)+0.5 KL(S||M)；其 logits 梯度为 0.5 S_j[log(S_j/M_j)-KL(S||M)]，损失有界且对支持集不匹配更温和。"
+        status: partial
+        proof:
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "7.3 JSD：两者之间的折中"
+            quote: "D_{JSD(beta)}(P_T,P_S) = beta KL(P_T||M)+(1-beta)KL(P_S||M)"
+            note: "raw 给出 generalized JSD；笔记取 beta=0.5。概率导数与 logits 梯度是数学推导，不是来源原句。"
+          - raw_path: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+            source_title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+            source_url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
+            source_section: "GKD-Style OPD 的推广"
+            quote: "JS 散度（Jensen-Shannon divergence）。JSD 是 fKL 和 rKL 的一个对称化产物"
+            note: "来源支持 JSD 作为 direct distribution metric；精确梯度、有界性和 support mismatch 性质来自标准 JSD 定义的数学推导，因此标记为 derivation/partial。"
+      - id: direct-vs-pg-path
+        text: "student-generated prefix 上的 direct FKL/RKL 都是 GKD-Style；只有 sampled-token、detached advantage 和 importance ratio 构成的 RKL 更新在优化路径上更像 RL。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+            source_title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+            source_url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
+            source_section: "PG-Style OPD"
+            quote: "KL的奖励/优势不负责产生梯度，梯度是经过 log pi_theta(y_t|s_t) 这一项回传的"
+          - raw_path: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+            source_title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+            source_url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
+            source_section: "GKD-Style OPD"
+            quote: "在学生自己采样的前缀上，直接对token-level散度做可微的梯度下降"
+      - id: gradient-numerical-example
+        text: "T=(0.5,0.5)、S=(0.99,0.01) 时，FKL、RKL、JSD 的 logits 梯度分别约为 (+0.49,-0.49)、(+0.045,-0.045)、(+0.017,-0.017)。"
+        status: partial
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Equations 2–3"
+            quote: "Due to its asymmetry, KL(P||Q) and KL(Q||P) induce different optimization behaviors"
+            note: "数值例由本节三条 logits 梯度公式代入计算，仅用于说明梯度尺度和低概率模式结构，不是来源实验或引文。"
+
   k1-k2-k3:
     note_path: "_wiki/on-policy-distillation/overview.md"
     section_id: k1-k2-k3

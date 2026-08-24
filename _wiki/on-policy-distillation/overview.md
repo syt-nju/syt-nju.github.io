@@ -102,6 +102,72 @@ sampled-token RKL 从 $y_t\sim\pi_\theta(\cdot\mid c_t)$ 取得单个 Monte Carl
 
 因此 EOPD 不是同一支持集上的纯 RKL / FKL 对照。它的 baseline 是 sampled-token clipped PG RKL，EOPD 在此基础上增加 entropy-gated teacher top-k direct FKL，同时改变了 KL 方向、支持集大小、梯度路径和 FKL 的位置选择。现有增益不能严格归因于 FKL 方向；干净比较还需要 teacher top-k direct RKL 对 teacher top-k direct FKL，以及 full-vocab direct RKL 对 full-vocab direct FKL 等控制。当前可靠结论只是：在 sampled-token PG RKL 上，对 teacher 高熵位置增加 top-k FKL，改善了该设定的多样性和 Pass@$k$。
 
+## FKL / RKL / JSD 的 logits 梯度 {#kl-logit-gradients}
+
+固定一个 student-generated prefix，记 teacher 分布为 $T$，student logits 为 $z$，$S=\operatorname{softmax}(z)$。teacher 在以下推导中是固定监督信号，不参与求导。由
+
+$$
+\frac{\partial S_i}{\partial z_j}=S_i(\delta_{ij}-S_j)
+$$
+
+可得任意概率损失的通用换元。若 $g_i=\partial L/\partial S_i$，则
+
+$$
+\frac{\partial L}{\partial z_j}
+=
+S_j\left(g_j-\sum_i S_i g_i\right).
+$$
+
+对 FKL，$L_{\mathrm{FKL}}=\mathrm{KL}(T\Vert S)$，因此
+
+$$
+\frac{\partial L_{\mathrm{FKL}}}{\partial z_j}=S_j-T_j.
+$$
+
+当 teacher 对 token $j$ 分配非零概率、student 对它的概率接近零时，梯度仍趋近 $-T_j$。所以 FKL 能直接恢复 student 遗漏的 teacher 模式；在 student-generated prefix 上直接反传 soft-label FKL，可以理解为 on-policy soft-label SFT，也是 GKD-Style 的分布匹配。
+
+对 RKL，$L_{\mathrm{RKL}}=\mathrm{KL}(S\Vert T)$，其 logits 梯度是
+
+$$
+\frac{\partial L_{\mathrm{RKL}}}{\partial z_j}
+=
+S_j\left[
+\log\frac{S_j}{T_j}
+-
+\mathrm{KL}(S\Vert T)
+\right].
+$$
+
+当 $S_j\to0$ 时，$S_j\log S_j\to0$，teacher-high / student-low token 的梯度也趋近零。这里不是 teacher 参数参与了求导，而是 student 概率既是 RKL 的加权分布，也是被优化对象。direct RKL 仍是 GKD-Style 分布损失，不等同于 RL；只有 sampled-token PG RKL 通过 student action、停止梯度的 advantage 和 importance ratio 更新时，优化路径才更接近 RL。
+
+标准 JSD 令 $M=(T+S)/2$：
+
+$$
+L_{\mathrm{JSD}}
+=
+\frac{1}{2}\mathrm{KL}(T\Vert M)
++
+\frac{1}{2}\mathrm{KL}(S\Vert M).
+$$
+
+它对 student 概率的导数为 $\frac{1}{2}\log(S_i/M_i)$，所以
+
+$$
+\frac{\partial L_{\mathrm{JSD}}}{\partial z_j}
+=
+\frac{1}{2}S_j\left[
+\log\frac{S_j}{M_j}
+-
+\mathrm{KL}(S\Vert M)
+\right].
+$$
+
+JSD 同样在 $S_j\to0$ 时给出趋零的 logits 梯度，因此不能像 FKL 一样强力恢复 student 遗漏的 teacher 模式。它的作用是损失有界，并且对支持集不匹配更温和，不是同时取得 FKL 和 RKL 的全部优点。
+
+例如 $T=(0.5,0.5)$、$S=(0.99,0.01)$ 时，代入上式可见三种损失的两维 logits 梯度方向相同，但 FKL 的绝对值明显最大，RKL 小一个数量级，JSD 还要更小。这个例子说明的是梯度结构，不是经验结果。
+
+loss coefficient 可以改变整体尺度，但不能改变低 student 概率模式的渐近梯度结构。若 teacher 与 student 已经接近，并且都在同一个 top-k 支持集内重归一化，三种损失的局部差异可能主要表现为尺度；此时支持集如何选择，以及采用 sampled-token PG 还是 direct backprop，可能比散度名称更重要。
+
 ## K1 / K2 / K3 {#k1-k2-k3}
 
 令 $y\sim q=\pi_\theta$，$p$ 是 teacher 或 reference，$r=p(y)/q(y)$。目标 reverse KL 为

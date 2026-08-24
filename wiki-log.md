@@ -513,3 +513,16 @@
 - Updated: _wiki/on-policy-distillation/overview.md
 - Updated: _data/wiki_proofs/on-policy-distillation.yml
 - Note: Separated KL direction from support granularity, bounded sampled-token FKL terminology, and marked EOPD as a confounded comparison rather than evidence that FKL direction alone is superior.
+
+## 2026-08-24 compile | FKL / RKL / JSD 的 logits 梯度
+- Disposition: Update note + Update proof
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+- Raw: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+- Raw: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+- Note: _wiki/on-policy-distillation/overview.md#kl-logit-gradients
+- Proof: _data/wiki_proofs/on-policy-distillation.yml#kl-logit-gradients
+- Created: _wiki/on-policy-distillation/overview.md#kl-logit-gradients
+- Updated: _wiki/on-policy-distillation/overview.md
+- Updated: _data/wiki_proofs/on-policy-distillation.yml
+- Note: Added softmax-Jacobian derivations for FKL, RKL, and standard JSD; separated direct GKD losses from sampled-token PG optimization; marked formulas and the numerical example as derivation/partial rather than source quotations.
