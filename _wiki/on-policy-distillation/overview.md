@@ -1,13 +1,15 @@
 ---
 title: "On-Policy Distillation"
 topic: on-policy-distillation
-summary: "OPD 是学生自采样轨迹，老师在这些前缀上做 per-token reverse KL；最便宜的是只比较采到的 token，扩到 top-k 或全词表主要贵在 V 维分布的显存。训练上没有统一配方。"
+summary: "OPD 在学生自采样前缀上训练；teacher 信号支持集与 PG/GKD 梯度路径是两个正交轴，训练上没有统一配方。"
 lang: zh-CN
-updated: 2026-08-21
+updated: 2026-08-24
 order: 1
 sources:
   - title: "On-Policy Distillation"
     url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
+  - title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+    url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
   - title: "Revisiting On-Policy Distillation: Empirical Failure Modes and Simple Fixes"
     url: "https://arxiv.org/abs/2603.25562"
   - title: "Rethinking On-Policy Distillation of Large Language Models"
@@ -16,6 +18,7 @@ sources:
     url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
 raw:
   - raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+  - raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
   - raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
   - raw/on-policy-distillation/2026-04-14-rethinking-on-policy-distillation.md
   - raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
@@ -48,11 +51,39 @@ $$
 
 reverse KL 是 mode-seeking：只在学生 rollout 里实际出现的前缀上，匹配老师下一步分布的众数。学生 support 里没有的 token 没有有效梯度，所以常见做法是先 SFT、再 OPD。折扣取 0，只看当前下一步。
 
+## PG-Style v.s. GKD-Style {#pg-vs-gkd}
+
+OPD 要用两个正交轴定位。第一个轴是每个学生前缀上 teacher 信号的支持集：只取 sampled token、取 top-k，或取 full-vocab。第二个轴是梯度路径：PG-Style 把 teacher 信号当作停止梯度的 advantage，经 sampled token 的 score function 更新；GKD-Style 把 rollout 当作固定 minibatch，直接对可微的局部分布距离反传。sampled-token / top-k / full-vocab 不等同于 PG / GKD。
+
+PG-Style sampled-token 的逐 token advantage 是
+
+$$
+A_t=\log\pi_{\mathrm{teacher}}(y_t\mid c_t)-\log\pi_\theta(y_t\mid c_t).
+$$
+
+单个 $A_t$ 可以为正或为负：teacher 对 $y_t$ 的概率高于学生时为正，低于学生时为负。只有对 $y_t\sim\pi_\theta(\cdot\mid c_t)$ 取期望，才有
+
+$$
+\mathbb{E}[A_t]
+=
+-\mathrm{KL}\bigl(\pi_\theta(\cdot\mid c_t)\Vert
+\pi_{\mathrm{teacher}}(\cdot\mid c_t)\bigr)
+\le 0.
+$$
+
+因此「negative reverse KL」描述的是采样期望，不要求每个 token 的 advantage 都为负；advantage 本来就可以取正值或负值。
+
+给定固定前缀、相同的局部 reverse KL，并令 $y_t$ 从学生分布采样时，PG sampled-token 是 direct distribution gradient 的 Monte Carlo score-function 估计。GKD 若在 top-k 或 full-vocab 上显式求和，会用更多 teacher 分布信息减少单 token 采样方差。两个轴仍然独立：PG 的 reward 可以使用更宽的支持集，GKD 也可以使用 sampled-token 的可微估计器。
+
+PG-Style 只需要 teacher 对 sampled token 的 logprob，容易复用 PPO/GRPO 管线，也容易和 outcome reward 组合；代价是方差更高，通常更依赖 clip、baseline、mask 等稳定化。GKD-Style 更接近监督训练；现有材料支持它通常方差更小、训练更稳定，但不足以证明在同算力、同支持集、同 KL 方向下，最终 benchmark 必然更高。把 sampled-token PG 与 top-k 或 full-vocab GKD 直接比较时，性能差异同时包含梯度路径和 teacher 信号支持集的变化，不能全部归因于 loss 风格。
+
+一种 PG-Style 实现会对同一 prompt 做组采样，但不启用组内 advantage normalization。它把 discount factor 设为 0，所以每个 token 只使用当前位置的信号，不是带完整 reward-to-go 的 sequence-level reverse-KL policy gradient。
+
 ## sampled-token v.s. GRPO 训练框架 {#sampled-token-cost}
 
 ### sampled-token {#sampled-token}
 
-sampled-token 不是最早的 OPD 方案；在这种实现出现前，已经有工作用学生自生成轨迹做语言模型蒸馏。它更准确的定位是实现最简单、最接近现有 RL 训练管线的一档：每个位置只比较学生实际采到的那个 token 的 logprob。老师对这条轨迹做 `compute_logprobs`，取出已采 token 上的 teacher logprob，不需要词表上的完整分布。这是 reverse KL 的单样本估计，不是对两侧 logits 做 full-vocab 求和。
+本节比较的是 teacher 信号支持集及其框架成本，不是 PG/GKD 梯度路径。sampled-token 不是最早的 OPD 方案；在这种实现出现前，已经有工作用学生自生成轨迹做语言模型蒸馏。它更准确的定位是实现最简单、最接近现有 RL 训练管线的一档：每个位置只比较学生实际采到的那个 token 的 logprob。老师对这条轨迹做 `compute_logprobs`，取出已采 token 上的 teacher logprob，不需要词表上的完整分布。这是 reverse KL 的单样本估计，不是对两侧 logits 做 full-vocab 求和。
 
 在已经具备学生 rollout、sampled-token student logprob、teacher sampled-token logprob、per-token advantage 和 importance-sampling 更新接口的 RL/GRPO 类框架里，训练骨架可以快速复用。老师提供的逐 token 信号是
 
@@ -128,6 +159,7 @@ $$
 ## Sources
 
 - [On-Policy Distillation](https://thinkingmachines.ai/blog/on-policy-distillation/)
+- [从OPD与反向KL的关系到OPD的两种形态以及路线之争](https://zhuanlan.zhihu.com/p/2027548813129267030)
 - [Revisiting On-Policy Distillation: Empirical Failure Modes and Simple Fixes](https://arxiv.org/abs/2603.25562)
 - [Rethinking On-Policy Distillation of Large Language Models](https://arxiv.org/abs/2604.13016)
 - [OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践](https://zhuanlan.zhihu.com/p/2033212181823608430)

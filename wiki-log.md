@@ -461,6 +461,18 @@
 - Updated: _data/wiki_proofs/on-policy-distillation.yml
 - Note: Clarified that sampled-token was not the earliest OPD, and bounded fast framework reuse to existing per-token RL interfaces without inventing a generic GRPO loss rewrite.
 
+## 2026-08-24 compile | PG-Style v.s. GKD-Style
+- Disposition: Update note + Update proof
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+- Raw: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+- Raw: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+- Note: _wiki/on-policy-distillation/overview.md#pg-vs-gkd
+- Proof: _data/wiki_proofs/on-policy-distillation.yml#pg-vs-gkd
+- Updated: _wiki/on-policy-distillation/overview.md
+- Updated: _data/wiki_proofs/on-policy-distillation.yml
+- Note: Separated teacher signal support from gradient path, kept per-token advantage signs distinct from their negative-reverse-KL expectation, and preserved the lack of a controlled universal benchmark winner.
+
 
 
 

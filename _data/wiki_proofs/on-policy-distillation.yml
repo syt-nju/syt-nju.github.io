@@ -1,6 +1,6 @@
 topic: on-policy-distillation
 note_path: "_wiki/on-policy-distillation/overview.md"
-updated: "2026-08-21"
+updated: "2026-08-24"
 
 sections:
   what-is-opd:
@@ -46,6 +46,110 @@ sections:
             source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
             source_section: "after Pseudocode"
             quote: "SFT, using forwards KL, adds support for new tokens. Reverse-KL methods can then perform mode seeking within the initialization’s support."
+
+  pg-vs-gkd:
+    note_path: "_wiki/on-policy-distillation/overview.md"
+    section_id: pg-vs-gkd
+    section_title: "PG-Style v.s. GKD-Style"
+    user_concern: "OPD 是否有 PG-Style 和 GKD-Style 两种 loss；为什么 PG advantage 可正可负；两者训练表现有什么差别"
+    claims:
+      - id: orthogonal-axes
+        text: "teacher 信号支持集与 PG/GKD 梯度路径是两个正交轴；sampled-token、top-k、full-vocab 不等同于 PG、GKD。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "0.3 OPD 的三个核心维度"
+            quote: "teacher 信号粒度 | sampled-token / top-k / full-vocab"
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "0.3 OPD 的三个核心维度"
+            quote: "优化方式 | direct loss / policy gradient advantage"
+          - raw_path: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+            source_title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+            source_url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
+            source_section: "OPD 是什么？"
+            quote: "教师提供的信号具体长什么样”以及”这个信号怎么回传到学生参数"
+      - id: advantage-sign
+        text: "单个 sampled-token advantage 可正可负；在学生采样下的期望才等于 negative reverse KL，且不大于零。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "6.1 sampled-token OPD"
+            quote: "则 A_t>0，提高该 token 概率。"
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "6.1 sampled-token OPD"
+            quote: "如果 teacher 不支持，而 student 自己很支持，则 A_t<0，压低该 token 概率。"
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "12.1–12.2 reverse KL 与 k1"
+            quote: "对 KL 无偏；单样本可正可负，方差较高。作为 policy-gradient 的 advantage 使用时最自然。"
+            note: "raw 的 k1 是 student-minus-teacher；笔记中的 advantage 取其负值，因此期望是 negative reverse KL。"
+      - id: fixed-prefix-gradient-equivalence
+        text: "固定前缀与相同 reverse KL 下，PG sampled-token 是 direct distribution gradient 的 Monte Carlo score-function 估计。"
+        status: partial
+        proof:
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "4. Sequence-level OPD 的梯度推导"
+            quote: "这就是 policy-gradient 形式。"
+          - raw_path: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+            source_title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+            source_url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
+            source_section: "GKD-Style OPD"
+            quote: "在学生自己采样的前缀上，直接对token-level散度做可微的梯度下降"
+            note: "等价只限固定前缀、同一局部 reverse KL 的期望梯度；clip、baseline、mask、top-k 截断或 reward-to-go 会改变实际估计器。"
+      - id: variance-and-support-tradeoff
+        text: "GKD-Style 通常方差更小、训练更稳定；top-k/full-vocab 还以更多 teacher 分布信息减少 sampled-token 方差。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+            source_title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+            source_url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
+            source_section: "GKD-Style OPD 的推广"
+            quote: "在相同rollout预算下，GKD-Style OPD相对于PG-Style OPD的方差更小、训练更稳定"
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "6. sampled-token、top-k、full-vocab"
+            quote: "这比 sampled-token 稳定，因为每个 prefix 不只看一个 token，而看 teacher 支持的一组候选。"
+      - id: no-universal-head-to-head
+        text: "现有材料不足以证明同算力、同支持集、同 KL 方向下某种梯度路径的最终 benchmark 必然更高。"
+        status: partial
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+            source_title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+            source_url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
+            source_section: "GKD-Style OPD 的推广"
+            quote: "在相同rollout预算下，GKD-Style OPD相对于PG-Style OPD的方差更小、训练更稳定"
+            note: "该材料支持方差与稳定性判断，但没有给出同算力、同支持集、同 KL 方向的普适最终 benchmark 结论。"
+      - id: pg-implementation-scope
+        text: "该 PG 实现复用组采样但不做组内 advantage normalization；discount=0 只使用当前 token 信号，并调用 importance-sampling loss。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+            source_title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+            source_url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
+            source_section: "PG-Style OPD"
+            quote: "这里只是借用了”组采样”这一形式，并没有启用 GRPO 里那套组内优势归一化的机制"
+          - raw_path: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+            source_title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
+            source_url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
+            source_section: "PG-Style OPD"
+            quote: "discount factor=0：博客实现里，advantage 只等于当前 token 的 reverse-KL 信号，而不把未来 token 的 reward 折扣回传"
+          - raw_path: raw/on-policy-distillation/2025-10-27-on-policy-distillation.md
+            source_title: "On-Policy Distillation"
+            source_url: "https://thinkingmachines.ai/blog/on-policy-distillation/"
+            source_section: "Pseudocode step 4"
+            quote: "call the RL importance-sampling loss function to perform the training update"
 
   sampled-token-cost:
     note_path: "_wiki/on-policy-distillation/overview.md"
