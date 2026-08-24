@@ -500,3 +500,16 @@
 - Updated: _wiki/on-policy-distillation/overview.md
 - Updated: _data/wiki_proofs/on-policy-distillation.yml
 - Note: Recorded EOPD as student-rollout clipped RKL plus entropy-gated teacher top-k direct FKL, including support normalization, cost, ablations, and evidence limits.
+
+## 2026-08-24 compile | RKL v.s. FKL
+- Disposition: Update note + Update proof
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+- Raw: raw/on-policy-distillation/2026-04-17-pg-style-opd-gkd-style-opd.md
+- Raw: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+- Note: _wiki/on-policy-distillation/overview.md#rkl-vs-fkl
+- Proof: _data/wiki_proofs/on-policy-distillation.yml#rkl-vs-fkl
+- Created: _wiki/on-policy-distillation/overview.md#rkl-vs-fkl
+- Updated: _wiki/on-policy-distillation/overview.md
+- Updated: _data/wiki_proofs/on-policy-distillation.yml
+- Note: Separated KL direction from support granularity, bounded sampled-token FKL terminology, and marked EOPD as a confounded comparison rather than evidence that FKL direction alone is superior.

@@ -151,6 +151,115 @@ sections:
             source_section: "Pseudocode step 4"
             quote: "call the RL importance-sampling loss function to perform the training update"
 
+  rkl-vs-fkl:
+    note_path: "_wiki/on-policy-distillation/overview.md"
+    section_id: rkl-vs-fkl
+    section_title: "RKL v.s. FKL"
+    user_concern: "RKL 与 top-k FKL 到底差在哪里；分析时如何区分 sampled-token、top-k 和 full-vocab"
+    claims:
+      - id: kl-direction-behavior
+        text: "RKL 按 student 概率加权并呈 mode-seeking；FKL 按 teacher 概率加权并呈 mode-covering。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Equations 2–3 and Section 2.1"
+            quote: "It penalizes the student for assigning low probability to any token the teacher considers likely."
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Equation 3 and Section 2.1"
+            quote: "penalizes generated tokens that the teacher considers unlikely, but ignores teacher modes that the student does not visit"
+      - id: direction-vs-support
+        text: "KL 方向与 sampled-token、top-k、full-vocab 支持集是正交轴；top-k 和 full-vocab 可以采用同一 KL 方向。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "0.3 OPD 的三个核心维度"
+            quote: "teacher 信号粒度 | sampled-token / top-k / full-vocab"
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "6.2–6.3 sampled-token、top-k、full-vocab"
+            quote: "可以做 forward KL："
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "6.2–6.3 sampled-token、top-k、full-vocab"
+            quote: "也可以做 support-set reverse KL。"
+      - id: sampled-token-direction
+        text: "student sampled-token 是 RKL 的 Monte Carlo 信号；FKL 按 teacher 概率加权，需要 teacher sample 或 teacher top-k/full-vocab。"
+        status: solid
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Equations 2–3 and Section 2.2"
+            quote: "use a single-sample Monte‑Carlo estimate of the expectation in (3)"
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Equation 2"
+            quote: "The forward KL divergence is defined as an expectation over the teacher’s distribution"
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Equation 10"
+            quote: "computed over the teacher’s top-k tokens"
+      - id: support-cost
+        text: "top-k 截断 teacher 尾部并使用 [B,T,K] 信号；full-vocab 保留整个词表并承担 [B,T,V] 存储与访存成本。"
+        status: partial
+        proof:
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "6.2–6.4 sampled-token、top-k、full-vocab"
+            quote: "这是信息最完整的版本，但显存和计算代价最大。"
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "15.1 verl 支持两类 distillation"
+            quote: "teacher_logprobs: [B, L, K]"
+            note: "[B,T,V] 成本来自 full-vocab 公式和张量形状的工程判断；raw 没有端到端成本测量。"
+      - id: eopd-not-direction-isolation
+        text: "EOPD 同时改变 KL 方向、支持集、梯度路径和位置选择；实验未提供同支持集 teacher top-k direct RKL 对照，不能把增益严格归因于 FKL 方向。"
+        status: partial
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Equations 8–10"
+            quote: "L_t^EOPD = L_t^OPD + I[H_t^te > tau] L_t^FKL"
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Equation 10"
+            quote: "approximated not by sampling, but as an expectation computed over the teacher’s top-k tokens"
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Section 5.6 and Table 6"
+            quote: "full forward KL, applied at all token positions ... and random forward KL, applied to a randomly selected 20% of positions"
+            note: "消融比较 FKL 的位置选择，没有同支持集 teacher top-k direct RKL；证据边界因此为 partial。"
+      - id: eopd-bounded-conclusion
+        text: "当前证据只支持在 sampled-token PG RKL 上对 teacher 高熵位置增加 top-k FKL，可改善该设定的多样性与 Pass@k。"
+        status: partial
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Section 5.2 and Figure 2"
+            quote: "EOPD achieves higher Pass@k compared to OPD."
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Section 5.4 Token-Level Entropy Analysis"
+            quote: "EOPD retains substantially more probability mass in this region and stays much closer to the teacher"
+            note: "仅限论文中的数学任务、模型与训练设置，不构成 FKL 方向的普适优越性证明。"
+
   k1-k2-k3:
     note_path: "_wiki/on-policy-distillation/overview.md"
     section_id: k1-k2-k3

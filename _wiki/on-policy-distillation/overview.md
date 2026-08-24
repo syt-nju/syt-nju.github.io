@@ -82,6 +82,26 @@ PG-Style 只需要 teacher 对 sampled token 的 logprob，容易复用 PPO/GRPO
 
 一种 PG-Style 实现会对同一 prompt 做组采样，但不启用组内 advantage normalization。它把 discount factor 设为 0，所以每个 token 只使用当前位置的信号，不是带完整 reward-to-go 的 sequence-level reverse-KL policy gradient。
 
+## RKL v.s. FKL {#rkl-vs-fkl}
+
+KL 方向与监督支持集是两个正交轴。给定同一个学生前缀，reverse KL
+
+$$
+\mathrm{KL}(\pi_\theta\Vert\pi_{\mathrm{teacher}})
+$$
+
+按 student 概率加权，主要惩罚 student 分配了概率、但 teacher 不认可的候选；它允许 student 只保留 teacher 的主要模式。forward KL
+
+$$
+\mathrm{KL}(\pi_{\mathrm{teacher}}\Vert\pi_\theta)
+$$
+
+按 teacher 概率加权，主要惩罚 teacher 分配了概率、但 student 遗漏的候选；它要求 student 覆盖 teacher 支持的多个模式。
+
+sampled-token RKL 从 $y_t\sim\pi_\theta(\cdot\mid c_t)$ 取得单个 Monte Carlo 信号，成本低但方差高，而且没有采到的 teacher 合理候选不会在这一步得到监督。不存在直接对应的「student sampled-token FKL」：FKL 的期望按 teacher 概率加权，若只保留一个样本，需要从 teacher 采样；工程上更常见的是在 teacher top-k 或 full-vocab 上直接求和。top-k 与 full-vocab 都属于分布级监督，KL 方向可以相同；区别主要是 top-k 截断尾部并使用 $[B,T,K]$ 信号，而 full-vocab 保留整个词表并承担 $[B,T,V]$ 的存储与访存成本。
+
+因此 EOPD 不是同一支持集上的纯 RKL / FKL 对照。它的 baseline 是 sampled-token clipped PG RKL，EOPD 在此基础上增加 entropy-gated teacher top-k direct FKL，同时改变了 KL 方向、支持集大小、梯度路径和 FKL 的位置选择。现有增益不能严格归因于 FKL 方向；干净比较还需要 teacher top-k direct RKL 对 teacher top-k direct FKL，以及 full-vocab direct RKL 对 full-vocab direct FKL 等控制。当前可靠结论只是：在 sampled-token PG RKL 上，对 teacher 高熵位置增加 top-k FKL，改善了该设定的多样性和 Pass@$k$。
+
 ## K1 / K2 / K3 {#k1-k2-k3}
 
 令 $y\sim q=\pi_\theta$，$p$ 是 teacher 或 reference，$r=p(y)/q(y)$。目标 reverse KL 为
@@ -180,7 +200,7 @@ $$
 
 ## EOPD 的熵门控混合 {#eopd}
 
-EOPD 始终使用 student rollout；on-policy 决定外层训练前缀来自学生，FKL / RKL 决定固定学生前缀上的词表 loss 分别按 teacher / student 分布加权。这两个选择正交，因此学生生成轨迹并不排斥在这些前缀上计算 FKL。
+EOPD 把前述两个正交选择组合起来：外层始终使用 student rollout，并在固定学生前缀上同时使用 RKL 与 FKL。因此学生生成轨迹并不排斥在这些前缀上计算 FKL。
 
 每个 token 都保留 sampled-token clipped RKL 的 PG-Style 项。只有 teacher 的 token-level entropy 满足 $H_T(c_t)>\tau$ 时，才额外加入可直接反传的 teacher top-$k$ FKL：
 
