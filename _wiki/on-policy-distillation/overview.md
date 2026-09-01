@@ -3,7 +3,7 @@ title: "On-Policy Distillation"
 topic: on-policy-distillation
 summary: "OPD 在学生自采样前缀上训练；teacher 信号支持集与 PG/GKD 梯度路径是两个正交轴，也可以按 teacher 熵混合两种路径。"
 lang: zh-CN
-updated: 2026-08-24
+updated: 2026-09-01
 order: 1
 sources:
   - title: "On-Policy Distillation"
@@ -210,7 +210,14 @@ $$
 
 ### top-k {#top-k}
 
-在老师或学生概率最高的 $K$ 个 token 上比较截断后的分布，通常在这个集合内重归一化。
+top-k 由谁选与 KL 方向是两个独立选择，但有一个自然起点：
+
+- student top-k RKL 最符合原始 RKL：检查 student 当前主要概率质量是否得到 teacher 支持。
+- teacher top-k FKL 最符合原始 FKL：补齐 student 遗漏的 teacher 高概率候选。
+- teacher top-k RKL 已经不是 full-vocab RKL 的自然截断，而是一个局部 surrogate；它可以直接传递 teacher 认为重要的候选，而且 teacher server 通常天然返回 top-logprobs。
+- student top-k FKL 通常不理想，因为它可能完全看不到 teacher 有概率、student 已经遗漏的模式。
+
+这不是硬规则。支持集由谁选择、师生是否在集合内重归一化，以及 top-k 外的概率质量如何处理，都是独立设计选择；它们会改变实际优化目标。
 
 ### full-vocab {#full-vocab}
 
@@ -235,20 +242,6 @@ $$
 前面层看到的上游梯度一直是 $[B,T,d]$。多出来的算术几乎只在最后一层附近对 $\pi_T$ 做一次 $V$ 维计算，相对 LM head GEMM 约是 $1/d$。
 
 真正增加的是显存和访存：要不要把完整 $V$ 维老师分布写到显存、按位置对齐后算 loss。可以不缓存完整 logits，只留 last-layer hidden，算 loss 时再乘 head。
-
-## top-p v.s. top-k {#knobs}
-
-### top-p {#top-p-rollout}
-
-top-p 约束的是 rollout 怎么采，不改每个位置 loss 比哪些 token。温度保持 1，用 nucleus sampling 丢掉低概率尾巴，避免采到极低概率 token，否则后续前缀上老师的 logprob 已经不可信。目的是 rollout 仍是典型续写，不是升温探索。只改 loss 支持集、不用 top-p，消融里比 sampled-token 更差。
-
-[top-k](#top-k) 管每个前缀的 loss 在哪几个 token 上比。$K$ 是固定超参，不是按当步 overlap 动态选。主方法用老师的
-
-$$
-\mathrm{TopK}_{q}(c_{t})
-$$
-
-师生在这个集合上重归一化再算截断 reverse KL。学生 top-$K$、以及老师 top-$K$ 并上学生 sampled token，都能用。关键是不要只比一个 token，不是必须用老师的 $K$。overlap 上的概率质量占比是事后诊断，不是选 $K$ 的算法。
 
 ## sampled-token / top-k / full-vocab 训练上怎么选 {#estimator-choice}
 

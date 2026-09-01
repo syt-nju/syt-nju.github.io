@@ -526,3 +526,15 @@
 - Updated: _wiki/on-policy-distillation/overview.md
 - Updated: _data/wiki_proofs/on-policy-distillation.yml
 - Note: Added softmax-Jacobian derivations for FKL, RKL, and standard JSD; separated direct GKD losses from sampled-token PG optimization; marked formulas and the numerical example as derivation/partial rather than source quotations.
+
+## 2026-09-01 compile | top-k support ownership
+- Disposition: Update note + Update proof
+- Topic: on-policy-distillation
+- Raw: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+- Raw: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+- Raw: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+- Note: _wiki/on-policy-distillation/overview.md#top-k
+- Proof: _data/wiki_proofs/on-policy-distillation.yml#sampled-token-cost
+- Updated: _wiki/on-policy-distillation/overview.md
+- Updated: _data/wiki_proofs/on-policy-distillation.yml
+- Note: Replaced the top-p/top-k lecture section with the KL-direction-aware support-set cut; support ownership remains an independent design choice.

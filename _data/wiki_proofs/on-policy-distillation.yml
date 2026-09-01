@@ -1,6 +1,6 @@
 topic: on-policy-distillation
 note_path: "_wiki/on-policy-distillation/overview.md"
-updated: "2026-08-24"
+updated: "2026-09-01"
 
 sections:
   what-is-opd:
@@ -489,6 +489,34 @@ sections:
             source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
             source_section: "6.1 sampled-token OPD"
             quote: "它不需要 teacher top-k，也不需要 full logits，只需要："
+      - id: topk-owner
+        text: "student top-k RKL 与 teacher top-k FKL 分别是两个 KL 方向的自然截断起点，但支持集归属、重归一化和 tail 处理都是独立设计选择。"
+        status: partial
+        proof:
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Equations 2–3"
+            quote: "The forward KL divergence is defined as an expectation over the teacher’s distribution"
+            note: "FKL 按 teacher 概率加权，因此 teacher top-k 是自然截断起点；该结论是从定义推导。"
+          - raw_path: raw/on-policy-distillation/2026-03-07-entropy-aware-on-policy-distillation.md
+            source_title: "Entropy-Aware On-Policy Distillation of Language Models"
+            source_url: "https://arxiv.org/abs/2603.07079"
+            source_section: "Equation 3"
+            quote: "The reverse KL divergence is defined as an expectation over the student’s distribution"
+            note: "RKL 按 student 概率加权，因此 student top-k 是自然截断起点；该结论是从定义推导。"
+          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
+            source_title: "Revisiting On-Policy Distillation: Empirical Failure Modes and Simple Fixes"
+            source_url: "https://arxiv.org/abs/2603.25562"
+            source_section: "4.1 Teacher top-K local support matching / Table 4"
+            quote: "teacher top-K (used in the main results), student top-K, and teacher top-K augmented with the student sampled token"
+            note: "实际 RKL 可以选 teacher 或 student 支持集；teacher top-k RKL 是截断后的 local support surrogate，不等于 full-vocab RKL。"
+          - raw_path: raw/on-policy-distillation/zhihu-opd-deep-dive-v2.md
+            source_title: "OPD深度解析：从数学推导到DeepSeek V4、SWIFT与verl实践"
+            source_url: "https://zhuanlan.zhihu.com/p/2033212181823608430"
+            source_section: "14.2–14.3 SWIFT top-k"
+            quote: "teacher_logits, topk_idx = torch.topk(teacher_logits, k=topk)"
+            note: "支持 teacher server / GKD 实现天然返回 teacher top-k 的工程动机；student top-k FKL 的遗漏模式判断来自 FKL 定义。"
       - id: full-vocab-memory
         text: "full-vocab 的主成本是显存和搬运，不是前面层反传变贵；V4 靠不缓存 logits、只留 hidden。"
         status: partial
@@ -504,61 +532,6 @@ sections:
             source_section: "13.1 为什么它能做 full-vocab？"
             quote: "teacher forward 时不显式缓存完整 logits"
             note: "V4 工程细节转述自知乎文，V4 技术报告本身未入库。前面层反传复杂度不变是实现层推理，不是来源原句。"
-
-  knobs:
-    note_path: "_wiki/on-policy-distillation/overview.md"
-    section_id: knobs
-    section_title: "top-p v.s. top-k"
-    user_concern: "top-p 和 top-k 是不是一回事；K 看老师还是学生"
-    claims:
-      - id: topp-is-rollout
-        text: "top-p 只约束 rollout 采样，默认温度 1、top-p=0.9；不是升温，也不是 loss 支持集。"
-        status: solid
-        proof:
-          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
-            source_title: "Revisiting On-Policy Distillation"
-            source_url: "https://arxiv.org/abs/2603.25562"
-            source_section: "4.2 Top-p rollout sampling"
-            quote: "We generate rollouts with top-p sampling. Unconstrained sampling occasionally produces extremely low-probability tokens"
-          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
-            source_title: "Revisiting On-Policy Distillation"
-            source_url: "https://arxiv.org/abs/2603.25562"
-            source_section: "5.1 Setup"
-            quote: 'All runs use batch size 128, mini-batch size 64, learning rate $2\times 10^{-6}$, and temperature 1 by default. Rollouts are sampled with top-$p\=0.9$.'
-            note: 'raw 里 temperature 与 top-p 写在同一句。'
-      - id: topk-is-teacher-support
-        text: "主方法的支持集是 teacher top-K；student top-K 或并上 sampled token 也可，没有唯一赢家。"
-        status: solid
-        proof:
-          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
-            source_title: "Revisiting On-Policy Distillation"
-            source_url: "https://arxiv.org/abs/2603.25562"
-            source_section: "4.1 Teacher top-K local support matching"
-            quote: "define the teacher support set"
-          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
-            source_title: "Revisiting On-Policy Distillation"
-            source_url: "https://arxiv.org/abs/2603.25562"
-            source_section: "Table 4"
-            quote: "the main benefit coming from replacing single-token comparison with local distribution-level matching rather than from one uniquely optimal support-set choice"
-      - id: topp-needed-with-topk
-        text: "只加 teacher top-K、不用 top-p rollout，AIME24 avg@32 从 20.4 掉到 17.7；两者一起到 23.6。"
-        status: solid
-        proof:
-          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
-            source_title: "Revisiting On-Policy Distillation"
-            source_url: "https://arxiv.org/abs/2603.25562"
-            source_section: "Table 3"
-            quote: "Sampled-token OPD (point estimate) | 20.4"
-          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
-            source_title: "Revisiting On-Policy Distillation"
-            source_url: "https://arxiv.org/abs/2603.25562"
-            source_section: "Table 3"
-            quote: "+ teacher top-$K$ (truncated reverse-KL) | 17.7"
-          - raw_path: raw/on-policy-distillation/2026-03-26-revisiting-on-policy-distillation.md
-            source_title: "Revisiting On-Policy Distillation"
-            source_url: "https://arxiv.org/abs/2603.25562"
-            source_section: "Table 3"
-            quote: "+ teacher top-$K$ + top-$p$ | 23.6"
 
   estimator-choice:
     note_path: "_wiki/on-policy-distillation/overview.md"
