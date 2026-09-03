@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: jpt-just-pass-twice-ner
+    title: "JPT：把输入抄两遍，让因果 LLM 做判别式 NER"
+    date: 2026-09-01
+    source_type: paper
+    source_url: "https://aclanthology.org/2026.acl-long.526.pdf"
   - slug: ace-agentic-context-engineering
     title: "ACE：prompt/skill 细粒度修改"
     date: 2026-08-05

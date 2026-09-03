@@ -1,0 +1,1598 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Just Pass Twice：把输入抄两遍，让因果 LLM 做判别式 NER</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg-primary: #fbf6ea;
+  --bg-secondary: #f4ead7;
+  --bg-tertiary: #e8dcc7;
+  --text-primary: #2c2418;
+  --text-secondary: #5a4d3a;
+  --text-muted: #8a7c68;
+  --accent: #a0724a;
+  --accent-light: #c9956a;
+  --border: #ddd0be;
+  --card-shadow: 0 2px 8px rgba(44,36,24,0.06);
+  --radius: 8px;
+  --font-sans: 'Inter', 'Noto Sans SC', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+  font-family: var(--font-sans);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  line-height: 1.8;
+  font-size: 16px;
+}
+
+.container {
+  max-width: 820px;
+  margin: 0 auto;
+  padding: 0 24px;
+}
+
+.paper-header {
+  padding: 48px 0 32px;
+  border-bottom: 1px solid var(--border);
+}
+
+.paper-meta {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.meta-tag {
+  font-size: 12px;
+  font-weight: 600;
+  padding: 3px 10px;
+  border-radius: 4px;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+.meta-tag.venue {
+  background: var(--accent);
+  color: #fff;
+}
+
+.paper-title {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.3;
+  margin-bottom: 12px;
+}
+
+.paper-authors {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+}
+
+.source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  margin-right: 16px;
+}
+
+.source-link:hover { text-decoration: underline; }
+
+.nav-bar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--bg-primary);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 0;
+  margin-bottom: 32px;
+}
+
+.nav-bar .container {
+  display: flex;
+  gap: 24px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+
+.nav-bar .container::-webkit-scrollbar { display: none; }
+
+.nav-link {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.nav-link:hover { color: var(--accent); }
+
+section { margin-bottom: 48px; }
+
+h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin-bottom: 20px;
+  padding-bottom: 8px;
+  border-bottom: 2px solid var(--bg-tertiary);
+}
+
+h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin-bottom: 14px;
+  margin-top: 28px;
+}
+
+p { margin-bottom: 16px; }
+
+a { color: var(--accent); }
+
+.tldr {
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  padding: 24px 28px;
+  margin-bottom: 36px;
+  border-left: 4px solid var(--accent);
+}
+
+.tldr-title {
+  font-size: 14px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--accent);
+  margin-bottom: 10px;
+}
+
+.tldr p { font-size: 15px; margin-bottom: 10px; }
+.tldr p:last-child { margin-bottom: 0; }
+
+.metrics-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.metric-card {
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 20px;
+  text-align: center;
+  border: 1px solid var(--border);
+  box-shadow: var(--card-shadow);
+}
+
+.metric-value {
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--accent);
+  font-family: var(--font-mono);
+}
+
+.metric-label {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  line-height: 1.5;
+}
+
+.figure-block {
+  margin: 28px 0;
+  background: #fff;
+  border-radius: var(--radius);
+  padding: 20px;
+  border: 1px solid var(--border);
+}
+
+.figure-block img {
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+}
+
+.figure-caption {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-top: 12px;
+  line-height: 1.6;
+}
+
+.fig-toggle {
+  display: inline-block;
+  font-size: 13px;
+  color: var(--accent);
+  cursor: pointer;
+  margin-top: 8px;
+  font-weight: 500;
+}
+
+.fig-toggle:hover { text-decoration: underline; }
+
+.figure-detail {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.4s ease, opacity 0.3s ease;
+}
+
+.figure-detail.active {
+  max-height: 1600px;
+  opacity: 1;
+  margin-top: 12px;
+}
+
+.figure-detail ul { list-style: none; padding: 0; margin-bottom: 0; }
+
+.figure-detail li {
+  font-size: 14px;
+  color: var(--text-secondary);
+  padding: 6px 0 6px 16px;
+  position: relative;
+  line-height: 1.6;
+}
+
+.figure-detail li::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent-light);
+}
+
+.expand-card {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  margin-bottom: 12px;
+  overflow: hidden;
+  box-shadow: var(--card-shadow);
+}
+
+.expand-card-header {
+  padding: 16px 20px;
+  cursor: pointer;
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  transition: background 0.2s;
+}
+
+.expand-card-header:hover { background: var(--bg-secondary); }
+
+.expand-arrow {
+  font-size: 12px;
+  color: var(--text-muted);
+  transition: transform 0.3s;
+  flex-shrink: 0;
+  margin-top: 4px;
+}
+
+.expand-card.expanded .expand-arrow { transform: rotate(90deg); }
+
+.expand-card-title { font-size: 15px; font-weight: 600; }
+
+.paper-tag {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 8px;
+  border-radius: 4px;
+  background: var(--bg-tertiary);
+  color: var(--text-muted);
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.expand-card-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 3px;
+  line-height: 1.6;
+}
+
+.expand-card-body {
+  max-height: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-height 0.5s ease, opacity 0.3s ease;
+}
+
+.expand-card.expanded .expand-card-body {
+  max-height: 4000px;
+  opacity: 1;
+}
+
+.expand-card-content {
+  padding: 0 20px 20px;
+  border-top: 1px solid var(--border);
+}
+
+.expand-card-content p {
+  font-size: 14px;
+  margin-top: 14px;
+  margin-bottom: 0;
+}
+
+.expand-card-content img {
+  width: 100%;
+  height: auto;
+  border-radius: 4px;
+  margin-top: 14px;
+  border: 1px solid var(--border);
+}
+
+.pipeline-svg {
+  width: 100%;
+  height: auto;
+  display: block;
+  margin-top: 14px;
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.diagram-block {
+  margin: 24px 0;
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.diagram-block svg { width: 100%; height: auto; display: block; }
+
+.diagram-caption {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 12px;
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+/* ---- 交互式注意力可见性演示 ---- */
+.attn-demo {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin: 28px 0;
+}
+
+.attn-demo-title { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+.attn-demo-sub { font-size: 13px; color: var(--text-muted); margin-bottom: 16px; }
+
+.attn-modes { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 18px; }
+
+.mode-btn {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  color: var(--text-secondary);
+}
+
+.mode-btn:hover { background: var(--bg-secondary); }
+.mode-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.attn-seq {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+  padding: 18px 14px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  min-height: 76px;
+}
+
+.attn-tok {
+  padding: 7px 11px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-family: var(--font-mono);
+  background: #fff;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  transition: all 0.25s ease;
+  white-space: nowrap;
+}
+
+.attn-tok:hover { border-color: var(--accent-light); }
+.attn-tok.query { background: var(--accent); color: #fff; border-color: var(--accent); font-weight: 600; }
+.attn-tok.visible { background: var(--bg-tertiary); border-color: var(--accent-light); }
+.attn-tok.masked { opacity: 0.3; border-style: dashed; }
+.attn-tok.sep { background: var(--bg-tertiary); color: var(--text-muted); font-size: 11px; }
+
+.attn-copy-label {
+  font-size: 11px;
+  color: var(--text-muted);
+  width: 100%;
+  margin-top: 4px;
+  letter-spacing: 0.4px;
+}
+
+.attn-hint {
+  font-size: 14px;
+  color: var(--text-secondary);
+  margin-top: 16px;
+  margin-bottom: 0;
+  min-height: 48px;
+  line-height: 1.7;
+}
+
+.attn-verdict { font-weight: 600; color: var(--accent); }
+
+/* ---- 步进演示 ---- */
+.step-demo {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 24px;
+  margin: 28px 0;
+}
+
+.step-demo-title { font-size: 15px; font-weight: 600; margin-bottom: 16px; }
+
+.step-visual {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  justify-content: center;
+}
+
+.step-node {
+  padding: 8px 12px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  text-align: center;
+  transition: all 0.4s ease;
+  border: 2px solid transparent;
+  opacity: 0.35;
+  background: #fff;
+}
+
+.step-node.active {
+  opacity: 1;
+  border-color: var(--accent);
+  transform: translateY(-2px);
+}
+
+.step-node.done { opacity: 0.75; background: var(--bg-tertiary); }
+
+.step-node.arrow {
+  background: none;
+  border: none;
+  font-size: 16px;
+  color: var(--text-muted);
+  opacity: 0.5;
+  padding: 0 2px;
+}
+
+.step-controls {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.step-btn {
+  padding: 8px 18px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  color: var(--text-secondary);
+}
+
+.step-btn:hover { background: var(--bg-secondary); }
+.step-btn.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.step-desc {
+  font-size: 14px;
+  color: var(--text-secondary);
+  flex: 1;
+  min-width: 220px;
+  line-height: 1.7;
+}
+
+.formula-block {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin: 20px 0;
+  font-family: var(--font-mono);
+  font-size: 14px;
+  overflow-x: auto;
+  text-align: center;
+}
+
+.formula-note { font-size: 12px; color: var(--text-muted); font-family: var(--font-sans); margin-top: 8px; }
+
+.compare-panel {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.compare-side {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 20px;
+}
+
+.compare-side-title { font-size: 14px; font-weight: 600; margin-bottom: 10px; }
+.compare-side p, .compare-side li { font-size: 14px; }
+.compare-side p:last-child { margin-bottom: 0; }
+
+.quote-block {
+  border-left: 3px solid var(--accent-light);
+  padding: 12px 20px;
+  margin: 20px 0;
+  background: var(--bg-secondary);
+  border-radius: 0 var(--radius) var(--radius) 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.quote-block p:last-child { margin-bottom: 0; }
+
+ul, ol { padding-left: 20px; margin-bottom: 16px; }
+li { margin-bottom: 6px; }
+strong { font-weight: 600; }
+
+.term-box {
+  background: var(--bg-secondary);
+  border-radius: var(--radius);
+  padding: 16px 20px;
+  margin: 20px 0;
+  font-size: 14px;
+  color: var(--text-secondary);
+}
+
+.term-box p:last-child { margin-bottom: 0; }
+
+details {
+  margin: 12px 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+  background: #fff;
+}
+
+details summary {
+  padding: 12px 16px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+}
+
+details summary:hover { background: var(--bg-tertiary); }
+details[open] summary { border-bottom: 1px solid var(--border); }
+details .detail-content { padding: 16px; font-size: 14px; }
+details .detail-content p { font-size: 14px; }
+details .detail-content p:last-child { margin-bottom: 0; }
+details .detail-content img { width: 100%; height: auto; border-radius: 4px; margin-top: 12px; }
+
+pre.code-block {
+  background: #fff;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  overflow-x: auto;
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+  margin: 0;
+}
+
+pre.code-block .kw { color: var(--accent); font-weight: 600; }
+pre.code-block .cm { color: var(--text-muted); }
+
+.data-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  margin: 16px 0;
+}
+
+.data-table th, .data-table td {
+  border: 1px solid var(--border);
+  padding: 8px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+
+.data-table th { background: var(--bg-secondary); font-weight: 600; }
+.data-table td.num { font-family: var(--font-mono); text-align: right; }
+.data-table tr.highlight { background: var(--bg-secondary); }
+.data-table tr.highlight td { font-weight: 600; }
+.val-up { color: var(--accent); font-weight: 600; font-family: var(--font-mono); }
+.val-down { color: var(--text-muted); font-family: var(--font-mono); }
+
+.table-scroll { overflow-x: auto; }
+
+.page-footer {
+  padding: 32px 0;
+  border-top: 1px solid var(--border);
+  margin-top: 48px;
+}
+
+.page-footer p { font-size: 13px; color: var(--text-muted); }
+
+@media (max-width: 880px) {
+  .compare-panel { grid-template-columns: 1fr; }
+  .metrics-row { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); }
+  .paper-title { font-size: 22px; }
+  .container { padding: 0 16px; }
+  .figure-detail.active { max-height: 2600px; }
+  .expand-card.expanded .expand-card-body { max-height: 6000px; }
+}
+</style>
+</head>
+<body>
+
+<div class="container">
+  <header class="paper-header">
+    <div class="paper-meta">
+      <span class="meta-tag venue">ACL'26 Long</span>
+      <span class="meta-tag">2026.04</span>
+      <span class="meta-tag">Zero-Shot NER</span>
+      <span class="meta-tag">Token Classification</span>
+    </div>
+    <h1 class="paper-title">Just Pass Twice：把输入抄两遍，让因果 LLM 做判别式 NER</h1>
+    <p class="paper-authors">Ahmed Ewais, Ahmed Hashish, Amr Ali &middot; WitnessAI</p>
+    <a href="https://aclanthology.org/2026.acl-long.526.pdf" target="_blank" rel="noopener" class="source-link">原文 ↗ ACL Anthology</a>
+    <a href="https://arxiv.org/abs/2604.05158" target="_blank" rel="noopener" class="source-link">arXiv:2604.05158</a>
+  </header>
+</div>
+
+<nav class="nav-bar">
+  <div class="container">
+    <a href="#tldr" class="nav-link">核心思想</a>
+    <a href="#problem" class="nav-link">问题</a>
+    <a href="#existing" class="nav-link">已有方案</a>
+    <a href="#method" class="nav-link">JPT 方法</a>
+    <a href="#speed" class="nav-link">为什么反而更快</a>
+    <a href="#insights" class="nav-link">有趣细节</a>
+    <a href="#results" class="nav-link">实验</a>
+    <a href="#limits" class="nav-link">局限</a>
+  </div>
+</nav>
+
+<div class="container">
+
+  <section id="tldr">
+    <div class="tldr">
+      <div class="tldr-title">TL;DR</div>
+      <p><strong>核心问题：能不能让 decoder-only 因果 LLM 像 BERT 那样做逐 token 分类式的 NER？</strong>BERT 类编码器有双向注意力，天然适合打标签，但参数小（&lt;1B）、世界知识少；LLM 知识丰富，可因果掩码让每个 token 看不到后文，无法消歧，于是所有 LLM-NER 方案都退回到「让模型生成实体列表」——慢、贵、还会幻觉出原文没有的实体。</p>
+      <p><strong>JPT 的做法：把输入抄两遍拼成一条序列</strong>（<span style="font-family:var(--font-mono)">x₁…xₙ [SEP] x₁…xₙ</span>）。因果掩码不变，但第二遍的每个 token 都排在第一遍全部 token 之后，于是能「回看」完整句子——白拿双向上下文，模型结构一行不改。分类时只取第二遍 token 的 hidden state。</p>
+      <p><strong>第二个部件：用自然语言「定义」而不是标签名来表示实体类型</strong>，并且定义同时注入 prompt 文本和 embedding 向量两条通道。这让用户能直接用一句话规定边界情况（比如 <span style="font-family:var(--font-mono)">PRICE</span> 要不要包含「budget-friendly」）。</p>
+      <p><strong>效果</strong>：CrossNER + MIT 上平均 74.1 F1，比之前最好的 SaM 高 7.9 分；同时比生成式方法快 20 倍以上——因为翻倍的输入全在<strong>并行的 prefill 阶段</strong>吃掉，而生成式的开销在<strong>串行的 decode 阶段</strong>。</p>
+    </div>
+
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="metric-value">+7.9</div>
+        <div class="metric-label">F1 超过此前 SOTA（SaM）<br>JPT-8B 74.1 vs 66.2</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">22×</div>
+        <div class="metric-label">推理加速<br>JPT-4B vs UniNER-7B</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">−15.2</div>
+        <div class="metric-label">去掉输入复制后<br>掉的 F1（消融）</div>
+      </div>
+      <div class="metric-card">
+        <div class="metric-value">0.95%</div>
+        <div class="metric-label">JPT-4B 可训练参数占比<br>backbone 完全冻结</div>
+      </div>
+    </div>
+
+    <div class="term-box">
+      <p><strong>先约定几个说法，全文保持一致：</strong></p>
+      <ul style="margin-bottom:0">
+        <li><strong>判别式 token 分类</strong>：一次 forward 给每个 token 直接打一个类型标签，再把连续同类 token 合成 span。对应 BERT 时代的 NER 范式。</li>
+        <li><strong>生成式抽取</strong>：让 LLM 自回归解码出实体列表或 JSON，再解析。当前 LLM-NER 的主流。</li>
+        <li><strong>第一遍 / 第二遍（first / second pass）</strong>：<span class="attn-verdict">指同一条输入序列的前半段和后半段，不是两次 forward</span>。全流程只跑一次前向。</li>
+        <li><strong>实体类型定义（entity type definition）</strong>：一段描述「该标什么、不该标什么」的自然语言，取代 <span style="font-family:var(--font-mono)">PERSON</span> 这种裸标签名。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="problem">
+    <h2>为什么因果 LLM 不能直接做 token 分类</h2>
+
+    <p>NER 最经典的做法是<strong>逐 token 打标签</strong>：给句子里每个 token 分配一个类型，然后把连续同类的 token 合并成实体 span。BERT / RoBERTa / DeBERTa 这类双向编码器天生适合这件事——每个 token 都能同时看到左右上下文。GLiNER、NuNER 等一批 NER 系统都建立在这个范式上。</p>
+
+    <p>但编码器有个硬天花板：<strong>通常不到 1B 参数，上下文窗口小，世界知识远不如大模型</strong>。碰到 CrossNER 里的 AI、文学、音乐这类需要领域常识的场景，编码器就吃力了。</p>
+
+    <p>LLM 知识够了，但它是<strong>因果注意力</strong>：处理第 <em>i</em> 个 token 时只能看到 <em>x₁…xᵢ</em>。论文用一个例子说明这为什么致命——</p>
+
+    <div class="diagram-block">
+      <svg viewBox="0 0 720 200" role="img" aria-label="因果注意力下 Paris 无法看到后文 album">
+        <text x="12" y="24" font-size="12" fill="#8a7c68" font-family="Inter, sans-serif">单次输入 · 标准因果注意力</text>
+
+        <rect x="12" y="60" width="86" height="40" rx="6" fill="#a0724a" stroke="#a0724a"/>
+        <text x="55" y="85" text-anchor="middle" font-size="13" fill="#fff" font-family="monospace" font-weight="600">Paris</text>
+
+        <rect x="118" y="60" width="96" height="40" rx="6" fill="#fff" stroke="#ddd0be" stroke-dasharray="4 3"/>
+        <text x="166" y="85" text-anchor="middle" font-size="13" fill="#bbb0a0" font-family="monospace">released</text>
+
+        <rect x="222" y="60" width="34" height="40" rx="6" fill="#fff" stroke="#ddd0be" stroke-dasharray="4 3"/>
+        <text x="239" y="85" text-anchor="middle" font-size="13" fill="#bbb0a0" font-family="monospace">a</text>
+
+        <rect x="264" y="60" width="54" height="40" rx="6" fill="#fff" stroke="#ddd0be" stroke-dasharray="4 3"/>
+        <text x="291" y="85" text-anchor="middle" font-size="13" fill="#bbb0a0" font-family="monospace">new</text>
+
+        <rect x="326" y="60" width="72" height="40" rx="6" fill="#fff" stroke="#ddd0be" stroke-dasharray="4 3"/>
+        <text x="362" y="85" text-anchor="middle" font-size="13" fill="#bbb0a0" font-family="monospace">album</text>
+
+        <line x1="108" y1="48" x2="108" y2="118" stroke="#c0392b" stroke-width="2" stroke-dasharray="6 4"/>
+        <text x="114" y="132" font-size="11" fill="#c0392b" font-family="Inter, sans-serif">因果掩码屏障：右侧全部不可见</text>
+
+        <text x="12" y="160" font-size="12" fill="#5a4d3a" font-family="Inter, sans-serif">分类 Paris 时模型手上只有「Paris」这一个词</text>
+        <text x="12" y="180" font-size="12" fill="#5a4d3a" font-family="Inter, sans-serif">→ 是城市（LOCATION）还是音乐人（PERSON）？</text>
+        <text x="330" y="180" font-size="13" fill="#c0392b" font-family="Inter, sans-serif" font-weight="600">✗ 无法判断</text>
+
+        <text x="440" y="85" font-size="12" fill="#8a7c68" font-family="Inter, sans-serif">决定性线索</text>
+        <text x="440" y="103" font-size="12" fill="#8a7c68" font-family="Inter, sans-serif">「a new album」</text>
+        <text x="440" y="121" font-size="12" fill="#8a7c68" font-family="Inter, sans-serif">出现在它<tspan font-weight="600">之后</tspan></text>
+      </svg>
+      <p class="diagram-caption">句子 “Paris released a new album” 中，把 <span style="font-family:var(--font-mono)">Paris</span> 判成人名而非城市的唯一依据是后半句「发了一张新专辑」。因果掩码恰好把这条线索挡在了外面——这正是 decoder-only LLM 做不了标准 token 分类的根本原因。</p>
+    </div>
+
+    <p>于是几乎所有 LLM-NER 工作都绕开了 token 分类，改用<strong>生成式抽取</strong>：把实体类型写进 prompt，让模型吐出实体列表。这条路避开了架构问题，却引入三个新的：</p>
+
+    <ul>
+      <li><strong>慢</strong>：延迟随<strong>输出长度</strong>增长，而非输入长度。自回归解码每生成一个 token 就要重新走一遍模型。</li>
+      <li><strong>贵</strong>：商业 API 的输出 token 定价通常是输入的 3–5 倍，正因为解码串行且 memory-bound。</li>
+      <li><strong>不可靠</strong>：会幻觉出原文根本不存在的实体（GPT-NER 专门讨论过这个问题，需要二次校验），也会输出解析不了的格式，得加重试逻辑。</li>
+    </ul>
+
+    <p>所以这篇论文真正要回答的是：<span class="attn-verdict">能不能把编码器时代成熟的 token 分类范式，原封不动搬到因果 LLM 上？</span></p>
+  </section>
+
+  <section id="existing">
+    <h2>已有方案卡在哪</h2>
+
+    <p>在看 JPT 之前，先理清三类相关工作各自的位置：<strong>生成式 LLM 方案</strong>提供了知识但牺牲了效率，<strong>编码器判别式方案</strong>效率高但容量受限，<strong>已有的双向化技巧</strong>要么需要特殊预训练，要么和 JPT 的目标不同。下面每张卡片折叠时已给出它在本文论证中的角色和留下的缺口，展开可看方法细节。</p>
+
+    <div class="expand-card" id="card-uniner">
+      <div class="expand-card-header" onclick="toggleCard('card-uniner')">
+        <span class="expand-arrow">▶</span>
+        <div>
+          <div class="expand-card-title">UniversalNER（UniNER）<span class="paper-tag">ICLR'24</span></div>
+          <div class="expand-card-subtitle">生成式 LLM-NER 的代表：从 ChatGPT 蒸馏开放实体词表，但<strong>每个实体类型要单独查询一次</strong>，N 个类型就是 N 轮解码。JPT 的主要速度对照组（1970 秒 vs 90 秒）。</div>
+        </div>
+      </div>
+      <div class="expand-card-body">
+        <div class="expand-card-content">
+          <svg class="pipeline-svg" viewBox="0 0 700 190" role="img" aria-label="UniversalNER 逐类型生成流程">
+            <text x="12" y="20" font-size="11" fill="#8a7c68">句子固定，实体类型逐个轮询——每一轮都是一次完整的自回归解码</text>
+
+            <rect x="12" y="34" width="120" height="120" rx="6" fill="#f4ead7" stroke="#ddd0be"/>
+            <text x="72" y="86" text-anchor="middle" font-size="12" fill="#5a4d3a">输入句子</text>
+            <text x="72" y="104" text-anchor="middle" font-size="11" fill="#8a7c68">（每轮都重放）</text>
+
+            <text x="142" y="98" font-size="16" fill="#8a7c68">→</text>
+
+            <rect x="166" y="34" width="210" height="32" rx="6" fill="#fff" stroke="#ddd0be"/>
+            <text x="271" y="55" text-anchor="middle" font-size="11" fill="#5a4d3a">“What describes PERSON in the text?”</text>
+            <rect x="166" y="76" width="210" height="32" rx="6" fill="#fff" stroke="#ddd0be"/>
+            <text x="271" y="97" text-anchor="middle" font-size="11" fill="#5a4d3a">“What describes ALBUM in the text?”</text>
+            <rect x="166" y="118" width="210" height="32" rx="6" fill="#fff" stroke="#ddd0be"/>
+            <text x="271" y="139" text-anchor="middle" font-size="11" fill="#5a4d3a">… 共 N 个类型，逐个来</text>
+
+            <text x="386" y="98" font-size="16" fill="#8a7c68">→</text>
+
+            <rect x="410" y="60" width="120" height="66" rx="6" fill="#e8dcc7" stroke="#a0724a" stroke-width="1.5"/>
+            <text x="470" y="87" text-anchor="middle" font-size="12" fill="#2c2418" font-weight="600">自回归解码</text>
+            <text x="470" y="105" text-anchor="middle" font-size="11" fill="#5a4d3a">×N 轮</text>
+
+            <text x="540" y="98" font-size="16" fill="#8a7c68">→</text>
+
+            <rect x="564" y="60" width="124" height="66" rx="6" fill="#f4ead7" stroke="#ddd0be"/>
+            <text x="626" y="82" text-anchor="middle" font-size="11" fill="#5a4d3a">JSON 实体列表</text>
+            <text x="626" y="100" text-anchor="middle" font-size="11" fill="#5a4d3a">解析成 span</text>
+            <text x="626" y="118" text-anchor="middle" font-size="10" fill="#c0392b">可能幻觉 / 解析失败</text>
+          </svg>
+
+          <p><strong>它做了什么</strong>：UniversalNER 走的是「定向蒸馏」路线——不是通用地模仿 ChatGPT 的指令跟随能力，而是<strong>只蒸馏 NER 这一件事</strong>。做法很聪明：输入文本不让模型编，而是从 Pile 语料真实采样段落，只让 ChatGPT 产出标注。提示里<strong>刻意不给定任何类型清单</strong>，让它自由发挥。最终得到 45,889 个段落、240,725 个实体提及、<strong>13,020 个不同实体类型</strong>的开放词表数据，再用它微调 LLaMA-7B。</p>
+
+          <p><strong>推理长什么样</strong>：模型被训练成多轮对话格式，<strong>每一轮问一个类型</strong>——「What describes person in the text?」，模型回一个 JSON 列表，loss 只算在回答上。他们还加了负采样（问段落里不存在的类型，期望回空列表）来抑制过度预测。</p>
+
+          <p><strong>「一次一个类型」不是疏忽，是必需品</strong>：这一点很关键。作者自己试过把所有类型塞进一次问答（<span style="font-family:var(--font-mono)">UniNER-7B-all-in-one</span>），也就是最省钱的那种改法——结果平均 F1 从 <strong>41.7 掉到 29.9</strong>，编程领域直接从 27.7 崩到 6.1。他们归因于注意力被分散。换句话说，<strong>这个方法的昂贵是结构性的，不能通过合并请求消掉</strong>。</p>
+
+          <p><strong>卡在哪</strong>：于是成本随类型数线性膨胀。CrossNER-AI 有 17 个实体类型，就意味着<strong>同一个句子要被完整解码 17 遍</strong>。CrossNER-Politics 上实测 1970 秒、2.77 美元，而 JPT-4B 是 90 秒、0.13 美元。另一个结构性后果是：每个类型独立判断，没有任何机制保证互斥，所以同一个 mention 经常被同时打上 ORGANIZATION 和 POLITICAL PARTY 两个标签——论文 Figure 9 里的过度预测就是这么来的。</p>
+
+          <p><strong>与 JPT 的关系</strong>：UniNER 是 JPT 速度对照的主角（22× 加速）。精度上 JPT-8B 74.1 vs UniNER-7B 61.8。有意思的是，GLiNER 和后来一批判别式模型用的训练数据（Pile-NER）正是 UniversalNER 造出来的——它的数据贡献比它的模型贡献影响更久。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="expand-card" id="card-sam">
+      <div class="expand-card-header" onclick="toggleCard('card-sam')">
+        <span class="expand-arrow">▶</span>
+        <div>
+          <div class="expand-card-title">SaM：Selecting and Merging<span class="paper-tag">ACL'25</span></div>
+          <div class="expand-card-subtitle">JPT 之前的 SOTA（CrossNER + MIT 平均 66.2 F1）：离线训练一批领域专家 LoRA，推理时用两套策略各挑 3 个专家合并成两个模型，结果取并集。缺口是仍属生成式、需要预备专家权重库，而且解码成本是别人的 2 倍。</div>
+        </div>
+      </div>
+      <div class="expand-card-body">
+        <div class="expand-card-content">
+          <img src="https://arxiv.org/html/2506.22813v1/model_main_v1.svg" alt="SaM 框架总览" loading="lazy">
+          <p class="figure-caption" style="font-size:13px">SaM 原论文 Figure 2：目标领域进来后<strong>分叉成上下两条独立的选择流水线</strong>，各自合并出一个模型，最后把两边的预测取并集。</p>
+          <span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明 ▸</span>
+          <div class="figure-detail">
+            <ul>
+              <li><strong>最左侧紫色文档堆「Target Domain」</strong>：目标领域的原始文本。一条灰箭头出来后立刻<strong>一分为二</strong>，进入上下两个面板——这个分叉是理解全图的钥匙。</li>
+              <li><strong>上面板 (a) Domain Similarity</strong>：左边那组彩色椭圆是各领域的文本嵌入聚类，每个椭圆中心的实心点是<strong>领域质心</strong>。细箭头从中心的紫色（目标）质心辐射到其余五个质心，量的是余弦相似度。这是一条<strong>不需要任何标注</strong>的纯分布先验。</li>
+              <li><strong>下面板 (b) Sampling Evaluation</strong>：流程被标了 ①②③④。① 从目标领域<strong>只抽 10 条样本</strong>；② 让全部六个专家各跑一遍，得到六份预测；③ 对这些预测<strong>投票合成伪标签</strong>——这一步是关键，它让整个评估不需要任何真实标注；④ 虚线箭头从伪标签反指回各份预测，用伪标签给每个专家打分。这是<strong>实测</strong>而非先验。</li>
+              <li><strong>两条支路各自的「Expert models」虚线框</strong>：都挑出 3 个专家（m=3），但注意图里<strong>两个框中的立方体颜色不同</strong>——两套策略选出的专家集合本来就不一样，论文观察到「最相似的领域往往不是表现最好的」。</li>
+              <li><strong>Merge → Task model</strong>：各自用 Ties-Merging 把 3 个 LoRA 的任务向量融成一个模型，得到紫色的 M<sub>DS</sub> 和蓝色的 M<sub>SE</sub>。</li>
+              <li><strong>最右侧两股预测汇成一份</strong>：两个模型<strong>各自把整个测试集解码一遍</strong>，结果取并集。这就是它比别人贵一倍的地方——图上那两条并行的推理路径是字面意义上的两次全量解码。</li>
+            </ul>
+          </div>
+
+          <p><strong>它做了什么</strong>：SaM 针对的是一个很现实的矛盾——<strong>单个统一 NER 模型吃不下所有领域，而给每个领域各训一个又不可扩展</strong>。它的方案是把「组合多领域知识」这一步从<strong>训练时挪到推理时</strong>：离线把 20 多个 NER 数据集归成六个领域（新闻 / 社交媒体 / 生物医学 / STEM / 法律 / 交通），各训一个 LoRA 专家；推理时再按目标领域临时挑选并合并。</p>
+
+          <p><strong>两套选择策略，而不是一套</strong>：这是容易看漏的设计。<strong>Domain Similarity</strong> 用句嵌入质心的余弦距离排名，是理论先验；<strong>Sampling Evaluation</strong> 则从目标域抽 10 条样本，让六个专家全跑一遍、投票产生伪标签，再拿伪标签反过来给专家打分，是经验实测。两套各选 3 个专家、各合并出一个模型、各解码一遍，最后<strong>预测取并集</strong>。作者说明并集而非交集是刻意的：两个模型已经各自领域定制，捕捉的是互补视角，此处召回比精度过滤更值钱。</p>
+
+          <p><strong>为什么它是最强基线</strong>：CrossNER + MIT 平均 <strong>66.2 F1</strong>（Llama3.1-8B），比自家统一训练的基线高 8.7% 相对值，Politics 域提升最大。</p>
+
+          <p><strong>卡在哪</strong>：三处。<strong>其一</strong>，仍然是生成式——选择和合并只改善了「用哪套权重」，没碰「逐 token 解码出 JSON」这个昂贵且要解析的输出形式。<strong>其二</strong>，论文附录自己列了成本表：所有统一模型基线推理开销都是 <span style="font-family:var(--font-mono)">1×</span>，<strong>SaM 是 <span style="font-family:var(--font-mono)">2×</span></strong>，因为两个模型要各解码一遍全集；砍成一个模型的 <span style="font-family:var(--font-mono)">SaM_eco</span> 能回到 1×，但精度掉到 65.49。<strong>其三</strong>，它离不开那个<strong>预先训练好、预先按领域切分好的专家库</strong>，等于把泛化问题推给了库的覆盖度——这也是作者自列的头号局限。</p>
+
+          <p><strong>与 JPT 的关系</strong>：这是 +7.9 F1 那个数字的对照对象（74.1 vs 66.2）。两种思路的差异很能说明问题：SaM 靠<strong>准备更多专用权重</strong>覆盖领域，JPT 靠<strong>一句自然语言定义</strong>指定新类型——后者边际成本近乎为零，而且定义可以离线编码并缓存。</p>
+
+        </div>
+      </div>
+    </div>
+
+    <div class="expand-card" id="card-gliner">
+      <div class="expand-card-header" onclick="toggleCard('card-gliner')">
+        <span class="expand-arrow">▶</span>
+        <div>
+          <div class="expand-card-title">GLiNER<span class="paper-tag">NAACL'24</span></div>
+          <div class="expand-card-subtitle">判别式路线的代表：DeBERTa 双向编码器同时编码「实体类型提示 + 文本」，在共享隐空间里做 span-类型匹配，一次并行抽全部类型。缺口是 backbone 只有几亿参数，世界知识撑不起专业领域。</div>
+        </div>
+      </div>
+      <div class="expand-card-body">
+        <div class="expand-card-content">
+          <img src="https://arxiv.org/html/2311.08526v1/gener.png" alt="GLiNER 架构图" loading="lazy">
+          <p class="figure-caption" style="font-size:13px">GLiNER 原论文 Figure 2：类型提示与文本拼成<strong>一条序列</strong>送进双向编码器，左右两条支路分别产出类型向量和 span 向量，最后在右下角的相似度矩阵里做匹配。</p>
+          <span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明 ▸</span>
+          <div class="figure-detail">
+            <ul>
+              <li><strong>顶部两个虚线框</strong>：左边橙色标题「Entity types prompt」里是 <span style="font-family:var(--font-mono)">[ENT] Person [ENT] Organization [ENT] Location [SEP]</span>——每个类型名前插一个可学习的 <span style="font-family:var(--font-mono)">[ENT]</span> 标记；右边绿色标题「Input sentence」是 “Alain Farley works at McGill University”，每个词下面标了 0–5 的位置编号。</li>
+              <li><strong>两个框汇入同一条蓝色横条</strong>「Bidirectional Transformer（BERT, DeBERTa…）」：这是全图的关键——<strong>类型提示和文本在同一次前向里互相注意</strong>，不是分开编码再比对。</li>
+              <li><strong>中间灰色向量条</strong>（Token/word representation）：编码器对每个位置输出一个向量，提示侧和文本侧都有。</li>
+              <li><strong>分成左右两条粉色支路</strong>：左边 FFN layer 只吃提示侧的向量，产出「Entity type Embeddings」（3 个，每类一个）；右边 Span representation layer 只吃文本侧的向量，把起止 token 拼接后过 FFN，产出「Span Embeddings」。</li>
+              <li><strong>span 下方标注的 (0,0) (0,1) (1,1) …</strong>：GLiNER <strong>穷举所有起止组合</strong>（长度上限 12），一次性全部并行算出，这是它不需要自回归的原因。</li>
+              <li><strong>右下角的相似度矩阵</strong>：行是类型、列是 span，格子里是 σ(S<sub>ij</sub>·q<sub>t</sub>)。红色高亮的两格是答案——<span style="font-family:var(--font-mono)">0.9</span> 落在（Person, span(0,1)）即 “Alain Farley”，<span style="font-family:var(--font-mono)">0.8</span> 落在（Organization, span(4,5)）即 “McGill University”。超过 0.5 即判为实体。</li>
+              <li>一句话总结：<strong>整个 NER 被压成一张「类型 × span」的概率表</strong>，一次前向填满，阈值一卡就出结果。</li>
+            </ul>
+          </div>
+
+          <p><strong>它做了什么</strong>：GLiNER 把 NER 重新表述成<strong>共享隐空间里的语义匹配</strong>，全程一次前向。类型向量 <em>q<sub>t</sub></em> 取自各个 <span style="font-family:var(--font-mono)">[ENT]</span> 位置的隐状态过 FFN；span 向量 <em>S<sub>ij</sub></em> 由起止 token 表示拼接后过 FFN（长度上限 12，避免枚举爆炸）。最后 <em>σ(S<sub>ij</sub><sup>⊤</sup>q<sub>t</sub>)</em> 对每个「span × 类型」组合做二分类，训练用的是全体组合上的二元交叉熵。</p>
+
+          <p><strong>关键优势</strong>：因为编码器是双向的，且所有类型都在同一条序列里，<strong>一次前向就能把全部类型的全部 span 并行抽完</strong>——没有自回归，没有逐类型轮询，也不可能幻觉出原文没有的文本（候选只能从输入的 span 里选）。模型只有几亿参数，跑起来非常便宜（CrossNER-Politics 上 33 秒、0.05 美元）。训练数据用的正是 UniversalNER 蒸馏出来的 Pile-NER，但有个必要的补丁：Pile-NER 只标了句子里<strong>存在</strong>的类型，所以 GLiNER 要从同批次其他样本里<strong>采样负类型</strong>——不采负样本只有 53.3 F1（假阳性泛滥），采 50% 才到 60.9。</p>
+
+          <p><strong>卡在哪</strong>：backbone 容量。DeBERTa 只有约 0.3B 参数、上下文窗口有限，编码的世界知识远不如大模型。碰到 CrossNER 的音乐、AI、文学这类需要领域常识的场景就吃力——GLiNER-L 在 CrossNER+MIT 上平均 60.9，比 JPT-8B 低 13.2 分。JPT 在定性对比里指出的典型症状是<strong>细粒度类型分不开</strong>：把五个政治人物统统标成 PERSON 而非 POLITICIAN，把「Empire of Japan」标成 ORGANIZATION 而非 COUNTRY。</p>
+
+          <p><strong>与 JPT 的关系</strong>：这是<strong>结构上最接近 JPT 的前作</strong>——同样判别式、同样把类型和 token 投到共享空间做匹配、同样一次前向。JPT 本质上是在问：<strong>能不能把 GLiNER 的范式搬到 7B+ 的 decoder 上？</strong>唯一挡路的就是因果掩码，而输入复制正是为了绕开它。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="expand-card" id="card-openbioner">
+      <div class="expand-card-header" onclick="toggleCard('card-openbioner')">
+        <span class="expand-arrow">▶</span>
+        <div>
+          <div class="expand-card-title">OpenBioNER<span class="paper-tag">Findings of NAACL'25</span></div>
+          <div class="expand-card-subtitle">JPT「定义制导」的直接来源：证明了用<strong>实体类型描述</strong>代替标签名，能显著提升罕见概念上的零样本表现。缺口是仍绑在小编码器和生物医学单一领域上。</div>
+        </div>
+      </div>
+      <div class="expand-card-body">
+        <div class="expand-card-content">
+          <img src="openbioner-fig1.png" alt="GLiNER 用标签名 vs OpenBioNER 用类型描述的对比" loading="lazy">
+          <p class="figure-caption" style="font-size:13px">OpenBioNER 原论文 Figure 1：同一个句子，上半用 GLiNER 的裸标签名（三个预测错两个），下半用类型描述（全对）。这张图是「为什么定义比标签名强」最直观的证据。</p>
+          <span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明 ▸</span>
+          <div class="figure-detail">
+            <ul>
+              <li><strong>上半部分（GLiNER）</strong>：输入是 <span style="font-family:var(--font-mono)">[ENT] Cell Line [ENT] RNA [SEP]</span> 加上句子「Extracts of the B-cell line, BJA-B, contain high levels of NF-A2 and specifically transcribe lg promoters」。</li>
+              <li><strong>它的三个预测</strong>：✅ <span style="font-family:var(--font-mono)">BJA-B → Cell Line</span> 对；❌ <span style="font-family:var(--font-mono)">NF-A2 → RNA</span> 错；❌ <span style="font-family:var(--font-mono)">lg promoters → RNA</span> 错。<strong>三个里错两个</strong>。</li>
+              <li><strong>错在哪</strong>：NF-A2 是转录因子（蛋白质），lg promoter 是启动子（DNA 序列），两者都<strong>不是</strong> RNA。但「RNA」这三个字母作为标签名，根本没告诉模型 RNA 的边界在哪，模型只能靠「跟基因表达沾边」这种表层联想。</li>
+              <li><strong>下半部分（OpenBioNER）</strong>：同一个句子被送两次，每次拼一段类型描述。第一次拼「A cell line is a population of cells derived from a single cell, cultured in vitro or in vivo…」，输出 ✅ B-cell 和 ✅ BJA-B——注意它<strong>还多抓到了 GLiNER 漏掉的 B-cell</strong>。</li>
+              <li><strong>第二次拼 RNA 的描述</strong>「RNA is a type of nucleic acid that plays a crucial role in the transmission of genetic information from DNA to…」，输出是<strong>空的</strong>。定义里「核酸」二字直接排除了转录因子和启动子，两个假阳性被干净地压掉。</li>
+              <li>一句话总结：<strong>标签名只提供一个词的语义，描述提供的是可执行的判定边界</strong>——而 NER 的错误恰恰大量发生在边界上。JPT 把这个观察从生物医学搬到了通用领域，并加了第二条 prompt 通道。</li>
+            </ul>
+          </div>
+
+          <p><strong>它做了什么</strong>：OpenBioNER 面对的是生物医学 NER 的一个具体痛点——<strong>标签名根本不足以确定标注口径</strong>。同一个 <span style="font-family:var(--font-mono)">Chemical</span> 在不同本体里覆盖范围可能差很多（「aspirin」在一个数据集里是 Drug、另一个里是 Chemical），而这个领域的实体类型又特别多、特别细、特别长尾。它的方案是不再编码标签名，改为把类型的<strong>一段自然语言描述</strong>和输入文本拼成一条序列 <span style="font-family:var(--font-mono)">[CLS] 文本 [SEP] 描述 [SEP]</span>，送进一个 cross-encoder。</p>
+
+          <p><strong>cross-encoder 是关键选择</strong>：因为描述和文本在同一条序列里双向互相注意，<strong>同一个词在不同类型描述下会得到不同的向量表示</strong>。这是 GLiNER 那种「类型和 span 分开编码再点积」的双编码器结构在原理上做不到的。分类头轻到极致——一个 <span style="font-family:var(--font-mono)">768×1</span> 的线性层把每个 token 压成一个标量，各类型的标量拼起来 softmax 出 BIO 标签。</p>
+
+          <p><strong>关键结论</strong>：110M 参数的 OpenBioNER 在 8 个生物医学 benchmark 上零样本平均 <strong>52.9 F1</strong>，超过 459M 的 GLiNER-large（51.9）和 UniNER-7B（49.9）。而<strong>最能说明问题的是罕见类型</strong>——JNLPBA-Rare 上 63.9 vs GLiNER 的 51.9，高出 12 分。罕见类型正是标签名信息量最低的地方。</p>
+
+          <p><strong>卡在哪</strong>：三处。<strong>其一</strong>，backbone 是 BioBERT-base，只有 110M，世界知识正是它放弃的东西——它靠描述换泛化，而不是靠预训练知识。<strong>其二</strong>，评测全是生物医学，不是通用零样本 NER 模型。<strong>其三</strong>，cross-encoder 的代价是<strong>每个类型要单独跑一次前向</strong>，成本随类型数线性增长（论文自己的表显示类型多时反而比 GLiNER 慢），它的辩护是生物医学任务通常类型不超过 10 个。</p>
+
+          <p><strong>与 JPT 的关系</strong>：这是 JPT「定义制导」部件的<strong>直接思想来源</strong>，论文明确说明了这一点。JPT 在两个方向上把它推远了：<strong>其一</strong>，从几亿参数的编码器搬到 4B/8B 的 decoder-only LLM 上；<strong>其二</strong>，从单通道扩成<strong>双通道</strong>——定义不只被编码成向量供分类器匹配，还原样写进 LLM 的 prompt，让注意力在编码 token 时就能读到。消融显示这第二条通道确实带来了额外收益（单通道 63.3–65.2，双通道 70.9）。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="expand-card" id="card-echo">
+      <div class="expand-card-header" onclick="toggleCard('card-echo')">
+        <span class="expand-arrow">▶</span>
+        <div>
+          <div class="expand-card-title">Echo Embeddings：Repetition Improves LM Embeddings<span class="paper-tag">ICLR'25</span></div>
+          <div class="expand-card-subtitle">和 JPT 最像的前作——同样把输入重复一遍来绕开因果掩码，但它把第二遍<strong>池化成一个句向量</strong>做检索。JPT 的差别正在这里：不池化，保留每个 token 的隐状态做细粒度分类。</div>
+        </div>
+      </div>
+      <div class="expand-card-body">
+        <div class="expand-card-content">
+          <svg class="pipeline-svg" viewBox="0 0 700 210" role="img" aria-label="Echo Embeddings 与 JPT 的对比：池化成句向量 vs 保留逐 token 向量">
+            <text x="12" y="20" font-size="11" fill="#8a7c68">同样的输入复制，分岔点在「第二遍的隐状态拿来干什么」</text>
+
+            <rect x="12" y="34" width="150" height="30" rx="6" fill="#f4ead7" stroke="#ddd0be"/>
+            <text x="87" y="54" text-anchor="middle" font-size="11" fill="#5a4d3a" font-family="monospace">第一遍 x₁…xₙ</text>
+            <rect x="166" y="34" width="150" height="30" rx="6" fill="#e8dcc7" stroke="#a0724a" stroke-width="1.5"/>
+            <text x="241" y="54" text-anchor="middle" font-size="11" fill="#2c2418" font-family="monospace">第二遍 x₁…xₙ</text>
+            <text x="326" y="54" font-size="11" fill="#8a7c68">→ 因果 LLM 一次前向</text>
+
+            <path d="M 241 66 L 241 84" stroke="#8a7c68" stroke-width="1.2" fill="none" marker-end="url(#ah2)"/>
+            <defs><marker id="ah2" markerWidth="7" markerHeight="7" refX="5" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6 z" fill="#8a7c68"/></marker></defs>
+            <rect x="146" y="86" width="190" height="28" rx="6" fill="#fff" stroke="#ddd0be"/>
+            <text x="241" y="105" text-anchor="middle" font-size="11" fill="#5a4d3a">第二遍的隐状态 h₁ … hₙ</text>
+
+            <path d="M 200 116 L 130 140" stroke="#8a7c68" stroke-width="1.2" fill="none" marker-end="url(#ah2)"/>
+            <path d="M 285 116 L 400 140" stroke="#a0724a" stroke-width="1.5" fill="none" marker-end="url(#ah2)"/>
+
+            <rect x="12" y="142" width="230" height="56" rx="6" fill="#f4ead7" stroke="#ddd0be"/>
+            <text x="127" y="161" text-anchor="middle" font-size="11" fill="#5a4d3a" font-weight="600">Echo Embeddings：池化</text>
+            <text x="127" y="177" text-anchor="middle" font-size="10" fill="#8a7c68">mean-pool → 一个句向量</text>
+            <text x="127" y="191" text-anchor="middle" font-size="10" fill="#8a7c68">用于检索 / MTEB</text>
+
+            <rect x="300" y="142" width="230" height="56" rx="6" fill="#e8dcc7" stroke="#a0724a" stroke-width="1.5"/>
+            <text x="415" y="161" text-anchor="middle" font-size="11" fill="#2c2418" font-weight="600">JPT：不池化</text>
+            <text x="415" y="177" text-anchor="middle" font-size="10" fill="#5a4d3a">保留每个 token 的向量</text>
+            <text x="415" y="191" text-anchor="middle" font-size="10" fill="#5a4d3a">逐 token 分类 → NER span</text>
+
+            <text x="548" y="167" font-size="11" fill="#8a7c68">同一个 trick</text>
+            <text x="548" y="185" font-size="11" fill="#8a7c68">两种粒度</text>
+          </svg>
+
+          <img src="https://arxiv.org/html/2402.15449v2/conceptual.svg" alt="Echo Embeddings 概念图" loading="lazy">
+          <p class="figure-caption" style="font-size:13px">Echo Embeddings 原论文 Figure 1：上半是问题（token 看不到自己的未来，虚线箭头被打叉），下半是解法（同一句写两遍，信息从第一遍的尾部流进第二遍的头部）。</p>
+          <span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明 ▸</span>
+          <div class="figure-detail">
+            <ul>
+              <li><strong>上半部分标题</strong>「Autoregressive embeddings do not encode context from later tokens」，下面是<strong>一行</strong>六个方块，颜色从绿渐变到品红——渐变不是装饰，它表示句子前三个和后三个 token 内容不同。</li>
+              <li><strong>方块上方的实线弧箭头</strong>（从左指向右）：合法的因果注意力，靠后的 token 可以看靠前的。</li>
+              <li><strong>方块下方的虚线弧箭头 + ✗</strong>（从右指向左）：被禁止的方向。token 看不到自己的未来，所以靠前 token 的表示天然是残缺的——无论怎么池化都补不回来。</li>
+              <li><strong>下半部分</strong>「Repetition enables embeddings to encode context from later tokens」：同样的六个方块<strong>出现了两组</strong>，左边是第一遍、右边是第二遍，渐变完全相同，复制关系一目了然。</li>
+              <li><strong>关键的那条箭头</strong>：从第一遍的<strong>靠后位置</strong>斜着指向第二遍的<strong>第一个 token</strong>。这就是全部机制——第二遍的早期 token 合法地读到了第一遍的晚期内容。<strong>下半部分没有任何 ✗</strong>，因为不需要做任何违规的事，掩码一动没动，只是输入变长了。</li>
+              <li><strong>右下角的 “echo embeddings” 标注在第二组下方</strong>：只有第二遍被读出。<strong>而 JPT 与它的分岔点正在这里</strong>——Springer 等人把这些状态平均池化成一个向量，JPT 保留它们逐 token 的形态。</li>
+            </ul>
+          </div>
+
+          <p><strong>它做了什么</strong>：Echo Embeddings 解决的是<strong>句向量</strong>问题。用自回归 LLM 做 sentence embedding 有个结构性缺陷——句子前半 token 的表示里不含后半信息。作者用一个很干净的合成实验证明了这有多致命：构造两类句子，一类判别信息在前半、一类在后半，结果 mean pooling 在前者上 0.94、后者上只有 0.51（等于瞎猜），last-token pooling 恰好反过来（0.25 / 1.0）。<strong>两种池化各自在相反的结构上失败，所以换池化方式救不了。</strong></p>
+
+          <p><strong>解法</strong>：在 prompt 里让模型扮演自编码器，把句子写两遍——「Rewrite the following paragraph: <em>x</em>. The rewritten paragraph: <em>x</em>」——然后<strong>只对第二遍的位置做平均池化</strong>。零样本 MTEB 从 42.38 涨到 <strong>48.64</strong>，同一个冻结模型、同样的池化、<strong>零训练</strong>。这个数字基本追平了需要额外 MNTP 微调的 LLM2Vec（49.43）。</p>
+
+          <p><strong>和 JPT 的关系，以及分岔点在哪</strong>：两者用的是<strong>同一个底层观察</strong>——重复输入可以在不改掩码的前提下换来双向上下文。但下游用途完全不同：Echo Embeddings 最终把第二遍<strong>压成一个全局句向量</strong>，为的是检索；这个动作恰好把 JPT 需要的东西全丢掉了。JPT 要的是<strong>不池化的、逐 token 隐状态</strong>，因为 NER 要给每个 token 单独打标签。</p>
+
+          <p>有个细节反过来印证了 JPT 的选择：Echo 在零样本下<strong>必须用 mean pooling</strong>（48.64），换成 last-token 只有 31.55。也就是说有用的信息是<strong>分布在第二遍各个 token 的状态里</strong>的，不集中在某一个位置——而这正是 JPT 直接拿来用的那份资源。</p>
+
+          <p>另一处差别：Echo 依赖「Rewrite / Repeat / Rephrase」这类自然语言指令来<strong>给第二遍一个复述第一遍的理由</strong>；JPT 只用一个分隔符、不给指令，等于在主张——只要下游接了可训练的分类头，<strong>位置带来的可见性本身就够了</strong>。论文在 Related Work 里也就此划清了界限：JPT 的贡献不是「发现重复输入有用」，而是把它用在细粒度判别式 token 分类上。</p>
+        </div>
+      </div>
+    </div>
+
+    <details>
+      <summary>其他让因果模型获得双向上下文的路子，为什么都不能直接用？</summary>
+      <div class="detail-content">
+        <p>让 decoder 拿到双向上下文并不是新问题，论文列了三条已有路子，并说明为什么它们都不能拿来即用：</p>
+        <ul>
+          <li><strong>Prefix-LM 注意力</strong>（T5、UL2）：把序列分成前缀和后缀，前缀内部允许<strong>双向</strong>注意，后缀保持因果。问题是这个注意力模式<strong>必须在预训练时就存在</strong>——一个现成的因果 LLM 从没见过这种模式，直接切过去表示会崩。</li>
+          <li><strong>Fill-in-the-Middle（FIM）</strong>：预训练时把文档重排成 (prefix, suffix, middle)，让模型学会在给定后文的条件下补中间。它确实提供了对未来上下文的条件化能力，但同样<strong>需要专门的预训练</strong>，而且目标是生成，不是逐 token 打标签。</li>
+          <li><strong>推理时直接把因果掩码去掉</strong>：最省事的想法，但通常会<strong>把事情变得更糟</strong>。模型从未在完整（非下三角）掩码下计算过注意力，注意力分布直接跑到分布外。LLM2Vec 的说法很直白：decoder <em>「was not trained to attend to future tokens」</em>，所以这种朴素做法「甚至可能导致更差的表示」。他们的实测印证了这点——在 token 级任务（chunking、<strong>NER</strong>、POS）上「naively applying bidirectional attention <strong>dramatically hurts</strong> performance」，而且逐层比较发现去掩码前后的隐状态<strong>余弦相似度很低</strong>，即表示不是被扰动了，而是变成了另一种东西。Echo Embeddings 那边也有独立数据：LLaMA-2-7B 上「去掩码」比老老实实用因果掩码<strong>更差</strong>（43.03 vs 47.27）。</li>
+        </ul>
+        <p><strong>一个需要如实说明的例外</strong>：Mistral 系列是个特例——对它去掩码几乎不掉分，NER 上甚至略有提升，逐层表示相似度也保持很高。两篇论文给出了同一个猜测：Mistral 的预训练里<strong>可能混入了某种双向或 prefix-LM 成分</strong>。所以准确的说法不是「去掩码一定失败」，而是<strong>它不可靠、且依赖你恰好挑中哪个模型</strong>——而一个只在特定 backbone 上成立的做法，很难称之为方法。</p>
+        <p>JPT 的做法绕过了以上全部前提：<strong>掩码是标准的下三角，权重是现成的，什么都不用重新预训练</strong>。它只是让同一句话在序列里出现两次，于是第二次出现时，模型在完全常规的因果计算下就自然拥有了完整上下文。这也是为什么论文反复强调「requires no architectural modifications」——这不是修辞，而是它相对上述三条路子的核心区别。</p>
+        <p style="font-size:13px;color:#8a7c68">值得一提的是，FIM 在机制上其实是三者里离 JPT 最近的：它同样<strong>只靠重排 token 序列</strong>、不碰掩码。区别在于 FIM 的重排只有被它训练过的模型才看得懂（<span style="font-family:var(--font-mono)">&lt;PRE&gt;/&lt;SUF&gt;/&lt;MID&gt;</span> 这些标记不在普通模型的词表里），而「把话说两遍」对任何因果 LLM 都是合法的——第二遍不过是一段前面碰巧有相同内容的普通文本。</p>
+      </div>
+    </details>
+
+    <p style="margin-top:24px">把这些放在一起，缺口就很清楚了：<strong>要么有双向上下文但模型太小（编码器），要么模型够大但只能生成（LLM），要么需要改预训练（Prefix-LM / FIM）。</strong>JPT 想同时拿到「大模型的知识」和「双向的上下文」，而且不改架构、不重新预训练——剩下唯一能动的地方，就是输入本身。</p>
+  </section>
+
+  <section id="method">
+    <h2>JPT 怎么做</h2>
+
+    <p>JPT 由两个正交的部件拼成：<strong>输入复制</strong>解决「看不到后文」，<strong>定义制导实体类型</strong>解决「怎么零样本泛化到没见过的类型」。最后用一个双线性分类器把 token 和类型在共享空间里对齐。</p>
+
+    <div class="figure-block">
+      <img src="https://arxiv.org/html/2604.05158v2/arch_fig.png" alt="JPT 架构图：实体类型编码通路与 token 通路" loading="lazy">
+      <p class="figure-caption">图 2（论文原图）：上半部分是<strong>实体类型编码通路</strong>（可离线预计算并缓存），下半部分是<strong>token 通路</strong>。雪花 = 冻结，火焰 = 可训练。</p>
+      <span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明 ▸</span>
+      <div class="figure-detail">
+        <ul>
+          <li><strong>左上「TYPES DEFINITIONS」</strong>：输入不是 <span style="font-family:var(--font-mono)">PER / ORG / LOC</span> 这些标签名，而是每个类型对应的一段自然语言定义（“A Person…”“An Org…”）。注意最后还有一个 <span style="font-family:var(--font-mono)">O</span> 类，定义是「not an Entity」——非实体也被当成一个有定义的正常类别参与匹配。</li>
+          <li><strong>Text Encoder（蓝色，冻结）</strong>：把每条定义编码成向量 <em>e<sub>PER</sub>, e<sub>ORG</sub>, …</em>。论文用 Qwen3-Embedding-8B（d<sub>enc</sub>=4096），也可换成 OpenAI text-embedding-3-small。因为定义在推理时固定不变，这一整条通路可以离线算完存下来，<strong>运行时零开销</strong>。</li>
+          <li><strong>Entity Projection MLP（火焰，可训练）</strong>：把 d<sub>enc</sub> 降到共享维度 d<sub>p</sub>=256，得到实体嵌入 <em>P<sub>PER</sub>, P<sub>ORG</sub>, P<sub>LOC</sub>, P<sub>O</sub></em>。</li>
+          <li><strong>左下「INPUT」的两个括号</strong>：这是全图最关键的细节。序列被分成 <strong>Context（第一遍）</strong>「Paris / called / yesterday」、一个紫色 <span style="font-family:var(--font-mono)">[SEP]</span>、以及 <strong>Target（第二遍）</strong>同样的「Paris / called / yesterday」。两段内容<strong>完全相同</strong>，区别只在位置。</li>
+          <li><strong>Causal LLM（蓝色冻结 + 橙色 LoRA Adapter）</strong>：Qwen3-4B / 8B 主干全程冻结，只在注意力的 q/k/v/o 投影上挂 LoRA。整条 2N+1 长度的序列<strong>一次前向</strong>跑完。</li>
+          <li><strong>「RAW TOKEN EMBEDDINGS (h)」的灰白分色</strong>：h₁–h₄（第一遍三个 token + SEP）是灰色——<strong>算了但丢弃</strong>；h₅–h₇（第二遍）是白色——只有它们进入下游。原因是只有第二遍的隐状态携带了完整双向上下文。</li>
+          <li><strong>Token Projection MLP（可训练）</strong>：把 d<sub>llm</sub>（4B 是 2560，8B 是 4096）降到同一个 d<sub>p</sub>=256，得到 t₁, t₂, t₃。至此 token 向量和类型向量住进了同一个空间。</li>
+          <li><strong>BILINEAR CLASSIFIER</strong>：接收下方的 t 和上方粗箭头送来的 P，对每个 (token, 类型) 组合算一个匹配分。右侧输出的小柱状图就是每个 token 在所有类型上的得分分布——第一个 token 判为 <span style="font-family:var(--font-mono)">PER</span>，后两个判为 <span style="font-family:var(--font-mono)">O</span>。</li>
+          <li>一句话总结：<strong>把 NER 变成「token 向量」和「类型定义向量」在 256 维空间里的匹配问题</strong>，而 token 向量的双向性靠输入复制白拿。</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>部件一：输入复制</h3>
+
+    <p>给定输入 <em>x</em> = (x₁, …, xₙ)，JPT 构造这样一条序列：</p>
+
+    <div class="formula-block">
+      x′ = ( x₁, …, xₙ , [SEP] , x₁, …, xₙ )<br>
+      <span style="font-size:12px;color:#8a7c68">└─── 第一遍 ───┘&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;└─── 第二遍 ───┘</span>
+      <div class="formula-note">注意力覆盖：第二遍位置 k 的 token 在 x′ 中处于第 n+1+k 位，因果掩码允许它看到所有 j ≤ n+1+k 的位置，其中<strong>包含了第一遍的全部 n 个 token</strong>。</div>
+    </div>
+
+    <p>这就是全文的核心 trick，而且它<strong>没有修改任何注意力机制</strong>——掩码还是标准的下三角，模型还是那个模型。变的只是「同一句话在序列里出现了两次」，于是第二次出现时，它的每个 token 天然排在完整句子之后。</p>
+
+    <p>下面这个演示可以直接感受这件事。点击任意 token，看它在因果掩码下能看到哪些位置：</p>
+
+    <div class="attn-demo">
+      <div class="attn-demo-title">交互演示：谁能看到谁</div>
+      <p class="attn-demo-sub">点击一个 token 作为「查询」，高亮的是它在因果掩码下可以 attend 到的全部位置。</p>
+      <div class="attn-modes">
+        <button class="mode-btn active" data-mode="single" onclick="setAttnMode('single')">单次输入（标准做法）</button>
+        <button class="mode-btn" data-mode="jpt" onclick="setAttnMode('jpt')">JPT 双份输入</button>
+      </div>
+      <div class="attn-seq" id="attnSeq"></div>
+      <p class="attn-hint" id="attnHint"></p>
+    </div>
+
+    <p>切到 JPT 模式点第二遍的 <span style="font-family:var(--font-mono)">Paris</span> 就能看到：它前面站着一整句完整的话。<strong>「未来上下文」被搬到了它的过去。</strong></p>
+
+    <p>论文里还有一个容易忽略但很实在的实现细节：所谓的 <span style="font-family:var(--font-mono)">[SEP]</span> 在真实 prompt 里不是特殊 token，而是一句大白话。整条输入长这样：</p>
+
+    <details>
+      <summary>完整 prompt 模板（论文 Figure 6）——注意那个「假的」assistant 轮次</summary>
+      <div class="detail-content">
+<pre class="code-block"><span class="kw">&lt;|im_start|&gt;system</span>
+You are an information-extraction assistant.
+Task: Perform Named Entity Recognition (NER) on the user-supplied text.
+The user will give you the supported entity types and their definitions.
+The user will give you the text twice in the format
+  "The first time: 'actual text' The second time: 'actual text'".
+Rules: (1) Keep multi-word entities together; (2) Only use provided types;
+(3) Output once; (4) No bare-noun labelling; (5) Output types exactly as
+listed; (6) Only label if clearly matches definition.
+<span class="kw">&lt;|im_end|&gt;</span>
+<span class="kw">&lt;|im_start|&gt;user</span>
+Supported entity types (3): ["PERSON", "ORGANIZATION", "LOCATION"]
+Entity type definitions:
+- "PERSON": "A named individual, including fictional characters"
+- "ORGANIZATION": "A company, institution, or group with a formal name"
+- "LOCATION": "A geographical place such as a city, country, or landmark"
+<span class="kw">&lt;|im_end|&gt;</span>
+<span class="kw">&lt;|im_start|&gt;assistant</span>
+I have read the definitions. Please provide the text in the format
+'The first time: ... The second time: ...'
+<span class="kw">&lt;|im_end|&gt;</span>
+<span class="kw">&lt;|im_start|&gt;user</span>
+The first time: '&lt;Input_Sequence&gt;'  The second time: '&lt;Input_Sequence&gt;'
+<span class="kw">&lt;|im_end|&gt;</span></pre>
+        <p style="margin-top:14px">几点值得注意：<strong>(1)</strong> 分隔符就是 <span style="font-family:var(--font-mono)">' The second time: '</span> 这句自然语言，不需要新增词表；<strong>(2)</strong> 中间那轮 assistant 回复是硬编码的，作用是让对话格式合法、并把定义和文本分成两个 user 轮；<strong>(3)</strong> system prompt 里写满了「输出格式」规则，但模型其实<strong>什么都不生成</strong>——这些规则只是为了让分布贴近 backbone 熟悉的指令模式；真正的输出来自分类头。</p>
+      </div>
+    </details>
+
+    <h3>部件二：定义制导的实体类型</h3>
+
+    <p>第二个设计针对零样本泛化。常规做法是把类型名（<span style="font-family:var(--font-mono)">PERSON</span>）编码成向量，这依赖标签名本身的表层语义；JPT 改成编码<strong>一整段定义</strong>：</p>
+
+    <div class="formula-block">p<sub>j</sub> = MLP<sub>entity</sub>( Embed(def<sub>j</sub>) ) ∈ ℝ<sup>256</sup></div>
+
+    <p>好处是解耦了模型和固定标签词表——<strong>新类型在推理时用一句话描述即可，无需重训</strong>。更进一步，定义给了用户对边界情况的直接控制权。论文举的例子：</p>
+
+    <div class="quote-block">
+      <p><strong>LOCATION</strong>: “Any word indicating WHERE: explicit place names (Boston, downtown), relative indicators (nearby, around), directional words (east, south side).”</p>
+      <p style="margin-bottom:0">写不写「relative indicators」，直接决定了 <span style="font-family:var(--font-mono)">nearby</span> 会被标成地点还是当普通形容词忽略。这把 JPT 从「一个固定的 NER 模型」变成了<strong>可控的信息抽取器</strong>。</p>
+    </div>
+
+    <p>定义走<strong>两条通道</strong>同时注入，这是论文强调的「dual-channel」：</p>
+
+    <div class="compare-panel">
+      <div class="compare-side">
+        <div class="compare-side-title">通道一：embedding 向量</div>
+        <p>定义被文本编码器编码成 p<sub>j</sub>，供分类器与 token 向量做匹配。作用在<strong>分类阶段</strong>。</p>
+        <p style="margin-bottom:0">因为定义推理时不变，这条通路可离线算好缓存，<strong>不增加任何运行时延迟</strong>。</p>
+      </div>
+      <div class="compare-side">
+        <div class="compare-side-title">通道二：prompt 文本</div>
+        <p>定义列表原样写进 LLM 的输入 prompt。作用在<strong>编码阶段</strong>——LLM 的注意力在处理每个 token 时可以直接看这些定义。</p>
+        <p style="margin-bottom:0">消融显示两条通道互补：单用任一条只有有限提升，合起来比不用定义高 <strong>+12.6 F1</strong>。</p>
+      </div>
+    </div>
+
+    <h3>部件三：双线性匹配与输出</h3>
+
+    <p>token 向量 t<sub>i</sub> 和类型向量 p<sub>j</sub> 都在 256 维共享空间里，打分方式是一个双线性形式：</p>
+
+    <div class="formula-block">
+      s<sub>ij</sub> = t<sub>i</sub><sup>⊤</sup> W p<sub>j</sub> + b<sub>j</sub> &nbsp;&nbsp;&nbsp;→&nbsp;&nbsp;&nbsp; ŷ<sub>i</sub> = argmax<sub>j ∈ {O, 1, …, N}</sub> s<sub>ij</sub>
+      <div class="formula-note">W ∈ ℝ<sup>256×256</sup> 可学习，b<sub>j</sub> 是类型专属偏置。加上显式的 O 类共 N+1 路分类。推理时把连续的同类 token 合并成 span，类型发生变化处即为边界。</div>
+    </div>
+
+    <p>注意 <strong>O 类不是「其他」兜底桶</strong>，而是一个有定义的正常类别（“A token that is not part of any named entity”），同样走 embedding 通路。</p>
+
+    <details>
+      <summary>实现细节：其实是双分类头 ensemble，而非单个双线性打分器</summary>
+      <div class="detail-content">
+        <p>论文正文为简洁只写了单个双线性打分器，实际实现用了两个共享同一套 t 和 p 的头，最终预测取两者概率的平均：</p>
+        <ul>
+          <li><strong>Softmax 头</strong>：把标签当互斥的多分类（含显式 O 类），交叉熵训练，O 类权重降到 w<sub>O</sub>=0.25 来对抗类别不平衡。特点是预测果断。</li>
+          <li><strong>Sigmoid 头</strong>：每个实体类型当独立的二分类，focal loss（γ=2.5，正样本权重 5.0）训练，聚焦难例、上采样罕见实体。特点是更善于处理罕见类型。</li>
+        </ul>
+        <p>这个 ensemble 比单 softmax 头提升 1–2 F1。论文明确说明核心方法（输入复制 + 定义制导）与这个选择无关。有意思的是，sigmoid 头的独立按类概率也是论文提到的<strong>未来支持嵌套实体</strong>的路径：让重叠 span 同时输出多个概率 &gt; 0.5 的类型。</p>
+      </div>
+    </details>
+
+    <h3>一次完整推理的数据流</h3>
+
+    <div class="step-demo">
+      <div class="step-demo-title">步进演示：JPT 处理一个句子</div>
+      <div class="step-visual" id="stepVisual">
+        <div class="step-node" data-step="0">离线：定义 → p<sub>j</sub></div>
+        <div class="step-node arrow">→</div>
+        <div class="step-node" data-step="1">拼接 x [SEP] x</div>
+        <div class="step-node arrow">→</div>
+        <div class="step-node" data-step="2">一次 prefill</div>
+        <div class="step-node arrow">→</div>
+        <div class="step-node" data-step="3">取第二遍 h<sub>i</sub></div>
+        <div class="step-node arrow">→</div>
+        <div class="step-node" data-step="4">投影 → t<sub>i</sub></div>
+        <div class="step-node arrow">→</div>
+        <div class="step-node" data-step="5">双线性打分</div>
+        <div class="step-node arrow">→</div>
+        <div class="step-node" data-step="6">合并 span</div>
+      </div>
+      <div class="step-controls">
+        <button class="step-btn primary" id="stepNext" onclick="advanceStep()">下一步</button>
+        <button class="step-btn" id="stepReset" onclick="resetStep()">重置</button>
+        <span class="step-desc" id="stepDesc"></span>
+      </div>
+    </div>
+
+    <h3>训练：只动 2% 不到的参数</h3>
+
+    <p>backbone 全程冻结，可训练的只有三样：注意力投影上的 <strong>LoRA 适配器</strong>、两个<strong>投影 MLP</strong>、以及<strong>双线性分类器</strong>。合计 JPT-4B 是 38.8M（0.95%），JPT-8B 是 142.8M（1.71%）。4×H100 上训 5 个 epoch 只要约 1.5 小时。</p>
+
+    <p><strong>损失只在第二遍的 token 上计算</strong>——第一遍的隐状态从头到尾只是给第二遍当上下文用的，不参与监督。</p>
+
+    <details>
+      <summary>训练数据：一个用 Claude 自动标注的 Wikipedia 语料，与所有评测集零重叠</summary>
+      <div class="detail-content">
+        <p>训练数据的构造方式本身挺值得一看，而且直接支撑了「定义制导」的动机：</p>
+        <ul>
+          <li><strong>来源</strong>：Wikipedia 正文，取自 TELEClass benchmark 里 DBpedia 语料的 <em>test</em> 分区。每段文字附带 DBpedia 本体的三级主题层级（如 agent → athlete → chess_player）。</li>
+          <li><strong>第一阶段·类型生成</strong>：把段落和它的主题层级交给 Claude Sonnet 4.5（开 extended thinking），让它提出该领域适用的实体类型<strong>及其定义</strong>（体育文章就提 Athlete / Team / Stadium）。</li>
+          <li><strong>第二阶段·实体检测</strong>：模型标出 span，再跑一轮 gap-detection 补漏标。</li>
+          <li><strong>质检</strong>：Claude Opus 4.5 抽样评估类型是否恰当、定义是否可执行、抽取是否准确。</li>
+          <li><strong>规模</strong>：17,489 句、3,391,899 token、374,705 个实体提及、<strong>5,009 个不同实体类型</strong>，实体/非实体比约 1:1.5。</li>
+        </ul>
+        <p><strong>为什么类型数这么夸张地多？</strong>因为类型分布是长尾的——中位数每个类型只有 4 次提及，71% 的类型出现不超过 10 次。这种分布下模型根本没法靠记忆频繁模式取胜，<strong>只能被迫去读定义的语义</strong>。长尾在这里是特意设计的训练信号，不是数据缺陷。</p>
+        <p>训练集里出现的类型包括 <span style="font-family:var(--font-mono)">EARTHQUAKE</span>、<span style="font-family:var(--font-mono)">TIMEZONE</span>、<span style="font-family:var(--font-mono)">RACECATEGORY</span> 这类相当细的类别。作者强调这份数据与任何评测 benchmark 都无重叠——即使 <span style="font-family:var(--font-mono)">PERSON</span>、<span style="font-family:var(--font-mono)">LOCATION</span> 这类常见类型出现过，用的也是不同的定义，所以评测确实是零样本的。</p>
+      </div>
+    </details>
+  </section>
+
+  <section id="speed">
+    <h2>输入翻倍了，为什么反而快 20 倍</h2>
+
+    <p>这是最容易被直觉误导的一点：JPT 把序列长度从 N 变成了 2N，听起来应该更慢。但对熟悉推理栈的人来说，答案一句话就够——<span class="attn-verdict">它把开销从 decode 阶段挪到了 prefill 阶段。</span></p>
+
+    <div class="compare-panel">
+      <div class="compare-side">
+        <div class="compare-side-title">生成式方法：卡在 decode</div>
+        <p>延迟随<strong>输出长度</strong>增长。每生成一个 token 都要把整个模型权重从 HBM 读一遍，只为做一步计算——<strong>串行、memory-bound、算力大量闲置</strong>。</p>
+        <p style="margin-bottom:0">UniNER 更极端：它<strong>一次只查一个实体类型</strong>，17 个类型的 CrossNER-AI 就是 17 轮完整解码。</p>
+      </div>
+      <div class="compare-side">
+        <div class="compare-side-title">JPT：全部在 prefill</div>
+        <p>2N 个 token 一次性并行算完，<strong>compute-bound、GPU 利用率高</strong>。之后没有任何自回归步骤，分类头一次出全部标签。</p>
+        <p style="margin-bottom:0">相当于拿<strong>便宜的并行输入 token</strong>换掉了<strong>昂贵的串行输出 token</strong>——这也正是 API 定价里输出比输入贵 3–5 倍的同一个原因。</p>
+      </div>
+    </div>
+
+    <p>实测（CrossNER-Politics，同一张 A100，batch size = 1）：</p>
+
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr><th>方法</th><th>类别</th><th>成本 ($) ↓</th><th>耗时 (秒) ↓</th><th>F1 ↑</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>UniNER-7B</td><td>生成式</td><td class="num val-down">2.77</td><td class="num val-down">1970.2</td><td class="num">61.8</td></tr>
+          <tr><td>GNER</td><td>生成式</td><td class="num val-down">8.21</td><td class="num val-down">5831.5</td><td class="num">75.8</td></tr>
+          <tr><td>GPT-5</td><td>生成式 API</td><td class="num">0.49</td><td class="num">579.6</td><td class="num">67.1</td></tr>
+          <tr><td>GLiNER-L</td><td>判别式编码器</td><td class="num val-up">0.05</td><td class="num val-up">33.3</td><td class="num">60.9</td></tr>
+          <tr class="highlight"><td>JPT-4B</td><td>判别式 LLM</td><td class="num">0.13</td><td class="num">89.7</td><td class="num">76.4</td></tr>
+          <tr class="highlight"><td>JPT-8B</td><td>判别式 LLM</td><td class="num">0.21</td><td class="num">146.2</td><td class="num">77.0</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>最有说服力的对比是 <strong>GNER</strong>：它是生成式里精度最高的（75.8 F1），但要跑 5831 秒、花 8.21 美元。JPT-8B 精度略高（77.0），耗时是它的 1/40，成本是 1/39。而 GLiNER-L 虽然最便宜最快，精度落后 16 分——<strong>JPT 拿到的是「编码器量级的成本 + 超过最强生成式的精度」</strong>。</p>
+
+    <p style="font-size:13px;color:#8a7c68">注：论文 Table 3 的 F1 列口径不完全一致——表注写的是 CrossNER-Politics，而 UniNER-7B（61.8）与 GLiNER-L（60.9）对应的是 Table 1 里 CrossNER+MIT 的平均值。跨方法比较请以下一节 Table 1 的完整结果为准；这张表真正无歧义的是成本与耗时两列。</p>
+  </section>
+
+  <section id="insights">
+    <h2>有意思的细节</h2>
+
+    <h3>注意力热力图：能直接看到「回头看」发生了</h3>
+
+    <p>论文最漂亮的一张证据图。输入 “The Eiffel Tower is in Paris, France.”，纵轴是<strong>第二遍</strong>的 token，横轴是<strong>第一遍</strong>的 token，格子颜色是跨层平均的注意力权重。</p>
+
+    <div class="figure-block">
+      <img src="https://arxiv.org/html/2604.05158v2/sentence_heatmap.png" alt="第二遍 token 对第一遍 token 的注意力热力图" loading="lazy">
+      <p class="figure-caption">图 3（论文原图）：亮点不在对角线，而在第 5 列——「The / E / iff / el」这几个 token 全都强烈地看向后面才出现的「Tower」。</p>
+      <span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明 ▸</span>
+      <div class="figure-detail">
+        <ul>
+          <li><strong>坐标轴含义</strong>：每一行是第二遍里的某个 token（作为 query），每一列是第一遍里的某个 token（被 attend 到）。颜色越深红，注意力权重越大（0 到 1）。</li>
+          <li><strong>「Tower」那一列的深红竖条</strong>：这是全图最关键的现象。“The”“E”“iff”“el” 四个 token 在原句里都排在 “Tower” <strong>之前</strong>；标准因果注意力下它们绝无可能看到 “Tower”。可现在它们的注意力集中打在了 “Tower” 上。</li>
+          <li><strong>为什么这件事重要</strong>：“E / iff / el” 是 “Eiffel” 被切碎的 subword，单独看毫无意义。要判断它们属于 <span style="font-family:var(--font-mono)">LANDMARK</span> 实体，必须先知道整个短语是 “The Eiffel Tower”。输入复制让这些残缺 token 得以<strong>提前把词补全</strong>。</li>
+          <li><strong>右下角的对角线</strong>：“Paris → Paris”、“France → France”、“. → .” 这些格子也很深。说明每个 token 也在强烈关注自己在第一遍的对应位置——第一遍事实上充当了一份可随机访问的「完整句子备份」。</li>
+          <li><strong>右上角大片浅色</strong>：早期 token 对句末内容的注意力较弱，说明模型不是无差别地把注意力摊平，而是<strong>有选择地取语义相关的上下文</strong>。</li>
+          <li>一句话总结：这张图把「输入复制 = 免费的双向注意力」从一个论证变成了可观测的现象——<strong>不完整的 token 用第一遍来「向前看」</strong>，从而拿到准确的边界检测和类型判断。</li>
+        </ul>
+      </div>
+    </div>
+
+    <h3>定义写得好不好，比模型大小更重要</h3>
+
+    <p>论文附录里有一张容易被略过但信息量极大的表：同一个模型，只改实体类型的定义文本，F1 能差出几十分。</p>
+
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr><th style="width:90px">类型</th><th style="width:150px">笼统的定义</th><th>精确的定义</th><th style="width:70px">ΔF1</th></tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>LOCATION</td>
+            <td>“A geographical place”</td>
+            <td>“Any word indicating WHERE: explicit places (NYC, downtown), relative indicators (nearby, around, close by), directional phrases (east, south side). Tag the location word itself.”</td>
+            <td class="num val-up">+32.6</td>
+          </tr>
+          <tr>
+            <td>PRICE</td>
+            <td>“A monetary value”</td>
+            <td>“Explicit monetary amounts ($50, 100 dollars) AND qualitative price indicators (cheap, expensive, budget-friendly, overpriced, pricey).”</td>
+            <td class="num val-up">+34.9</td>
+          </tr>
+          <tr>
+            <td>AMENITY</td>
+            <td>“An available service”</td>
+            <td>“A feature, facility, or service offered by a restaurant. Includes: physical features (bar, parking), services (delivery, reservations, takeout), atmosphere descriptors (romantic, casual, family-friendly).”</td>
+            <td class="num val-up">+14.3</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>MIT-Restaurant 上把 <span style="font-family:var(--font-mono)">LOCATION</span> 的定义从「一个地理位置」改成明确包含 “nearby” 这类相对指示词，单类型 F1 涨了 <strong>32.6 分</strong>。这说明所谓的「模型识别不出来」，很多时候其实是<strong>标注口径没说清</strong>——benchmark 的 gold label 有自己的隐含约定，而定义正好是把这些约定显式写出来的接口。</p>
+
+    <p>论文因此给了三条定义撰写守则：<strong>说清包含什么和排除什么</strong>、<strong>给具体例子</strong>、<strong>直接点名边界情况</strong>（“nearby” 算不算地点？）。</p>
+
+    <h3>消融：两个部件各值多少分</h3>
+
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr><th>配置</th><th style="width:120px">平均 micro-F1</th><th>说明</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>单次输入（去掉复制）</td><td class="num val-down">55.7</td><td>专门用单输入重新训练的变体，不是推理时才关掉复制</td></tr>
+          <tr><td>不用定义（只用类型名）</td><td class="num val-down">58.3</td><td>退回传统的标签名编码</td></tr>
+          <tr><td>定义只进 prompt</td><td class="num">63.3</td><td>单通道</td></tr>
+          <tr><td>定义只进 embedding</td><td class="num">65.2</td><td>单通道</td></tr>
+          <tr class="highlight"><td>双通道定义 + 输入复制（完整 JPT-4B）</td><td class="num val-up">70.9</td><td>输入复制 +15.2，双通道定义 +12.6</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>值得注意的是<strong>单输入变体是重新训练的</strong>，而不是训练时用双份、推理时砍成单份。作者特意说明这一点，是为了排除「训练/推理不匹配」这个混淆因素——所以 −15.2 F1 确实来自缺少双向上下文本身。</p>
+
+    <details>
+      <summary>单输入模型具体错在哪：四个典型例子</summary>
+      <div class="detail-content">
+        <p>论文分析了单输入变体的失败模式，规律非常一致：<strong>实体出现在句首、而决定性线索在句尾时必错</strong>。</p>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead>
+              <tr><th>句子（实体在句首）</th><th style="width:80px">正确类型</th><th style="width:80px">单输入预测</th><th>为什么必须看后文</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>“<strong>Autoencoders</strong> are trained to minimise…”</td><td>algorithm</td><td class="val-down">product</td><td>要看到 “trained to minimise” 才知道说的是算法</td></tr>
+              <tr><td>“<strong>François Bayrou</strong> (…) is a French centrist politician…”</td><td>politician</td><td class="val-down">person</td><td>要看到后面的 “politician” 才能定到细粒度类型</td></tr>
+              <tr><td>“<strong>The Color Purple</strong> is a 1982 epistolary novel…”</td><td>book</td><td class="val-down">（漏标）</td><td>要看到 “novel” 才能认出这是书名</td></tr>
+              <tr><td>“<strong>Young’s</strong> work on squid giant axons…”</td><td>scientist</td><td class="val-down">（漏标）</td><td>要看到后面的科研语境才能判为科学家</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p>两类错误各占一半：<strong>类型混淆</strong>（标出了 span 但类型错）和<strong>完全漏标</strong>（压根没识别出实体）。第二类更能说明问题——缺了后文，模型连「这里有个实体」都不敢确认。</p>
+      </div>
+    </details>
+
+    <h3>和自己的 backbone 比：涨的是框架，不是模型</h3>
+
+    <p>一个干净的对照实验：拿同一个 Qwen3-4B，一边按 JPT 框架用，一边纯生成式地 prompt 它做 NER。CrossNER 五个域平均，生成式 57.4 vs JPT-4B <strong>74.4</strong>，<strong>+17.0 F1</strong>。同一套权重、同样的世界知识，差距全部来自输入复制 + 定义制导 + 判别式分类这三件事。</p>
+  </section>
+
+  <section id="results">
+    <h2>实验结论</h2>
+
+    <p>主结果在 CrossNER（AI / 文学 / 音乐 / 政治 / 科学五个专业域，每域 9–17 个领域特定类型）和 MIT Movie / Restaurant（对话式查询的槽位填充）上。这些数据集全部是零样本——训练语料与它们无重叠。</p>
+
+    <div class="table-scroll">
+      <table class="data-table">
+        <thead>
+          <tr><th>方法</th><th class="num">AI</th><th class="num">文学</th><th class="num">音乐</th><th class="num">政治</th><th class="num">科学</th><th class="num">Movie</th><th class="num">Rest.</th><th class="num">平均</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>UniNER-7B <span style="color:#8a7c68">生成</span></td><td class="num">62.9</td><td class="num">64.9</td><td class="num">70.6</td><td class="num">66.9</td><td class="num">70.8</td><td class="num">61.2</td><td class="num">35.2</td><td class="num">61.8</td></tr>
+          <tr><td>GoLLIE <span style="color:#8a7c68">生成</span></td><td class="num">59.1</td><td class="num">62.7</td><td class="num">67.8</td><td class="num">57.2</td><td class="num">55.5</td><td class="num">63.0</td><td class="num">43.4</td><td class="num">58.4</td></tr>
+          <tr><td>InstructUIE <span style="color:#8a7c68">生成</span></td><td class="num">49.0</td><td class="num">47.2</td><td class="num">53.2</td><td class="num">48.2</td><td class="num">49.3</td><td class="num">63.0</td><td class="num">21.0</td><td class="num">47.8</td></tr>
+          <tr><td>SaM (MoE) <span style="color:#8a7c68">生成</span></td><td class="num">60.9</td><td class="num">66.9</td><td class="num">73.5</td><td class="num">74.4</td><td class="num">62.6</td><td class="num">72.1</td><td class="num">52.9</td><td class="num">66.2</td></tr>
+          <tr><td>GLiNER-L <span style="color:#8a7c68">判别</span></td><td class="num">57.2</td><td class="num">64.4</td><td class="num">69.6</td><td class="num">72.6</td><td class="num">62.6</td><td class="num">64.4</td><td class="num">42.9</td><td class="num">60.9</td></tr>
+          <tr class="highlight"><td>JPT-4B</td><td class="num">68.3</td><td class="num">73.7</td><td class="num">84.1</td><td class="num">76.4</td><td class="num">69.5</td><td class="num">60.7</td><td class="num">63.4</td><td class="num">70.9</td></tr>
+          <tr class="highlight"><td>JPT-8B</td><td class="num">71.9</td><td class="num">72.2</td><td class="num">85.3</td><td class="num">77.0</td><td class="num">71.3</td><td class="num">76.5</td><td class="num">64.4</td><td class="num val-up">74.1</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>JPT-8B 平均 74.1，比最强基线 SaM 高 <strong>7.9 分</strong>。提升最大的三个域是<strong>音乐（+11.8）、Restaurant（+11.5）、AI（+11.0）</strong>——都是术语高度专业化的场景，正好是 LLM 世界知识发挥作用的地方。连 JPT-4B 都超过了所有基线（+4.7）。</p>
+
+    <p>扩展到 20 个数据集（涵盖生物医学、社交媒体、多语言）后，JPT-4B 平均 55.5，对比 GLiNER-L 47.8 和 UniNER-7B 45.7，<strong>20 个里赢了 19 个</strong>。唯一输的是 GENIA（生物医学嵌套实体，50.8 vs GLiNER 55.5）——这与下文的「不支持嵌套实体」局限直接对应。</p>
+
+    <details>
+      <summary>定性对比：JPT 对、GLiNER 和 UniNER 错的四个例子</summary>
+      <div class="detail-content">
+        <p>论文挑了 CrossNER-Politics 上的几组对照，能看出定义制导在解决什么：</p>
+        <ul>
+          <li><strong>荷兰大学（应为 ORGANIZATION）</strong>：“…faculty members from the Vrije Universiteit, University of Amsterdam, Delft University of Technology, and Leiden University.” GLiNER 和 UniNER <strong>四个全漏</strong>，JPT 全对。</li>
+          <li><strong>加拿大政党（应为 POLITICAL PARTY 而非 ORGANIZATION）</strong>：GLiNER 两个都漏；UniNER 因为逐类型推理，同一个 mention 同时被打上 ORGANIZATION 和 POLITICAL PARTY，<strong>过度预测</strong>。</li>
+          <li><strong>美国政治人物（应为 POLITICIAN 而非 PERSON）</strong>：GLiNER 把 Lincoln、Buell 等五人全标成 PERSON——类型正确但粒度不够。</li>
+          <li><strong>Empire of Japan（应为 COUNTRY 而非 ORGANIZATION）</strong>：GLiNER 标成 ORGANIZATION。</li>
+        </ul>
+        <p>共同点是<strong>语义相邻类型的区分</strong>：POLITICIAN vs PERSON、POLITICAL_PARTY vs ORGANIZATION、COUNTRY vs ORGANIZATION。这些区分靠标签名本身很难做，但靠一句定义可以说清。另外注意 UniNER 的过度预测是它「一次查一个类型」的结构性后果——每个类型独立判断，自然没人保证互斥。</p>
+      </div>
+    </details>
+
+    <details>
+      <summary>JPT 自己错在哪：边界检测是头号失败模式</summary>
+      <div class="detail-content">
+        <p>作者做了完整的错误分析，主要有三类：</p>
+        <p><strong>1. 边界检测错误（最常见）</strong>：类型判对了、核心 mention 也对，但 span 多切或少切一截，通常是被修饰语或同位语带偏：</p>
+        <div class="table-scroll">
+          <table class="data-table">
+            <thead><tr><th>数据集</th><th>Gold span</th><th>预测 span</th></tr></thead>
+            <tbody>
+              <tr><td>CrossNER-Science</td><td>Virgo interferometer</td><td class="val-down">Virgo interferometer collaboration</td></tr>
+              <tr><td>CrossNER-Politics</td><td>Social Credit Party of Canada</td><td class="val-down">national Social Credit Party of</td></tr>
+              <tr><td>MIT-Movie</td><td>the reflecting skin</td><td class="val-down">reflecting skin movie</td></tr>
+              <tr><td>MIT-Restaurant</td><td>within a mile</td><td class="val-down">a mile of here</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <p><strong>2. 类型混淆</strong>：集中在语义相邻的类别之间。例如 “NIST” 被判成 CONFERENCE 而非 METRICS（缩写歧义）、“Augustus” 判成 POLITICIAN 而非 PERSON（角色 vs 实体）、“London Calling” 判成 LOCATION 而非 ALBUM（专辑名恰好是地名）。</p>
+        <p><strong>3. 过度预测</strong>：领域术语长得像实体但 gold 里没标，比如把 “frame language” 标成编程语言。</p>
+        <img src="https://arxiv.org/html/2604.05158v2/type_confusion_matrix.png" alt="实体类型混淆矩阵" loading="lazy">
+        <p style="margin-top:12px">混淆矩阵（论文 Figure 8）印证了这一点：错误几乎全部落在语义相邻的类型对上——PER↔ORG、LOC↔COUNTRY、POL_PARTY↔POLITICIAN——而不是随机的标签乱翻。作者的结论是这些错误源于<strong>表层歧义和定义重叠</strong>，而非缺乏上下文理解；对应的解法也很直接：把定义写得更细，或补充针对性训练样本。</p>
+      </div>
+    </details>
+  </section>
+
+  <section id="limits">
+    <h2>局限与适用边界</h2>
+
+    <ul>
+      <li><strong>序列长度翻倍</strong>：注意力复杂度从 O(N²) 变成 O((2N)²)，长文档下显存吃紧。论文的缓解办法是把长文切块后批量处理——因为全在并行 prefill 阶段，切块的代价比生成式方法小得多。但这仍是真实成本，不能当作没有。</li>
+      <li><strong>只支持平铺 NER</strong>：每个 token 只给一个标签，<strong>不支持嵌套实体</strong>，span 边界依赖后处理式的连续 token 合并。这直接解释了 GENIA（嵌套生物医学实体）是 20 个扩展 benchmark 里唯一输给 GLiNER 的那个。论文指出 sigmoid 头的独立按类概率提供了扩展路径：让重叠 span 同时输出多个概率 &gt; 0.5 的类型。</li>
+      <li><strong>边界检测是主要失败模式</strong>：如上文错误分析，修饰语和同位语容易让 span 多切少切。</li>
+      <li><strong>训练数据口径不同于常规做法</strong>：其他零样本 NER 方法通常在 benchmark 自带的训练集上训，JPT 用的是完全独立的 Wikipedia 语料。这让零样本的声称更干净，但也意味着<strong>结果不能简单地和「在同分布数据上训过」的方法逐点对齐</strong>。</li>
+      <li><strong>效果强依赖定义质量</strong>：+32.6 F1 的定义工程收益反过来说就是——定义写得随便，效果就会掉。这既是可控性，也是一份新的运维负担。</li>
+    </ul>
+
+    <div class="quote-block">
+      <p style="margin-bottom:0">论文自己的收尾很克制，但落点很准：<strong>因果注意力的约束，并不意味着 LLM 只能走生成式路线</strong>。绕过它不一定需要改架构或改预训练，有时候改一下输入就够了。而且作者点出这个思路不限于 NER——<strong>任何 token 级任务</strong>（POS、chunking、span 抽取）都可以照搬。</p>
+    </div>
+  </section>
+
+  <footer class="page-footer">
+    <p>原文：<a href="https://aclanthology.org/2026.acl-long.526.pdf" target="_blank" rel="noopener">Just Pass Twice: Efficient Token Classification with LLMs for Zero-Shot NER</a> · ACL 2026 (Volume 1: Long Papers), pp. 11480–11497 · Ahmed Ewais, Ahmed Hashish, Amr Ali (WitnessAI) · 亦见 <a href="https://arxiv.org/abs/2604.05158" target="_blank" rel="noopener">arXiv:2604.05158</a> · <a href="https://witness-ai-jpt-ner.hf.space/" target="_blank" rel="noopener">项目主页</a></p>
+    <p style="margin-top:8px">页面中的图 2、图 3 及混淆矩阵取自论文 arXiv HTML 版原图；其余示意图为便于阅读自制，内容忠于原文描述。</p>
+  </footer>
+
+</div>
+
+<script>
+/* ---------- 图片说明展开 ---------- */
+function toggleFigDetail(el) {
+  var detail = el.nextElementSibling;
+  var isActive = detail.classList.contains('active');
+  detail.classList.toggle('active');
+  el.textContent = isActive ? '展开说明 ▸' : '收起 ▴';
+}
+
+/* ---------- 相关工作卡片展开 ---------- */
+function toggleCard(id) {
+  document.getElementById(id).classList.toggle('expanded');
+}
+
+/* ---------- 交互式注意力可见性演示 ---------- */
+var SENT = ['Paris', 'released', 'a', 'new', 'album'];
+var attnMode = 'single';
+var attnQuery = -1;
+
+function buildAttnSeq() {
+  var seq = document.getElementById('attnSeq');
+  seq.innerHTML = '';
+  var items = [];
+  if (attnMode === 'single') {
+    SENT.forEach(function (t, i) { items.push({ text: t, idx: i, copy: 1 }); });
+  } else {
+    SENT.forEach(function (t, i) { items.push({ text: t, idx: i, copy: 1 }); });
+    items.push({ text: '[SEP]', idx: SENT.length, copy: 0 });
+    SENT.forEach(function (t, i) { items.push({ text: t, idx: SENT.length + 1 + i, copy: 2 }); });
+  }
+  items.forEach(function (it) {
+    var el = document.createElement('div');
+    el.className = 'attn-tok' + (it.copy === 0 ? ' sep' : '');
+    el.textContent = it.text;
+    el.setAttribute('data-idx', it.idx);
+    el.onclick = function () { attnQuery = it.idx; paintAttn(); };
+    seq.appendChild(el);
+  });
+  var label = document.createElement('div');
+  label.className = 'attn-copy-label';
+  label.textContent = attnMode === 'single'
+    ? '序列长度 5 · 标准因果掩码'
+    : '序列长度 11 = 第一遍 5 + [SEP] + 第二遍 5 · 掩码完全没变';
+  seq.appendChild(label);
+}
+
+function paintAttn() {
+  var toks = document.querySelectorAll('#attnSeq .attn-tok');
+  toks.forEach(function (el) {
+    var i = parseInt(el.getAttribute('data-idx'), 10);
+    el.classList.remove('query', 'visible', 'masked');
+    if (attnQuery < 0) return;
+    if (i === attnQuery) el.classList.add('query');
+    else if (i < attnQuery) el.classList.add('visible');
+    else el.classList.add('masked');
+  });
+  document.getElementById('attnHint').innerHTML = attnHintText();
+}
+
+function attnHintText() {
+  if (attnQuery < 0) {
+    return attnMode === 'single'
+      ? '点击上面任意一个 token，看看它在因果掩码下能看到什么。建议先点最左边的「Paris」。'
+      : '同一个句子被抄了两遍。建议点击<strong>第二遍</strong>的「Paris」（右半边第一个），对比一下和左边那个的区别。';
+  }
+  var n = SENT.length;
+  if (attnMode === 'single') {
+    if (attnQuery === 0) {
+      return '第一个 token「Paris」只能看到自己。<strong>“released a new album” 全部被掩码挡住</strong>，模型此刻手上只有一个孤零零的词。<span class="attn-verdict">→ 城市还是人名？无法判断。</span>';
+    }
+    var seen = SENT.slice(0, attnQuery + 1).join(' ');
+    return '「' + SENT[attnQuery] + '」能看到前 ' + (attnQuery + 1) + ' 个 token：「' + seen + '」。越靠右的 token 上下文越完整——<strong>但句首的实体永远是信息最少的那个</strong>，而实体恰恰经常出现在句首。';
+  }
+  if (attnQuery < n) {
+    return '这是<strong>第一遍</strong>里的「' + SENT[attnQuery] + '」，处境和单次输入时完全一样，只能看到前面 ' + (attnQuery + 1) + ' 个 token。第一遍的隐状态<strong>会被直接丢弃</strong>，它存在的唯一意义是给第二遍当上下文。';
+  }
+  if (attnQuery === n) {
+    return '分隔符位置。真实实现里它不是特殊 token，而是 prompt 里 “ The second time: ” 这句自然语言。';
+  }
+  var k = attnQuery - n - 1;
+  if (k === 0) {
+    return '这是<strong>第二遍</strong>的「Paris」，位于序列第 ' + (attnQuery + 1) + ' 位。因果掩码允许它看到前面所有位置——<strong>其中包含了第一遍完整的 “Paris released a new album”</strong>。掩码一行没改，但 “album” 现在就在它的「过去」里。<span class="attn-verdict">→ 判为 PERSON。</span>';
+  }
+  return '第二遍的「' + SENT[k] + '」同样能回看第一遍的全部 ' + n + ' 个 token，外加第二遍中它之前的部分。<strong>第二遍里的每一个 token 都拥有完整句子</strong>——这正是 token 分类所需要的双向上下文。';
+}
+
+function setAttnMode(mode) {
+  attnMode = mode;
+  attnQuery = -1;
+  document.querySelectorAll('.mode-btn').forEach(function (b) {
+    b.classList.toggle('active', b.getAttribute('data-mode') === mode);
+  });
+  buildAttnSeq();
+  paintAttn();
+}
+
+/* ---------- 步进演示 ---------- */
+var stepIndex = -1;
+var STEP_HINT = '点击「下一步」，跟着一个句子走完 JPT 的完整推理流程。';
+var stepTexts = [
+  '【离线，只做一次】把每个实体类型的自然语言定义送进文本编码器（Qwen3-Embedding-8B），再经 Entity MLP 投影到 256 维，得到 p_j 并缓存。定义在推理时不变，所以这一步<strong>不占用任何运行时延迟</strong>。',
+  '把输入句子抄两遍拼成 x [SEP] x。实际 prompt 是 “The first time: ... The second time: ...”，前面还带着 system 规则和类型定义列表——定义注入的第二条通道就在这里。',
+  '整条 2N+1 长度的序列送进冻结的 Qwen3（挂 LoRA），<strong>一次前向、全部并行</strong>。没有任何自回归解码步骤，全部开销落在 compute-bound 的 prefill 阶段。',
+  '只取<strong>第二遍</strong> token 的末层隐状态 h_i。第一遍的隐状态算完即弃——它们的作用只是给第二遍提供可回看的完整上下文。',
+  '把 h_i 过 Token MLP（带 LayerNorm 和 GELU）投影到 256 维得到 t_i。至此 token 向量和类型向量位于同一个空间。',
+  '双线性打分 s_ij = t_iᵀ W p_j + b_j，覆盖 N 个实体类型加一个显式 O 类。实现上是 softmax 头和 sigmoid 头的概率平均。每个 token 取 argmax 得到标签。',
+  '把连续的同类型 token 合并成实体 span，类型发生变化处即为边界。整个过程<strong>一次前向出结果</strong>，不会幻觉出原文没有的实体，也不存在格式解析失败。'
+];
+
+function updateStepVisual() {
+  document.querySelectorAll('.step-node[data-step]').forEach(function (node) {
+    var s = parseInt(node.getAttribute('data-step'), 10);
+    node.classList.remove('active', 'done');
+    if (s < stepIndex) node.classList.add('done');
+    if (s === stepIndex) node.classList.add('active');
+  });
+  document.getElementById('stepDesc').innerHTML = stepIndex >= 0 ? stepTexts[stepIndex] : STEP_HINT;
+  document.getElementById('stepNext').textContent =
+    stepIndex >= stepTexts.length - 1 ? '完成' : '下一步';
+}
+
+function advanceStep() {
+  if (stepIndex < stepTexts.length - 1) { stepIndex++; updateStepVisual(); }
+}
+
+function resetStep() { stepIndex = -1; updateStepVisual(); }
+
+/* ---------- 初始化 ---------- */
+setAttnMode('single');
+updateStepVisual();
+</script>
+</body>
+</html>
