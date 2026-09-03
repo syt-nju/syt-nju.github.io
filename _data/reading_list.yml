@@ -10,6 +10,9 @@
 #   url   : link to the original article
 #   date  : YYYY-MM-DD, the day this link was added (used for sorting only)
 entries:
+  - title: "Learning to Replicate Expert Judgment in Financial Tasks"
+    url: "https://thinkingmachines.ai/news/learning-to-replicate-expert-judgment-in-financial-tasks/"
+    date: 2026-09-03
   - title: "从OPD与反向KL的关系到OPD的两种形态以及路线之争"
     url: "https://zhuanlan.zhihu.com/p/2027548813129267030"
     date: 2026-08-21
