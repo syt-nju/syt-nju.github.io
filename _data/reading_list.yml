@@ -10,6 +10,9 @@
 #   url   : link to the original article
 #   date  : YYYY-MM-DD, the day this link was added (used for sorting only)
 entries:
+  - title: "Putting Task Expertise into RL Achieves State-of-the-Art Performance on Text-to-SQL"
+    url: "https://thinkingmachines.ai/news/putting-task-expertise-into-rl/"
+    date: 2026-09-03
   - title: "Learning to Replicate Expert Judgment in Financial Tasks"
     url: "https://thinkingmachines.ai/news/learning-to-replicate-expert-judgment-in-financial-tasks/"
     date: 2026-09-03
