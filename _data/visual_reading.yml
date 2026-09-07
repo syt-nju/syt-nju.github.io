@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: noisy-data-destructive-rlvr
+    title: "RLVR 的「100% 错标也能学」为什么站不住脚"
+    date: 2026-09-07
+    source_type: paper
+    source_url: "https://arxiv.org/abs/2603.16140"
   - slug: jpt-just-pass-twice-ner
     title: "JPT：把输入抄两遍，让因果 LLM 做判别式 NER"
     date: 2026-09-01
