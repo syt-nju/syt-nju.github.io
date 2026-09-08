@@ -19,9 +19,11 @@ I like widening the boundary of my understanding a little at a time, while focus
 
 ### Tencent, Algorithm Engineer Intern
 
-- Worked on a financial function-calling component trained with multi-turn SFT and DAPO, and supported online financial traffic in production systems.
-- Built the interaction and testing workflow for a financial search agent based on Qwen3 30A3B, helping the system surpass DeepSeek V3.2 on FinSearchComp under the same business tool setting.
-- Reduced evaluation instability by standardizing tool environments, lowering judge variance, and iterating the judging prompt until score fluctuation dropped from 10% to 1%.
+**Fin-Multiturn Financial Search Agent**
+
+- Built an agent that answers complex financial questions by breaking them into dependent search steps—for example, identifying the relevant stocks before retrieving and combining their latest market data across 79 internal financial tools.
+- Owned the end-to-end training pipeline, from mining real user queries and synthesizing multi-step tasks to training a Qwen3 30A3B policy with multi-turn SFT, rejection fine-tuning, and process-aware RL.
+- Deployed the agent to online financial traffic and surpassed DeepSeek V3.2 on FinSearchComp under the same business tool setting.
 - Received a return offer and continued working on production-facing model systems.
 
 ### Huawei, Algorithm Engineer Intern

@@ -10,18 +10,14 @@ author_profile: true
 Shenzhen, China  
 July 2025 - Present
 
-### Financial function calling
+### Fin-Multiturn financial search agent
 
-- Trained a multi-intent financial function-calling component with multi-turn SFT and DAPO on top of Qwen3 30A3B.
-- Reduced hallucinations around stock and fund codes by increasing parameter-level reward pressure and constructing positive samples for persistently mistaken groups during DAPO training.
-- Received a return offer from the internship and continued to work on production-facing model systems.
-
-### Financial agent training and evaluation
-
-- Built the interaction workflow used in multi-turn financial search agent training, including the testing pipeline and the post-test iteration SOP.
-- Supported a Qwen3 30A3B-based financial agent whose performance not only reached parity with DeepSeek V3.2 on internal financial search benchmarks, but also surpassed it on FinSearchComp under the same business tool setting.
-- Stabilized evaluation by fixing tool images, lowering judge randomness, and iterating judge prompts, reducing score fluctuation from 10% to 1%.
-- Used LLM-assisted analysis SOPs to speed up issue localization across tools, evaluation standards, and entity interfaces during rapid system iteration.
+- Built an end-to-end financial search agent around a Qwen3 30A3B policy and 79 MCP tools, covering entity resolution, multi-intent function calling, dependency-aware planning, and recovery from empty results.
+- Built three generations of training data: filtered 700K production queries into 1K multi-hop seeds, explored DAG-first generation, and converged on template-guided synthesis grounded in real user phrasing.
+- Trained the agent with multi-turn SFT, rejection fine-tuning, and process-aware RL using answer-, DAG-, trajectory-, turn-, and parameter-level feedback.
+- Designed asynchronous query-aware compression for 128K rollouts, keeping the newest tool response intact while compressing prior observations off the rollout critical path.
+- Built the interaction and evaluation workflow for rapid iteration; the resulting agent reached parity with DeepSeek V3.2 on internal benchmarks and surpassed it on FinSearchComp under the same business tool setting.
+- Received a return offer and continued working on production-facing model systems.
 
 ## Huawei
 
