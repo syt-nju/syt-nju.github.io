@@ -1,0 +1,1149 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Codex 实验性上下文管理：Token Budget、Notes、History 与 new_context 动画演示">
+<title>Codex 上下文管理：一次跨窗口接力</title>
+<style>
+:root {
+  --bg: #f4f1e9;
+  --paper: #fffdf8;
+  --paper-2: #f8f4eb;
+  --ink: #1f2927;
+  --muted: #67716d;
+  --line: #d9d7cc;
+  --green: #087f5b;
+  --green-soft: #dff3ea;
+  --amber: #b66b18;
+  --amber-soft: #f8ead4;
+  --blue: #3568a8;
+  --blue-soft: #e4edf8;
+  --red: #b6493f;
+  --red-soft: #f7e3df;
+  --dark: #17211f;
+  --shadow: 0 22px 70px rgba(31, 41, 39, .10);
+  --radius: 18px;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  color: var(--ink);
+  background:
+    radial-gradient(circle at 8% 3%, rgba(8, 127, 91, .08), transparent 23rem),
+    radial-gradient(circle at 94% 14%, rgba(53, 104, 168, .07), transparent 26rem),
+    var(--bg);
+  font: 16px/1.72 Inter, "Noto Sans SC", "PingFang SC", system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: var(--green); text-decoration: none; }
+a:hover { text-decoration: underline; }
+button { font: inherit; }
+.wrap { width: min(1160px, calc(100% - 36px)); margin: auto; }
+.mono { font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace; }
+
+.topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  border-bottom: 1px solid rgba(217, 215, 204, .85);
+  background: rgba(244, 241, 233, .88);
+  backdrop-filter: blur(14px);
+}
+.topbar-inner {
+  min-height: 58px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 18px;
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--ink);
+  font-size: 13px;
+  font-weight: 760;
+}
+.brand-mark {
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  color: #dff3ea;
+  background: var(--dark);
+  font: 700 13px/1 "SFMono-Regular", Consolas, monospace;
+}
+.nav { display: flex; align-items: center; gap: 15px; font-size: 13px; }
+.nav a { color: var(--muted); }
+.nav .source-link {
+  padding: 7px 11px;
+  color: var(--green);
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: rgba(255, 253, 248, .55);
+  font-weight: 650;
+}
+
+.hero { padding: 82px 0 62px; }
+.eyebrow, .section-no {
+  font: 650 12px/1.4 "SFMono-Regular", Consolas, monospace;
+  letter-spacing: .06em;
+  color: var(--green);
+}
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--green-soft);
+}
+.eyebrow::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 0 4px rgba(8, 127, 91, .1);
+}
+h1, h2, h3 { margin-top: 0; line-height: 1.18; letter-spacing: -.028em; }
+h1 {
+  max-width: 980px;
+  margin: 23px 0 22px;
+  font-size: clamp(42px, 7vw, 78px);
+}
+h1 span { color: var(--green); }
+.lead {
+  max-width: 835px;
+  margin: 0;
+  color: var(--muted);
+  font-size: clamp(18px, 2.2vw, 22px);
+}
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 9px;
+  margin-top: 30px;
+}
+.pill {
+  padding: 6px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--muted);
+  background: rgba(255, 253, 248, .55);
+  font-size: 12px;
+}
+.correction {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 17px;
+  margin-top: 38px;
+  padding: 22px 24px;
+  border: 1px solid #e5c898;
+  border-radius: 15px;
+  background: var(--amber-soft);
+}
+.correction-badge {
+  align-self: start;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: #fff8ec;
+  background: var(--amber);
+  font: 700 11px/1.5 "SFMono-Regular", Consolas, monospace;
+}
+.correction p { margin: 0; color: #654a28; }
+
+section {
+  padding: 70px 0;
+  border-top: 1px solid var(--line);
+  scroll-margin-top: 64px;
+}
+.section-no { display: block; margin-bottom: 12px; }
+h2 { margin-bottom: 15px; font-size: clamp(30px, 4.8vw, 49px); }
+h3 { font-size: 20px; }
+.section-intro { max-width: 790px; margin-bottom: 32px; color: var(--muted); font-size: 17px; }
+.section-intro strong { color: var(--ink); }
+
+.simulator {
+  overflow: hidden;
+  border: 1px solid #293532;
+  border-radius: 24px;
+  color: #edf5f1;
+  background:
+    linear-gradient(rgba(255, 255, 255, .015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, .015) 1px, transparent 1px),
+    var(--dark);
+  background-size: 24px 24px;
+  box-shadow: var(--shadow);
+}
+.sim-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 18px 20px;
+  border-bottom: 1px solid #32403c;
+  background: rgba(13, 22, 20, .66);
+}
+.window-id {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font: 650 12px/1.4 "SFMono-Regular", Consolas, monospace;
+}
+.live-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #4ee0a8;
+  box-shadow: 0 0 0 5px rgba(78, 224, 168, .11);
+}
+.sim-legend {
+  display: flex;
+  gap: 13px;
+  color: #9aaba6;
+  font-size: 11px;
+}
+.sim-legend span { display: flex; align-items: center; gap: 6px; }
+.legend-dot { width: 7px; height: 7px; border-radius: 50%; }
+.legend-dot.context { background: #4ee0a8; }
+.legend-dot.notes { background: #f1b766; }
+.legend-dot.history { background: #77a9ea; }
+
+.sim-body {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(250px, .75fr);
+  min-height: 520px;
+}
+.context-pane {
+  position: relative;
+  padding: 24px;
+  border-right: 1px solid #32403c;
+}
+.pane-title-row, .store-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 13px;
+}
+.pane-label {
+  color: #9fb1ab;
+  font: 650 11px/1.4 "SFMono-Regular", Consolas, monospace;
+  letter-spacing: .08em;
+}
+.budget-copy {
+  color: #bdd0ca;
+  font: 600 12px/1 "SFMono-Regular", Consolas, monospace;
+}
+.budget-track {
+  height: 8px;
+  margin: 12px 0 20px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #34423e;
+}
+.budget-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: #4ee0a8;
+  transition: width .65s ease, background .35s;
+}
+.context-list {
+  position: relative;
+  min-height: 340px;
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+.context-item {
+  display: grid;
+  grid-template-columns: 65px 1fr;
+  gap: 12px;
+  padding: 12px 13px;
+  border: 1px solid #3a4945;
+  border-radius: 11px;
+  background: rgba(255, 255, 255, .035);
+  opacity: 0;
+  transform: translateY(9px) scale(.985);
+  transition: opacity .35s, transform .35s, border-color .35s, background .35s;
+}
+.context-item.visible { opacity: 1; transform: none; }
+.context-item.highlight {
+  border-color: rgba(78, 224, 168, .64);
+  background: rgba(78, 224, 168, .08);
+}
+.context-item .role {
+  color: #879993;
+  font: 650 10px/1.6 "SFMono-Regular", Consolas, monospace;
+  text-transform: uppercase;
+}
+.context-item .message { color: #d6e1dd; font-size: 13px; line-height: 1.55; }
+.context-item.initial .role { color: #4ee0a8; }
+.context-item.recovered .role { color: #77a9ea; }
+.context-item.reminder {
+  border-color: rgba(241, 183, 102, .62);
+  background: rgba(241, 183, 102, .09);
+}
+.context-item.reminder .role { color: #f1b766; }
+.context-empty {
+  position: absolute;
+  inset: 55px 20px 20px;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  color: #82938d;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .3s;
+}
+.context-empty.visible { opacity: 1; }
+.context-empty strong { display: block; margin-bottom: 7px; color: #c1d0cb; }
+
+.stores-pane {
+  display: grid;
+  grid-template-rows: 1fr 1fr;
+  background: rgba(9, 17, 15, .35);
+}
+.store { padding: 24px; }
+.store + .store { border-top: 1px solid #32403c; }
+.store-title { display: flex; align-items: center; gap: 9px; font-weight: 700; font-size: 14px; }
+.store-icon {
+  width: 27px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  font: 700 12px/1 "SFMono-Regular", Consolas, monospace;
+}
+.notes .store-icon { color: #f1b766; background: rgba(241, 183, 102, .12); }
+.history .store-icon { color: #77a9ea; background: rgba(119, 169, 234, .12); }
+.store-status { color: #82938d; font: 550 10px/1.4 "SFMono-Regular", Consolas, monospace; }
+.store-card {
+  position: relative;
+  min-height: 112px;
+  margin-top: 17px;
+  padding: 14px;
+  border: 1px dashed #41504c;
+  border-radius: 11px;
+  color: #8ea09a;
+  background: rgba(255, 255, 255, .025);
+  font-size: 12px;
+  line-height: 1.55;
+  transition: border-color .4s, background .4s, color .4s, transform .35s;
+}
+.store-card.filled {
+  color: #d7e1de;
+  border-style: solid;
+  transform: translateY(-2px);
+}
+.notes .store-card.filled {
+  border-color: rgba(241, 183, 102, .54);
+  background: rgba(241, 183, 102, .08);
+}
+.history .store-card.filled {
+  border-color: rgba(119, 169, 234, .48);
+  background: rgba(119, 169, 234, .07);
+}
+.store-card strong { display: block; margin-bottom: 5px; color: inherit; }
+.history-items { display: flex; gap: 5px; margin-top: 10px; }
+.history-chip {
+  width: 0;
+  height: 22px;
+  overflow: hidden;
+  border-radius: 5px;
+  background: rgba(119, 169, 234, .2);
+  transition: width .28s;
+}
+.history-chip.visible { width: 28px; }
+
+.reset-wave {
+  position: absolute;
+  z-index: 10;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(10, 18, 16, .9);
+  opacity: 0;
+  pointer-events: none;
+}
+.reset-wave.active { animation: resetWindow 1.1s ease both; }
+.reset-core {
+  width: 118px;
+  height: 118px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #4ee0a8;
+  border-radius: 50%;
+  color: #c8f9e7;
+  font: 700 12px/1.3 "SFMono-Regular", Consolas, monospace;
+  text-align: center;
+  box-shadow: 0 0 0 0 rgba(78, 224, 168, .25);
+}
+@keyframes resetWindow {
+  0% { opacity: 0; }
+  14%, 67% { opacity: 1; }
+  36% { background: rgba(10, 18, 16, .97); }
+  48% { background: rgba(8, 127, 91, .16); }
+  100% { opacity: 0; }
+}
+.reset-wave.active .reset-core { animation: pulseRing 1s ease both; }
+@keyframes pulseRing {
+  0% { transform: scale(.65); box-shadow: 0 0 0 0 rgba(78, 224, 168, .25); }
+  50% { transform: scale(1); box-shadow: 0 0 0 38px rgba(78, 224, 168, 0); }
+  100% { transform: scale(.92); }
+}
+
+.sim-foot {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 18px;
+  align-items: center;
+  padding: 19px 20px;
+  border-top: 1px solid #32403c;
+  background: #121b19;
+}
+.step-copy { min-width: 0; }
+.step-kicker {
+  margin-bottom: 5px;
+  color: #4ee0a8;
+  font: 650 10px/1.4 "SFMono-Regular", Consolas, monospace;
+  letter-spacing: .08em;
+}
+.step-title { font-size: 15px; font-weight: 720; }
+.step-detail {
+  margin-top: 3px;
+  overflow: hidden;
+  color: #94a59f;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.controls { display: flex; align-items: center; gap: 8px; }
+.control-btn {
+  min-width: 38px;
+  height: 38px;
+  padding: 0 12px;
+  border: 1px solid #3b4a46;
+  border-radius: 9px;
+  color: #d7e1de;
+  background: #202c29;
+  cursor: pointer;
+}
+.control-btn:hover { border-color: #4ee0a8; }
+.control-btn.primary {
+  min-width: 88px;
+  color: #10201b;
+  border-color: #4ee0a8;
+  background: #4ee0a8;
+  font-weight: 750;
+}
+.step-dots { display: flex; gap: 6px; padding: 0 5px; }
+.step-dot {
+  width: 7px;
+  height: 7px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: #46534f;
+  cursor: pointer;
+  transition: width .2s, background .2s;
+}
+.step-dot.active { width: 20px; border-radius: 999px; background: #4ee0a8; }
+.sim-note {
+  margin: 12px 3px 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.trio {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 17px;
+  margin-top: 30px;
+}
+.feature-card {
+  position: relative;
+  padding: 26px;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+.feature-card::after {
+  content: attr(data-num);
+  position: absolute;
+  right: 13px;
+  top: -22px;
+  color: rgba(8, 127, 91, .07);
+  font: 800 94px/1 "SFMono-Regular", Consolas, monospace;
+}
+.feature-card h3 { position: relative; z-index: 1; margin-bottom: 10px; }
+.feature-card p { position: relative; z-index: 1; margin: 0; color: var(--muted); font-size: 14px; }
+.feature-card code { color: var(--green); }
+
+.comparison {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+  margin-top: 30px;
+}
+.compare-card {
+  padding: 27px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  background: var(--paper);
+}
+.compare-card.new { border-color: #a9d8c7; box-shadow: inset 0 3px 0 var(--green); }
+.compare-tag {
+  display: inline-block;
+  margin-bottom: 14px;
+  padding: 4px 8px;
+  border-radius: 6px;
+  color: var(--muted);
+  background: var(--paper-2);
+  font: 650 10px/1.5 "SFMono-Regular", Consolas, monospace;
+}
+.compare-card.new .compare-tag { color: var(--green); background: var(--green-soft); }
+.flowline {
+  display: flex;
+  align-items: stretch;
+  gap: 7px;
+  margin: 21px 0;
+}
+.flow-node {
+  flex: 1;
+  min-width: 0;
+  padding: 11px 7px;
+  border-radius: 9px;
+  background: var(--paper-2);
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+.compare-card.new .flow-node { background: #ecf6f2; }
+.flow-arrow { align-self: center; color: var(--green); }
+.compare-card p { margin: 0; color: var(--muted); font-size: 14px; }
+.precision {
+  margin-top: 18px !important;
+  padding-top: 16px;
+  border-top: 1px solid var(--line);
+  font-size: 12px !important;
+}
+
+.activation {
+  display: grid;
+  grid-template-columns: .8fr 1.2fr;
+  gap: 22px;
+  align-items: start;
+}
+.code-card {
+  overflow: hidden;
+  border-radius: var(--radius);
+  color: #dbe7e2;
+  background: var(--dark);
+  box-shadow: var(--shadow);
+}
+.code-head {
+  display: flex;
+  justify-content: space-between;
+  padding: 13px 17px;
+  border-bottom: 1px solid #35423f;
+  color: #8fa19b;
+  font: 600 11px/1.4 "SFMono-Regular", Consolas, monospace;
+}
+.copy-btn {
+  padding: 0;
+  border: 0;
+  color: #77d8b5;
+  background: transparent;
+  cursor: pointer;
+}
+pre { margin: 0; padding: 25px; overflow: auto; font: 500 14px/1.7 "SFMono-Regular", Consolas, monospace; }
+.toml-key { color: #74d5b2; }
+.toml-value { color: #f2ba72; }
+.check-list { display: grid; gap: 10px; }
+.check {
+  display: grid;
+  grid-template-columns: 28px 1fr;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--paper);
+}
+.check-icon {
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  color: var(--green);
+  background: var(--green-soft);
+  font-weight: 800;
+}
+.check.no .check-icon { color: var(--red); background: var(--red-soft); }
+.check b { display: block; font-size: 14px; }
+.check span { color: var(--muted); font-size: 12px; }
+
+.takeaway {
+  margin-top: 32px;
+  padding: 28px;
+  border-radius: var(--radius);
+  color: #eaf5f0;
+  background: var(--dark);
+}
+.takeaway strong { color: #72e0b8; }
+.takeaway p { margin: 0; }
+.takeaway p + p { margin-top: 11px; color: #aebdb8; font-size: 14px; }
+
+.source-list { margin-top: 28px; border-top: 1px solid var(--line); }
+.source {
+  display: grid;
+  grid-template-columns: 116px 1fr auto;
+  gap: 18px;
+  align-items: start;
+  padding: 20px 0;
+  border-bottom: 1px solid var(--line);
+}
+.source-type { color: var(--green); font: 650 11px/1.5 "SFMono-Regular", Consolas, monospace; }
+.source b { display: block; margin-bottom: 3px; }
+.source p { margin: 0; color: var(--muted); font-size: 13px; }
+.source-arrow { color: var(--green); }
+.boundary {
+  margin-top: 26px;
+  padding: 20px 22px;
+  border-left: 3px solid var(--amber);
+  background: var(--amber-soft);
+  color: #694e2d;
+  font-size: 14px;
+}
+
+footer { padding: 42px 0 54px; border-top: 1px solid var(--line); color: var(--muted); font-size: 12px; }
+.footer-inner { display: flex; justify-content: space-between; gap: 20px; }
+
+@media (max-width: 920px) {
+  .nav a:not(.source-link) { display: none; }
+  .sim-body, .activation { grid-template-columns: 1fr; }
+  .context-pane { border-right: 0; border-bottom: 1px solid #32403c; }
+  .stores-pane { grid-template-columns: 1fr 1fr; grid-template-rows: none; }
+  .store + .store { border-top: 0; border-left: 1px solid #32403c; }
+  .trio { grid-template-columns: 1fr; }
+  .comparison { grid-template-columns: 1fr; }
+}
+@media (max-width: 650px) {
+  .wrap { width: min(100% - 24px, 560px); }
+  .hero { padding-top: 57px; }
+  h1 { font-size: 43px; }
+  .correction { grid-template-columns: 1fr; }
+  .sim-head { align-items: flex-start; }
+  .sim-legend { display: none; }
+  .sim-body { min-height: auto; }
+  .context-pane, .store { padding: 18px; }
+  .stores-pane { grid-template-columns: 1fr; }
+  .store + .store { border-left: 0; border-top: 1px solid #32403c; }
+  .sim-foot { grid-template-columns: 1fr; }
+  .controls { justify-content: space-between; }
+  .step-detail { white-space: normal; }
+  .context-item { grid-template-columns: 52px 1fr; }
+  .source { grid-template-columns: 1fr auto; gap: 6px 15px; }
+  .source-type { grid-column: 1 / -1; }
+  .footer-inner { flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <a class="brand" href="#top"><span class="brand-mark">Cx</span>Codex Context Management</a>
+    <nav class="nav" aria-label="页面导航">
+      <a href="#demo">动画</a>
+      <a href="#mechanism">机制</a>
+      <a href="#compare">对比</a>
+      <a href="#enable">启用</a>
+      <a class="source-link" href="https://github.com/openai/codex/pull/42385" target="_blank" rel="noopener">官方 PR ↗</a>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <div class="wrap hero">
+    <span class="eyebrow">EXPERIMENTAL · CODEX CLI 0.153.0</span>
+    <h1>上下文满了，不再反复“传话”<br>而是做一次<span>跨窗口接力</span></h1>
+    <p class="lead">模型看见剩余 token，提前把任务状态写进 Notes；切到全新的上下文窗口后，再从 Notes 和只读 History 中按需找回细节。</p>
+    <div class="hero-meta">
+      <span class="pill">Token Budget</span>
+      <span class="pill">History + Notes</span>
+      <span class="pill">new_context</span>
+      <span class="pill">默认关闭 · Under development</span>
+    </div>
+    <aside class="correction">
+      <span class="correction-badge">版本勘误</span>
+      <p>社区帖写“在 0.153.4 加入”，但 OpenAI 官方发布记录显示：<strong>实验开关随 Codex CLI 0.153.0 发布</strong>；0.153.4 的 changelog 只有 Astra 相关 hotfix。</p>
+    </aside>
+  </div>
+
+  <section id="demo">
+    <div class="wrap">
+      <span class="section-no">01 · ANIMATED WALKTHROUGH</span>
+      <h2>看一次长任务如何跨过上下文边界</h2>
+      <p class="section-intro">点“播放”自动演示，或逐步前进。这里的 token 百分比是<strong>教学示意</strong>；真实阈值由模型配置和服务端信息决定。</p>
+
+      <div class="simulator" aria-label="Codex 上下文管理动画演示">
+        <div class="sim-head">
+          <div class="window-id"><span class="live-dot"></span><span id="windowLabel">CONTEXT WINDOW · W-17</span></div>
+          <div class="sim-legend" aria-hidden="true">
+            <span><i class="legend-dot context"></i>活跃上下文</span>
+            <span><i class="legend-dot notes"></i>Notes</span>
+            <span><i class="legend-dot history"></i>History</span>
+          </div>
+        </div>
+
+        <div class="sim-body">
+          <div class="context-pane">
+            <div class="pane-title-row">
+              <span class="pane-label">MODEL-VISIBLE CONTEXT</span>
+              <span class="budget-copy"><span id="budgetNumber">100</span>% REMAINING</span>
+            </div>
+            <div class="budget-track" aria-label="剩余 token 比例">
+              <div class="budget-fill" id="budgetFill"></div>
+            </div>
+            <div class="context-list" id="contextList">
+              <article class="context-item initial visible" data-item="initial">
+                <span class="role">initial</span>
+                <span class="message">系统指令、项目规则、当前环境，以及窗口 ID：W-17。</span>
+              </article>
+              <article class="context-item" data-item="user">
+                <span class="role">user</span>
+                <span class="message">修复支付重试的竞态问题，保持公开 API 不变。</span>
+              </article>
+              <article class="context-item" data-item="tool">
+                <span class="role">tool</span>
+                <span class="message">读取 14 个文件、运行测试、定位到 idempotency key 的竞争窗口……</span>
+              </article>
+              <article class="context-item reminder" data-item="reminder">
+                <span class="role">budget</span>
+                <span class="message">上下文余量即将触及阈值。保存目标、决策、进度和下一步。</span>
+              </article>
+              <article class="context-item recovered" data-item="recovered">
+                <span class="role">history</span>
+                <span class="message">按 item ID 取回：失败测试的完整断言与对应工具输出。</span>
+              </article>
+            </div>
+            <div class="context-empty" id="contextEmpty">
+              <div><strong>旧窗口已关闭</strong>消息与工具输出不直接搬进新窗口</div>
+            </div>
+          </div>
+
+          <aside class="stores-pane">
+            <div class="store notes">
+              <div class="store-head">
+                <div class="store-title"><span class="store-icon">N</span>Notes</div>
+                <span class="store-status" id="notesStatus">EMPTY</span>
+              </div>
+              <div class="store-card" id="notesCard">
+                <strong id="notesTitle">等待 checkpoint</strong>
+                <span id="notesBody">模型可在切换前写入简洁、可维护的任务状态。</span>
+              </div>
+            </div>
+            <div class="store history">
+              <div class="store-head">
+                <div class="store-title"><span class="store-icon">H</span>Read-only History</div>
+                <span class="store-status" id="historyStatus">LIVE</span>
+              </div>
+              <div class="store-card" id="historyCard">
+                <strong id="historyTitle">窗口 W-17 的原始条目</strong>
+                <span id="historyBody">保留 item 引用；需要时再 list / search / read。</span>
+                <div class="history-items" aria-hidden="true">
+                  <i class="history-chip"></i><i class="history-chip"></i><i class="history-chip"></i><i class="history-chip"></i><i class="history-chip"></i>
+                </div>
+              </div>
+            </div>
+          </aside>
+
+          <div class="reset-wave" id="resetWave" aria-hidden="true">
+            <div class="reset-core">new_context<br>W-17 → W-18</div>
+          </div>
+        </div>
+
+        <div class="sim-foot">
+          <div class="step-copy" aria-live="polite">
+            <div class="step-kicker" id="stepKicker">STEP 1 / 6</div>
+            <div class="step-title" id="stepTitle">建立窗口与预算</div>
+            <div class="step-detail" id="stepDetail">Codex 向模型暴露当前窗口及可用 token 预算。</div>
+          </div>
+          <div class="controls">
+            <button class="control-btn" id="prevButton" type="button" aria-label="上一步">←</button>
+            <div class="step-dots" id="stepDots" aria-label="选择演示步骤"></div>
+            <button class="control-btn primary" id="playButton" type="button">播放 ▶</button>
+            <button class="control-btn" id="nextButton" type="button" aria-label="下一步">→</button>
+          </div>
+        </div>
+      </div>
+      <p class="sim-note">准确边界：新窗口自动获得的是 fresh initial context；Notes 与 History 是恢复通道，并不等于“全部旧内容自动回填”。</p>
+    </div>
+  </section>
+
+  <section id="mechanism">
+    <div class="wrap">
+      <span class="section-no">02 · THREE PARTS</span>
+      <h2>这个实验实际打开了三块能力</h2>
+      <p class="section-intro">它不是一个更长的 context window，也不是单纯换了一版摘要 prompt；它让模型参与自己的上下文生命周期管理。</p>
+      <div class="trio">
+        <article class="feature-card" data-num="1">
+          <h3>Token Budget · 看见余量</h3>
+          <p>完整窗口开始时注入窗口元数据；接近阈值时追加提醒。模型因此能在失去旧窗口前规划收尾，而不是等到溢出后被动补救。</p>
+        </article>
+        <article class="feature-card" data-num="2">
+          <h3>Notes + History · 外置状态</h3>
+          <p>Notes 保存精炼 checkpoint；History 保存可按窗口 ID / item ID 查找的原始条目。先读笔记，缺细节时再定点查历史，避免整段重放。</p>
+        </article>
+        <article class="feature-card" data-num="3">
+          <h3><code>new_context</code> · 主动换窗</h3>
+          <p>这是 direct-model-only 工具。模型认为旧窗口不再有价值时，可发起无摘要 reset；同一 turn 的后续请求从 fresh initial context 继续。</p>
+        </article>
+      </div>
+      <div class="takeaway">
+        <p><strong>核心变化：</strong>从“系统在阈值后压缩旧对话”，变成“模型在预算内先保存状态，再主动或自动切换窗口，并按需恢复”。</p>
+        <p>在 token-budget 模式下，手动 / 自动 compact 也走 fresh-window reset，不调用服务端摘要，并丢弃旧消息与工具输出的直接携带。</p>
+      </div>
+    </div>
+  </section>
+
+  <section id="compare">
+    <div class="wrap">
+      <span class="section-no">03 · DO NOT CONFUSE THEM</span>
+      <h2>实验性换窗 ≠ Responses API Compaction</h2>
+      <p class="section-intro">社区帖把旧方案概括成“反复摘要”，方向上能帮助理解，但对当前 Codex 来说已经不够准确。</p>
+      <div class="comparison">
+        <article class="compare-card">
+          <span class="compare-tag">STANDARD COMPACTION</span>
+          <h3>把旧窗口压成可继续传递的状态</h3>
+          <div class="flowline" aria-hidden="true">
+            <span class="flow-node">长输入</span><span class="flow-arrow">→</span>
+            <span class="flow-node">compact</span><span class="flow-arrow">→</span>
+            <span class="flow-node">压缩窗口</span>
+          </div>
+          <p>当前 Responses API 可返回 opaque、encrypted 的 compaction item，并可能保留部分旧条目。它不是只有一段人类可读摘要。</p>
+          <p class="precision">适合：希望把 prior state 直接带进下一次请求的 API / 常规 Codex 流程。</p>
+        </article>
+        <article class="compare-card new">
+          <span class="compare-tag">EXPERIMENTAL TOKEN-BUDGET MODE</span>
+          <h3>放下旧窗口，靠外部索引继续工作</h3>
+          <div class="flowline" aria-hidden="true">
+            <span class="flow-node">写 Notes</span><span class="flow-arrow">→</span>
+            <span class="flow-node">fresh window</span><span class="flow-arrow">→</span>
+            <span class="flow-node">按需查 History</span>
+          </div>
+          <p><code>new_context</code> 不生成摘要，也不把旧 user / assistant / tool items 直接带入；它重新注入标准 initial context。</p>
+          <p class="precision">适合：超长 coding task，需要主动清理噪声、精确恢复状态的 ChatGPT Codex 会话。</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section id="enable">
+    <div class="wrap">
+      <span class="section-no">04 · ENABLE & ELIGIBILITY</span>
+      <h2>配置很短，但启用条件很窄</h2>
+      <p class="section-intro">把下面内容加入 <span class="mono">~/.codex/config.toml</span>。功能仍标记为 <strong>Under development</strong>，字段和资格都可能变化。</p>
+      <div class="activation">
+        <div class="code-card">
+          <div class="code-head"><span>~/.codex/config.toml</span><button class="copy-btn" id="copyButton" type="button">复制</button></div>
+          <pre id="configCode"><span class="toml-key">[features.context_management]</span>
+experimental_mode = <span class="toml-value">true</span></pre>
+        </div>
+        <div class="check-list">
+          <div class="check">
+            <span class="check-icon">✓</span>
+            <div><b>ChatGPT 身份登录</b><span>官方实现检查 AuthMode::Chatgpt，而不是 API key。</span></div>
+          </div>
+          <div class="check">
+            <span class="check-icon">✓</span>
+            <div><b>Plus / Pro / Pro Lite</b><span>PR 的资格测试只允许这三种计划。</span></div>
+          </div>
+          <div class="check">
+            <span class="check-icon">✓</span>
+            <div><b>OpenAI Codex backend</b><span>要求官方 provider、OpenAI auth 和 Codex backend route。</span></div>
+          </div>
+          <div class="check no">
+            <span class="check-icon">×</span>
+            <div><b>明确排除</b><span>API-key 会话、自定义 provider / credentials、非 Codex endpoint、temporary structured thread。</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section id="sources">
+    <div class="wrap">
+      <span class="section-no">05 · VERIFIED SOURCES</span>
+      <h2>哪些是官方确认，哪些仍未知</h2>
+      <div class="source-list">
+        <a class="source" href="https://github.com/openai/codex/releases/tag/rust-v0.153.0" target="_blank" rel="noopener">
+          <span class="source-type">RELEASE</span>
+          <span><b>Codex CLI 0.153.0</b><p>确认版本、开关、三项能力和会话资格。</p></span>
+          <span class="source-arrow">↗</span>
+        </a>
+        <a class="source" href="https://github.com/openai/codex/pull/42385" target="_blank" rel="noopener">
+          <span class="source-type">PR #42385</span>
+          <span><b>Experimental context management activation</b><p>确认实现条件：Plus / Pro / Pro Lite、Codex backend、history notes 与 token budget 激活。</p></span>
+          <span class="source-arrow">↗</span>
+        </a>
+        <a class="source" href="https://github.com/openai/codex/pull/27488" target="_blank" rel="noopener">
+          <span class="source-type">PR #27488</span>
+          <span><b>new_context tool</b><p>确认模型主动调用、无摘要、新窗口只含 fresh initial context。</p></span>
+          <span class="source-arrow">↗</span>
+        </a>
+        <a class="source" href="https://github.com/openai/codex/pull/29743" target="_blank" rel="noopener">
+          <span class="source-type">PR #29743</span>
+          <span><b>Token-budget compaction reset</b><p>确认该模式下 manual / auto compaction 使用 fresh-window reset。</p></span>
+          <span class="source-arrow">↗</span>
+        </a>
+        <a class="source" href="https://developers.openai.com/api/docs/guides/compaction" target="_blank" rel="noopener">
+          <span class="source-type">API DOCS</span>
+          <span><b>Responses API Compaction</b><p>确认标准 compaction item 是 opaque / encrypted，且输出可能含保留条目。</p></span>
+          <span class="source-arrow">↗</span>
+        </a>
+      </div>
+      <div class="boundary"><strong>尚无公开保证：</strong>默认 token 阈值的固定数值、质量提升幅度、成本节省比例、Notes 的长期保留期限。动画没有为这些项目虚构数字。</div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap footer-inner">
+    <span>Codex Experimental Context Management · 中文动画说明</span>
+    <span>依据 2026-09-11 可公开访问的 OpenAI 文档与 openai/codex 实现整理</span>
+  </div>
+</footer>
+
+<script>
+const steps = [
+  {
+    title: "建立窗口与预算",
+    detail: "Codex 向模型暴露当前窗口及可用 token 预算。",
+    budget: 100,
+    window: "W-17",
+    items: ["initial"],
+    notes: false,
+    historyCount: 0,
+    empty: false
+  },
+  {
+    title: "长任务持续消耗上下文",
+    detail: "用户消息、文件内容和工具输出不断进入活跃窗口。",
+    budget: 34,
+    window: "W-17",
+    items: ["initial", "user", "tool"],
+    notes: false,
+    historyCount: 3,
+    empty: false
+  },
+  {
+    title: "余量提醒 → 写入 checkpoint",
+    detail: "模型把目标、约束、当前结论和下一步写入 Notes，并保留 item 引用。",
+    budget: 12,
+    window: "W-17",
+    items: ["initial", "user", "tool", "reminder"],
+    notes: true,
+    historyCount: 5,
+    empty: false
+  },
+  {
+    title: "模型调用 new_context",
+    detail: "旧窗口被关闭；这一步不生成 compaction summary。",
+    budget: 0,
+    window: "W-17 → W-18",
+    items: [],
+    notes: true,
+    historyCount: 5,
+    empty: true,
+    reset: true
+  },
+  {
+    title: "从 fresh initial context 开始",
+    detail: "新窗口获得系统指令、项目规则与新窗口 ID；旧对话不会自动回填。",
+    budget: 100,
+    window: "W-18",
+    items: ["initial"],
+    notes: true,
+    historyCount: 5,
+    empty: false,
+    fresh: true
+  },
+  {
+    title: "按需恢复，而不是整段重放",
+    detail: "先读 Notes，再根据引用从 History 精确取回失败断言；任务继续。",
+    budget: 91,
+    window: "W-18",
+    items: ["initial", "recovered"],
+    notes: true,
+    historyCount: 5,
+    empty: false,
+    recovered: true
+  }
+];
+
+const elements = {
+  budgetFill: document.querySelector("#budgetFill"),
+  budgetNumber: document.querySelector("#budgetNumber"),
+  windowLabel: document.querySelector("#windowLabel"),
+  items: [...document.querySelectorAll(".context-item")],
+  contextEmpty: document.querySelector("#contextEmpty"),
+  notesCard: document.querySelector("#notesCard"),
+  notesStatus: document.querySelector("#notesStatus"),
+  notesTitle: document.querySelector("#notesTitle"),
+  notesBody: document.querySelector("#notesBody"),
+  historyCard: document.querySelector("#historyCard"),
+  historyStatus: document.querySelector("#historyStatus"),
+  historyTitle: document.querySelector("#historyTitle"),
+  historyBody: document.querySelector("#historyBody"),
+  historyChips: [...document.querySelectorAll(".history-chip")],
+  resetWave: document.querySelector("#resetWave"),
+  stepKicker: document.querySelector("#stepKicker"),
+  stepTitle: document.querySelector("#stepTitle"),
+  stepDetail: document.querySelector("#stepDetail"),
+  stepDots: document.querySelector("#stepDots"),
+  playButton: document.querySelector("#playButton"),
+  prevButton: document.querySelector("#prevButton"),
+  nextButton: document.querySelector("#nextButton")
+};
+
+let currentStep = 0;
+let playing = false;
+let timer;
+
+function budgetColor(value) {
+  if (value <= 15) return "#ef7d6f";
+  if (value <= 35) return "#f1b766";
+  return "#4ee0a8";
+}
+
+function renderStep(index, options = {}) {
+  currentStep = (index + steps.length) % steps.length;
+  const step = steps[currentStep];
+
+  elements.budgetFill.style.width = `${step.budget}%`;
+  elements.budgetFill.style.background = budgetColor(step.budget);
+  elements.budgetNumber.textContent = step.budget;
+  elements.windowLabel.textContent = `CONTEXT WINDOW · ${step.window}`;
+
+  elements.items.forEach((item) => {
+    const visible = step.items.includes(item.dataset.item);
+    item.classList.toggle("visible", visible);
+    item.classList.toggle("highlight", step.recovered && item.dataset.item === "recovered");
+    if (step.fresh && item.dataset.item === "initial") {
+      item.querySelector(".message").textContent = "系统指令、项目规则、当前环境，以及新窗口 ID：W-18。";
+    } else if (item.dataset.item === "initial") {
+      item.querySelector(".message").textContent = "系统指令、项目规则、当前环境，以及窗口 ID：W-17。";
+    }
+  });
+  elements.contextEmpty.classList.toggle("visible", step.empty);
+
+  elements.notesCard.classList.toggle("filled", step.notes);
+  elements.notesStatus.textContent = step.notes ? (step.recovered ? "READ" : "SAVED") : "EMPTY";
+  elements.notesTitle.textContent = step.notes ? "checkpoint.md · W-17" : "等待 checkpoint";
+  elements.notesBody.textContent = step.notes
+    ? "目标：修复竞态；约束：API 不变；结论：锁需覆盖 check + write；下一步：补并发测试；引用：item-42。"
+    : "模型可在切换前写入简洁、可维护的任务状态。";
+
+  const hasHistory = step.historyCount > 0;
+  elements.historyCard.classList.toggle("filled", hasHistory);
+  elements.historyStatus.textContent = step.recovered ? "ITEM-42 READ" : (hasHistory ? "INDEXED" : "LIVE");
+  elements.historyTitle.textContent = step.window.includes("W-18") ? "窗口 W-17 · 可按需检索" : "窗口 W-17 的原始条目";
+  elements.historyBody.textContent = step.recovered
+    ? "只取回 item-42：失败测试断言，而不是重放整个旧窗口。"
+    : "保留 item 引用；需要时再 list / search / read。";
+  elements.historyChips.forEach((chip, chipIndex) => chip.classList.toggle("visible", chipIndex < step.historyCount));
+
+  elements.stepKicker.textContent = `STEP ${currentStep + 1} / ${steps.length}`;
+  elements.stepTitle.textContent = step.title;
+  elements.stepDetail.textContent = step.detail;
+  [...elements.stepDots.children].forEach((dot, dotIndex) => {
+    dot.classList.toggle("active", dotIndex === currentStep);
+    dot.setAttribute("aria-current", dotIndex === currentStep ? "step" : "false");
+  });
+
+  if (step.reset && options.animate !== false) {
+    elements.resetWave.classList.remove("active");
+    void elements.resetWave.offsetWidth;
+    elements.resetWave.classList.add("active");
+  } else {
+    elements.resetWave.classList.remove("active");
+  }
+}
+
+function setPlaying(value) {
+  playing = value;
+  clearInterval(timer);
+  elements.playButton.textContent = playing ? "暂停 Ⅱ" : "播放 ▶";
+  if (!playing) return;
+  timer = setInterval(() => {
+    if (currentStep === steps.length - 1) {
+      setPlaying(false);
+      return;
+    }
+    renderStep(currentStep + 1);
+  }, 2600);
+}
+
+steps.forEach((_, index) => {
+  const dot = document.createElement("button");
+  dot.type = "button";
+  dot.className = "step-dot";
+  dot.setAttribute("aria-label", `跳到第 ${index + 1} 步`);
+  dot.addEventListener("click", () => {
+    setPlaying(false);
+    renderStep(index);
+  });
+  elements.stepDots.append(dot);
+});
+
+elements.playButton.addEventListener("click", () => {
+  if (!playing && currentStep === steps.length - 1) renderStep(0, { animate: false });
+  setPlaying(!playing);
+});
+elements.prevButton.addEventListener("click", () => {
+  setPlaying(false);
+  renderStep(currentStep - 1);
+});
+elements.nextButton.addEventListener("click", () => {
+  setPlaying(false);
+  renderStep(currentStep + 1);
+});
+
+document.querySelector("#copyButton").addEventListener("click", async (event) => {
+  const text = "[features.context_management]\nexperimental_mode = true";
+  if (!navigator.clipboard) {
+    window.prompt("复制以下配置：", text);
+    return;
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    event.currentTarget.textContent = "已复制";
+    setTimeout(() => { event.currentTarget.textContent = "复制"; }, 1400);
+  } catch (error) {
+    console.error("无法写入剪贴板", error);
+    window.prompt("复制以下配置：", text);
+  }
+});
+
+renderStep(0, { animate: false });
+</script>
+</body>
+</html>

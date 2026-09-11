@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: codex-context-management
+    title: "Codex 怎么用 token budget 和 new_context 跨窗口接力"
+    date: 2026-09-11
+    source_type: blog
+    source_url: "https://github.com/openai/codex/releases/tag/rust-v0.153.0"
   - slug: noisy-data-destructive-rlvr
     title: "RLVR 的「100% 错标也能学」为什么站不住脚"
     date: 2026-09-07
