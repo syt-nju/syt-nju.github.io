@@ -10,6 +10,9 @@
 #   url   : link to the original article
 #   date  : YYYY-MM-DD, the day this link was added (used for sorting only)
 entries:
+  - title: "The Flexibility Trap: Rethinking the Value of Arbitrary Order in Diffusion Language Models"
+    url: "https://arxiv.org/abs/2601.15165"
+    date: 2026-09-20
   - title: "Research acceleration: The view inside OpenAI"
     url: "https://openai.com/index/research-acceleration-view-inside-openai/"
     date: 2026-09-10
