@@ -1,0 +1,955 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="description" content="DeepSeek-V4.1-Flash 的 Causal Encoder-Decoder：为什么输入每 token 激活 8B、输出激活 16B，以及 CSA2、FP4 KV、SWA Bounded Replay 等配套架构调整">
+<title>DeepSeek-V4.1-Flash：为什么读输入只激活 8B，写输出要 16B</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg: #fbf6ea;
+  --paper: #fffdf7;
+  --soft: #f4ead7;
+  --soft-2: #e8dcc7;
+  --ink: #2c2418;
+  --sub: #5f5240;
+  --muted: #8a7c68;
+  --accent: #9b6843;
+  --accent-12: rgba(155, 104, 67, .12);
+  --accent-30: rgba(155, 104, 67, .30);
+  --accent-55: rgba(155, 104, 67, .55);
+  --line: #ded1bc;
+  --shadow: 0 3px 12px rgba(60, 45, 25, .07);
+  --radius: 10px;
+  --sans: "Inter", "Noto Sans SC", system-ui, sans-serif;
+  --mono: "JetBrains Mono", ui-monospace, monospace;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; scroll-padding-top: 70px; }
+body { background: var(--bg); color: var(--ink); font: 16px/1.8 var(--sans); -webkit-font-smoothing: antialiased; }
+a { color: var(--accent); }
+code, .mono { font-family: var(--mono); font-size: .92em; }
+code { padding: 1px 5px; border-radius: 4px; background: var(--soft); }
+.container { width: min(880px, calc(100% - 40px)); margin: 0 auto; }
+
+.nav { position: sticky; top: 0; z-index: 20; border-bottom: 1px solid var(--line); background: rgba(251, 246, 234, .94); backdrop-filter: blur(8px); }
+.nav-inner { height: 54px; display: flex; align-items: center; justify-content: space-between; gap: 18px; }
+.nav-links { display: flex; gap: 18px; overflow-x: auto; scrollbar-width: none; }
+.nav-links::-webkit-scrollbar { display: none; }
+.nav a { white-space: nowrap; text-decoration: none; font-size: 13px; font-weight: 600; color: var(--muted); }
+.nav a:hover { color: var(--accent); }
+.source-pill { flex-shrink: 0; border: 1px solid var(--line); border-radius: 5px; padding: 4px 10px; color: var(--accent) !important; }
+
+.hero { padding: 54px 0 36px; border-bottom: 1px solid var(--line); }
+.meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 18px; }
+.tag { background: var(--soft); color: var(--sub); border-radius: 4px; padding: 3px 9px; font-size: 12px; font-weight: 600; }
+.tag.primary { background: var(--accent); color: #fff; }
+h1 { max-width: 800px; font-size: clamp(28px, 5vw, 40px); line-height: 1.25; letter-spacing: -.03em; margin-bottom: 14px; }
+.subtitle { max-width: 780px; color: var(--sub); font-size: 17px; margin-bottom: 12px; }
+.authors { color: var(--muted); font-size: 13px; }
+.hero-links { display: flex; flex-wrap: wrap; gap: 8px 18px; margin-top: 12px; }
+.hero-links a { font-size: 13px; font-weight: 600; text-decoration: none; }
+.hero-links a:hover { text-decoration: underline; }
+
+main { padding: 36px 0 20px; }
+section { margin-bottom: 58px; }
+h2 { font-size: 24px; line-height: 1.4; margin-bottom: 18px; padding-bottom: 9px; border-bottom: 2px solid var(--soft-2); }
+h3 { font-size: 18px; line-height: 1.45; margin: 30px 0 12px; }
+p { margin-bottom: 15px; }
+strong { font-weight: 700; }
+.eyebrow { color: var(--accent); font-size: 12px; font-weight: 700; letter-spacing: .09em; margin-bottom: 7px; }
+.muted { color: var(--muted); }
+.small { font-size: 13px; }
+
+.tldr { padding: 25px 28px; background: var(--soft); border-left: 4px solid var(--accent); border-radius: var(--radius); }
+.tldr-title { color: var(--accent); font-size: 13px; font-weight: 700; letter-spacing: .08em; margin-bottom: 8px; }
+.tldr p:last-child { margin-bottom: 0; }
+.question { margin: 22px 0; padding: 20px 24px; border: 1px solid var(--line); background: var(--paper); border-radius: var(--radius); box-shadow: var(--shadow); }
+.question-label { color: var(--muted); font-size: 12px; font-weight: 700; }
+.question-text { margin-top: 4px; font-size: 19px; font-weight: 700; line-height: 1.55; }
+.metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 24px 0 0; }
+.metric { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px 12px; text-align: center; box-shadow: var(--shadow); }
+.metric-value { color: var(--accent); font: 700 26px/1.2 var(--mono); }
+.metric-value small { font-size: 15px; }
+.metric-label { margin-top: 7px; color: var(--muted); font-size: 12px; line-height: 1.5; }
+
+.list { list-style: none; margin: 0 0 16px; }
+.list li { position: relative; padding: 5px 0 5px 19px; }
+.list li::before { content: ""; position: absolute; left: 1px; top: 15px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.olist { margin: 0 0 16px 22px; }
+.olist li { padding: 4px 0; }
+
+.compare { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin: 20px 0; }
+.panel { padding: 18px 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); }
+.panel.accent { background: var(--soft); }
+.panel-title { color: var(--muted); font-size: 12px; font-weight: 700; letter-spacing: .07em; margin-bottom: 8px; }
+.panel p, .panel li { font-size: 14px; color: var(--sub); }
+.panel p:last-child { margin-bottom: 0; }
+.panel .big { font-size: 16px; font-weight: 700; color: var(--ink); margin-bottom: 6px; }
+
+.formula { margin: 18px 0; padding: 16px 20px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); overflow-x: auto; }
+.formula-row { display: grid; grid-template-columns: 170px 1fr; gap: 12px; padding: 6px 0; align-items: baseline; }
+.formula-row + .formula-row { border-top: 1px dashed var(--line); }
+.formula-row .k { color: var(--muted); font-size: 13px; font-weight: 600; }
+.formula-row .v { font: 14px/1.7 var(--mono); color: var(--ink); white-space: nowrap; }
+.formula-row.hl .v { color: var(--accent); font-weight: 600; }
+.formula-row .v small { color: var(--muted); font-family: var(--sans); font-size: 12px; }
+
+.figure { margin: 24px 0; padding: 18px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.figure img { display: block; width: 100%; height: auto; border-radius: 5px; background: #fff; }
+.figure img.narrow { max-width: 560px; margin: 0 auto; }
+.caption { margin-top: 12px; color: var(--sub); font-size: 13px; line-height: 1.6; }
+.fig-toggle { margin-top: 7px; border: 0; padding: 0; background: none; color: var(--accent); cursor: pointer; font: 600 13px var(--sans); }
+.fig-toggle:hover { text-decoration: underline; }
+.figure-detail { max-height: 0; overflow: hidden; opacity: 0; transform: translateY(-4px); transition: max-height .45s ease, opacity .25s ease, transform .25s ease; }
+.figure-detail.active { max-height: 1600px; opacity: 1; transform: none; margin-top: 9px; }
+.figure-detail ul { list-style: none; }
+.figure-detail li { position: relative; padding: 5px 0 5px 17px; color: var(--sub); font-size: 13px; line-height: 1.65; }
+.figure-detail li::before { content: "—"; position: absolute; left: 0; color: var(--accent); }
+
+.related-card { margin-bottom: 13px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); overflow: hidden; box-shadow: var(--shadow); }
+.related-head { display: flex; gap: 12px; align-items: flex-start; padding: 17px 20px; cursor: pointer; transition: background .2s; }
+.related-head:hover { background: var(--soft); }
+.chevron { margin-top: 3px; color: var(--muted); transition: transform .25s; }
+.related-card.open .chevron { transform: rotate(90deg); }
+.related-title { font-size: 15px; font-weight: 700; }
+.paper-tag { display: inline-block; margin-right: 7px; padding: 1px 7px; border-radius: 3px; background: var(--soft-2); color: var(--sub); font-size: 11px; font-weight: 600; vertical-align: 1px; }
+.related-summary { margin-top: 5px; color: var(--muted); font-size: 13px; line-height: 1.6; }
+.related-body { max-height: 0; overflow: hidden; opacity: 0; transition: max-height .55s ease, opacity .3s ease; }
+.related-card.open .related-body { max-height: 4200px; opacity: 1; }
+.related-content { padding: 18px 20px 20px; border-top: 1px solid var(--line); }
+.related-content p, .related-content li { color: var(--sub); font-size: 14px; }
+
+.mini-stack { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 16px 0; }
+.stack-col { padding: 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.stack-col .panel-title { margin-bottom: 10px; }
+.stack-row { display: grid; grid-template-columns: 1fr 26px 1fr; align-items: center; gap: 6px; margin: 5px 0; font: 12px/1.4 var(--mono); }
+.stack-row .layer { padding: 6px 8px; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); text-align: center; }
+.stack-row .kv { padding: 6px 8px; border-radius: 5px; background: var(--soft); text-align: center; color: var(--sub); }
+.stack-row .kv.from-mid { background: var(--accent-12); color: var(--accent); border: 1px dashed var(--accent-55); }
+.stack-row .arr { text-align: center; color: var(--muted); }
+.stack-row.gap .layer, .stack-row.gap .kv { border-style: dashed; color: var(--muted); background: transparent; }
+.stack-note { margin-top: 8px; font-size: 12px; color: var(--muted); line-height: 1.55; }
+
+/* step demo */
+.sim { margin: 22px 0; padding: 20px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.sim-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 10px; margin-bottom: 14px; }
+.mode-tabs { display: inline-flex; padding: 3px; border-radius: 7px; background: var(--soft); gap: 3px; }
+.mode-tab { padding: 6px 12px; border: 0; border-radius: 5px; background: transparent; color: var(--sub); cursor: pointer; font: 600 12px var(--sans); }
+.mode-tab.active { background: var(--paper); color: var(--ink); box-shadow: 0 1px 3px rgba(60, 45, 25, .12); }
+.case-line { font-size: 12px; color: var(--muted); }
+.step-track { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.step-chip { padding: 4px 9px; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); color: var(--muted); cursor: pointer; font: 600 11px var(--sans); transition: background .25s, color .25s, border-color .25s; }
+.step-chip.done { background: var(--soft); color: var(--sub); }
+.step-chip.active { background: var(--accent); border-color: var(--accent); color: #fff; }
+.grid-wrap { overflow-x: auto; }
+.tok-grid { display: grid; grid-template-columns: 104px repeat(17, minmax(14px, 1fr)); gap: 4px; min-width: 420px; align-items: center; }
+.row-label { font-size: 11px; line-height: 1.35; color: var(--sub); font-weight: 600; padding-right: 6px; }
+.row-label small { display: block; color: var(--muted); font-weight: 500; font-size: 10px; }
+.cell { height: 40px; border-radius: 4px; border: 1px solid var(--line); background: var(--bg); transition: background .35s, border-color .35s, opacity .35s, transform .35s; position: relative; }
+.cell.kvrow { height: 16px; }
+.cell.cached { background: repeating-linear-gradient(135deg, var(--soft-2) 0 4px, var(--soft) 4px 8px); border-color: var(--soft-2); }
+.cell.skip { background: transparent; border-style: dashed; border-color: var(--line); opacity: .8; }
+.cell.on { background: var(--accent-55); border-color: var(--accent-55); }
+.cell.approx { background: repeating-linear-gradient(135deg, var(--accent-30) 0 4px, var(--accent-12) 4px 8px); border: 1px dashed var(--accent); }
+.cell.now { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.cell.on.now { background: var(--accent); }
+.col-label { grid-row: auto; font-size: 10px; line-height: 1.35; color: var(--muted); text-align: center; padding-top: 4px; border-top: 2px solid var(--soft-2); }
+.col-label.tail { border-top-color: var(--accent-55); color: var(--accent); }
+.legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; font-size: 11px; color: var(--muted); }
+.legend span { display: inline-flex; align-items: center; gap: 6px; }
+.legend i { display: inline-block; width: 16px; height: 11px; border-radius: 3px; border: 1px solid var(--line); }
+.legend i.on { background: var(--accent-55); border-color: var(--accent-55); }
+.legend i.approx { background: repeating-linear-gradient(135deg, var(--accent-30) 0 3px, var(--accent-12) 3px 6px); border: 1px dashed var(--accent); }
+.legend i.cached { background: repeating-linear-gradient(135deg, var(--soft-2) 0 3px, var(--soft) 3px 6px); }
+.legend i.skip { border-style: dashed; }
+.step-box { margin-top: 14px; padding: 14px 16px; border-radius: 8px; background: var(--bg); border: 1px solid var(--line); min-height: 132px; }
+.step-title { font-weight: 700; font-size: 15px; margin-bottom: 4px; }
+.step-text { color: var(--sub); font-size: 13.5px; line-height: 1.75; }
+.ledger { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 12px; }
+.ledger div { padding: 10px 12px; border: 1px solid var(--line); border-radius: 7px; background: var(--paper); }
+.ledger b { display: block; font: 700 18px/1.3 var(--mono); color: var(--accent); }
+.ledger span { font-size: 11px; color: var(--muted); }
+.controls { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+button.demo { padding: 7px 15px; border: 1px solid var(--line); border-radius: 5px; background: var(--paper); cursor: pointer; color: var(--ink); font: 600 12px var(--sans); }
+button.demo.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+button.demo:disabled { opacity: .45; cursor: default; }
+
+/* layer map */
+.layer-map { margin: 20px 0; padding: 18px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow); }
+.lm-row { display: grid; grid-template-columns: 92px repeat(20, minmax(16px, 1fr)); gap: 3px; align-items: end; }
+.lm-row + .lm-row { margin-top: 6px; }
+.lm-label { font-size: 11px; font-weight: 600; color: var(--sub); line-height: 1.35; padding-right: 6px; align-self: center; }
+.lm-label small { display: block; color: var(--muted); font-weight: 500; font-size: 10px; }
+.lm-cell { display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.lm-num { font: 9px/1 var(--mono); color: var(--muted); }
+.lm-box { width: 100%; height: 30px; border-radius: 4px; display: grid; place-items: center; font: 600 11px/1 var(--mono); border: 1px solid var(--line); }
+.lm-box.full { background: var(--accent); border-color: var(--accent); color: #fff; }
+.lm-box.reindex { background: var(--accent-12); border: 1.5px solid var(--accent); color: var(--accent); }
+.lm-box.reuse { background: var(--soft); color: var(--muted); }
+.lm-box.swa { background: repeating-linear-gradient(135deg, var(--soft-2) 0 3px, var(--paper) 3px 6px); color: var(--sub); }
+.lm-eng { font: 600 9px/1 var(--mono); color: var(--accent); height: 9px; }
+.lm-divider { margin: 10px 0 8px 95px; padding: 6px 10px; border-left: 3px solid var(--accent); background: var(--soft); font-size: 12px; color: var(--sub); line-height: 1.55; }
+.lm-legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 12px; font-size: 11px; color: var(--muted); }
+.lm-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.lm-legend i { display: inline-grid; place-items: center; width: 18px; height: 14px; border-radius: 3px; font: 600 9px/1 var(--mono); font-style: normal; border: 1px solid var(--line); }
+
+.tbl-wrap { overflow-x: auto; margin: 18px 0; }
+table.tbl { width: 100%; border-collapse: collapse; font-size: 13.5px; background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; }
+.tbl th, .tbl td { padding: 9px 12px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+.tbl th { background: var(--soft); color: var(--sub); font-size: 12px; font-weight: 700; }
+.tbl td.num, .tbl th.num { text-align: right; font-family: var(--mono); white-space: nowrap; }
+.tbl tr:last-child td { border-bottom: 0; }
+.tbl tr.hl td { background: var(--accent-12); font-weight: 600; }
+.tbl td .muted { font-size: 12px; }
+
+.quote { margin: 20px 0; padding: 16px 20px; background: var(--soft); border-left: 3px solid var(--accent); color: var(--sub); font-size: 14.5px; }
+.quote .en { display: block; margin-top: 6px; color: var(--muted); font-size: 12.5px; font-style: italic; }
+
+.cards-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 18px; align-items: start; }
+.x-card { border: 1px solid var(--line); border-radius: var(--radius); background: var(--paper); overflow: hidden; box-shadow: var(--shadow); }
+.x-head { width: 100%; display: flex; gap: 10px; align-items: flex-start; padding: 15px 16px; border: 0; background: transparent; text-align: left; cursor: pointer; font: inherit; color: inherit; }
+.x-head:hover { background: var(--soft); }
+.x-title { font-size: 14.5px; font-weight: 700; }
+.x-summary { margin-top: 3px; color: var(--muted); font-size: 12.5px; line-height: 1.6; }
+.x-card.open .chevron { transform: rotate(90deg); }
+.x-body { max-height: 0; overflow: hidden; opacity: 0; transition: max-height .45s ease, opacity .3s ease; }
+.x-card.open .x-body { max-height: 1400px; opacity: 1; }
+.x-content { padding: 14px 16px 16px; border-top: 1px solid var(--line); }
+.x-content p, .x-content li { color: var(--sub); font-size: 13.5px; }
+.x-content p:last-child { margin-bottom: 0; }
+
+details { margin: 15px 0; background: var(--paper); border: 1px solid var(--line); border-radius: 8px; }
+summary { padding: 13px 17px; cursor: pointer; color: var(--sub); font-size: 13.5px; font-weight: 600; }
+summary small { display: block; color: var(--muted); font-weight: 500; font-size: 12px; margin-top: 2px; }
+.details-body { padding: 14px 18px 16px; border-top: 1px solid var(--line); color: var(--sub); font-size: 13.5px; }
+.details-body .tbl-wrap { margin: 8px 0; }
+
+footer { margin-top: 40px; padding: 28px 0 48px; border-top: 1px solid var(--line); color: var(--muted); font-size: 13px; }
+footer p { margin-bottom: 6px; }
+
+@media (max-width: 880px) {
+  .metrics { grid-template-columns: 1fr 1fr; }
+  .compare, .mini-stack, .cards-grid { grid-template-columns: 1fr; }
+  .ledger { grid-template-columns: 1fr; }
+  .formula-row { grid-template-columns: 1fr; gap: 2px; }
+  .sim, .layer-map { padding: 14px; }
+  .tok-grid { grid-template-columns: repeat(17, minmax(0, 1fr)); gap: 3px; min-width: 0; }
+  .tok-grid .row-label { grid-column: 1 / -1; padding: 6px 0 0; }
+  .tok-grid .row-label small { display: inline; margin-left: 6px; }
+  .tok-grid .spacer { display: none; }
+  .cell { height: 30px; }
+  .cell.kvrow { height: 12px; }
+  .col-label { font-size: 9px; }
+  .lm-row { grid-template-columns: repeat(20, minmax(0, 1fr)); gap: 2px; }
+  .lm-label { grid-column: 1 / -1; padding: 0 0 4px; }
+  .lm-label small { display: inline; margin-left: 6px; }
+  .lm-box { height: 24px; font-size: 9px; }
+  .lm-num { font-size: 8px; }
+  .lm-divider { margin-left: 0; }
+  .nav-links { gap: 14px; }
+  .tldr { padding: 20px; }
+}
+</style>
+</head>
+<body>
+<nav class="nav">
+  <div class="container nav-inner">
+    <div class="nav-links">
+      <a href="#tldr">30 秒读懂</a>
+      <a href="#why">为什么一样贵</a>
+      <a href="#related">起点与灵感</a>
+      <a href="#ced">CED</a>
+      <a href="#kv">KV 压缩</a>
+      <a href="#others">其他调整</a>
+      <a href="#evidence">证据与代价</a>
+    </div>
+    <a class="source-pill" href="https://arxiv.org/abs/2609.19969" target="_blank" rel="noopener">原文 ↗</a>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="container">
+    <div class="meta">
+      <span class="tag primary">arXiv preprint</span>
+      <span class="tag">2026.09</span>
+      <span class="tag">技术报告</span>
+      <span class="tag">MoE · 长上下文 · KV 缓存</span>
+    </div>
+    <h1>DeepSeek-V4.1-Flash：为什么读输入只激活 8B，写输出要 16B</h1>
+    <p class="subtitle">答案是一个结构改动：<strong>Causal Encoder-Decoder（CED）</strong>。它让 prompt token 只走前一半网络，后一半网络需要的全局 KV 直接从中间层投影出来。围绕这个改动，这一代还把每 token 的 KV 缓存压到了前代的 1/4。</p>
+    <p class="authors">DeepSeek-AI · 素材：技术报告、Hugging Face 模型卡与参考推理代码</p>
+    <div class="hero-links">
+      <a href="https://arxiv.org/abs/2609.19969" target="_blank" rel="noopener">阅读原文 · DeepSeek-V4.1-Flash: Pushing the Limits of KV Cache Compression ↗</a>
+      <a href="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash" target="_blank" rel="noopener">模型卡 ↗</a>
+      <a href="https://www.deepseek.com/news/deepseek-v4-1-flash/" target="_blank" rel="noopener">官方发布 ↗</a>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+<section id="tldr">
+  <div class="tldr">
+    <div class="tldr-title">30 秒读懂</div>
+    <p>V4.1-Flash 是一个 <strong>552B 主干参数的多模态 MoE</strong>（每层 1 个共享专家 + 384 个路由专家，每 token 选 6 个），共 40 层。最反直觉的数字是 <strong>8B / 16B</strong>：处理输入（prefill）时每个 token 只激活 8B，生成输出（decode）时激活 16B。</p>
+    <p>差别不在专家路由，而在<strong>token 走过的层数</strong>。CED 把 40 层切成 20 层因果 encoder + 20 层 decoder，并让 decoder 的全局 KV 直接由 <strong>encoder 最后一层的 hidden state</strong> 投影得到。于是输入 token 跑完前 20 层，就已经把后 20 层要用的全局 KV 留好了；只有生成下一个 token 时才必须走完 40 层。</p>
+    <p>代价是：decoder 每层仍保留自己的滑窗注意力（SWA），prefill 末尾要把<strong>最后 128 个 token</strong> 再过一遍 decoder，做近似重建（SWA Bounded Replay）。再配上跨层共享 KV 的 CSA2 和 FP4 缓存，全局 KV 降到 <strong>890 字节/token</strong>（V4-Flash 的约 1/4），持久化 KV 降到约 1/8。</p>
+  </div>
+  <div class="question">
+    <div class="question-label">这篇报告究竟要回答什么问题？</div>
+    <div class="question-text">在输入远多于输出的 agent 负载下，能否让「读输入」只付一半的模型计算，同时把长上下文 KV 缓存再压到前代的 1/4，而且不掉能力？</div>
+  </div>
+  <div class="metrics">
+    <div class="metric"><div class="metric-value">8B<small> / </small>16B</div><div class="metric-label">每 token 激活参数<br>prefill / decode</div></div>
+    <div class="metric"><div class="metric-value">552B</div><div class="metric-label">主干参数<br>另有 196B Engram 查表参数</div></div>
+    <div class="metric"><div class="metric-value">890<small> B</small></div><div class="metric-label">每 token 全局 KV<br>V4-Flash 为 3,514 B</div></div>
+    <div class="metric"><div class="metric-value">≈1/8</div><div class="metric-label">持久化 KV 缓存<br>相对 V4-Flash</div></div>
+  </div>
+</section>
+
+<section id="why">
+  <div class="eyebrow">01 · 问题</div>
+  <h2>普通 decoder-only 模型，为什么输入和输出一样贵？</h2>
+  <p>先对齐口径。<strong>激活参数</strong>指一个 token 前向时真正参与矩阵乘法的参数：每层的 attention 投影 + 1 个共享专家 + 路由选中的 6 个专家，再乘以它经过的层数。V4.1-Flash 在 prefill 和 decode 下的路由规则完全相同（都是 top-6），所以 <strong>8B 与 16B 的差别只能来自 token 经过的层数</strong>。Engram 的 196B 是按 n-gram 哈希查的记忆表，像 embedding 一样只做查表，不计入激活参数。</p>
+  <p>那么，普通模型里输入 token 为什么必须走完所有层？看看两类 token 在一次请求里各自要做什么：</p>
+  <div class="compare">
+    <div class="panel">
+      <div class="panel-title">输出 token 的任务</div>
+      <p class="big">给出下一个 token 的预测</p>
+      <p>预测来自最后一层的 hidden state 经过输出头，所以<strong>必须走完全部层</strong>，无可省略。</p>
+    </div>
+    <div class="panel accent">
+      <div class="panel-title">输入 token 的任务</div>
+      <p class="big">在每一层给后面的 token 留下 KV</p>
+      <p>除最后一个外，输入 token 的预测根本没人用。它存在的意义只是让后续 token 在每层的 attention 里能读到它。</p>
+    </div>
+  </div>
+  <p>问题在于，标准结构里<strong>第 l 层的 KV 由第 l 层自己的 hidden state 投影而来</strong>（<code>KV_l = H_l · W_l</code>）。想在第 40 层留下 KV，就得先把这个 token 一路算到第 40 层。于是「留 KV」和「做预测」一样贵，前代 V4-Flash 的 13B 激活对输入、输出一视同仁。</p>
+  <p>agent 负载把这个问题放大了：</p>
+  <ul class="list">
+    <li><strong>输入远多于输出</strong>：每次工具调用都会把文件内容、命令输出、网页塞回上下文，新增的 prefill 量往往远大于每轮生成。</li>
+    <li><strong>缓存未命中就得重算</strong>：前缀缓存过期或新内容进来，都要做一次完整深度的 prefill。</li>
+    <li><strong>KV 越存越大</strong>：长上下文的全局 KV 占满 HBM，为前缀复用而持久化的 KV 又占 SSD 容量和传输带宽。</li>
+  </ul>
+  <p>报告的判断是：稀疏注意力已经把长序列的<strong>注意力计算</strong>压得很低，现在剩下的瓶颈是 <strong>prefill 本身的计算量</strong>，以及 <strong>KV 的存储和搬运</strong>。V4.1-Flash 的结构改动分别针对这两项。</p>
+</section>
+
+<section id="related">
+  <div class="eyebrow">02 · 起点与灵感</div>
+  <h2>两个参照：前代 V4-Flash 和 YOCO</h2>
+  <p>V4.1-Flash 的改动有两个参照物：<strong>V4-Flash</strong> 是它要压缩的基线，<strong>YOCO</strong> 提供了「上半网络复用下半网络的 KV」这个核心思路。</p>
+
+  <article class="related-card">
+    <div class="related-head" onclick="toggleCard(this)">
+      <span class="chevron">▸</span>
+      <div>
+        <div class="related-title"><span class="paper-tag">技术报告 · 2026.04</span>DeepSeek-V4-Flash：每层自带全局 KV 的上一代</div>
+        <div class="related-summary">角色：直接基线。284B 总参数、13B 激活，输入输出同价。用 CSA + HCA 混合压缩注意力加每层 SWA，序列维压缩已经做得很狠。缺口：每层的全局 KV 都来自本层 hidden，所以每个输入 token 都得走满全部层；全局 KV 仍有 3,514 字节/token，持久化缓存里近一半是 SWA KV。</div>
+      </div>
+    </div>
+    <div class="related-body"><div class="related-content">
+      <p><strong>它解决了什么</strong>：V4 把长上下文的注意力成本沿<strong>序列维</strong>压缩。CSA（Compressed Sparse Attention）把每 m 个 token 压成一个 KV 条目，再由一个轻量 indexer 为每个 query 选出 Top-K 条目做稀疏注意力；HCA（Heavily Compressed Attention）用更高的压缩比做廉价的全局扫描。两者交替使用，每层再叠一条窗口固定的 SWA 分支负责局部细节。</p>
+      <p><strong>它的数据流</strong>：每一层都有自己的全局 KV 和 SWA KV，而且都由本层 hidden 投影而来。因此 prefill 一个 token 就要跑完整个网络，每 token 激活 13B，和 decode 一样。</p>
+      <div class="mini-stack">
+        <div class="stack-col">
+          <div class="panel-title">V4-Flash：每层 KV 来自本层</div>
+          <div class="stack-row"><div class="layer">第 L 层</div><div class="arr">→</div><div class="kv">KV_L ← H_L</div></div>
+          <div class="stack-row gap"><div class="layer">…</div><div class="arr">→</div><div class="kv">…</div></div>
+          <div class="stack-row"><div class="layer">第 2 层</div><div class="arr">→</div><div class="kv">KV_2 ← H_2</div></div>
+          <div class="stack-row"><div class="layer">第 1 层</div><div class="arr">→</div><div class="kv">KV_1 ← H_1</div></div>
+          <div class="stack-note">想留下第 L 层的 KV，就要先算出 H_L：输入 token 必须走满。</div>
+        </div>
+        <div class="stack-col">
+          <div class="panel-title">V4.1-Flash（CED）：上半网络改道</div>
+          <div class="stack-row"><div class="layer">第 40 层</div><div class="arr">→</div><div class="kv from-mid">复用 ← H_20</div></div>
+          <div class="stack-row"><div class="layer">第 21 层</div><div class="arr">→</div><div class="kv from-mid">全局 KV ← H_20</div></div>
+          <div class="stack-row"><div class="layer">第 20 层</div><div class="arr">→</div><div class="kv">KV ← 本层</div></div>
+          <div class="stack-row"><div class="layer">第 1 层</div><div class="arr">→</div><div class="kv">KV ← 本层</div></div>
+          <div class="stack-note">后 20 层的全局 KV 只依赖 H_20：输入 token 算到第 20 层即可。</div>
+        </div>
+      </div>
+      <p class="small muted">自制示意图，只画全局 KV 的来源；两代模型的每层 SWA KV 都来自本层 hidden。</p>
+      <p><strong>它留下的缺口</strong>：</p>
+      <ul class="list">
+        <li><strong>prefill 仍是满深度</strong>：序列维压缩省的是注意力，不省每个 token 的层数。</li>
+        <li><strong>层维还没压</strong>：每层各存一份全局 KV，3,514 字节/token 里有大量跨层冗余。</li>
+        <li><strong>SWA KV 存不起也算不起</strong>：持久化缓存在 prompt 结尾和输出结尾各存一段 SWA KV，占了近一半容量；如果不存，精确重建要重放 L × 128 个 token，生产环境里太贵。</li>
+      </ul>
+      <p class="small">站内另有一篇 V4 的完整解读：<a href="https://syt-nju.github.io/files/visual-reading/deepseek-v4-report/" target="_blank" rel="noopener">DeepSeek-V4 · 百万上下文效率解剖 ↗</a></p>
+    </div></div>
+  </article>
+
+  <article class="related-card">
+    <div class="related-head" onclick="toggleCard(this)">
+      <span class="chevron">▸</span>
+      <div>
+        <div class="related-title"><span class="paper-tag">NeurIPS'24</span>YOCO：上半网络只读下半网络留下的一份 KV</div>
+        <div class="related-summary">角色：CED 的直接灵感。前 L/2 层（self-decoder，只用滑窗等高效注意力）的输出被投影成全网唯一一份全局 KV，后 L/2 层（cross-decoder）只用 cross-attention 读它，因此 prefill 可以在中间层精确地提前退出。缺口：为此砍掉了下半网络的全局注意力，上半网络也没有任何逐层的 KV。</div>
+      </div>
+    </div>
+    <div class="related-body"><div class="related-content">
+      <div class="figure">
+        <img class="narrow" src="https://arxiv.org/html/2405.05254v2/inference.svg" alt="YOCO 推理示意：prefill 阶段跳过 cross-decoder，生成阶段才进入 cross-decoder">
+        <div class="caption">YOCO 原论文的推理示意：上下文 token 只跑 self-decoder 并写入 KV cache，cross-decoder 在 prefill 时被跳过。</div>
+        <button class="fig-toggle" type="button" onclick="toggleFigure(this, event)">展开说明 ▸</button>
+        <div class="figure-detail"><ul>
+          <li><strong>底部 Self-Decoder</strong>：前 L/2 层，只用高效自注意力（滑窗或 gated retention），自身缓存大小固定，不随长度增长。</li>
+          <li><strong>中间 KV Cache</strong>：用 self-decoder 的输出 X^{L/2} 一次性投影出全局 K、V，全网只存这一份，即「You Only Cache Once」。</li>
+          <li><strong>左半 Prefilling</strong>：上下文 token 跑完 self-decoder 就已经生成了全部 KV，上半的 Cross-Decoder 灰色标注为 Skipped。</li>
+          <li><strong>右半 Generation</strong>：新 token 才进入 cross-decoder，用 cross-attention 读这份共享 KV，输出下一个 token。</li>
+          <li><strong>一句话</strong>：cross-decoder 没有任何依赖本层 hidden 的缓存，所以 prefill 提前退出是<strong>精确</strong>的，不改变输出。</li>
+        </ul></div>
+      </div>
+      <p><strong>方法</strong>：YOCO 把 L 层 Transformer 分成两半。下半 self-decoder 处理输入并产出 X^{L/2}；上半 cross-decoder 的每一层都用 cross-attention 读同一份由 X^{L/2} 投影出的 K̂、V̂。KV 缓存从 O(N·L) 降到约 O(N)，prefill 时上下文 token 无需进入上半网络。</p>
+      <p><strong>与 CED 的区别</strong>（这正是 V4.1-Flash 声称改进的地方）：</p>
+      <ul class="list">
+        <li><strong>下半网络</strong>：YOCO 只给 self-decoder 高效的局部或线性注意力；CED 的 encoder 保留 CSA2 全局稀疏注意力，有自己的全局 KV。</li>
+        <li><strong>上半网络</strong>：YOCO 的 cross-decoder 没有自己的 KV；CED 的 decoder 每层仍有<strong>本层的 SWA KV</strong>，局部计算深度更深。</li>
+        <li><strong>代价</strong>：正因为 decoder 保留了逐层 SWA，CED 的 prefill 提前退出<strong>不再精确</strong>，需要靠下文的 SWA Bounded Replay 近似补上。</li>
+      </ul>
+      <p class="small"><a href="https://arxiv.org/abs/2405.05254" target="_blank" rel="noopener">YOCO 原文：You Only Cache Once: Decoder-Decoder Architectures for Language Models ↗</a></p>
+    </div></div>
+  </article>
+
+  <p>把两者放在一起看：<strong>V4-Flash 表达力足，但每个输入 token 都要走满深度；YOCO 输入便宜，但为此砍掉了下半网络的全局注意力和上半网络的逐层 KV。</strong>V4.1-Flash 想两头兼得：encoder 保留全局稀疏注意力，decoder 保留逐层 SWA，只把「decoder 的全局 KV」这一项改成从中间层投影。</p>
+</section>
+
+<section id="ced">
+  <div class="eyebrow">03 · 核心答案</div>
+  <h2>CED：让 decoder 的全局 KV 只依赖 encoder 的输出</h2>
+  <p>CED 只改了一件事：<strong>decoder 各层全局注意力的 KV 从哪里来</strong>。先看全局结构，再逐步拆开。</p>
+
+  <div class="figure">
+    <img src="https://arxiv.org/html/2609.19969v1/arch_full.svg" alt="DeepSeek-V4.1-Flash 整体架构：左侧 20 层 Causal Encoder，右侧 20 层 Decoder，encoder 隐状态经 CED 连到 decoder 的 Full 层">
+    <div class="caption">原论文 Figure 3：40 层被切成左侧 20 层因果 encoder 与右侧 20 层 decoder；encoder 最后的隐状态经标注 CED 的连线，进入 decoder 唯一的 Full 层生成全局 KV。</div>
+    <button class="fig-toggle" type="button" onclick="toggleFigure(this, event)">展开说明 ▸</button>
+    <div class="figure-detail"><ul>
+      <li><strong>左框 Causal Encoder（第 1–20 层）</strong>：底部的文本 / 视觉 embedding 经 Single-Pass mHC 展开为 4 路残差流。前 2 层（×2）只有 SWA + MoE；之后 3 组（×3），每组 1 个 CSA2(2, Full) + 5 个 CSA2(2, Reuse)。括号里的 2 是压缩比：每 2 个 token 合成一个全局 KV 条目。</li>
+      <li><strong>Engram（左下）</strong>：两处箭头接入 encoder。报告把它放在第 1、14 层（从 0 计数），即第 2 个 SWA 层和第 3 组的 Full 层，按 token 的 n-gram 查表，把记忆向量加进残差流。</li>
+      <li><strong>Enc. Hidden States → 右框底部</strong>：一条线作为 decoder 的输入残差；另一条标着 <strong>CED</strong> 的线进入 CSA2(1, Full)。这就是「decoder 全局 KV 由 H_20 投影」。</li>
+      <li><strong>右框 Decoder（第 21–40 层）</strong>：第一组是 1 个 CSA2(1, Full) + 3 个 Reuse；之后 4 组（×4），每组 1 个 CSA2(1, Reindex) + 3 个 Reuse。压缩比 1 即不压缩。</li>
+      <li><strong>Hierarchical Sparse Indexer → Candidate Pool</strong>：Full 层打分时顺带圈出一个候选池，回送给每个 Reindex 层，让它们只在池内重选 Top-K。</li>
+      <li><strong>顶部 DSpark</strong>：投机解码的 drafter，读取主干 hidden 生成草稿 token，取代了 V3 / V4 的 MTP。</li>
+      <li><strong>一句话</strong>：prefill 时，除最后 128 个 token 外，数据流在左框顶部就结束了；右框只在 decode（以及末尾 replay）时运行。</li>
+    </ul></div>
+  </div>
+
+  <p>用公式写出来，区别只在 decoder 那一行：</p>
+  <div class="formula">
+    <div class="formula-row"><div class="k">标准 decoder-only</div><div class="v">KV_l = H_l · W_l^KV　　<small>l = 1 … 40，每层用本层 hidden</small></div></div>
+    <div class="formula-row"><div class="k">CED · encoder 层</div><div class="v">KV_l = H_l · W_l^KV　　<small>l = 1 … 20，照旧</small></div></div>
+    <div class="formula-row hl"><div class="k">CED · decoder 层</div><div class="v">C_l = H_20 · W_l^KV,　Z_l = H_20 · W_l^Z　　<small>l = 21 … 40</small></div></div>
+  </div>
+  <p><code>C_l</code> 是全局 KV 条目，<code>Z_l</code> 是对应的压缩权重（CSA2 用它把相邻 m 个 token 加权合成一个条目；decoder 的 m = 1）。关键在于右边只出现 <strong>H_20</strong>：一个 token 只要算到第 20 层，它在第 21–40 层的全局 KV 就能直接投影出来。结合 CSA2 的配置，decoder 里只有第 21 层是 Full 层，真正执行这次投影，其余 19 层都复用它，所以 <strong>decoder 实际只存一份全局 KV</strong>。</p>
+  <p>三个容易误读的点：</p>
+  <ul class="list">
+    <li><strong>encoder 仍然是因果的</strong>：它叫 encoder，但和 BERT 式双向编码器无关，只是「下半网络」。每个 token 仍只能看见自己和之前的 token，所以整体照常自回归生成。</li>
+    <li><strong>只有全局 KV 改了道，SWA 没有</strong>：decoder 每层的滑窗 KV 仍来自本层 hidden。这保住了上半网络的局部计算深度，也带来了下面要讲的 replay 代价。</li>
+    <li><strong>16B 是整条路径，不是 decoder 的大小</strong>：decode 时 encoder 和 decoder 都要跑，两半各约 8B。</li>
+  </ul>
+
+  <h3>走一遍：一轮 agent 交互在 CED 里怎么流动</h3>
+  <p>设想一个 coding agent：上下文里已经缓存了约 200K token（系统提示、仓库文件、历史对话）；这一轮 <code>pytest</code> 返回了 <strong>4,000 token 的报错日志</strong>，模型要据此写出约 <strong>400 token</strong> 的分析和下一步工具调用。逐步点「下一步」，再切到对照模式，看看同样 40 层但不用 CED 时有什么不同。</p>
+
+  <div class="sim" id="sim">
+    <div class="sim-top">
+      <div class="mode-tabs" role="tablist">
+        <button class="mode-tab active" type="button" data-mode="ced">V4.1-Flash（CED）</button>
+        <button class="mode-tab" type="button" data-mode="std">对照：同样 40 层、不用 CED</button>
+      </div>
+      <div class="case-line">每列代表一段 token，每格代表这段 token 在这一部分网络上的计算</div>
+    </div>
+    <div class="step-track" id="stepTrack"></div>
+    <div class="grid-wrap"><div class="tok-grid" id="tokGrid"></div></div>
+    <div class="legend">
+      <span><i class="on"></i>已计算</span>
+      <span><i class="approx"></i>近似重放（只补 SWA KV）</span>
+      <span><i class="cached"></i>已在缓存，本轮不算</span>
+      <span><i class="skip"></i>跳过，不计算</span>
+      <span>描边 = 本步新发生</span>
+    </div>
+    <div class="step-box">
+      <div class="step-title" id="stepTitle"></div>
+      <div class="step-text" id="stepText"></div>
+    </div>
+    <div class="ledger">
+      <div><b id="ledIn">—</b><span>每个输入 token 激活</span></div>
+      <div><b id="ledOut">—</b><span>每个输出 token 激活</span></div>
+      <div><b id="ledPre">—</b><span>本轮 prefill 的「token × 层」（相对不用 CED）</span></div>
+    </div>
+    <div class="controls">
+      <button class="demo" type="button" id="btnPrev">上一步</button>
+      <button class="demo primary" type="button" id="btnNext">下一步</button>
+      <button class="demo" type="button" id="btnReset">重置</button>
+    </div>
+  </div>
+
+  <h3>8B 和 16B 的账是怎么算出来的</h3>
+  <p>报告没有给出参数拆分，但用 §4.2.1 的超参（hidden 5120，每个专家中间维 2304，64 个 query head × 512 维等）可以粗算，结果和官方数字吻合：</p>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>项目</th><th>计算</th><th class="num">约值</th></tr></thead>
+    <tbody>
+      <tr><td>单个专家（SwiGLU 三个矩阵）</td><td class="mono">3 × 5120 × 2304</td><td class="num">35.4M</td></tr>
+      <tr><td>每层激活的 MoE</td><td>(1 共享 + 6 路由) × 35.4M</td><td class="num">0.25B</td></tr>
+      <tr><td>每层 attention 投影</td><td>Q 低秩投影 + KV + 分组输出投影 + indexer</td><td class="num">0.13B</td></tr>
+      <tr><td><strong>每层激活合计</strong></td><td></td><td class="num"><strong>≈ 0.38B</strong></td></tr>
+      <tr class="hl"><td>prefill：每个输入 token</td><td>20 层 × 0.38B</td><td class="num">≈ 7.6B → 8B</td></tr>
+      <tr class="hl"><td>decode：每个输出 token</td><td>40 层 × 0.38B + 输出头 0.66B</td><td class="num">≈ 15.8B → 16B</td></tr>
+      <tr><td>校验：主干总参数</td><td>40 × (384 × 35.4M + 0.17B) + 词表矩阵 2 × 0.66B</td><td class="num">≈ 552B ✓</td></tr>
+    </tbody>
+  </table></div>
+  <p>结论很直接：<strong>8B / 16B 的差异就是 20 层与 40 层的差异</strong>，路由、专家数、每层宽度在两个阶段完全相同。prefill 时 decoder 唯一多出的工作，是第 21 层把 H_20 投影成全局 KV（不到 0.01B），以及末尾 128 个 token 的 replay。</p>
+  <details>
+    <summary>attention 投影 0.13B 的拆分<small>按报告超参逐项相乘；norm、router、mHC 系数等小项未计</small></summary>
+    <div class="details-body">
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>投影</th><th>形状</th><th class="num">参数</th></tr></thead>
+        <tbody>
+          <tr><td>Q 压缩（hidden → query latent）</td><td class="mono">5120 × 1280</td><td class="num">6.6M</td></tr>
+          <tr><td>Q 展开（latent → 64 head × 512）</td><td class="mono">1280 × 32768</td><td class="num">41.9M</td></tr>
+          <tr><td>KV（hidden → 512 维共享 latent）</td><td class="mono">5120 × 512</td><td class="num">2.6M</td></tr>
+          <tr><td>分组输出投影 A（8 组，每组 4096 → 1024）</td><td class="mono">8 × 4096 × 1024</td><td class="num">33.6M</td></tr>
+          <tr><td>输出投影 B（8192 → hidden）</td><td class="mono">8192 × 5120</td><td class="num">41.9M</td></tr>
+          <tr><td>indexer Q（latent → 32 head × 128）</td><td class="mono">1280 × 4096</td><td class="num">5.2M</td></tr>
+          <tr><td><strong>合计</strong></td><td></td><td class="num"><strong>≈ 132M</strong></td></tr>
+        </tbody>
+      </table></div>
+      <p class="small muted">词表约 129K（参考代码中图像 token id 为 129264），词表矩阵 ≈ 129K × 5120 ≈ 0.66B。是否把输入 embedding 计入激活参数会让结果差 0.66B 左右，不影响 20 层对 40 层的比例。</p>
+    </div>
+  </details>
+
+  <h3>「接近减半」有个前提：新输入要足够长</h3>
+  <p>报告给出的 prefill 复杂度是从 <code>O(N·L)</code> 降到 <code>O(N·L/2 + n_win·L/2)</code>，其中 N 是本轮新输入的 token 数，<code>n_win = 128</code> 是滑窗大小。第二项就是末尾 replay 那 128 个 token 过 decoder 的固定开销，所以相对不用 CED 的比例约为 <strong>1/2 + 64/N</strong>：</p>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>本轮新输入 N</th><th class="num">128</th><th class="num">1,000</th><th class="num">4,000</th><th class="num">32,000</th><th class="num">≥ 128K</th></tr></thead>
+    <tbody><tr><td>prefill「token × 层」相对不用 CED</td><td class="num">≈ 100%</td><td class="num">≈ 56%</td><td class="num">≈ 52%</td><td class="num">≈ 50.2%</td><td class="num">≈ 50%</td></tr></tbody>
+  </table></div>
+  <p class="small muted">按报告公式推算，只计 Transformer 层的 token 数，不含注意力随上下文增长的部分；若前缀的 encoder SWA KV 已过期，还要多重放 128 个 token 的 encoder。</p>
+  <p>这也解释了为什么 replay 必须<strong>有界</strong>。decoder 的 SWA 依赖逐层叠加：第 40 层看前 128 个位置的第 39 层状态，而这些状态又各自看前 128 个位置的第 38 层……精确重建需要 <strong>20 × 128 = 2,560</strong> 个 token 过 decoder。多轮对话里每轮新输入常常只有几百 token，这笔固定开销会吃掉大部分收益。报告引用 PowerAttention 的观察：SWA 的<strong>有效感受野远小于理论值</strong>，于是只重放最后 128 个 token、把 SWA 截断在重放段内，接受近似结果，并在 post-training 中模拟同样的 replay 做训练适配。</p>
+</section>
+
+<section id="kv">
+  <div class="eyebrow">04 · 配套改动</div>
+  <h2>把 KV 再压到 1/4：CSA2、FP4 与有界重放</h2>
+  <p>CED 省下的是 <strong>prefill 计算</strong>；报告标题里的「KV 缓存压缩」主要靠另外三项。KV 的开销可以沿三个相乘的维度压缩：<strong>每个条目的大小</strong>（GQA、MLA、量化）、<strong>序列维</strong>（每 m 个 token 合成一个条目）、<strong>层维</strong>（多层共用一份）。V4 主要压了前两维，V4.1 补上了层维，并把条目大小再减半。</p>
+
+  <h3>CSA2：40 层里只有 4 层生产全局 KV</h3>
+  <p>CSA2 保留了 CSA 的骨架（压缩 KV + indexer 选 Top-K + SWA 分支），但给每一层<strong>静态指定</strong>三种模式之一：</p>
+  <ul class="list">
+    <li><strong>Full</strong>：自己算主 KV，从主 KV 投影出 indexer K，再跑 indexer 选出新的 Top-K。等同于 V4 里一个完整的 CSA 层。</li>
+    <li><strong>Reindex</strong>：复用最近一个 Full 层的主 KV 和 indexer K，但用自己的 indexer Q 重新打分，选出<strong>自己的</strong> Top-K。同一份 KV，不同的选择。</li>
+    <li><strong>Reuse</strong>：KV 和 Top-K 都复用最近一个产生索引的层，不跑 indexer，直接做稀疏注意力。</li>
+  </ul>
+  <p>三种模式下，每层都保留<strong>自己的 query 和 SWA KV</strong>，所以每层的注意力输出仍然不同。共享 KV 省的是存储，复用索引省的是 indexer 计算，两者解耦。</p>
+  <div class="figure">
+    <img src="https://arxiv.org/html/2609.19969v1/arch_csa2.svg" alt="CSA2 三种模式：Full、Reindex、Reuse 分别本层计算或复用 Main KV、Indexer K 与 Top-K 索引">
+    <div class="caption">原论文 Figure 4：三种模式的差别只在主 KV、indexer K 和 Top-K 索引是本层算的还是复用的。</div>
+    <button class="fig-toggle" type="button" onclick="toggleFigure(this, event)">展开说明 ▸</button>
+    <div class="figure-detail"><ul>
+      <li><strong>共同骨架</strong>：三个面板里，Main Q 和 SWA KV 都由本层计算（白色块）。选出的 Selected Main KV 与 SWA KV 拼接（Concatenation）后，和 Main Q 一起做 Core Attention。</li>
+      <li><strong>绿色 = 本层计算</strong>：Full Mode 自己算 Main KV、Indexer K、Indexer Q，由 Indexer 打分得到 Top-K Indices，再去 Selection。</li>
+      <li><strong>黄色 = 从最近的 Full 层复用的主 KV 和 indexer K</strong>：Reindex Mode 只算自己的 Indexer Q（绿色），对共享的 Indexer K 重新打分，得到新的 Top-K。</li>
+      <li><strong>红色 = 从最近一个产生索引的层（Full 或 Reindex）复用的 Top-K</strong>：Reuse Mode 不跑 indexer，直接按别人的选择从共享 KV 里取条目。</li>
+      <li><strong>一句话</strong>：越往右，本层要算、要存的东西越少；但三者的注意力输出都由本层的 query 和 SWA KV 决定，层与层之间并不完全相同。</li>
+    </ul></div>
+  </div>
+  <p>V4.1-Flash 的具体排布如下。把它和 CED 叠在一起看，就能看出哪些层生产 KV、prefill 在哪里停：</p>
+  <div class="layer-map" id="layerMap"></div>
+  <p>相对 V4 的 CSA，CSA2 还做了两处简化：<strong>压缩器去掉了相邻条目的重叠窗口和绝对位置编码</strong>（CSA 用 2m 个原始条目生成一个压缩条目，相邻条目有重叠）；<strong>indexer K 直接由主 KV 投影</strong>，不再从 hidden 单独压缩一路。另外，V4.1 全部使用 CSA2，不再混用 HCA。</p>
+  <details>
+    <summary>Hierarchical Sparse Indexer：decoder 里后面的 indexer 只在候选池里找<small>第 21 层圈出最多 16,384 个候选位置，后续 Reindex 层的打分量不再随上下文长度增长</small></summary>
+    <div class="details-body">
+      <div class="figure">
+        <img src="https://arxiv.org/html/2609.19969v1/arch_hsi.svg" alt="Hierarchical Sparse Indexer：Full 层打分后选出候选块形成共享候选池，后续 Reindex 层只在池中选 Top-512">
+        <div class="caption">原论文 Figure 5：第一个 Full 层全量打分并圈出候选池，后续 Reindex 层只在池内各选 Top-512。</div>
+        <button class="fig-toggle" type="button" onclick="toggleFigure(this, event)">展开说明 ▸</button>
+        <div class="figure-detail"><ul>
+          <li><strong>左：Full Mode Indexer</strong>：对所有因果可见的位置打分，选出自己的 Top-512（绿色格）；同时把每个块的得分记为块内最高分，挑出得分最高的若干块（蓝色条）。</li>
+          <li><strong>中：Shared Candidate Pool</strong>：被选中块覆盖的全部位置组成候选池。配置为最多 2,048 块 × 每块 8 个位置 = 16,384 个候选，比最终的 Top-512 大得多。</li>
+          <li><strong>右：Reindex Mode Indexer</strong>：后续每个 Reindex 层只对候选池里的位置打分，各自选 Top-512。搜索范围相同，最终选择可以不同。</li>
+          <li><strong>底部长箭头</strong>：同一个候选池被所有 Reindex 层共享，不新增任何缓存状态。</li>
+          <li><strong>一句话</strong>：除第一个 Full 层外，indexer 的每 query 打分量与上下文长度无关。该机制在 post-training 引入，训练和推理用同样的候选限制。</li>
+        </ul></div>
+      </div>
+    </div>
+  </details>
+
+  <h3>FP4 主 KV 缓存</h3>
+  <p>V4 已经用量化感知训练（QAT）把 indexer 的 Q、K 做成 FP4；V4.1 在 post-training 中把 QAT 扩展到<strong>主 KV 缓存</strong>：</p>
+  <ul class="list">
+    <li><strong>格式</strong>：E2M1 数值，每 16 个通道共用一个 E4M3 缩放因子（类似 NVFP4，但去掉了第二级全局缩放）。报告论证 KV latent 经 RMSNorm 后幅度有上界（约 22.6），这个格式的动态范围足够。</li>
+    <li><strong>只用于存储</strong>：读出时先反量化再做注意力，不依赖硬件原生支持 FP4 矩阵乘，跨平台兼容。</li>
+    <li><strong>在 RoPE 之后量化</strong>；SWA KV 对量化更敏感，仍保留 FP8。</li>
+  </ul>
+  <p>相比 V4 的 FP8 主 KV，存储几乎减半，HBM 和 SSD 上都一样。CSA2 跨层共享叠加 FP4，正好把每 token 全局 KV 算到 890 字节：</p>
+  <details>
+    <summary>890 字节/token 是怎么来的<small>按报告配置推算：4 份全局 KV（encoder 3 份压缩比 2，decoder 1 份不压缩），每份含主 KV 与 indexer K</small></summary>
+    <div class="details-body">
+      <div class="tbl-wrap"><table class="tbl">
+        <thead><tr><th>组成</th><th>每个条目</th><th class="num">每 token 条目数</th><th class="num">字节 / token</th></tr></thead>
+        <tbody>
+          <tr><td>encoder 主 KV（3 个 Full 层，压缩比 2）</td><td>512 维 × FP4 = 256 B + 32 个 E4M3 缩放 = 288 B</td><td class="num">3 × 0.5 = 1.5</td><td class="num">432</td></tr>
+          <tr><td>encoder indexer K</td><td>128 维 × FP4 = 64 B + 4 个缩放（每 32 维一个）= 68 B</td><td class="num">1.5</td><td class="num">102</td></tr>
+          <tr><td>decoder 主 KV（1 个 Full 层，压缩比 1）</td><td>288 B</td><td class="num">1</td><td class="num">288</td></tr>
+          <tr><td>decoder indexer K</td><td>68 B</td><td class="num">1</td><td class="num">68</td></tr>
+          <tr class="hl"><td>合计</td><td></td><td></td><td class="num">890</td></tr>
+        </tbody>
+      </table></div>
+      <p class="small muted">indexer 的分组大小（32 维、E8M0 缩放）取自参考推理代码中的注释；推算结果与报告的 890 字节完全一致。SWA KV 有窗口上限、不随长度增长，不计入全局 KV。</p>
+    </div>
+  </details>
+  <div class="figure">
+    <img class="narrow" src="https://arxiv.org/html/2609.19969v1/figures/teaser_b.png" alt="四代 DeepSeek 模型每 token 全局 KV 字节数：V1 389120、V3.2 48068、V4-Flash 3514、V4.1-Flash 890">
+    <div class="caption">原论文 Figure 1(b)：每 token 全局 KV 字节数，从 V4-Flash 的 3,514 降到 V4.1-Flash 的 890（3.9×）。</div>
+    <button class="fig-toggle" type="button" onclick="toggleFigure(this, event)">展开说明 ▸</button>
+    <div class="figure-detail"><ul>
+      <li><strong>纵向四代模型</strong>，横条长度是每 token 全局 KV 的字节数，也就是常驻 HBM、随上下文线性增长的那部分。</li>
+      <li><strong>V1 → V3.2（2023.11 → 2025.12）</strong>：389,120 → 48,068，主要来自 MLA 的共享 latent，缩小 8.1×。</li>
+      <li><strong>V3.2 → V4-Flash（2026.04）</strong>：→ 3,514，CSA / HCA 沿序列维压缩，缩小 13.7×。</li>
+      <li><strong>V4-Flash → V4.1-Flash（2026.09）</strong>：→ 890，CSA2 沿层维共享加 FP4，缩小 3.9×；相对 V1 累计约 437×。</li>
+      <li><strong>注意口径</strong>：图中只统计全局 KV；SWA KV 有窗口上限，不在此列，它的持久化问题由下一节的有界重放解决。</li>
+    </ul></div>
+  </div>
+
+  <h3>SWA Bounded Replay：持久化缓存里不再存 SWA KV</h3>
+  <p>有界重放在 CED 那里用来省 decoder 的 prefill；在部署层面，同一个技巧还解决了 V4 遗留的持久化缓存问题。SWA KV 的访问模式和持久化缓存不匹配：全局 KV 有长尾复用（几天后同一前缀还可能被命中），SWA KV 只在一个活跃会话的<strong>分钟级窗口</strong>内有用，下一轮开始就作废了。</p>
+  <div class="compare">
+    <div class="panel">
+      <div class="panel-title">V4 的持久化缓存</div>
+      <ul class="list">
+        <li>SSD 上同时存<strong>全局 KV</strong>（完整前缀）和 <strong>SWA KV</strong>（在 prompt 结尾、输出结尾各存 128 个条目）</li>
+        <li>SWA KV 占了近一半容量，短轮次的多轮对话里尤其浪费</li>
+        <li>不存 SWA 的方案（Zero SWA Caching）需要重放 L × 128 个 token，生产上太贵</li>
+      </ul>
+    </div>
+    <div class="panel accent">
+      <div class="panel-title">V4.1 的做法</div>
+      <ul class="list">
+        <li>持久化缓存<strong>只存全局 KV</strong>，保证至少 72 小时</li>
+        <li>SWA KV 放进每台机器 10% 主机内存组成的分布式池，TTL 仅几分钟</li>
+        <li>命中全局 KV 但 SWA KV 已过期时，用 <strong>Encoder SWA Bounded Replay</strong> 重放前缀最后 128 个 token，只补 SWA KV</li>
+      </ul>
+    </div>
+  </div>
+  <p>两个因子相乘：持久化缓存不再存 SWA KV（约减半），剩下的全局 KV 又是 V4 的 1/4，合起来约为 <strong>V4-Flash 的 1/8</strong>。代价是重放得到的状态是近似的：从不同位置续接缓存时，后续算出的 KV 在数学上并不完全相同。报告称实验中对回答质量的影响可以忽略。</p>
+</section>
+
+<section id="others">
+  <div class="eyebrow">05 · 其他调整</div>
+  <h2>其他架构调整一览</h2>
+  <p>下面这些和「8B / 16B」没有直接关系，但都是这一代相对 V4 的结构变化。按需展开：</p>
+  <div class="cards-grid">
+    <div class="x-card">
+      <button class="x-head" type="button" onclick="toggleX(this)"><span class="chevron">▸</span><span><span class="x-title">Single-Pass mHC</span><span class="x-summary" style="display:block">残差流混合系数错位一层，让融合 kernel 只读写一遍残差，激活访存减半</span></span></button>
+      <div class="x-body"><div class="x-content">
+        <p>V4 引入的 mHC 在相邻 block 之间维持 n = 4 路残差流，每个 block 根据当前残差 X_l 预测混合系数 (A_l, B_l, C_l)。问题在于输入混合 A_l·X_l 要等 A_l 算完，而 A_l 需要对整个 X_l 做归约，所以必须读两遍 X_l。</p>
+        <p>Single-Pass mHC 让每个 block <strong>使用上一个 block 算出的 A_{l-1}</strong> 做输入混合，依赖消失。部署时残差更新、输入混合、系数预测融合成一个 Mega-mHC kernel，残差只读一次、写一次，<strong>激活访存相对原四 kernel 实现减半</strong>。报告称这一错位带来的效果损失可以忽略。</p>
+      </div></div>
+    </div>
+    <div class="x-card">
+      <button class="x-head" type="button" onclick="toggleX(this)"><span class="chevron">▸</span><span><span class="x-title">Engram 条件记忆（196B）</span><span class="x-summary" style="display:block">按 n-gram 哈希查表的稀疏记忆，把「记忆」从「计算」里拆出来，不计入激活参数</span></span></button>
+      <div class="x-body"><div class="x-content">
+        <p>196B 参数平均分成两个模块，放在第 1、14 层（从 0 计数）。每个模块使用 2、3、4 阶 n-gram，8 个哈希头，每个头一张约 16M 行的表（行数取互不相同的素数），表和投影都用 FP8。</p>
+        <p>因为地址只由 token 序列决定，推理时可以<strong>提前通过 RDMA 从主机内存预取</strong>，与第一个 Transformer block 的计算重叠。相对原版 Engram 去掉了短因果卷积，因为收益抵不上推理栈的复杂度。</p>
+      </div></div>
+    </div>
+    <div class="x-card">
+      <button class="x-head" type="button" onclick="toggleX(this)"><span class="chevron">▸</span><span><span class="x-title">DSpark 投机解码，取代 MTP</span><span class="x-summary" style="display:block">半自回归草稿 + 置信度调度验证长度；预训练后单独训练，不回传梯度给主干</span></span></button>
+      <div class="x-body"><div class="x-content">
+        <p>drafter 由 3 个 Transformer block 组成（滑窗 128），一次前向并行给出 5 个草稿位置的 logits，再用一个轻量 Markov head 建模草稿 token 之间的依赖。置信度 head 预测每个位置被接受的概率，调度器结合引擎吞吐曲线，<strong>为每个请求动态选择验证长度</strong>。</p>
+        <p>与 V3 的 MTP 不同，主干预训练时不带 MTP。DSpark 在预训练之后冻结主干单独训练；post-training 时随主干一起更新，但不把梯度传回主干，这样它能持续对齐策略，同时加速在线服务和 RL rollout。</p>
+      </div></div>
+    </div>
+    <div class="x-card">
+      <button class="x-head" type="button" onclick="toggleX(this)"><span class="chevron">▸</span><span><span class="x-title">原生多模态</span><span class="x-summary" style="display:block">从零训练的 DeepSeek-ViT + 3×3 pixel-unshuffle；图文 token 分别做负载均衡</span></span></button>
+      <div class="x-body"><div class="x-content">
+        <p>DeepSeek-ViT（32 层，1024 维）用 2D-RoPE 支持任意分辨率，把 patch embedding 的卷积换成线性投影以适配 Muon。图像特征经 <strong>3×3 pixel-unshuffle，视觉 token 数降到 1/9</strong>，支持约 1344×1344 输入，再由 2 层 MLP 投影到 5120 维。</p>
+        <p>多模态数据从语言模型预训练一开始就加入，纯文本与多模态 token 比例约 7 : 1。MoE 的无辅助损失负载均衡为<strong>图像 token 和文本 token 各维护一套偏置</strong>，避免两种模态的不均衡在总体统计里互相掩盖。</p>
+      </div></div>
+    </div>
+    <div class="x-card">
+      <button class="x-head" type="button" onclick="toggleX(this)"><span class="chevron">▸</span><span><span class="x-title">优化器：head-wise Muon + Sinkhorn 平衡更新</span><span class="x-summary" style="display:block">Q/K 按 head 分别做 Muon；embedding、Engram 表和输出头用只需动量的 Sinkhorn 更新替代 Adam</span></span></button>
+      <div class="x-body"><div class="x-content">
+        <p><strong>head-wise Muon</strong>：Query / Key 权重按 head 切开后各自做 Muon 更新，相当于给每个 head 不同的预条件器，以适应 head 之间的异质性。</p>
+        <p><strong>Sinkhorn 平衡更新</strong>：对 196B 的 Engram 表用 Adam 会让优化器状态暴涨。V4.1 改为 Nesterov 动量后，交替对更新矩阵做行、列归一化（Sinkhorn），使行、列 RMS 近似为 1。它和 Muon 一样只需一个动量缓冲，报告称效果优于 Adam。</p>
+      </div></div>
+    </div>
+    <div class="x-card">
+      <button class="x-head" type="button" onclick="toggleX(this)"><span class="chevron">▸</span><span><span class="x-title">规格速查</span><span class="x-summary" style="display:block">40 层、hidden 5120、384 路由专家选 6、窗口 128、Top-512、45T token、1M 上下文</span></span></button>
+      <div class="x-body"><div class="x-content">
+        <ul class="list">
+          <li><strong>主干</strong>：40 层（20 encoder + 20 decoder），hidden 5120，每层都是 MoE</li>
+          <li><strong>MoE</strong>：1 共享 + 384 路由专家，每 token 选 6 个，专家中间维 2304，SwiGLU 截断阈值 10</li>
+          <li><strong>注意力</strong>：64 个 query head × 512 维，query 压缩维 1280；indexer 32 head × 128 维；稀疏注意力 Top-512；SWA 窗口 128</li>
+          <li><strong>训练</strong>：45T 多模态 token，从零开始用 64K 序列训练稀疏注意力（无 dense warmup），34T token 时扩展到 1M</li>
+          <li><strong>后训练</strong>：SFT → RL → on-policy distillation，报告明确说算法无创新，收益几乎全部来自数据与环境合成</li>
+        </ul>
+      </div></div>
+    </div>
+  </div>
+</section>
+
+<section id="evidence">
+  <div class="eyebrow">06 · 证据与代价</div>
+  <h2>效果如何，代价在哪</h2>
+  <p>base 模型对比里，V4.1-Flash 以 <strong>V4-Pro 约 1/3 的总参数、约 1/4 的激活参数</strong>，在知识、推理和代码上接近或超过 V4-Pro，并全面优于 V4-Flash：</p>
+  <div class="tbl-wrap"><table class="tbl">
+    <thead><tr><th>Base 模型</th><th class="num">V4-Flash</th><th class="num">V4-Pro</th><th class="num">V4.1-Flash</th></tr></thead>
+    <tbody>
+      <tr><td>激活参数 / 主干参数</td><td class="num">13B / 284B</td><td class="num">49B / 1.6T</td><td class="num">8B·16B / 552B</td></tr>
+      <tr><td>MMLU-Pro</td><td class="num">68.3</td><td class="num">73.5</td><td class="num"><strong>74.1</strong></td></tr>
+      <tr><td>HumanEval</td><td class="num">69.5</td><td class="num">76.8</td><td class="num"><strong>79.4</strong></td></tr>
+      <tr><td>MATH</td><td class="num">57.4</td><td class="num"><strong>64.5</strong></td><td class="num">61.1</td></tr>
+      <tr><td>SimpleQA-Verified</td><td class="num">30.1</td><td class="num"><strong>55.2</strong></td><td class="num">42.3</td></tr>
+      <tr><td>LongBench-V2</td><td class="num">44.7</td><td class="num"><strong>51.5</strong></td><td class="num">45.2</td></tr>
+    </tbody>
+  </table></div>
+  <p>读这张表要注意：这是<strong>整模型对比</strong>，同时变了数据（45T 多模态语料、更强的清洗）、规模和多处结构，<strong>不是 CED 的消融</strong>。对于 CED 本身，报告只定性地说它「在减少近一半 prefill 计算的同时，性能与 baseline 相当」，没有给出同规模有无 CED 的对比数字。</p>
+
+  <h3>输出侧其实更贵了</h3>
+  <p>不对称是一种取舍，不是白赚。每个输出 token 激活 16B，比 V4-Flash 的 13B 还多：</p>
+  <div class="figure">
+    <img src="https://arxiv.org/html/2609.19969v1/figures/decode_flops_curves.png" alt="单 token decode FLOPs 随上下文长度变化：V4.1-Flash 短上下文略高于 V4-Flash，长上下文几乎持平不增">
+    <div class="caption">原论文 Figure 2：单 token decode 计算量随上下文长度的变化。短上下文时 V4.1-Flash 略高于 V4-Flash，长上下文时几乎不增长。</div>
+    <button class="fig-toggle" type="button" onclick="toggleFigure(this, event)">展开说明 ▸</button>
+    <div class="figure-detail"><ul>
+      <li><strong>坐标</strong>：横轴是上下文长度 4K → 1M（对数），纵轴是单 token decode FLOPs（对数，按精度加权：BF16 = 1，FP8 = 0.5，FP4 = 0.25）。</li>
+      <li><strong>短上下文</strong>：V4.1-Flash（深蓝实线）在 V4-Flash（浅蓝）之上。每个输出 token 要过 40 层、激活 16B，线性层计算比 13B 的前代多。</li>
+      <li><strong>交叉点</strong>：两条线大约在 100K 量级相交；之后 V4-Flash 随长度明显上升，V4.1-Flash 几乎是平的。</li>
+      <li><strong>为什么平</strong>：注意力只读 Top-512 个条目加 128 窗口；分层索引让后续 indexer 的打分量与长度无关，只剩第一个 Full 层的全量打分随长度增长。从 4K 到 1M（256 倍），decode FLOPs 只增加约 1/4。</li>
+      <li><strong>一句话</strong>：V4.1 把成本从「输入」和「长上下文」挪向「每个输出 token 的固定开销」，这正是为 agent 负载做的取舍。</li>
+    </ul></div>
+  </div>
+  <p>粗略感受一下这笔账（只比较<strong>激活参数 × token 数</strong>，近似线性层计算量，忽略注意力、replay 和投机解码）：</p>
+  <div class="compare">
+    <div class="panel accent">
+      <div class="panel-title">输入为主：一轮 agent 工具调用</div>
+      <p class="big">输入 4,000 / 输出 400</p>
+      <p>V4.1：4,000 × 8 + 400 × 16 = <strong>38,400</strong><br>V4-Flash：4,400 × 13 = 57,200<br>约为前代的 <strong>2/3</strong>。</p>
+    </div>
+    <div class="panel">
+      <div class="panel-title">输出为主：短问题、长回答</div>
+      <p class="big">输入 200 / 输出 2,000</p>
+      <p>V4.1：200 × 8 + 2,000 × 16 = <strong>33,600</strong><br>V4-Flash：2,200 × 13 = 28,600<br>V4.1 反而<strong>更贵</strong>（短输入时 replay 开销占比还更高）。</p>
+    </div>
+  </div>
+  <p class="small muted">这是按激活参数做的示意，不是报告给出的实测；两代模型能力不同，长上下文下 V4.1 的注意力开销也明显更低。</p>
+
+  <h3>报告自己承认的边界</h3>
+  <ul class="list">
+    <li><strong>近似机制的鲁棒性尚未完全刻画</strong>：CSA2 的稀疏选择误差、SWA Bounded Replay 的近似重建，可能在未测到的极端情况下掉点。报告点名要加强测试的两类场景是<strong>超长上下文稀疏检索</strong>和<strong>缓存续接边界处的 SWA 状态重建</strong>。</li>
+    <li><strong>长上下文与知识类仍落后更大的模型</strong>：LongBench-V2 和 SimpleQA-Verified 与 V4-Pro 差距明显；需要专家级领域知识的科学类 agent 任务也仍有差距。</li>
+    <li><strong>CED 的收益依赖负载形态</strong>：新输入越长越接近减半；短轮次、输出为主的场景收益有限，甚至不如前代。</li>
+  </ul>
+  <div class="quote">
+    CED 让模型在 prefill 时每个 token 只激活 8B 参数，decode 时才激活 16B，这对输入密集型的 agent 场景尤其划算。
+    <span class="en">"This design enables the model to activate 8B parameters per token during prefill and 16B during decode, which is particularly cost-effective for input-heavy agentic scenarios."</span>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="container">
+    <p>原文：<a href="https://arxiv.org/abs/2609.19969" target="_blank" rel="noopener">DeepSeek-V4.1-Flash: Pushing the Limits of KV Cache Compression</a> · DeepSeek-AI · arXiv 2609.19969（2026.09）</p>
+    <p>补充材料：<a href="https://huggingface.co/deepseek-ai/DeepSeek-V4.1-Flash" target="_blank" rel="noopener">Hugging Face 模型卡与参考推理代码</a> · <a href="https://api-docs.deepseek.com/news/news260910" target="_blank" rel="noopener">DeepSeek API 发布说明</a> · <a href="https://arxiv.org/abs/2405.05254" target="_blank" rel="noopener">YOCO（NeurIPS'24）</a></p>
+    <p>参数拆分、890 字节推算与成本示意均为按报告超参的推导，非报告原文数字；图片版权归原作者。</p>
+  </div>
+</footer>
+
+<script>
+function toggleFigure(btn, e) {
+  if (e) e.stopPropagation();
+  var detail = btn.nextElementSibling;
+  var open = detail.classList.toggle('active');
+  btn.textContent = open ? '收起 ▴' : '展开说明 ▸';
+}
+function toggleCard(head) { head.parentElement.classList.toggle('open'); }
+function toggleX(head) { head.parentElement.classList.toggle('open'); }
+
+(function buildLayerMap() {
+  var enc = [], dec = [];
+  for (var i = 1; i <= 20; i++) {
+    var m;
+    if (i <= 2) m = 'swa';
+    else m = ((i - 3) % 6 === 0) ? 'full' : 'reuse';
+    enc.push({ n: i, m: m, eng: i === 2 || i === 15 });
+  }
+  for (var j = 21; j <= 40; j++) {
+    var k = j - 21, md;
+    if (k === 0) md = 'full';
+    else if (k % 4 === 0) md = 'reindex';
+    else md = 'reuse';
+    dec.push({ n: j, m: md, eng: false });
+  }
+  var sym = { full: 'F', reindex: 'I', reuse: '·', swa: 'S' };
+  var tip = { full: 'Full：生产全局 KV 并自选 Top-K', reindex: 'Reindex：复用 KV，自己重选 Top-K', reuse: 'Reuse：复用 KV 与 Top-K', swa: '仅 SWA' };
+  function row(label, sub, cells) {
+    var h = '<div class="lm-row"><div class="lm-label">' + label + '<small>' + sub + '</small></div>';
+    cells.forEach(function (c) {
+      h += '<div class="lm-cell" title="第 ' + c.n + ' 层 · ' + tip[c.m] + (c.eng ? ' · Engram' : '') + '">' +
+        '<span class="lm-num">' + c.n + '</span>' +
+        '<div class="lm-box ' + c.m + '">' + sym[c.m] + '</div>' +
+        '<span class="lm-eng">' + (c.eng ? 'E' : '') + '</span></div>';
+    });
+    return h + '</div>';
+  }
+  var html = row('Decoder', '压缩比 1', dec) +
+    '<div class="lm-divider"><strong>H_20 → 第 21 层投影出 decoder 唯一一份全局 KV。</strong>prefill 时，除最后 128 个 token 外，计算在这条线下方就停止。</div>' +
+    row('Encoder', '压缩比 2', enc);
+  html += '<div class="lm-legend">' +
+    '<span><i class="lm-box full">F</i>Full：生产全局 KV（共 4 层）</span>' +
+    '<span><i class="lm-box reindex">I</i>Reindex：复用 KV，自己重选 Top-K</span>' +
+    '<span><i class="lm-box reuse">·</i>Reuse：复用 KV 与 Top-K</span>' +
+    '<span><i class="lm-box swa">S</i>只有 SWA</span>' +
+    '<span><b style="color:var(--accent);font-family:var(--mono)">E</b>&nbsp;Engram 接入层</span></div>';
+  document.getElementById('layerMap').innerHTML = html;
+})();
+
+(function stepDemo() {
+  var COLS = ['pre', 'pre', 'pre', 'new', 'new', 'new', 'new', 'new', 'new', 'new', 'new', 'tail', 'tail', 'out', 'out', 'out', 'out'];
+  var ROWS = ['dec', 'kv', 'enc'];
+  function idx(types) {
+    var r = [];
+    COLS.forEach(function (t, i) { if (types.indexOf(t) >= 0) r.push(i); });
+    return r;
+  }
+  var PRE = idx(['pre']), NEW = idx(['new', 'tail']), NEWONLY = idx(['new']), TAIL = idx(['tail']), OUT = idx(['out']);
+  var OUT1 = [OUT[0]], OUTREST = OUT.slice(1);
+  var LABELS = {
+    ced: { dec: 'Decoder<small>第 21–40 层</small>', kv: 'Decoder 全局 KV<small>由 H_20 投影</small>', enc: 'Encoder<small>第 1–20 层</small>' },
+    std: { dec: '上半网络<small>第 21–40 层</small>', kv: '第 21–40 层 KV<small>来自各层 hidden</small>', enc: '下半网络<small>第 1–20 层</small>' }
+  };
+  var STEPS = {
+    ced: [
+      { chip: '起点', title: '起点：200K 前缀已在缓存，新到 4,000 token 日志',
+        text: '左边 3 列代表已缓存的 200K 前缀：encoder KV 和 decoder 全局 KV 都已在 HBM / SSD 中，本轮不用重算。中间 10 列是本轮新输入（最后 2 列代表最后 128 个 token），右边 4 列是将要生成的约 400 个输出 token。',
+        ops: [['enc', PRE, 'cached'], ['kv', PRE, 'cached'], ['dec', PRE, 'skip']],
+        led: ['—', '—', '—'] },
+      { chip: '① encoder', title: 'Prefill ①：新输入只走 encoder 的 20 层',
+        text: '每个新 token 依次经过第 1–20 层：前 2 层只有 SWA，第 3–20 层是 CSA2 + SWA，每层都有 MoE。encoder 的全局 KV（3 个 Full 层，压缩比 2，FP4）和每层 SWA KV 在这一步写入。每个输入 token 激活约 8B。（若前缀的 encoder SWA KV 已过期，还要顺带重放前缀最后 128 个 token，只补 SWA KV。）',
+        ops: [['enc', NEW, 'on']],
+        led: ['≈ 8B', '—', '≈ 50%'] },
+      { chip: '② 投影 KV', title: 'Prefill ②：用 H_20 直接投影出 decoder 全局 KV',
+        text: 'decoder 唯一的 Full 层（第 21 层）用自己的投影矩阵把 H_20 变成全局 KV，indexer K 再由这份 KV 投影得到；其余 19 个 decoder 层都复用它。这只是一次线性投影：decoder 的 attention 和 MoE 对这些 token 都没有运行（虚线格）。',
+        ops: [['kv', NEW, 'on'], ['dec', NEWONLY, 'skip']],
+        led: ['≈ 8B', '—', '≈ 50%'] },
+      { chip: '③ 末尾重放', title: 'Prefill ③：最后 128 个 token 重放 decoder',
+        text: '解码第一步时，decoder 每层的 SWA 要读最近 128 个 token 的本层 KV，这些只有真正跑过 decoder 才有。精确重建要 20 × 128 = 2,560 个 token 过 decoder；报告只重放最后 128 个、把 SWA 截断在重放段内，得到近似的 decoder SWA KV，只用于本次解码，不进持久缓存。最后一个输入 token 走完 40 层，同时给出第一个输出 token。',
+        ops: [['dec', TAIL, 'approx']],
+        led: ['≈ 8B', '—', '≈ 52%'] },
+      { chip: '④ 解码', title: 'Decode：每个输出 token 必须走满 40 层',
+        text: '新 token 在 encoder 里照常读写 encoder KV；到 H_20 时投影出自己的 decoder 全局 KV 条目；第 21 层对全部 decoder 全局 KV 打分、选 Top-512，并圈出 16,384 个位置的候选池；之后的 Reindex 层只在池内重选，Reuse 层直接复用；最后经输出头得到 logits。走满 40 层，激活约 16B。',
+        ops: [['enc', OUT1, 'on'], ['kv', OUT1, 'on'], ['dec', OUT1, 'on']],
+        led: ['≈ 8B', '≈ 16B', '≈ 52%'] },
+      { chip: '⑤ 继续生成', title: '继续生成：输入 8B、输出 16B 的不对称',
+        text: '剩下的输出 token 重复上一步。这一轮总账：4,000 个输入 token 各激活约 8B，400 个输出 token 各激活约 16B。prefill 的「token × 层」约为不用 CED 时的 52%，多出的 2% 来自末尾 128 个 token 的 replay。切到对照模式看看差别。',
+        ops: [['enc', OUTREST, 'on'], ['kv', OUTREST, 'on'], ['dec', OUTREST, 'on']],
+        led: ['≈ 8B', '≈ 16B', '≈ 52%'] }
+    ],
+    std: [
+      { chip: '起点', title: '起点：同一个请求，但每层 KV 来自本层 hidden',
+        text: '假设模型同样是 40 层、同样的宽度，只是不用 CED：第 21–40 层的 KV 由各层自己的 hidden 投影。已缓存前缀在每一层都有 KV。',
+        ops: [['enc', PRE, 'cached'], ['kv', PRE, 'cached'], ['dec', PRE, 'cached']],
+        led: ['—', '—', '—'] },
+      { chip: '① prefill', title: 'Prefill：新输入必须走满 40 层',
+        text: '要在第 21–40 层留下 KV，就得先算出这些层的 hidden，所以每个输入 token 都要一路算到第 40 层：4,000 × 40 层，每个输入 token 激活约 16B。不过也因此不需要任何 replay，上半网络的 SWA KV 是精确的。',
+        ops: [['enc', NEW, 'on'], ['kv', NEW, 'on'], ['dec', NEW, 'on']],
+        led: ['≈ 16B', '—', '100%'] },
+      { chip: '② 解码', title: 'Decode：和 CED 一样走满 40 层',
+        text: '输出 token 的路径与 CED 相同：生成预测必须经过最后一层。两种结构的差别只在 prefill。',
+        ops: [['enc', OUT1, 'on'], ['kv', OUT1, 'on'], ['dec', OUT1, 'on']],
+        led: ['≈ 16B', '≈ 16B', '100%'] },
+      { chip: '③ 继续生成', title: '继续生成：输入输出同价',
+        text: '这一轮总账：4,000 个输入 token 和 400 个输出 token 都是每 token 约 16B。和 CED 模式对比，差在中间那一大块上半网络的计算：在 CED 里它被一次投影取代，只剩末尾 128 个 token 需要重放。',
+        ops: [['enc', OUTREST, 'on'], ['kv', OUTREST, 'on'], ['dec', OUTREST, 'on']],
+        led: ['≈ 16B', '≈ 16B', '100%'] }
+    ]
+  };
+
+  var mode = 'ced', step = 0;
+  var grid = document.getElementById('tokGrid');
+  var track = document.getElementById('stepTrack');
+  var cells = {};
+
+  function buildGrid() {
+    var h = '';
+    ROWS.forEach(function (r) {
+      h += '<div class="row-label" data-row="' + r + '"></div>';
+      COLS.forEach(function (_, i) {
+        h += '<div class="cell' + (r === 'kv' ? ' kvrow' : '') + '" data-r="' + r + '" data-c="' + i + '"></div>';
+      });
+    });
+    h += '<div class="spacer"></div>' +
+      '<div class="col-label" style="grid-column: span 3">已缓存<br>200K</div>' +
+      '<div class="col-label" style="grid-column: span 8">本轮新输入 4,000 token</div>' +
+      '<div class="col-label tail" style="grid-column: span 2">末 128</div>' +
+      '<div class="col-label" style="grid-column: span 4">输出 ≈400</div>';
+    grid.innerHTML = h;
+    grid.querySelectorAll('.cell').forEach(function (el) {
+      cells[el.dataset.r + '-' + el.dataset.c] = el;
+    });
+  }
+
+  function render() {
+    var steps = STEPS[mode];
+    var state = {}, fresh = {};
+    for (var s = 0; s <= step; s++) {
+      steps[s].ops.forEach(function (op) {
+        op[1].forEach(function (c) {
+          var key = op[0] + '-' + c;
+          state[key] = op[2];
+          if (s === step && s > 0) fresh[key] = true;
+        });
+      });
+    }
+    Object.keys(cells).forEach(function (key) {
+      var el = cells[key];
+      el.className = 'cell' + (key.indexOf('kv-') === 0 ? ' kvrow' : '') +
+        (state[key] ? ' ' + state[key] : '') + (fresh[key] ? ' now' : '');
+    });
+    grid.querySelectorAll('.row-label').forEach(function (el) {
+      el.innerHTML = LABELS[mode][el.dataset.row];
+    });
+    track.innerHTML = steps.map(function (st, i) {
+      var cls = i === step ? 'active' : (i < step ? 'done' : '');
+      return '<button type="button" class="step-chip ' + cls + '" data-i="' + i + '">' + st.chip + '</button>';
+    }).join('');
+    var cur = steps[step];
+    document.getElementById('stepTitle').textContent = cur.title;
+    document.getElementById('stepText').textContent = cur.text;
+    document.getElementById('ledIn').textContent = cur.led[0];
+    document.getElementById('ledOut').textContent = cur.led[1];
+    document.getElementById('ledPre').textContent = cur.led[2];
+    document.getElementById('btnPrev').disabled = step === 0;
+    document.getElementById('btnNext').disabled = step === steps.length - 1;
+  }
+
+  track.addEventListener('click', function (e) {
+    var b = e.target.closest('.step-chip');
+    if (!b) return;
+    step = parseInt(b.dataset.i, 10);
+    render();
+  });
+  document.getElementById('btnPrev').addEventListener('click', function () { if (step > 0) { step--; render(); } });
+  document.getElementById('btnNext').addEventListener('click', function () { if (step < STEPS[mode].length - 1) { step++; render(); } });
+  document.getElementById('btnReset').addEventListener('click', function () { step = 0; render(); });
+  document.querySelectorAll('.mode-tab').forEach(function (b) {
+    b.addEventListener('click', function () {
+      document.querySelectorAll('.mode-tab').forEach(function (x) { x.classList.toggle('active', x === b); });
+      mode = b.dataset.mode;
+      step = 0;
+      render();
+    });
+  });
+
+  buildGrid();
+  render();
+})();
+</script>
+</body>
+</html>
