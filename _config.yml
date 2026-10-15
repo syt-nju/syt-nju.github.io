@@ -146,10 +146,8 @@ exclude:
   - log
   - node_modules
   - package.json
-  - raw
   - tmp
   - vendor
-  - wiki-log.md
 keep_files:
   - .git
   - .svn
@@ -191,9 +189,6 @@ collections:
   talks:
     output: true
     permalink: /:collection/:path/
-  wiki:
-    output: true
-    permalink: /wiki/:path/
 
 
 # Defaults
@@ -251,14 +246,6 @@ defaults:
       layout: talk
       author_profile: true
       share: true
-  # _wiki
-  - scope:
-      path: ""
-      type: wiki
-    values:
-      layout: wiki
-      author_profile: false
-      share: false
 
 # Sass/SCSS
 sass:
