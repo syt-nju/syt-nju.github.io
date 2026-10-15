@@ -4,11 +4,14 @@ permalink: /experience/
 author_profile: true
 ---
 
-## Tencent
+## Tencent FiT
+
+**Post-Training Algorithm Engineer**  
+Shenzhen, China  
+2026 - Present
 
 **Algorithm Engineer Intern**  
-Shenzhen, China  
-July 2025 - Present
+July 2025 - 2026
 
 ### Fin-Multiturn financial search agent
 
@@ -17,7 +20,7 @@ July 2025 - Present
 - Trained the agent with multi-turn SFT, rejection fine-tuning, and process-aware RL using answer-, DAG-, trajectory-, turn-, and parameter-level feedback.
 - Designed asynchronous query-aware compression for 128K rollouts, keeping the newest tool response intact while compressing prior observations off the rollout critical path.
 - Built the interaction and evaluation workflow for rapid iteration; the resulting agent reached parity with DeepSeek V3.2 on internal benchmarks and surpassed it on FinSearchComp under the same business tool setting.
-- Received a return offer and continued working on production-facing model systems.
+- Received a return offer and joined full-time as a post-training algorithm engineer after graduation.
 
 ## Huawei
 

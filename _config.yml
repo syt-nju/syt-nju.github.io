@@ -10,7 +10,7 @@ locale                   : "en-US"
 title                    : "Yuteng Shen"
 title_separator          : "-"
 name                     : "Yuteng Shen"
-description              : "AI undergraduate at Nanjing University focused on agent training, post-training, evaluation, and reliable model systems."
+description              : "Post-training algorithm engineer at Tencent FiT, focused on agent training, post-training, evaluation, and reliable model systems."
 url                      : https://syt-nju.github.io # the base hostname & protocol for your site e.g. "https://mmistakes.github.io"
 baseurl                  : "" # the subpath of your site, e.g. "/blog"
 repository               : "syt-nju/syt-nju.github.io"
@@ -83,9 +83,9 @@ analytics:
 author:
   name             : "Yuteng Shen"
   avatar           : "profile.jpg"
-  bio              : "Final-year AI undergraduate focused on agent training, post-training, evaluation, and reliable model systems."
-  location         : "Nanjing, China"
-  employer         :
+  bio              : "Post-training algorithm engineer at Tencent FiT. B.S. in AI, Nanjing University (2022-2026)."
+  location         : "Shenzhen, China"
+  employer         : "Tencent FiT"
   pubmed           :
   googlescholar    :
   email            : "nju221300094@163.com"

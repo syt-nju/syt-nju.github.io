@@ -1,13 +1,13 @@
 ---
 permalink: /
 title: "Yuteng Shen"
-excerpt: "AI undergraduate focused on agent training, post-training, evaluation, and reliable model systems."
+excerpt: "Post-training algorithm engineer at Tencent FiT, focused on agent training, post-training, evaluation, and reliable model systems."
 author_profile: true
 ---
 
-I am a final-year undergraduate student in Artificial Intelligence at Nanjing University, interested in building reliable AI systems that connect model capability with real-world deployment.
+I am a post-training algorithm engineer at Tencent FiT (Financial Technology). I received my bachelor's degree in Artificial Intelligence from Nanjing University (2022-2026), and I am interested in building reliable AI systems that connect model capability with real-world deployment.
 
-I like widening the boundary of my understanding a little at a time, while focusing on work that can create real value in practice. My recent work has focused on agent training, post-training, and evaluation workflows for fast system iteration. I have interned as an algorithm engineer at Tencent and Huawei, where I worked on practical model behavior, training stability, and testing infrastructure.
+I like widening the boundary of my understanding a little at a time, while focusing on work that can create real value in practice. My recent work has focused on agent training, post-training, and evaluation workflows for fast system iteration. Before joining Tencent full-time, I interned as an algorithm engineer at Tencent and Huawei, where I worked on practical model behavior, training stability, and testing infrastructure.
 
 ## Focus
 
@@ -17,14 +17,14 @@ I like widening the boundary of my understanding a little at a time, while focus
 
 ## Selected Experience
 
-### Tencent, Algorithm Engineer Intern
+### Tencent FiT, Post-Training Algorithm Engineer
 
 **Fin-Multiturn Financial Search Agent**
 
 - Built an agent that answers complex financial questions by breaking them into dependent search steps—for example, identifying the relevant stocks before retrieving and combining their latest market data across 79 internal financial tools.
 - Owned the end-to-end training pipeline, from mining real user queries and synthesizing multi-step tasks to training a Qwen3 30A3B policy with multi-turn SFT, rejection fine-tuning, and process-aware RL.
 - Deployed the agent to online financial traffic and surpassed DeepSeek V3.2 on FinSearchComp under the same business tool setting.
-- Received a return offer and continued working on production-facing model systems.
+- Started as an intern in July 2025 and joined full-time after graduating in 2026.
 
 ### Huawei, Algorithm Engineer Intern
 

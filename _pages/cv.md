@@ -8,7 +8,7 @@ This page provides a compact background summary without acting as a downloadable
 
 ## Education
 
-- **Nanjing University**, Artificial Intelligence, expected 2026
+- **Nanjing University**, B.S. in Artificial Intelligence, 2022 - 2026
 - Relevant coursework: Machine Learning, Advanced Machine Learning, Data Structures and Algorithm Analysis
 
 ## Technical Interests
@@ -20,7 +20,8 @@ This page provides a compact background summary without acting as a downloadable
 
 ## Selected Experience
 
-- **Tencent**, Algorithm Engineer Intern, July 2025 - Present
+- **Tencent FiT**, Post-Training Algorithm Engineer, 2026 - Present
+- **Tencent**, Algorithm Engineer Intern, July 2025 - 2026
 - **Huawei**, Algorithm Engineer Intern, December 2024 - May 2025
 
 ## Selected Work
