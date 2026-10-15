@@ -17,12 +17,15 @@ I am a post-training algorithm engineer at Tencent FiT (Financial Technology), w
 
 ### Tencent FiT, Post-Training Algorithm Engineer
 
+**NeoData Financial Data Service**
+
+- Main model contributor to NeoData, Tencent FiT's financial data service that turns user queries into retrieval over large-scale licensed financial data through financial entity extraction and MCP tool calls.
+- Iterate on the pipeline's small models for financial entity retrieval and ranking, and for financial tool selection and calling. NeoData serves tens of millions of daily active users, is the sole financial data provider for Yuanbao, one of the main financial data interfaces for WorkBuddy, and supplies data capabilities to many other financial businesses.
+
 **Fin-Multiturn Financial Search Agent**
 
-- Built an agent that answers complex financial questions by breaking them into dependent search steps—for example, identifying the relevant stocks before retrieving and combining their latest market data across 79 internal financial tools.
-- Owned the end-to-end training pipeline, from mining real user queries and synthesizing multi-step tasks to training a Qwen3 30A3B policy with multi-turn SFT, rejection fine-tuning, and process-aware RL.
-- Deployed the agent to online financial traffic and surpassed DeepSeek V3.2 on FinSearchComp under the same business tool setting.
-- Started as an intern in July 2025 and joined full-time after graduating in 2026.
+- One of the main contributors. In the second half of 2025, before mature agent training frameworks were available, extended verl to support multi-turn tool-use training for a financial search agent.
+- Trained a Qwen3-30B-A3B policy with multi-turn SFT, rejection fine-tuning, and process-aware RL; it surpassed DeepSeek V3.2 on FinSearchComp under the same business tool setting.
 
 ### Huawei, Algorithm Engineer Intern
 
