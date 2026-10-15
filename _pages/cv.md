@@ -8,7 +8,7 @@ This page provides a compact background summary without acting as a downloadable
 
 ## Education
 
-- **Nanjing University**, B.S. in Artificial Intelligence, 2022 - 2026
+- **Nanjing University**, B.Eng. in Artificial Intelligence, 2022 - 2026
 - Relevant coursework: Machine Learning, Advanced Machine Learning, Data Structures and Algorithm Analysis
 
 ## Technical Interests
