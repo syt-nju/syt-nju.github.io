@@ -34,8 +34,8 @@ July 2025 - 2026
 Nanjing, China  
 December 2024 - May 2025
 
-### RL training framework optimization
+### DeepSeek-R1 reproduction
 
-- Improved an internal reinforcement learning training framework to address crash and instability issues during post-training.
-- Introduced DAPO into the framework and designed a dynamic sampling strategy that prioritizes samples with higher reward variance.
-- Increased training stability without additional compute by implicitly improving effective batch quality through better sample selection.
+- Worked on the team's DeepSeek-R1 reproduction. Long RL runs suffered training collapse: reward dropped sharply mid-training and the model began producing incoherent output.
+- Introduced DAPO into the team's internal RL training framework to address the collapse.
+- Added a dynamic sampler that prioritizes prompts with high reward variance, so each batch carries more learning signal; this extended the number of stable training steps by about one third.

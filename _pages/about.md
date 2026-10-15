@@ -17,6 +17,8 @@ I am a post-training algorithm engineer at Tencent FiT (Financial Technology), w
 
 ### Tencent FiT, Post-Training Algorithm Engineer
 
+*July 2025 - Present*
+
 **NeoData Financial Data Service**
 
 - Main model contributor to NeoData, Tencent FiT's financial data service that turns user queries into retrieval over large-scale licensed financial data through financial entity extraction and MCP tool calls.
@@ -29,8 +31,12 @@ I am a post-training algorithm engineer at Tencent FiT (Financial Technology), w
 
 ### Huawei, Algorithm Engineer Intern
 
-- Improved an internal RL training framework by introducing DAPO and designing dynamic sampling for high-variance rewards.
-- Increased training stability without extra compute by prioritizing informative samples during optimization.
+*December 2024 - May 2025*
+
+**DeepSeek-R1 Reproduction**
+
+- Worked on the team's DeepSeek-R1 reproduction, where long RL runs suffered training collapse: reward dropped sharply mid-training and the model began producing incoherent output.
+- Introduced DAPO into the team's internal RL training framework and added a dynamic sampler that prioritizes prompts with high reward variance, extending the number of stable training steps by about one third.
 
 ## Selected Projects
 
