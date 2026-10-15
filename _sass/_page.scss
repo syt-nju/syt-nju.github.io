@@ -107,6 +107,19 @@
   }
 }
 
+/* default h3 equals body size, which flattens the section > role > project hierarchy */
+.home .page__content {
+  h3 {
+    font-size: 1.125em;
+    margin-top: 1.5em;
+  }
+
+  p > strong:only-child {
+    display: block;
+    margin-top: 1.25em;
+  }
+}
+
 .page__hero {
   position: relative;
   margin-bottom: 2em;

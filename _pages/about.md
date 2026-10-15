@@ -3,6 +3,7 @@ permalink: /
 title: "Yuteng Shen"
 excerpt: "Post-training algorithm engineer at Tencent FiT, focused on agent training, post-training, evaluation, and reliable model systems."
 author_profile: true
+classes: home
 ---
 
 I am a post-training algorithm engineer at Tencent FiT (Financial Technology), which I joined full-time after completing my bachelor's degree in Artificial Intelligence at Nanjing University (2022-2026). I am interested in building reliable AI systems that connect model capability with real-world deployment.
