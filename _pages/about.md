@@ -5,7 +5,7 @@ excerpt: "Post-training algorithm engineer at Tencent FiT, focused on agent trai
 author_profile: true
 ---
 
-I am a post-training algorithm engineer at Tencent FiT (Financial Technology). I received my bachelor's degree in Artificial Intelligence from Nanjing University (2022-2026), and I am interested in building reliable AI systems that connect model capability with real-world deployment.
+I am a post-training algorithm engineer at Tencent FiT (Financial Technology), which I joined full-time after completing my bachelor's degree in Artificial Intelligence at Nanjing University (2022-2026). I am interested in building reliable AI systems that connect model capability with real-world deployment.
 
 I like widening the boundary of my understanding a little at a time, while focusing on work that can create real value in practice. My recent work has focused on agent training, post-training, and evaluation workflows for fast system iteration. Before joining Tencent full-time, I interned as an algorithm engineer at Tencent and Huawei, where I worked on practical model behavior, training stability, and testing infrastructure.
 
