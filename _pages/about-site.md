@@ -6,7 +6,7 @@ author_profile: true
 
 I am Yuteng Shen, a post-training algorithm engineer at Tencent FiT (Financial Technology), which I joined full-time after completing my bachelor's degree in Artificial Intelligence at Nanjing University (2022-2026).
 
-I see myself as someone who likes to widen the boundary of my understanding a little at a time, while focusing on work that can create real value in practice. My current interests are centered on agent training and post-training for practical AI systems.
+My current interests are centered on agent training and post-training for practical AI systems.
 
 Before joining Tencent full-time, I worked as an algorithm engineer intern at Tencent and Huawei. Those experiences pushed me toward problems at the boundary of model quality and system reliability: reducing hallucinations, improving training stability, and making evaluation pipelines useful for real product iteration.
 
