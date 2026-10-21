@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: laya-overview
+    title: "Laya 速览"
+    date: 2026-10-21
+    source_type: blog
+    source_url: "https://github.com/NandhaKishorM/laya"
   - slug: deepseek-v4-1-flash-ced
     title: "DeepSeek-V4.1-Flash 为什么读输入 8B、写输出 16B"
     date: 2026-10-02

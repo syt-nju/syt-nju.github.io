@@ -1,0 +1,812 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Laya 拆解：一个带动态选项的 BERT 分类器</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fbf6ea;
+    --card: #f4ead7;
+    --card2: #fffaf0;
+    --line: #e2d4bb;
+    --text: #2f2a24;
+    --muted: #7a6f60;
+    --accent: #a8663a;
+    --accent-soft: #f1dcc6;
+    --mono: "JetBrains Mono", ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: Inter, "Noto Sans SC", system-ui, sans-serif;
+    line-height: 1.75; font-size: 16px;
+  }
+  a { color: var(--accent); text-decoration: none; border-bottom: 1px solid var(--accent-soft); }
+  a:hover { border-bottom-color: var(--accent); }
+  code, .mono { font-family: var(--mono); font-size: 0.88em; }
+  code { background: var(--card); padding: 1px 5px; border-radius: 4px; }
+
+  nav.top {
+    position: sticky; top: 0; z-index: 10; background: rgba(251,246,234,0.96);
+    border-bottom: 1px solid var(--line);
+  }
+  nav.top .inner {
+    max-width: 1080px; margin: 0 auto; padding: 10px 24px;
+    display: flex; gap: 18px; align-items: center; flex-wrap: wrap; font-size: 14px;
+  }
+  nav.top .brand { font-weight: 700; margin-right: auto; }
+  nav.top a { border: none; color: var(--muted); }
+  nav.top a:hover { color: var(--accent); }
+
+  main { max-width: 1080px; margin: 0 auto; padding: 32px 24px 80px; }
+  header.hero h1 { font-size: 34px; line-height: 1.3; margin: 8px 0 6px; }
+  header.hero .sub { color: var(--muted); font-size: 15px; }
+  header.hero .meta { font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+  .tldr {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 20px 24px; margin: 24px 0 8px;
+  }
+  .tldr h2 { font-size: 15px; margin: 0 0 8px; letter-spacing: 0.04em; color: var(--muted); }
+  .tldr ul { margin: 0; padding-left: 20px; }
+  .tldr li { margin: 6px 0; }
+  .question {
+    font-size: 15px; margin-top: 14px; padding-top: 12px; border-top: 1px dashed var(--line);
+  }
+
+  section { margin-top: 56px; }
+  section > h2 { font-size: 24px; margin: 0 0 6px; }
+  section > .lead { color: var(--muted); margin: 0 0 18px; font-size: 15px; }
+  p { margin: 10px 0; }
+  ul.points { padding-left: 20px; }
+  ul.points li { margin: 6px 0; }
+
+  /* ---------- 架构步进动画 ---------- */
+  .stage {
+    display: grid; grid-template-columns: 300px 1fr; gap: 20px;
+    background: var(--card2); border: 1px solid var(--line); border-radius: 14px; padding: 20px;
+  }
+  .pipeline { display: flex; flex-direction: column; gap: 0; }
+  .node {
+    border: 1px solid var(--line); background: var(--bg); border-radius: 10px;
+    padding: 9px 12px; cursor: pointer;
+    transition: border-color .25s, background .25s, opacity .25s, transform .25s;
+  }
+  .node .t { font-weight: 600; font-size: 14px; }
+  .node .s { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .node.active { border-color: var(--accent); background: var(--accent-soft); transform: translateX(4px); }
+  .node.done { opacity: 0.6; }
+  .node.branch { margin-left: 22px; border-style: dashed; }
+  .arrow { text-align: center; color: var(--muted); font-size: 13px; line-height: 1.3; height: 16px; }
+  .arrow.branch-arrow { text-align: left; padding-left: 8px; }
+
+  .detail { display: flex; flex-direction: column; min-width: 0; }
+  .detail .step-no { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .detail h3 { margin: 2px 0 8px; font-size: 19px; }
+  .detail .body { transition: opacity .18s, transform .18s; }
+  .detail .body.fade { opacity: 0; transform: translateY(6px); }
+  .controls { display: flex; gap: 8px; margin-top: 16px; align-items: center; flex-wrap: wrap; }
+  button {
+    font: inherit; font-size: 14px; padding: 6px 14px; border-radius: 8px; cursor: pointer;
+    border: 1px solid var(--line); background: var(--bg); color: var(--text);
+  }
+  button:hover { border-color: var(--accent); }
+  button.primary { background: var(--accent); color: #fffaf0; border-color: var(--accent); }
+  button:disabled { opacity: 0.4; cursor: default; }
+  .dots { display: flex; gap: 6px; margin-left: auto; }
+  .dots span { width: 8px; height: 8px; border-radius: 50%; background: var(--line); transition: background .2s; }
+  .dots span.on { background: var(--accent); }
+
+  .row-label { font-size: 12px; color: var(--muted); margin: 10px 0 2px; font-family: var(--mono); }
+  .tokens { line-height: 2.1; }
+  .tok {
+    display: inline-block; padding: 0 6px; margin: 1px 1px; border-radius: 4px;
+    font-family: var(--mono); font-size: 12px; background: var(--card); border: 1px solid transparent;
+    transition: background .3s, border-color .3s, opacity .3s;
+  }
+  .tok.sp { border: 1px dashed var(--muted); background: transparent; }
+  .tok.ins { background: #ece2cf; }
+  .tok.mask { background: var(--accent); color: #fffaf0; font-weight: 500; }
+  .tok.opt { background: var(--accent-soft); }
+  .tok.state { background: #e9e3d6; font-style: italic; }
+  .tok.dim { opacity: 0.35; }
+  .tok.ring { border-color: var(--accent); border-style: solid; }
+
+  .shape {
+    font-family: var(--mono); font-size: 13px; background: var(--card); border-radius: 8px;
+    padding: 10px 12px; margin: 10px 0; white-space: pre-wrap; overflow-x: auto;
+  }
+  .note { font-size: 13px; color: var(--muted); }
+  table { border-collapse: collapse; width: 100%; font-size: 14px; margin: 10px 0; }
+  th, td { border-bottom: 1px solid var(--line); padding: 7px 8px; text-align: left; vertical-align: top; }
+  th { font-weight: 600; background: var(--card); }
+  .bar-wrap { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12px; margin: 3px 0; }
+  .bar-wrap .lab { width: 92px; flex-shrink: 0; }
+  .bar-wrap .track { flex: 1; height: 12px; background: var(--card); border-radius: 6px; position: relative; overflow: hidden; }
+  .bar-wrap .fill { position: absolute; top: 0; bottom: 0; left: 0; background: var(--accent); border-radius: 6px; transition: width .5s; }
+  .bar-wrap .val { width: 52px; text-align: right; }
+  pre.json {
+    font-family: var(--mono); font-size: 12.5px; background: var(--card); border-radius: 8px;
+    padding: 12px; overflow-x: auto; margin: 8px 0; line-height: 1.55;
+  }
+
+  /* ---------- 通用块 ---------- */
+  .callout {
+    border-left: 3px solid var(--accent); background: var(--card2); padding: 12px 16px;
+    border-radius: 0 10px 10px 0; margin: 16px 0;
+  }
+  .flow { display: flex; align-items: stretch; flex-wrap: wrap; gap: 0; margin: 18px 0; }
+  .flow .box {
+    flex: 1 1 150px; background: var(--card2); border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 12px; font-size: 13.5px;
+  }
+  .flow .box b { display: block; font-size: 14px; margin-bottom: 2px; }
+  .flow .box .who { font-size: 12px; color: var(--muted); font-family: var(--mono); }
+  .flow .box.hot { border-color: var(--accent); }
+  .flow .arr { display: flex; align-items: center; padding: 0 6px; color: var(--muted); }
+  .metrics { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin: 16px 0; }
+  .metric { background: var(--card2); border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; }
+  .metric .n { font-size: 28px; font-weight: 700; line-height: 1.2; }
+  .metric .n.acc { color: var(--accent); }
+  .metric .d { font-size: 12.5px; color: var(--muted); }
+  .two { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 16px 0; }
+  .panel { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 14px 18px; }
+  .panel h4 { margin: 0 0 6px; font-size: 15px; }
+  .panel ul { margin: 0; padding-left: 18px; font-size: 14.5px; }
+  .panel li { margin: 5px 0; }
+  .formula {
+    font-family: var(--mono); font-size: 14px; background: var(--card); border-radius: 8px;
+    padding: 12px 14px; margin: 10px 0; overflow-x: auto; white-space: pre; line-height: 1.7;
+  }
+  details {
+    background: var(--card2); border: 1px solid var(--line); border-radius: 10px; margin: 12px 0;
+  }
+  details summary { cursor: pointer; padding: 10px 14px; font-weight: 600; font-size: 14.5px; list-style: none; }
+  details summary::-webkit-details-marker { display: none; }
+  details summary::before { content: "▸ "; color: var(--muted); }
+  details[open] summary::before { content: "▾ "; }
+  details summary .sum { display: block; font-weight: 400; font-size: 13px; color: var(--muted); margin-left: 16px; }
+  details .inner { padding: 0 16px 14px; }
+
+  .es-demo { background: var(--card2); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; margin: 16px 0; }
+  .es-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 18px; }
+  .div-track { display: block; width: 100%; height: 12px; background: var(--card); border-radius: 6px; position: relative; }
+  .div-track::after { content: ""; position: absolute; left: 50%; top: -2px; bottom: -2px; width: 1px; background: var(--muted); }
+  .div-fill { position: absolute; top: 0; bottom: 0; background: var(--accent); transition: left .35s, width .35s; }
+  .div-fill.ref { background: var(--text); opacity: 0.55; }
+  .es-stat { font-family: var(--mono); font-size: 13px; margin-top: 10px; }
+  .es-stat b { font-size: 15px; }
+
+  .stage > * { min-width: 0; }
+  .tensor-fig { grid-column: 1 / -1; border-top: 1px dashed var(--line); padding-top: 14px; }
+  .tensor-fig .fig-title { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+  .svg-scroll { overflow-x: auto; }
+  .svg-scroll svg { display: block; width: 100%; min-width: 760px; height: auto; }
+  .tensor-fig g.part { transition: opacity .35s; }
+  .tensor-fig g.part.dim { opacity: 0.2; }
+  .c-sp { fill: none; stroke: #7a6f60; stroke-dasharray: 3 2; }
+  .c-ins { fill: #ece2cf; }
+  .c-mask { fill: #a8663a; }
+  .c-opt { fill: #f1dcc6; }
+  .c-st { fill: #e9e3d6; }
+  .c-vec { fill: #e2d4bb; stroke: #fffaf0; stroke-width: 1; }
+  .c-vec-hot { fill: #a8663a; stroke: #fffaf0; stroke-width: 1; }
+  .c-vec-cls { fill: #2f2a24; stroke: #fffaf0; stroke-width: 1; opacity: .75; }
+  .c-type { fill: #f1dcc6; stroke: #a8663a; stroke-width: 1; }
+  .c-box { fill: #fffaf0; stroke: #c9b391; stroke-width: 1.2; }
+  .c-bar { fill: #a8663a; }
+  .c-track { fill: #f4ead7; }
+  .tx { font-family: "JetBrains Mono", monospace; font-size: 11px; fill: #2f2a24; }
+  .tx-b { font-family: Inter, "Noto Sans SC", sans-serif; font-size: 12.5px; font-weight: 600; fill: #2f2a24; }
+  .tx-m { font-family: Inter, "Noto Sans SC", sans-serif; font-size: 11px; fill: #7a6f60; }
+  .tx-w { font-family: "JetBrains Mono", monospace; font-size: 10px; fill: #fffaf0; }
+  .ln { stroke: #7a6f60; stroke-width: 1.2; fill: none; }
+  .ln-hot { stroke: #a8663a; stroke-width: 1.4; fill: none; }
+  .fig-toggle { font-size: 13px; color: var(--accent); cursor: pointer; user-select: none; }
+  .figure-detail { max-height: 0; overflow: hidden; opacity: 0; transition: max-height .35s, opacity .35s; font-size: 14px; }
+  .figure-detail.active { max-height: 900px; opacity: 1; }
+  .figure-detail ul { padding-left: 20px; margin: 8px 0; }
+  .figure-detail li { margin: 4px 0; }
+
+  footer { margin-top: 64px; padding-top: 18px; border-top: 1px solid var(--line); font-size: 13px; color: var(--muted); }
+
+  @media (max-width: 880px) {
+    .stage { grid-template-columns: 1fr; }
+    .two, .es-grid { grid-template-columns: 1fr; }
+    .metrics { grid-template-columns: repeat(2, 1fr); }
+    .flow { flex-direction: column; }
+    .flow .arr { justify-content: center; padding: 2px 0; transform: rotate(90deg); }
+    header.hero h1 { font-size: 26px; }
+    .node.active { transform: none; }
+    .pipeline { flex-direction: row; flex-wrap: wrap; gap: 6px; }
+    .pipeline .arrow { display: none; }
+    .node { padding: 4px 9px; }
+    .node .s { display: none; }
+    .node .t { font-size: 12.5px; }
+    .node.branch { margin-left: 0; }
+  }
+</style>
+</head>
+<body>
+<nav class="top">
+  <div class="inner">
+    <span class="brand">Laya 拆解</span>
+    <a href="#arch">主架构</a>
+    <a href="#classify">本质</a>
+    <a href="#data">标签从哪来</a>
+    <a href="#loss">Loss</a>
+    <a href="#verdict">评价</a>
+    <a href="https://github.com/NandhaKishorM/laya" target="_blank" rel="noopener">原文 ↗</a>
+  </div>
+</nav>
+
+<main>
+<header class="hero">
+  <div class="sub">代码阅读笔记 · 基于 laya 0.4.12 源码、HF 模型卡与 typed-decisions 数据集卡</div>
+  <h1>Laya 拆解：一个带动态选项的 BERT 分类器</h1>
+  <div class="meta">
+    源码：<a href="https://github.com/NandhaKishorM/laya" target="_blank" rel="noopener">NandhaKishorM/laya</a> ·
+    模型：<a href="https://huggingface.co/convaiinnovations/laya" target="_blank" rel="noopener">convaiinnovations/laya</a> ·
+    数据：<a href="https://huggingface.co/datasets/LocalLLaMA/typed-decisions" target="_blank" rel="noopener">LocalLLaMA/typed-decisions</a>
+  </div>
+</header>
+
+<div class="tldr">
+  <h2>TL;DR</h2>
+  <ul>
+    <li><strong>模型</strong>：ModernBERT-large 编码器 + 2 层 Transformer 决策头。每个选项前插一个 <code>[MASK]</code>，在这些位置各打一个分，再对本题选项做 softmax。<strong>本质是选项写在输入里的 cross-encoder 多选分类</strong>。</li>
+    <li><strong>标签</strong>：全合成数据。一个约 4B 级别的 LLM teacher 对每条样本标 3 次（温度 0.7），取平均作为软标签。<strong>所谓"准确率"其实是和这个 teacher 的一致率</strong>。</li>
+    <li><strong>Loss</strong>：软标签交叉熵，外加一项"RL"。RL 项实际是对 logits 做随机扰动来估计梯度（evolution strategies），而它估计的梯度本来就能直接求出来。作者自己的消融里，只用交叉熵反而更好（0.790 对 0.7715）。</li>
+  </ul>
+  <div class="question"><strong>本页要回答的问题：</strong>laya 到底是什么模型，它的"RL 训练"和"超过 teacher"站不站得住？</div>
+</div>
+
+<!-- ====================== 1. 主架构 ====================== -->
+<section id="arch">
+  <h2>1. 一次请求在模型里走了什么路</h2>
+  <p class="lead">用 README 里的退款工单当例子：一段 state 加 3 个问题（选部门、打紧急度、判断是否要流失）。点「下一步」逐步看每个阶段的输入、操作和产物。</p>
+
+  <div class="stage">
+    <div class="pipeline" id="pipeline">
+      <div class="node" data-step="0"><div class="t">① 请求</div><div class="s">state + questions</div></div>
+      <div class="arrow">↓</div>
+      <div class="node" data-step="1"><div class="t">② 序列化：每题一行</div><div class="s">build_sequence()</div></div>
+      <div class="arrow">↓</div>
+      <div class="node" data-step="2"><div class="t">③ ModernBERT 编码器</div><div class="s">28 层 · d=1024 · 双向</div></div>
+      <div class="arrow">↓</div>
+      <div class="node" data-step="3"><div class="t">④ +题型 embedding → 决策头</div><div class="s">2 层 TransformerEncoder</div></div>
+      <div class="arrow">↓</div>
+      <div class="node" data-step="4"><div class="t">⑤ 在 [MASK] 处取向量打分</div><div class="s">gather → scorer MLP</div></div>
+      <div class="arrow">↓</div>
+      <div class="node" data-step="5"><div class="t">⑥ 选项内 softmax ÷ 温度</div><div class="s">按题型解码</div></div>
+      <div class="arrow branch-arrow">↳ 分支</div>
+      <div class="node branch" data-step="6"><div class="t">⑦ act 头</div><div class="s">[CLS] + 置信度统计</div></div>
+      <div class="arrow">↓</div>
+      <div class="node" data-step="7"><div class="t">⑧ 输出 typed answers</div><div class="s">JSON</div></div>
+    </div>
+
+    <div class="detail">
+      <div class="step-no" id="stepNo"></div>
+      <h3 id="stepTitle"></h3>
+      <div class="body" id="stepBody"></div>
+      <div class="controls">
+        <button id="btnPrev">上一步</button>
+        <button id="btnNext" class="primary">下一步</button>
+        <button id="btnReset">重置</button>
+        <div class="dots" id="dots"></div>
+      </div>
+    </div>
+
+    <div class="tensor-fig">
+      <div class="fig-title">向量流向图 · 以 row 0（department，K=3）为例，3 行在 batch 里并行、互不交互；高亮部分对应当前步骤</div>
+      <div class="svg-scroll"><svg id="tensorSvg" viewBox="0 0 1000 530" xmlns="http://www.w3.org/2000/svg"></svg></div>
+      <div style="margin-top:6px">
+        <span class="note">一行序列编码成 L 个 1024 维列向量，最后只取 3 个 [MASK] 列打分，[CLS] 列给 act 头。</span>
+        <span class="fig-toggle" id="figToggle">展开说明 ▸</span>
+      </div>
+      <div class="figure-detail" id="figDetail">
+        <ul>
+          <li><strong>token 行</strong>：一行序列 = [CLS] + 问题指令 + 每个选项前一个 [MASK] + state。图里每个小方块代表一段 token，实际长度 L ≤ 512。</li>
+          <li><strong>编码器 → h</strong>：每个 token 变成一个 1024 维列向量，28 层双向注意力让每列都看到全部 L 列，所以 [MASK] 列里混进了「本选项文字 + 问题 + state」的信息。</li>
+          <li><strong>+ type_emb</strong>：按题型取一个 1024 维向量，<strong>广播加到每一列</strong>（不是拼接），告诉决策头这是 choice / score / noul。</li>
+          <li><strong>决策头 → h'</strong>：2 层 TransformerEncoder 再做一次全局交互，输出形状不变，仍是 L × 1024。</li>
+          <li><strong>gather</strong>：按 marker_pos 只取 3 个 [MASK] 列，叠成 m ∈ ℝ^{K×1024}；其余列（问题、选项文字、state）到这里就丢掉了。</li>
+          <li><strong>scorer</strong>：同一个 MLP 分别作用在每个 [MASK] 列上，各出 1 个标量，得到 K 个 logits；所以 K 可以是任意值。</li>
+          <li><strong>softmax</strong>：只在本题 K 个选项内归一化，先除以按题型拟合的温度 T。</li>
+          <li><strong>act 分支</strong>：[CLS] 列（1024 维）与 4 个由概率算出的统计量<strong>拼接</strong>成 1028 维，过 MLP 输出 2 类 logits；统计量来自 detach 后的概率，梯度不回传到打分路径。</li>
+        </ul>
+        <p>一句话总结：<strong>只有 [MASK] 列和 [CLS] 列被读出，其他位置只是给它们提供上下文。</strong></p>
+      </div>
+    </div>
+  </div>
+  <p class="note">数值类示意（logits、概率、marker 位置）是为了说明形状和流程编的，不是真实推理结果；张量维度和模块结构对应 <code>laya/common.py</code> 中的 <code>build_head</code> 和 <code>DecisionModel.forward</code>。</p>
+
+  <details>
+    <summary>对应源码：DecisionModel.forward 核心几行<span class="sum">编码 → 加题型 embedding → 头部 2 层 → gather [MASK] → scorer → 屏蔽多余选项</span></summary>
+    <div class="inner">
+<pre class="json">h = self.encoder(input_ids=input_ids, attention_mask=attention_mask).last_hidden_state
+h = h + self.type_emb(qtype)[:, None, :]
+for layer in self.head.layers:
+    h = layer(h, src_key_padding_mask=pad)
+idx = marker_pos.clamp(min=0)[:, :, None].expand(-1, -1, h.size(-1))
+m = torch.gather(h, 1, idx)
+logits = self.scorer(m).squeeze(-1).float()
+logits = logits.masked_fill(~marker_mask, -1e4)</pre>
+    </div>
+  </details>
+</section>
+
+<!-- ====================== 2. 本质 ====================== -->
+<section id="classify">
+  <h2>2. 它本质上就是分类</h2>
+  <p>走完上面的流程可以看到，laya 的输出就是一个 K 选 1 的 softmax，训练目标也是一个分布。和普通分类器相比，它只在一个地方有区别：<strong>类别不是固定的输出层，而是以文本形式写进输入</strong>，所以换一套选项不用重训。这个思路就是 BERT 时代的 <strong>cross-encoder 多选</strong>（比如 SWAG 用的 <code>AutoModelForMultipleChoice</code>），区别只是 laya 把所有选项塞进同一条序列。</p>
+
+  <table>
+    <tr><th></th><th>固定分类头</th><th>Laya</th><th>LLM 生成</th></tr>
+    <tr><td>标签空间</td><td>训练时写死</td><td><strong>请求时用文本给出</strong></td><td>任意</td></tr>
+    <tr><td>计算方式</td><td>一行一次前向</td><td>每个问题一行，state 每行重复编码</td><td>自回归逐 token</td></tr>
+    <tr><td>输出</td><td>固定 logits</td><td>K 个 [MASK] 位置的 logits</td><td>文本，需要解析</td></tr>
+    <tr><td>主要局限</td><td>换标签就要重训</td><td>选项挤在 192/256 token 预算里，选项多了就分不清；有位置偏置</td><td>慢、贵</td></tr>
+  </table>
+
+  <p>它带来的工程价值是真实的：<strong>T4 上单题 39.5 ms</strong>，比调 LLM API 快一个数量级，而且输出天然是概率。但从建模上讲没有新东西，宣传里的 "System 1 decision engine"、"non-autoregressive" 都是包装。</p>
+</section>
+
+<!-- ====================== 3. 数据 ====================== -->
+<section id="data">
+  <h2>3. 软标签从哪来</h2>
+  <p class="lead">训练和评测用的都是 typed-decisions 数据集。下面按数据集卡片的描述画出构造流程。</p>
+
+  <div class="flow">
+    <div class="box"><b>采样隐因子</b><div class="who">程序随机</div>主题、语气、严重程度、差异类型……</div>
+    <div class="arr">→</div>
+    <div class="box"><b>渲染成 state</b><div class="who">某个 LLM</div>文本类内容写成自然语言，结构化内容保持 JSON</div>
+    <div class="arr">→</div>
+    <div class="box hot"><b>teacher 标 3 次</b><div class="who">约 4B 级 LLM · T=0.7</div>每次对每个问题输出一个分布</div>
+    <div class="arr">→</div>
+    <div class="box hot"><b>3 次取平均 = gold</b><div class="who">软标签</div>训练 1,200 条，测试 400 条（各 5 题）</div>
+  </div>
+
+  <p>我拉了训练集第一条数据看，gold 的取值是 0.283333、0.433333 这种，乘以 3 后都是 0.05 的整数倍。所以每次标注更像是 <strong>teacher 在 JSON 里直接写出来的概率</strong>（verbalized probability），而不是 next-token 的 logprob。这一点是我根据数值推断的，数据集卡片没有明说。</p>
+
+  <details>
+    <summary>真实样本：一条 agent trace 的 gold<span class="sum">5 个问题上，3 次标注的 argmax 没有一题完全一致，gold 很平</span></summary>
+    <div class="inner">
+<pre class="json">action   : continue 0.283 | human_review 0.433 | observe 0.250 | stop 0.033
+needs_review (noul): false 0.45 | true 0.55
+outcome  : failure 0.083 | harmful 0.000 | partial 0.493 | success 0.423
+risk     (score): 0:0.467 | 1:0.417 | 2:0.100 | 3:0.017
+urgency  (score): 0:0.317 | 1:0.483 | 2:0.167 | 3:0.033
+label_agreement: 5 个问题的 argmax_agree（3 次 argmax 是否全相同）均为 false</pre>
+    </div>
+  </details>
+
+  <p>数据集卡片自己给了几条参考线，读 laya 的成绩时必须对照着看：</p>
+  <div class="metrics">
+    <div class="metric"><div class="n">0.470</div><div class="d">Prior：只按训练集标签频率猜，不看输入</div></div>
+    <div class="metric"><div class="n">0.735</div><div class="d">teacher 自一致率：新采一次 teacher，和其余几次的平均比</div></div>
+    <div class="metric"><div class="n acc">0.766</div><div class="d">laya 微调后，宣传为"超过 teacher 天花板"</div></div>
+    <div class="metric"><div class="n">0.362</div><div class="d">laya 基础 checkpoint 零样本，接近随机的 0.318</div></div>
+  </div>
+  <div class="callout">数据集卡片原话："Scores well above 0.735 mean a model is learning the teacher's quirks." 也就是说，<strong>分数明显超过 0.735，说明模型在学 teacher 的毛病</strong>。laya 把 0.766 当卖点，按出题人的标准恰恰是过拟合 teacher 的信号。</div>
+</section>
+
+<!-- ====================== 4. Loss ====================== -->
+<section id="loss">
+  <h2>4. Loss：RL 项其实是在用采样估计一个已知的梯度</h2>
+  <p>代码里的 loss 是两项相加（<code>laya/train.py</code> 的 <code>rlcd_loss</code>）。记模型输出的 logits 为 ℓ，teacher 的目标分布为 t：</p>
+  <div class="formula">L = L_RL + L_CE
+
+L_CE = −Σᵢ tᵢ · log softmax(ℓ)ᵢ                       ← 软标签交叉熵，就是普通蒸馏
+
+L_RL：
+  1. 采 S=4 份噪声 ε ~ N(0, σ²)，σ 从 0.4 退火到 0.1，减去均值
+  2. z = ℓ.detach() + ε，q = softmax(z)
+  3. R = Σ tᵢ log qᵢ  +  0.75 · spherical(q, t)  [− RPS，仅 score 题]
+  4. A = (R − mean R) / std R
+  5. L_RL = −mean( A · log N(z | ℓ, σ²) )</div>
+
+  <p>对 ℓ 求导，高斯 log 密度的梯度正好是 ε/σ²，于是：</p>
+  <div class="formula">∇ℓ L_RL = −(1 / Sσ²) · Σₛ Aₛ · εₛ</div>
+  <p>这就是 <strong>evolution strategies（零阶梯度估计）</strong>：往几个随机方向扰动 logits，看 reward 变好还是变坏，以此估计 ∇E[R]。你的理解是对的，它就是在用采样做估计。问题在于这里根本不需要估计：</p>
+  <ul class="points">
+    <li><strong>"动作"就是分布 q 本身</strong>，reward 是 q 和 t 的闭式函数，log score、spherical、RPS 都可以直接求导。</li>
+    <li><strong>reward 的主项 log score 就是负交叉熵</strong>，而第二项 L_CE 已经给出了它的精确梯度，RL 项只是给同一个方向叠加噪声。</li>
+    <li><strong>"严格适当评分规则保证概率诚实"这个论据，交叉熵本身就满足</strong>（log score 就是严格适当评分规则），不需要 RL 来实现。</li>
+    <li><strong>advantage 用 std 归一化</strong>，RL 项的梯度尺度随 batch 漂移，和 CE 项的相对权重不可控。</li>
+  </ul>
+
+  <p>下面这个小实验用真实样本的 <code>action</code> 题做 target，按代码里的公式采 4 个样本，比较 ES 估计的梯度方向和精确梯度方向。每点一次「重新采样」就是一次训练 step 里 RL 项拿到的梯度。</p>
+
+  <div class="es-demo">
+    <div class="es-grid">
+      <div>
+        <div class="note" style="margin-bottom:6px">精确梯度 ∇ℓ R（灰）对比 4 样本 ES 估计（赭），各自按最大绝对值归一化</div>
+        <div id="esBars"></div>
+      </div>
+      <div>
+        <div class="note">设置：target t = [0.283, 0.433, 0.250, 0.033]，当前 logits ℓ = [0.5, 0.2, 0.1, −0.3]，σ = 0.4，S = 4，w_sph = 0.75</div>
+        <div class="es-stat" id="esOne"></div>
+        <div class="es-stat" id="esMany"></div>
+        <div class="controls">
+          <button id="btnResample" class="primary">重新采样</button>
+          <button id="btnMany">统计 2000 次</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <p>作者自己的消融（<a href="https://github.com/NandhaKishorM/laya/issues/887" target="_blank" rel="noopener">issue #887</a>，单张 T4、一个 seed）也是同样的结论：</p>
+  <div class="metrics">
+    <div class="metric"><div class="n">0.362</div><div class="d">基础 checkpoint，不微调</div></div>
+    <div class="metric"><div class="n">0.7715</div><div class="d"><code>--loss rlcd</code>（默认，CE + RL）</div></div>
+    <div class="metric"><div class="n acc">0.790</div><div class="d"><code>--loss soft-ce</code>（只用交叉熵）</div></div>
+    <div class="metric"><div class="n">≈</div><div class="d">两者 ECE 差不多（0.150 对 0.157）</div></div>
+  </div>
+  <p>训练完后，还会在预留的最多 400 条校准样本上，按题型各拟合一个温度（LBFGS，限制在 [0.1, 10]）。这一步是标准的 temperature scaling，不改变 argmax，只改变置信度。</p>
+</section>
+
+<!-- ====================== 5. 评价 ====================== -->
+<section id="verdict">
+  <h2>5. 结论：工程封装扎实，算法叙事偏营销</h2>
+  <div class="two">
+    <div class="panel">
+      <h4>值得参考</h4>
+      <ul>
+        <li><strong>[MASK] 打分 + 选项写进输入</strong>：做一个 schema 可变的快速判别器，这个结构简单好用。</li>
+        <li><strong>软标签 + 温度校准</strong>：输出能直接当置信度用，做门控和拒答。</li>
+        <li><strong>推理工程</strong>：长度分桶、CUDA graphs、ONNX/TensorRT 导出、选项乱序做稳定性检查。</li>
+      </ul>
+    </div>
+    <div class="panel">
+      <h4>不值得照搬</h4>
+      <ul>
+        <li><strong>RLCD</strong>：对可导目标做零阶估计，消融里还更差。用软标签 CE 就够了，有序题可以加一个可导的 RPS。</li>
+        <li><strong>评测口径</strong>：gold 来自 4B teacher、温度 0.7 下的 3 次采样，噪声大；超过 0.735 的分数不代表更正确。</li>
+        <li><strong>基础 checkpoint</strong>：预训练数据和流程都没公开，零样本接近随机，必须做领域微调才能用。</li>
+      </ul>
+    </div>
+  </div>
+  <p>如果我们要做类似的东西，关键投入应该在 <strong>teacher 的质量</strong>上：换更强的模型、多采样、加人工抽检，用 logprob 而不是口头概率。另外要正视这个架构的结构性短板：<strong>选项数受 token 预算限制、state 按问题数重复编码、选项有位置偏置</strong>。</p>
+</section>
+
+<footer>
+  资料来源：<a href="https://github.com/NandhaKishorM/laya" target="_blank" rel="noopener">laya 源码（GitHub · NandhaKishorM）</a> ·
+  <a href="https://huggingface.co/convaiinnovations/laya" target="_blank" rel="noopener">HF 模型卡</a> ·
+  <a href="https://huggingface.co/datasets/LocalLLaMA/typed-decisions" target="_blank" rel="noopener">typed-decisions 数据集卡</a> ·
+  <a href="https://github.com/NandhaKishorM/laya/issues/887" target="_blank" rel="noopener">消融 issue #887</a>
+</footer>
+</main>
+
+<script>
+const TOK = (cls, s) => `<span class="tok ${cls}">${s}</span>`;
+const DEPT_ROW = [
+  TOK("sp", "[CLS]"), TOK("ins", "choice question: Which department should handle this?"), TOK("sp", "[SEP]"),
+  TOK("mask", "[MASK]"), TOK("opt", "billing: invoices, payments, refunds"),
+  TOK("mask", "[MASK]"), TOK("opt", "technical: bugs, outages, system errors"),
+  TOK("mask", "[MASK]"), TOK("opt", "other: everything else"), TOK("sp", "[SEP]"),
+  TOK("state", "Hi, we were billed twice for March. Please refund … or we will cancel our plan."), TOK("sp", "[SEP]")
+].join("");
+const URG_ROW = [
+  TOK("sp", "[CLS]"), TOK("ins", "score question: How urgent is this?"), TOK("sp", "[SEP]"),
+  TOK("mask", "[MASK]"), TOK("opt", "level 0: not urgent"), TOK("mask", "[MASK]"), TOK("opt", "level 1: soon"),
+  TOK("mask", "[MASK]"), TOK("opt", "level 2: blocking"), TOK("sp", "[SEP]"),
+  TOK("state", "Hi, we were billed twice … (同一段 state)"), TOK("sp", "[SEP]")
+].join("");
+const CHURN_ROW = [
+  TOK("sp", "[CLS]"), TOK("ins", "noul question: Does the user threaten to cancel or leave?"), TOK("sp", "[SEP]"),
+  TOK("mask", "[MASK]"), TOK("opt", "false: no, the statement does not hold"),
+  TOK("mask", "[MASK]"), TOK("opt", "true: yes, the statement holds"), TOK("sp", "[SEP]"),
+  TOK("state", "Hi, we were billed twice … (同一段 state)"), TOK("sp", "[SEP]")
+].join("");
+
+function bars(rows) {
+  return rows.map(([lab, v]) =>
+    `<div class="bar-wrap"><span class="lab">${lab}</span><span class="track"><span class="fill" style="width:${(v * 100).toFixed(1)}%"></span></span><span class="val">${v.toFixed(2)}</span></div>`
+  ).join("");
+}
+
+const STEPS = [
+  {
+    title: "请求：一段 state，三个带类型的问题",
+    body: `<p>调用方发来的就是一个 JSON：<strong>state</strong> 是要判断的对象（文本或 JSON），<strong>questions</strong> 是一组带类型的问题。选项及其描述都由调用方在请求里给出。</p>
+<pre class="json">state = "Hi, we were billed twice for March. Please refund the
+         duplicate today or we will cancel our plan."
+questions = {
+  "department": {"type": "choice",
+                 "instructions": "Which department should handle this?",
+                 "criteria": {"billing":   "invoices, payments, refunds",
+                              "technical": "bugs, outages, system errors",
+                              "other":     "everything else"}},
+  "urgency":    {"type": "score",
+                 "instructions": "How urgent is this?",
+                 "criteria": ["not urgent", "soon", "blocking"]},
+  "churn_risk": {"type": "noul",
+                 "instructions": "Does the user threaten to cancel or leave?"}
+}</pre>
+<p class="note"><strong>问题 id（department / urgency / churn_risk）不进入模型</strong>，只用来把答案对回去。模型看到的只有 <code>type</code>、<code>instructions</code>（必填）和 <code>criteria</code>：下一步会按固定模板 <code>「&lt;type&gt; question: &lt;instructions&gt;」</code> 拼出问题文本。noul 不给 criteria 时，选项用默认的 false / true 描述。</p>
+<p class="note">三种题型在模型里没有结构差异，都是「K 个选项选 1」；区别只在最后怎么解码，以及一个题型 embedding。</p>`
+  },
+  {
+    title: "序列化：每个问题拼成独立的一行",
+    body: `<p>每个问题单独拼成一条序列：<strong>问题指令在前，每个选项前插一个 [MASK]，state 拼在最后</strong>。3 个问题就是 batch 里的 3 行，<strong>同一段 state 被编码 3 次</strong>。</p>
+<div class="row-label">row 0 · department (choice, K=3)</div><div class="tokens">${DEPT_ROW}</div>
+<div class="row-label">row 1 · urgency (score, K=3)</div><div class="tokens">${URG_ROW}</div>
+<div class="row-label">row 2 · churn_risk (noul, K=2)</div><div class="tokens">${CHURN_ROW}</div>
+<p class="note">问题部分（指令 + 选项）总长受 <code>head_max_len</code> 限制（英文 192、多语言 256 token），每个选项最多 48 token；选项太多时每个只剩 4 token 左右，就会分不清。state 只能用剩下的 <code>max_len − head</code> 空间，超出部分直接截断。</p>`
+  },
+  {
+    title: "ModernBERT 编码器：所有 token 双向互看",
+    body: `<p>3 行一起送进 ModernBERT-large（28 层，hidden 1024，全量微调）。因为是双向注意力，<strong>每个 [MASK] 的向量都能看到问题、本选项文字和整段 state</strong>，所以它的表示可以理解为「这个选项和这段 state 匹不匹配」。</p>
+<div class="shape">input_ids       [3, L]          L ≤ 512（英文）/ 1024（多语言）
+attention_mask  [3, L]
+h = encoder(…)  [3, L, 1024]</div>
+<p class="note">默认的 sequential 布局下，选项之间也会互相注意，而且位置编码不同，所以<strong>选项顺序会影响结果</strong>：基础模型把选项倒过来，35.7% 的答案会变。作者后来加了 parallel 布局（选项共用 position id、互相屏蔽），但已发布的 checkpoint 都还是用旧布局训练的。</p>`
+  },
+  {
+    title: "加题型 embedding，过 2 层决策头",
+    body: `<p>给每个位置加上题型 embedding（choice / score / noul 三选一），再过一个<strong>从零训练的 2 层 TransformerEncoder</strong>（pre-norm，16 头，FFN 4096）。这两层是在编码器之上为「打分」再做一次全局交互。</p>
+<div class="shape">h = h + type_emb[qtype][:, None, :]     type_emb: Embedding(3, 1024)
+h = head(h, padding_mask)               2 × TransformerEncoderLayer
+                                         → [3, L, 1024]</div>
+<p class="note">头部没有位置编码，位置信息全来自编码器。整模型 421M 参数，其中编码器 395M，头部约 26M。</p>`
+  },
+  {
+    title: "在每个 [MASK] 位置取向量，打一个分",
+    body: `<p>按序列化时记下的 marker 位置，从 h 里 <strong>gather</strong> 出每个选项对应 [MASK] 的向量，送进一个小 MLP 打一个标量分。不同题的选项数不同，补齐的位置用 −1e4 屏蔽。</p>
+<div class="shape">marker_pos  [3, Kmax]       row0: [12, 19, 27] （示意）
+m = gather(h, marker_pos)   [3, Kmax, 1024]
+scorer = LayerNorm → Linear(1024,1024) → GELU → Linear(1024,1)
+logits      [3, Kmax]       row0: [ 2.9, −0.4, −1.1]   （示意值）
+                            row2: [−0.8,  1.6, −1e4]   ← 只有 2 个选项</div>
+<p>这一步就是它能接受「请求时才定义的选项」的原因：<strong>输出层不是固定的类别数，而是有几个 [MASK] 就打几个分</strong>。</p>`
+  },
+  {
+    title: "选项内 softmax，除以温度，按题型解码",
+    body: `<p>每一行只在本题的 K 个选项上做 softmax，logits 先除以按题型拟合的温度（训练后在校准集上拟合）。三种题型只是解码方式不同：</p>
+<div class="row-label">department (choice) → 取 argmax</div>${bars([["billing", 0.93], ["technical", 0.04], ["other", 0.03]])}
+<div class="row-label">urgency (score) → 期望档位 Σ i·pᵢ</div>${bars([["level 0", 0.10], ["level 1", 0.55], ["level 2", 0.35]])}
+<div class="row-label">churn_risk (noul) → 取 p(true)</div>${bars([["false", 0.08], ["true", 0.92]])}
+<p class="note">图中概率为示意值。urgency 的期望档位 = 0×0.10 + 1×0.55 + 2×0.35 = 1.25。</p>`
+  },
+  {
+    title: "分支：act 头给出「是否执行」的概率",
+    body: `<p>另有一个小 MLP 读取 <strong>[CLS] 向量</strong>，再拼上 4 个由 softmax 结果算出的统计量，输出一个二分类概率，作为每个答案里的 <code>action.act_probability</code>。</p>
+<div class="shape">feats = [top1, top1 − top2, 归一化熵, K/255]       （4 维，梯度不回传到 logits）
+act_logits = MLP(concat(h[:,0], feats))            Linear(1028,256) → GELU → Linear(256,2)</div>
+<p class="note">这个头是基础 checkpoint 训练阶段留下的（配置里的 <code>act_costs</code>），公开的微调流程里并不训练它，属于附带输出。</p>`
+  },
+  {
+    title: "输出：每个问题一个带概率的结构化答案",
+    body: `<p>三行的结果组装回调用方的问题 id，返回一个不需要解析的 JSON：</p>
+<pre class="json">{
+  "department": {"choice": "billing",
+                 "probabilities": {"billing": 0.93, "technical": 0.04, "other": 0.03}},
+  "urgency":    {"score": 1.25,
+                 "probabilities": {"0": 0.10, "1": 0.55, "2": 0.35}},
+  "churn_risk": {"noul": 0.92},
+  "routing":    {"model": "english"}
+}</pre>
+<p>端到端：<strong>1 个问题 T4 上约 39.5 ms，10 个问题约 158 ms</strong>。成本随问题数线性增长，因为每个问题都要把 state 重新编码一遍。</p>`
+  }
+];
+
+/* ---------- 向量流向图：每个 part 声明它属于哪些步骤 ---------- */
+function buildTensorSvg() {
+  const TOKS = [["CLS", "sp"], ["q", "ins"], ["q", "ins"], ["SEP", "sp"], ["M", "mask"], ["opt", "opt"],
+    ["M", "mask"], ["opt", "opt"], ["M", "mask"], ["opt", "opt"], ["SEP", "sp"],
+    ["s", "st"], ["s", "st"], ["s", "st"], ["s", "st"], ["SEP", "sp"]];
+  const MASKS = [4, 6, 8];
+  const X = i => 40 + i * 38;
+  const CX = i => X(i) + 16;
+  const col = (x, y, cls, n = 6) =>
+    Array.from({ length: n }, (_, k) => `<rect x="${x}" y="${y + k * 9}" width="16" height="9" class="${cls}"/>`).join("");
+  const part = (steps, inner) => `<g class="part" data-steps="${steps}">${inner}</g>`;
+  const arrow = (d, cls = "ln") => `<path d="${d}" class="${cls}" marker-end="url(#ah)"/>`;
+  let s = `<defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#7a6f60"/></marker></defs>`;
+
+  s += part("1", TOKS.map(([t, c], i) =>
+      `<rect x="${X(i)}" y="20" width="32" height="24" rx="4" class="c-${c}"/>` +
+      `<text x="${CX(i)}" y="36" text-anchor="middle" class="${c === "mask" ? "tx-w" : "tx"}" style="font-size:10px">${t}</text>`).join("") +
+    `<text x="660" y="30" class="tx-b">token 序列（长度 L）</text>` +
+    `<text x="660" y="46" class="tx-m">q = 指令，M = [MASK]，opt = 选项文字，s = state</text>`);
+
+  s += part("2",
+    `<rect x="36" y="58" width="610" height="34" rx="8" class="c-box"/>` +
+    `<text x="341" y="79" text-anchor="middle" class="tx-b">ModernBERT-large · 28 层双向注意力（每列看全部 L 列）</text>`);
+
+  s += part("2,3",
+    TOKS.map((_, i) => col(X(i) + 8, 104, "c-vec")).join("") +
+    `<text x="660" y="128" class="tx-b">h ∈ ℝ^(L×1024)</text>` +
+    `<text x="660" y="144" class="tx-m">每个 token 一个 1024 维列向量</text>`);
+
+  s += part("3",
+    col(880, 104, "c-type") +
+    `<text x="870" y="98" class="tx-m" text-anchor="middle">type_emb[choice]</text>` +
+    arrow("M 872 131 H 812", "ln-hot") +
+    `<text x="842" y="174" class="tx-m" text-anchor="middle">+ 广播加到每一列</text>` +
+    `<rect x="36" y="172" width="610" height="34" rx="8" class="c-box"/>` +
+    `<text x="341" y="193" text-anchor="middle" class="tx-b">决策头 · 2 层 TransformerEncoder（从零训练）</text>`);
+
+  s += part("3,4,6",
+    TOKS.map((_, i) => col(X(i) + 8, 218, i === 0 ? "c-vec-cls" : MASKS.includes(i) ? "c-vec-hot" : "c-vec")).join("") +
+    `<text x="660" y="242" class="tx-b">h' ∈ ℝ^(L×1024)</text>` +
+    `<text x="660" y="258" class="tx-m">只有 [CLS] 列和 [MASK] 列会被读出</text>`);
+
+  s += part("4",
+    MASKS.map((i, k) => arrow(`M ${CX(i)} 274 L ${318 + k * 30} 340`, "ln-hot")).join("") +
+    `<text x="250" y="318" class="tx-m" text-anchor="end">gather(marker_pos)</text>` +
+    [0, 1, 2].map(k => col(310 + k * 30, 344, "c-vec-hot")).join("") +
+    `<text x="355" y="416" class="tx-b" text-anchor="middle">m ∈ ℝ^(K×1024)</text>` +
+    arrow("M 400 371 H 432") +
+    `<rect x="436" y="350" width="150" height="44" rx="8" class="c-box"/>` +
+    `<text x="511" y="368" text-anchor="middle" class="tx-b">scorer（共享权重）</text>` +
+    `<text x="511" y="384" text-anchor="middle" class="tx-m">LN→Lin→GELU→Lin(→1)</text>` +
+    arrow("M 586 371 H 606") +
+    ["2.9", "-0.4", "-1.1"].map((v, k) =>
+      `<rect x="${610 + k * 30}" y="359" width="28" height="24" rx="3" class="c-opt"/><text x="${624 + k * 30}" y="375" text-anchor="middle" class="tx" style="font-size:10px">${v}</text>`).join("") +
+    `<text x="654" y="404" class="tx-b" text-anchor="middle">logits ∈ ℝ^K</text>`);
+
+  s += part("5",
+    arrow("M 700 371 H 716") +
+    `<rect x="720" y="354" width="96" height="34" rx="8" class="c-box"/>` +
+    `<text x="768" y="375" text-anchor="middle" class="tx-b">÷T → softmax</text>` +
+    arrow("M 816 371 H 834") +
+    [["billing", 0.93], ["technical", 0.04], ["other", 0.03]].map(([l, p], k) =>
+      `<text x="838" y="${352 + k * 22}" class="tx" style="font-size:10px">${l}</text>` +
+      `<rect x="905" y="${343 + k * 22}" width="80" height="10" rx="3" class="c-track"/>` +
+      `<rect x="905" y="${343 + k * 22}" width="${80 * p}" height="10" rx="3" class="c-bar"/>`).join("") +
+    `<text x="910" y="416" class="tx-b" text-anchor="middle">p ∈ ℝ^K</text>`);
+
+  s += part("6",
+    arrow(`M ${CX(0)} 274 V 452`) +
+    `<rect x="40" y="456" width="200" height="22" rx="3" class="c-vec-cls"/>` +
+    `<text x="140" y="471" text-anchor="middle" class="tx-w">h'[CLS]（1024）</text>` +
+    [0, 1, 2, 3].map(k => `<rect x="${240 + k * 18}" y="456" width="18" height="22" class="c-opt" stroke="#fffaf0"/>`).join("") +
+    `<text x="140" y="496" text-anchor="middle" class="tx-m">拼接 → 1028 维</text>` +
+    arrow("M 930 424 V 512 H 276 V 482") +
+    `<text x="600" y="506" class="tx-m" text-anchor="middle">top1, top1−top2, 归一化熵, K/255（由 p 算出，detach）</text>` +
+    arrow("M 314 467 H 352") +
+    `<rect x="356" y="448" width="200" height="38" rx="8" class="c-box"/>` +
+    `<text x="456" y="465" text-anchor="middle" class="tx-b">act 头 MLP</text>` +
+    `<text x="456" y="479" text-anchor="middle" class="tx-m">1028→256→GELU→2</text>` +
+    arrow("M 556 467 H 584") +
+    `<text x="590" y="471" class="tx-b">softmax → act_probability</text>`);
+
+  document.getElementById("tensorSvg").innerHTML = s;
+}
+buildTensorSvg();
+const svgParts = [...document.querySelectorAll("#tensorSvg g.part")];
+function highlightSvg(i) {
+  svgParts.forEach(g => {
+    const steps = g.dataset.steps.split(",").map(Number);
+    const showAll = i === 0 || i === STEPS.length - 1;
+    g.classList.toggle("dim", !showAll && !steps.includes(i));
+  });
+}
+const figToggle = document.getElementById("figToggle");
+figToggle.addEventListener("click", () => {
+  const d = document.getElementById("figDetail");
+  d.classList.toggle("active");
+  figToggle.textContent = d.classList.contains("active") ? "收起 ▴" : "展开说明 ▸";
+});
+
+let cur = 0;
+const nodes = [...document.querySelectorAll("#pipeline .node")];
+const bodyEl = document.getElementById("stepBody");
+const dotsEl = document.getElementById("dots");
+dotsEl.innerHTML = STEPS.map(() => "<span></span>").join("");
+const dots = [...dotsEl.children];
+
+function render(i, animate = true) {
+  cur = i;
+  nodes.forEach(n => {
+    const s = +n.dataset.step;
+    n.classList.toggle("active", s === i);
+    n.classList.toggle("done", s < i);
+  });
+  dots.forEach((d, k) => d.classList.toggle("on", k === i));
+  highlightSvg(i);
+  document.getElementById("stepNo").textContent = `STEP ${i + 1} / ${STEPS.length}`;
+  document.getElementById("stepTitle").textContent = STEPS[i].title;
+  document.getElementById("btnPrev").disabled = i === 0;
+  document.getElementById("btnNext").disabled = i === STEPS.length - 1;
+  if (!animate) { bodyEl.innerHTML = STEPS[i].body; return; }
+  bodyEl.classList.add("fade");
+  setTimeout(() => { bodyEl.innerHTML = STEPS[i].body; bodyEl.classList.remove("fade"); }, 180);
+}
+document.getElementById("btnPrev").onclick = () => cur > 0 && render(cur - 1);
+document.getElementById("btnNext").onclick = () => cur < STEPS.length - 1 && render(cur + 1);
+document.getElementById("btnReset").onclick = () => render(0);
+nodes.forEach(n => n.addEventListener("click", () => render(+n.dataset.step)));
+render(0, false);
+
+/* ---------- ES 梯度估计小实验：公式与 rlcd_loss / proper_reward 一致 ---------- */
+const T = [0.283, 0.433, 0.25, 0.033];
+const L0 = [0.5, 0.2, 0.1, -0.3];
+const LABELS = ["continue", "human_review", "observe", "stop"];
+const SIG = 0.4, S = 4, WSPH = 0.75;
+
+function softmax(z) {
+  const m = Math.max(...z);
+  const e = z.map(v => Math.exp(v - m));
+  const s = e.reduce((a, b) => a + b, 0);
+  return e.map(v => v / s);
+}
+function reward(z) {
+  const q = softmax(z);
+  let ls = 0, dot = 0, nrm = 0;
+  for (let i = 0; i < q.length; i++) {
+    ls += T[i] * Math.max(Math.log(Math.max(q[i], 1e-12)), -9.21);
+    dot += T[i] * q[i];
+    nrm += q[i] * q[i];
+  }
+  return ls + WSPH * dot / Math.sqrt(nrm);
+}
+function exactGrad() {
+  const h = 1e-5;
+  return L0.map((_, i) => {
+    const a = L0.slice(), b = L0.slice();
+    a[i] += h; b[i] -= h;
+    return (reward(a) - reward(b)) / (2 * h);
+  });
+}
+function gauss() {
+  const u = 1 - Math.random(), v = Math.random();
+  return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * v);
+}
+function esGrad() {
+  const K = L0.length;
+  const eps = [], R = [];
+  for (let s = 0; s < S; s++) {
+    let e = L0.map(() => gauss() * SIG);
+    const mu = e.reduce((a, b) => a + b, 0) / K;
+    e = e.map(v => v - mu);
+    eps.push(e);
+    R.push(reward(L0.map((v, i) => v + e[i])));
+  }
+  const mean = R.reduce((a, b) => a + b, 0) / S;
+  const std = Math.sqrt(R.reduce((a, r) => a + (r - mean) ** 2, 0) / (S - 1));
+  const A = R.map(r => (r - mean) / (std + 1e-6));
+  return L0.map((_, i) => eps.reduce((acc, e, s) => acc + A[s] * e[i], 0) / (S * SIG * SIG));
+}
+function cosine(a, b) {
+  let d = 0, na = 0, nb = 0;
+  for (let i = 0; i < a.length; i++) { d += a[i] * b[i]; na += a[i] ** 2; nb += b[i] ** 2; }
+  return d / Math.sqrt(na * nb);
+}
+const G_EXACT = exactGrad();
+
+function divBar(v, cls) {
+  const w = Math.min(Math.abs(v), 1) * 50;
+  const left = v >= 0 ? 50 : 50 - w;
+  return `<span class="div-track"><span class="div-fill ${cls}" style="left:${left}%;width:${w}%"></span></span>`;
+}
+function drawES() {
+  const g = esGrad();
+  const me = Math.max(...G_EXACT.map(Math.abs)), mg = Math.max(...g.map(Math.abs));
+  document.getElementById("esBars").innerHTML = LABELS.map((lab, i) =>
+    `<div class="bar-wrap"><span class="lab">${lab}</span><span style="flex:1;display:flex;flex-direction:column;gap:3px">${divBar(G_EXACT[i] / me, "ref")}${divBar(g[i] / mg, "")}</span></div>`
+  ).join("");
+  const c = cosine(g, G_EXACT);
+  document.getElementById("esOne").innerHTML = `本次 ES 估计与精确梯度的余弦相似度：<b>${c.toFixed(3)}</b>${c < 0 ? "（方向反了）" : ""}`;
+}
+document.getElementById("btnResample").onclick = drawES;
+document.getElementById("btnMany").onclick = () => {
+  const N = 2000;
+  let sum = 0, neg = 0, low = 0;
+  for (let k = 0; k < N; k++) {
+    const c = cosine(esGrad(), G_EXACT);
+    sum += c; if (c < 0) neg++; if (c < 0.5) low++;
+  }
+  document.getElementById("esMany").innerHTML =
+    `${N} 次统计：平均余弦 <b>${(sum / N).toFixed(3)}</b>，余弦 &lt; 0.5 占 <b>${(100 * low / N).toFixed(1)}%</b>，方向完全相反（&lt; 0）占 <b>${(100 * neg / N).toFixed(1)}%</b>。<br>同一个梯度，L_CE 那一项每一步都精确给出。`;
+};
+drawES();
+</script>
+</body>
+</html>
