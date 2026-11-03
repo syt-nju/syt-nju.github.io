@@ -10,6 +10,9 @@
 #   url   : link to the original article
 #   date  : YYYY-MM-DD, the day this link was added (used for sorting only)
 entries:
+  - title: "Why We Need Continual Learning"
+    url: "https://a16z.com/why-we-need-continual-learning/"
+    date: 2026-11-03
   - title: "Jev’s Architecture Unmasked"
     url: "https://archerhume.com/posts/jevs-architecture-unmasked"
     date: 2026-10-21
