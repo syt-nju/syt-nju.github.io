@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: kev-autojev-decoder-to-jev
+    title: "Kev 和 AutoJev 怎么把一个 decoder 改成 Jev"
+    date: 2026-11-12
+    source_type: blog
+    source_url: "https://github.com/jaredpalmer/kev"
   - slug: laya-overview
     title: "Laya 速览"
     date: 2026-10-21
