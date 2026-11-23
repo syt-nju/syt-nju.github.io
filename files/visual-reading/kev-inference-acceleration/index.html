@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>kev 的推理加速：从 CUDA Graph 基本原理到超参边界</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fbf6ea;
+  --bg2:#f4ead7;
+  --bg3:#ebe0c9;
+  --line:#dfd1b5;
+  --line2:#cbb998;
+  --ink:#2b2620;
+  --ink2:#5c5447;
+  --ink3:#877d6d;
+  --accent:#b0643a;
+  --accent-soft:#f2dfd0;
+  --warn-bg:#f7e7de;
+  --warn-line:#dfbcae;
+  --warn-ink:#874122;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Inter','Noto Sans SC',-apple-system,system-ui,sans-serif;
+  font-size:16.5px;
+  line-height:1.8;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:860px;margin:0 auto;padding:0 24px}
+code{font-family:var(--mono);font-size:.87em;background:var(--bg3);padding:.12em .4em;border-radius:4px}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent-soft)}
+a:hover{border-bottom-color:var(--accent)}
+
+/* 顶部导航 */
+nav{
+  position:sticky;top:0;z-index:50;
+  background:rgba(251,246,234,.93);
+  backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);
+}
+nav .wrap{display:flex;align-items:center;gap:18px;height:52px;overflow-x:auto;white-space:nowrap}
+nav .brand{font-weight:700;font-size:14.5px;letter-spacing:.01em;flex-shrink:0}
+nav .src{margin-left:auto;font-size:13px;color:var(--accent)}
+nav a{font-size:13.5px;color:var(--ink2);border:none;flex-shrink:0}
+nav a:hover{color:var(--accent)}
+
+/* 页头与标题 */
+header{padding:56px 0 32px;border-bottom:1px solid var(--line)}
+h1{font-size:33px;line-height:1.32;margin:0 0 14px;letter-spacing:-.01em}
+.sub{color:var(--ink2);font-size:17px;margin:0 0 20px}
+.meta{font-size:13.5px;color:var(--ink3);display:flex;gap:18px;flex-wrap:wrap}
+.meta b{color:var(--ink2);font-weight:500}
+
+h2{font-size:24px;margin:54px 0 6px;letter-spacing:-.01em;scroll-margin-top:70px}
+h2 .n{color:var(--line2);font-weight:400;margin-right:10px;font-size:21px;font-family:var(--mono)}
+h3{font-size:18px;margin:30px 0 8px}
+.lede{color:var(--ink2);margin:0 0 20px;font-size:15.5px}
+p{margin:15px 0}
+ul,ol{padding-left:22px;margin:15px 0}
+li{margin:8px 0}
+
+/* TL;DR 与实测数字卡 */
+.tldr{
+  background:var(--bg2);
+  border:1px solid var(--line);
+  border-left:3px solid var(--accent);
+  border-radius:8px;
+  padding:20px 24px;
+  margin:28px 0;
+}
+.tldr h4{margin:0 0 10px;font-size:12.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--accent)}
+.tldr p{margin:9px 0}
+.tldr p:last-child{margin-bottom:0}
+
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0}
+.metric{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:16px 18px}
+.metric .v{font-size:27px;font-weight:700;line-height:1.15;letter-spacing:-.02em}
+.metric .v small{font-size:14px;font-weight:500;color:var(--ink3)}
+.metric .l{font-size:13.5px;color:var(--ink2);margin-top:5px}
+.metric .n{font-size:12px;color:var(--ink3);margin-top:7px;border-top:1px solid var(--line);padding-top:7px}
+
+/* 通用图容器与渐进说明 */
+.fig{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:20px;margin:26px 0}
+.fig-cap{font-size:13.5px;color:var(--ink2);margin-top:14px;padding-top:11px;border-top:1px solid var(--line)}
+.fig-toggle{display:inline-block;margin-top:8px;font-size:13px;color:var(--accent);cursor:pointer;user-select:none;font-weight:500}
+.figure-detail{max-height:0;overflow:hidden;transition:max-height .35s ease,opacity .25s ease;opacity:0}
+.figure-detail.active{max-height:1600px;opacity:1;margin-top:10px}
+.figure-detail ul{margin:6px 0;font-size:14.5px;color:var(--ink2)}
+.figure-detail li{margin:7px 0}
+
+/* 步进控制器 */
+.stepper{display:flex;gap:9px;align-items:center;flex-wrap:wrap;margin-bottom:18px}
+button.sbtn{
+  font:inherit;font-size:13.5px;font-weight:500;
+  padding:6px 15px;border-radius:6px;
+  border:1px solid var(--line2);background:var(--bg);color:var(--ink);
+  cursor:pointer;transition:background .18s,border-color .18s;
+}
+button.sbtn:hover{background:var(--bg3)}
+button.sbtn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.sbtn.primary:hover{background:#9b5630}
+.stepdots{display:flex;gap:6px;margin-left:4px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--line2);transition:background .2s,transform .2s}
+.dot.on{background:var(--accent);transform:scale(1.3)}
+.steplabel{font-size:13.5px;color:var(--ink2);margin-left:6px}
+
+/* 01 时间轴动画 */
+.track{margin:14px 0}
+.track .nm{font-size:12.5px;color:var(--ink2);margin-bottom:5px;font-family:var(--mono)}
+.bar{position:relative;height:30px;background:var(--bg);border:1px solid var(--line);border-radius:5px;overflow:hidden}
+.blk{position:absolute;top:3px;bottom:3px;border-radius:2.5px;transition:left .45s ease,width .45s ease,opacity .35s ease}
+.blk.cpu{background:#8b7d6b}
+.blk.gpu{background:#5d5447}
+.blk.idle{background:repeating-linear-gradient(45deg,#e6d9c0,#e6d9c0 4px,#f3ead7 4px,#f3ead7 8px)}
+.blk.one{background:var(--accent)}
+.tlnote{
+  font-size:13.5px;color:var(--ink2);margin-top:12px;
+  background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 13px;
+}
+
+/* 02 预热/捕获/重放场景 */
+.scene{padding:2px 0}
+.lane-nm{font-size:12px;color:var(--ink3);font-family:var(--mono);margin-bottom:6px}
+.chips{display:flex;gap:9px;flex-wrap:wrap}
+.chip{
+  font-size:12.5px;font-family:var(--mono);padding:4px 12px;border-radius:5px;
+  border:1px solid var(--line2);background:var(--bg);
+  transition:opacity .35s ease,border-color .35s ease,background .35s ease;
+}
+.chip.active{border-color:var(--accent);background:var(--accent-soft);font-weight:500}
+.chip.dim{opacity:.32}
+.arrowdown{position:relative;height:32px;display:flex;align-items:center;padding-left:24px;transition:opacity .35s ease}
+.arrowdown::before{content:'';position:absolute;left:9px;top:3px;bottom:3px;width:1.5px;background:var(--line2)}
+.arrowdown::after{content:'';position:absolute;left:5.2px;bottom:1px;border:4px solid transparent;border-top-color:var(--line2)}
+.arrowdown .ab{font-size:12px;color:var(--ink2);font-family:var(--mono)}
+.arrowdown.dim{opacity:.24}
+.bufbox{
+  display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+  background:var(--bg);border:2px solid var(--line2);border-radius:7px;padding:11px 15px;
+  transition:border-color .35s ease,background .35s ease;
+}
+.bufbox.locked{border-color:var(--accent);background:#fdf4eb}
+.bufbox .addr{font-family:var(--mono);font-size:12.5px;color:var(--ink2)}
+.bufbox.locked .addr{color:var(--accent);font-weight:500}
+.bufbox .held{font-family:var(--mono);font-size:12.5px;padding:2.5px 10px;border-radius:4px;background:var(--bg3)}
+.bufbox .held.swap{background:var(--accent-soft);color:var(--ink)}
+.kstrip{display:flex;gap:2.5px;flex-wrap:wrap}
+.kstrip i{width:13px;height:15px;border-radius:2px;background:var(--bg3);border:1px solid var(--line);transition:background .3s ease,border-color .3s ease}
+.kstrip i.run{background:#5d5447;border-color:#4a4237}
+.kstrip i.rec{background:transparent;border:1.5px dashed var(--accent)}
+.setups{display:flex;gap:7px;flex-wrap:wrap;margin-top:9px;transition:opacity .35s ease}
+.setups.hide{opacity:.18}
+.setup{font-size:11.5px;padding:2px 9px;border-radius:9px;background:var(--bg);color:var(--ink2);border:1px solid var(--line2)}
+.graphbox{
+  border:1.5px dashed var(--line2);border-radius:7px;padding:11px 15px;
+  font-family:var(--mono);font-size:12.5px;color:var(--ink3);
+  transition:border-color .35s ease,background .35s ease,color .35s ease;
+}
+.graphbox.full{border-style:solid;border-color:var(--accent);background:#fdf4eb;color:var(--accent)}
+
+/* 03 拼接 vs 按行补齐对比图 */
+.chkask{font-size:14.5px;margin-bottom:11px}
+.chkbtns{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+.chkbtn{
+  font:inherit;font-size:13px;padding:5px 13px;border:1px solid var(--line2);border-radius:999px;
+  background:var(--bg);color:var(--ink2);cursor:pointer;transition:background .18s,color .18s,border-color .18s;
+}
+.chkbtn:hover{background:var(--bg3)}
+.chkbtn.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.chkpanel{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:13px 15px;margin-bottom:11px;overflow-x:auto}
+.chkhd{font-size:12.5px;color:var(--ink2);font-weight:600;margin-bottom:10px}
+.chkgrid{border-collapse:collapse;font-family:var(--mono);font-size:11px}
+.chkgrid td{border:1px solid var(--line);padding:0;height:22px;width:22px;min-width:22px;text-align:center;color:var(--ink2);font-size:10.5px}
+.chkgrid td.cut{border-left:2.5px solid var(--ink)}
+.chkgrid td.lbl{border:none;padding:0 10px 0 0;color:var(--ink3);text-align:right;white-space:nowrap;width:auto;min-width:0;font-size:11px}
+.chka{background:#ded3be}
+.chkb{background:#ece3d0}
+.chkpad{background:repeating-linear-gradient(45deg,#e5d8bf,#e5d8bf 3px,#f4ebda 3px,#f4ebda 6px);color:var(--ink3)}
+.chkten{font-family:var(--mono);font-size:12.5px;color:var(--ink2);margin-top:8px}
+.chkten em{font-style:normal;color:var(--ink3)}
+.chksum{font-size:13.5px;color:var(--ink2);margin-top:9px;padding-top:9px;border-top:1px solid var(--line)}
+.chksum b{color:var(--ink)}
+
+/* 04 计算器与缓冲网格 */
+.calc{display:grid;grid-template-columns:1fr 1fr;gap:15px 22px;margin-bottom:16px}
+.ctrl label{display:block;font-size:13px;color:var(--ink2);margin-bottom:4px}
+.ctrl .row{display:flex;align-items:center;gap:10px}
+.ctrl input[type=range]{flex:1;accent-color:var(--accent)}
+.ctrl .val{font-family:var(--mono);font-size:13.5px;font-weight:500;min-width:60px;text-align:right}
+.ctrl select{
+  font:inherit;font-size:13.5px;padding:5px 9px;
+  border:1px solid var(--line2);border-radius:5px;background:var(--bg);color:var(--ink);width:100%;
+}
+.readout{display:grid;grid-template-columns:repeat(auto-fit,minmax(125px,1fr));gap:10px;margin:14px 0}
+.ro{background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:9px 11px}
+.ro .k{font-size:12px;color:var(--ink3)}
+.ro .v{font-size:16.5px;font-weight:600;font-family:var(--mono);margin-top:2px}
+.verdict{font-size:14px;padding:10px 13px;border-radius:6px;margin:14px 0;border:1px solid var(--line2);background:var(--bg);color:var(--ink2)}
+.verdict b{color:var(--ink)}
+.verdict.bad{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-ink)}
+.verdict.bad b{color:var(--warn-ink)}
+
+.mathbox{
+  font-family:var(--mono);font-size:13px;line-height:1.75;
+  background:var(--bg2);border:1px solid var(--line);border-radius:8px;
+  padding:13px 17px;margin:18px 0;overflow-x:auto;color:var(--ink);
+}
+.mathbox .muted{color:var(--ink3)}
+
+.bufwrap{overflow-x:auto;padding-bottom:4px}
+.buf{border-collapse:collapse;font-family:var(--mono);font-size:11px}
+.buf td{border:1px solid var(--line);padding:0;height:18px;width:8px;min-width:8px}
+.buf .lbl{border:none;padding:0 9px 0 0;color:var(--ink2);text-align:right;white-space:nowrap;font-size:11px;width:auto;min-width:0}
+.buf .ax{text-align:center;padding-top:4px;color:var(--ink3)}
+.cell-s{background:#8b7d6b}
+.cell-r{background:#c59b76}
+.cell-p{background:repeating-linear-gradient(45deg,#e4d6bc,#e4d6bc 3px,#f3ead7 3px,#f3ead7 6px)}
+.cell-e{background:#efe5d0}
+.bufkey{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);margin-top:11px}
+.bufkey i{display:inline-block;width:11px;height:11px;border:1px solid var(--line2);vertical-align:-1px;margin-right:5px}
+
+/* 可展开卡片网格 */
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:13px;margin:22px 0}
+.card{background:var(--bg2);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.card .hd{padding:14px 17px;cursor:pointer;user-select:none;display:flex;gap:11px;align-items:flex-start;transition:background .18s}
+.card .hd:hover{background:var(--bg3)}
+.card .hd .ico{font-size:15px;line-height:1.5;flex-shrink:0}
+.card .hd .tx{flex:1;min-width:0}
+.card .hd .t{display:block;font-weight:600;font-size:15px;line-height:1.45;color:var(--ink)}
+.card .hd .s{display:block;font-size:13px;color:var(--ink3);margin-top:3px;line-height:1.55}
+.card .hd .ar{color:var(--ink3);font-size:12px;flex-shrink:0;transition:transform .22s}
+.card.open .hd .ar{transform:rotate(90deg)}
+.card .bd{max-height:0;overflow:hidden;transition:max-height .32s ease}
+.card.open .bd{max-height:1100px}
+.card .bd .in{padding:13px 17px 16px;font-size:14.5px;color:var(--ink2);border-top:1px solid var(--line)}
+.card .bd .in p{margin:9px 0}
+.card .bd .in p:first-child{margin-top:0}
+.card .bd .in p:last-child{margin-bottom:0}
+
+/* 表格 */
+.tbl{width:100%;border-collapse:collapse;font-size:14px;margin:20px 0}
+.tbl th{text-align:left;font-weight:600;font-size:12.5px;letter-spacing:.04em;color:var(--ink3);border-bottom:1.5px solid var(--line2);padding:8px 10px}
+.tbl td{border-bottom:1px solid var(--line);padding:9px 10px;vertical-align:top}
+.tbl tr:hover td{background:var(--bg2)}
+.tbl td.mono,.tbl td.num{font-family:var(--mono);font-size:13px}
+.tbl td.num{text-align:right}
+.tag{display:inline-block;font-size:11.5px;padding:1.5px 8px;border-radius:9px;font-weight:500;background:var(--bg3);color:var(--ink2)}
+.tag.adm{background:var(--accent-soft);color:var(--warn-ink)}
+
+/* 折叠补充块（带一句话摘要） */
+details{background:var(--bg2);border:1px solid var(--line);border-radius:8px;margin:20px 0}
+details summary{padding:13px 17px;cursor:pointer;list-style:none;user-select:none;position:relative;padding-left:32px}
+details summary::-webkit-details-marker{display:none}
+details summary::before{content:'▸';position:absolute;left:15px;top:14px;color:var(--accent);font-size:13px}
+details[open] summary::before{content:'▾'}
+details summary .sum-t{display:block;font-size:14.5px;font-weight:600;color:var(--ink);line-height:1.45}
+details summary .sum-s{display:block;font-size:13px;color:var(--ink3);margin-top:3px;line-height:1.55}
+details .dbody{padding:13px 17px 16px;border-top:1px solid var(--line);font-size:14.5px;color:var(--ink2)}
+details .dbody p{margin:9px 0}
+details .dbody p:first-child{margin-top:0}
+details .dbody p:last-child{margin-bottom:0}
+
+/* 对照旁注与高亮框 */
+.cmp{border:1px solid var(--line2);border-radius:8px;background:#f7efe0;padding:14px 18px;margin:22px 0;font-size:14.5px;color:var(--ink2)}
+.cmp .ct{display:block;font-size:11.5px;letter-spacing:.08em;font-weight:600;color:var(--accent);margin-bottom:7px}
+.cmp p{margin:9px 0}
+.cmp p:first-of-type{margin-top:0}
+.cmp p:last-child{margin-bottom:0}
+.cmp b{color:var(--ink)}
+
+.callout{border-left:3px solid var(--accent);background:var(--bg2);padding:14px 18px;margin:22px 0;border-radius:0 8px 8px 0;font-size:14.5px;color:var(--ink2)}
+.callout b{color:var(--ink)}
+
+footer{margin-top:68px;border-top:1px solid var(--line);padding:26px 0 54px;font-size:13.5px;color:var(--ink3)}
+footer p{margin:6px 0}
+
+@media (max-width:880px){
+  body{font-size:16px}
+  .wrap{padding:0 18px}
+  h1{font-size:26px}
+  h2{font-size:21px}
+  .metrics,.cards,.calc{grid-template-columns:1fr}
+  .card.open .bd{max-height:1600px}
+}
+</style>
+</head>
+<body>
+
+<nav><div class="wrap">
+  <span class="brand">kev · CUDA Graph</span>
+  <a href="#why">01 省什么</a>
+  <a href="#how">02 为什么图是死的</a>
+  <a href="#pack">03 拼接与否</a>
+  <a href="#kev">04 分桶与合批</a>
+  <a href="#params">05 十个超参</a>
+  <a href="#bounds">06 生效边界</a>
+  <a href="#lessons">07 两个真坑</a>
+  <a class="src" href="https://github.com/jaredpalmer/kev" target="_blank" rel="noopener">源码 ↗</a>
+</div></nav>
+
+<div class="wrap">
+<header>
+  <h1>kev 的推理加速：从 CUDA Graph 基本原理到超参边界</h1>
+  <p class="sub">为什么一个开关能让吞吐差一倍、背后和主流推理引擎走了哪条相反的路，以及作为后训练研究员改数据长度和调参时该盯住什么。</p>
+  <div class="meta">
+    <span><b>读者</b> 后训练研究员</span>
+    <span><b>实测硬件</b> NVIDIA H20 · 昆仑芯 P800（96 GB）</span>
+    <span><b>模型</b> Kev-Qwen3.5-0.8B（混合注意力）</span>
+  </div>
+</header>
+
+<div class="tldr">
+  <h4>TL;DR</h4>
+  <p><b>CUDA Graph 治的不是「GPU 算得慢」，是「CPU 派活慢」。</b>kev 一次前向要往 GPU 派约 2,000 个小算子（kernel），而输入只有几百个 token——GPU 早算完了，CPU 还在逐个派下一道指令。把整串指令提前录成一张图、一次下发，省掉的是指令之间的空等缝隙。</p>
+  <p><b>代价是地址和张量形状一并锁死。</b>想塞进变长请求，主流引擎选「多条首尾连成一条 + 到注意力处把图切开」，kev 则选「一条占一行补齐等长 + 整趟前向连着线性注意力录进同一张图」。十个服务超参，本质上全在规定这块固定缓冲的准入线、长宽预算和淘汰策略。</p>
+  <p><b>作为后训练研究员最该记住两件事：</b>改长提示词前先看有没有跨过 <code>1024</code> 的准入悬崖（我们线上最长那道题已经走到 <code>913</code>）；而在 kev 里关掉图开关会<b>连带关掉跨请求合批</b>——P800 上吞吐掉回一半就是这么摔的。</p>
+</div>
+
+<div class="metrics">
+  <div class="metric">
+    <div class="v">37.41 <small>req/s</small></div>
+    <div class="l">H20 · 并发 32 · 图开</div>
+    <div class="n">运行期录下 83 张图，吞吐仍未见顶</div>
+  </div>
+  <div class="metric">
+    <div class="v">9.12 <small>req/s</small></div>
+    <div class="l">P800 · 图<b>关</b></div>
+    <div class="n">并发 1→32 完全平直，请求纯排队</div>
+  </div>
+  <div class="metric">
+    <div class="v">17.99 <small>req/s</small></div>
+    <div class="l">P800 · 图开 + 批上限 4</div>
+    <div class="n">提速 1.97×；录下 52 张图，0 失败</div>
+  </div>
+</div>
+
+<p>上面三张卡片用的是同一份权重、同一批 600 条评测请求。P800 上从 9.12 到 17.99 req/s 没有改一行模型结构，只动了图开关和批大小。要看懂哪些收益来自图本身、哪些来自合批、还能往上调多少，得先把 CUDA Graph 的脾气摸透。</p>
+
+<!-- ==================== 01 ==================== -->
+<h2 id="why"><span class="n">01</span>什么时候有用：省的是派活的缝隙，不是算力</h2>
+<p class="lede">CUDA Graph 不会让任何一个 kernel 算得更快。它成立的唯一前提是：GPU 经常闲下来等 CPU 派下一道活。</p>
+
+<p>PyTorch 默认是<b>逐个发射（eager 模式）</b>：Python 走到一行算子，CPU 就现场检查形状、算需要派多少并行线程、往显卡队列塞一条指令，把一个 <b>kernel</b>（GPU 上的小计算函数，一次矩阵乘或一次逐元素相加各是一个）交出去。单次派活只要几微秒，但架不住两个条件同时撞上：</p>
+
+<ul>
+  <li><b>派活次数极多、而且外层 Python 包装重</b>：kev 跑一趟前向要发约 <b>2,000 个 kernel</b>；Qwen3.5 里的线性注意力层（Gated DeltaNet）调用第三方算子库时，光算子外面的 Python 包装代码每层就要吃掉约 <b>1 毫秒 CPU</b>。</li>
+  <li><b>每次真算的活极轻</b>：模型只有 0.8B，序列只有几百个 token，单个 kernel 在 GPU 上几微秒就跑完了——结果就是 GPU 干完一件停一下，全程在等 CPU 下单。这种状态叫<b>卡在发射上（launch-bound）</b>；反过来训练时大 batch 长序列把 GPU 喂饱，叫<b>卡在计算上（compute-bound）</b>，那时开图几乎没有收益。</li>
+</ul>
+
+<div class="cmp"><span class="ct">对照主流引擎 · 为什么别人只给解码开图，kev 却给预填充开图</span>
+<p>生成式推理分两段：<b>预填充（prefill）</b>一口气读完整段输入，<b>解码（decode）</b>之后每次只算 1 个新 token。vLLM 和 SGLang 主要给<b>解码</b>开图——每步 1 个 token，GPU 一下就算完，正是典型的「卡在发射上」；而预填充一次吃几千 token，GPU 本来就忙得过来，所以它们长期默认不对预填充建图。</p>
+<p>kev 恰好处在夹缝里：它是判别式决策模型，<b>只有预填充、不吐生成 token</b>；但 0.8B 模型配几百 token 的输入，让<b>它的预填充轻得像别人的解码</b>。后面所有「kev 为什么不照搬 vLLM 的做法」，根子都在这一句。</p>
+</div>
+
+<div class="fig">
+  <div class="stepper">
+    <button class="sbtn primary" id="tlnext">下一步 →</button>
+    <button class="sbtn" id="tlreset">重置</button>
+    <span class="stepdots" id="tldots"><i class="dot on"></i><i class="dot"></i><i class="dot"></i></span>
+    <span class="steplabel" id="tllabel">第 1 步 / 共 3 步</span>
+  </div>
+  <div class="tl">
+    <div class="track">
+      <div class="nm">CPU（逐个往外派 kernel）</div>
+      <div class="bar" id="cpubar"></div>
+    </div>
+    <div class="track">
+      <div class="nm">GPU（真正执行计算）</div>
+      <div class="bar" id="gpubar"></div>
+    </div>
+    <div class="tlnote" id="tlnote"></div>
+  </div>
+  <div class="fig-cap">同一趟前向在「逐个发射」与「图重放」下的时间轴对比；斜纹区域就是 GPU 等指令空转的时间。</div>
+  <span class="fig-toggle" onclick="event.stopPropagation();toggleFigDetail(this)">展开说明 ▸</span>
+  <div class="figure-detail">
+    <ul>
+      <li><b>上轨（CPU）</b>：每一小段代表派发一个 kernel 前的 CPU 准备工作，只能串行推进；真实一趟有约 2,000 段。</li>
+      <li><b>下轨深色块（GPU 计算）</b>：每一块都很窄，而且必须等对应那道派活指令抵达后才能启动。</li>
+      <li><b>下轨斜纹块（GPU 空等）</b>：上一块早算完了、下一道指令还没发出来——<b>这片斜纹面积就是 CUDA Graph 能回收的全部上限</b>。如果深色块本身很长、早已把斜纹挤没了，开图就不会提速。</li>
+    </ul>
+  </div>
+</div>
+
+<!-- ==================== 02 ==================== -->
+<h2 id="how"><span class="n">02</span>怎么省掉缝隙，以及为什么「图是死的」</h2>
+<p class="lede">把两千次派活合成一次提交，靠的是「预热 → 捕获 → 重放」三步；而一切使用限制都来自第二步录下了具体的显存地址。</p>
+
+<div class="fig">
+  <div class="stepper">
+    <button class="sbtn primary" id="cgnext">下一步 →</button>
+    <button class="sbtn" id="cgreset">重置</button>
+    <span class="stepdots" id="cgdots"><i class="dot on"></i><i class="dot"></i><i class="dot"></i></span>
+    <span class="steplabel" id="cglabel">① 预热</span>
+  </div>
+
+  <div class="scene">
+    <div class="lane">
+      <div class="lane-nm">新进来的请求数据</div>
+      <div class="chips">
+        <div class="chip active" id="chipA">请求批次 A</div>
+        <div class="chip dim" id="chipB">下一批请求 B</div>
+      </div>
+    </div>
+
+    <div class="arrowdown"><span class="ab" id="arr1t">拷进预留缓冲</span></div>
+
+    <div class="lane">
+      <div class="lane-nm">固定缓冲（显存里预先划好的一块地）</div>
+      <div class="bufbox" id="bufbox">
+        <span class="addr" id="addr">显存地址 0x7f3c…a000</span>
+        <span class="held" id="held">装着批次 A</span>
+      </div>
+    </div>
+
+    <div class="arrowdown"><span class="ab" id="arr2t">按这块地址读输入</span></div>
+
+    <div class="lane">
+      <div class="lane-nm">一趟前向 ≈ 2,000 个 kernel</div>
+      <div class="kstrip" id="kstrip"></div>
+      <div class="setups" id="setups">
+        <span class="setup">首次编译算子</span>
+        <span class="setup">试跑挑最快矩阵乘实现</span>
+        <span class="setup">首次向驱动申请显存</span>
+      </div>
+    </div>
+
+    <div class="arrowdown" id="arr3"><span class="ab" id="arr3t">（预热阶段只跑不录）</span></div>
+
+    <div class="lane">
+      <div class="lane-nm">录好的整张图</div>
+      <div class="graphbox" id="graphbox"><span id="gbtext">尚未录制</span></div>
+    </div>
+  </div>
+
+  <div class="tlnote" id="cgnote"></div>
+  <div class="fig-cap">建图与重放的三个阶段。盯住中间那块缓冲：第 ③ 步换了新请求，但<b>显存地址分毫未动</b>。</div>
+  <span class="fig-toggle" onclick="event.stopPropagation();toggleFigDetail(this)">展开说明 ▸</span>
+  <div class="figure-detail">
+    <ul>
+      <li><b>为什么第 ① 步预热省不掉</b>：算子库第一次遇到某个尺寸时，会现场编译代码、试跑几种实现挑最快的、向显卡驱动要显存。这些一次性动作都会让 CPU 停下来等 GPU，一旦混进第 ② 步就会直接导致录制报错。</li>
+      <li><b>第 ② 步到底录了什么</b>：不执行真计算，只把 CPU 发出的整串指令原样抄成一张清单——每条指令里写死的是<b>显存指针（门牌号）</b>和<b>按当前尺寸算好的并行线程数</b>，外加指令之间的先后依赖。</li>
+      <li><b>第 ③ 步为什么必须「先拷数据、再重放」</b>：图只认当初录下的那个门牌号。新请求来了，如果你新建一个张量不去覆盖老缓冲，重放出来的还是上一批请求的结果。</li>
+    </ul>
+  </div>
+</div>
+
+<p>只要记住「<b>录下的是固定门牌号和固定张量尺寸，重放时没有任何 Python 代码在跑</b>」，下面四条硬规矩就不用死记硬背，全都是它的直接推论：</p>
+
+<div class="cards" id="constraints"></div>
+
+<!-- ==================== 03 ==================== -->
+<h2 id="pack"><span class="n">03</span>变长请求怎么塞进死形状：两条路与一个二选一</h2>
+<p class="lede">真实请求长短不一，而每录一张新图大约要花 0.4 秒。想用少数几张图接住所有流量，业界只有两种摆法——它们在 Qwen3.5 这种混合架构上恰好互斥。</p>
+
+<p>训练时大家熟悉的 <b>sequence packing</b> 给出了第一条路：假设来了三条请求，长度分别是 <b>3、2、5</b> 个 token，把它们首尾相接排成一条长 10 的队伍 <code>[A A A | B B | C C C C C]</code>，只在整条队伍末尾补少量假 token 凑够总长度档位。<b>vLLM 和 SGLang 走的就是这条路</b>——图的尺寸只需要按「总 token 数」这一个数字分档，启动时顺着一把固定梯子（比如 1、2、4、8……）一次性全录完。</p>
+
+<p>但连成一条之后，队伍中间的竖线没了。对层里绝大多数计算来说这毫无影响——<b>MLP、两个 RMSNorm、残差相加，以及算 q/k/v 的线性投影</b>，每个 token 的输出<b>只看它自己的向量、不看邻居</b>，排成一排照算不误。唯独到了<b>注意力与线性注意力（DeltaNet）</b>，为了算 B 时不把 A 的尾巴混进来，你必须额外递给 kernel 一串<b>分界点位置</b> <code>[0, 3, 5, 10]</code>（意思是 0–3 归第一条、3–5 归第二条、5–10 归第三条）。</p>
+
+<p>vLLM 跑 Qwen3.5 时<b>照样连成一条</b>，也照样递这串分界点去防串味——kernel 走到 <code>3</code> 和 <code>5</code> 会自己重置卷积窗口、换上对应请求的初始状态。真正的代价出在下一步：线性注意力的预填充不是一把算完，而是<b>把每条序列切成固定长度的小段，读完一段更新一次状态矩阵</b>。点一下下面四个按钮就能看到麻烦在哪：</p>
+
+<div class="fig">
+  <div class="chkask">同样是 <b>10 个 token</b>，换一种请求组合试试——线性注意力内部要切成几段？（每段固定 4 个 token）</div>
+  <div class="chkbtns" id="chkbtns"></div>
+
+  <div class="chkpanel">
+    <div class="chkhd">摆法一（vLLM）：多条首尾连成一条 + 递给 kernel 分界点位置</div>
+    <div id="chkvllm"></div>
+  </div>
+  <div class="chkpanel">
+    <div class="chkhd">摆法二（kev）：一条占一行，短行向上补 padding 到同一长度</div>
+    <div id="chkkev"></div>
+  </div>
+
+  <div class="fig-cap">粗竖线是分段边界，深浅两色交替区分相邻请求，斜纹是补齐用的 padding。小段不能跨请求混算，所以上面那条队伍每撞上一次请求分界点就被迫多切一刀。</div>
+  <span class="fig-toggle" onclick="event.stopPropagation();toggleFigDetail(this)">展开说明 ▸</span>
+  <div class="figure-detail">
+    <ul>
+      <li><b>为什么摆法一录不进图</b>：vLLM 的图是按「总 token 数 = 10」这一档提前录好的，但同样 10 个 token，来 1 条切 <b>3 段</b>，来 2 条切 <b>4 段</b>，来 10 条切 <b>10 段</b>——描述分段起止的那组数组长度跟着乱跳，而且是在 CPU 上按本批分界点现算出来的，装不进尺寸写死的图里。</li>
+      <li><b>vLLM 的解决办法</b>：<b>每到注意力 / DeltaNet 层就把图断开</b>，这一层退回逐个发射，夹在中间的逐 token 计算（MLP、RMSNorm、qkv 投影）才录进图里。N 层模型由此被切成 <b>N + 1 张小图</b>。</li>
+      <li><b>为什么摆法二能整趟录进一张图</b>：kev 让每条序列独占一行、补齐到同一行长。每行从头到尾都是同一条请求，根本用不上分界点；总段数严格等于 <code>行数 × 每行段数</code>，只要行数和行长固定，内部工作量就完全锁死。</li>
+    </ul>
+  </div>
+</div>
+
+<div class="callout">
+  <b>一句话看懂两家的取舍：</b>「<b>连成一条省 padding</b>」和「<b>把 DeltaNet 一起录进图里省派活开销</b>」两件事只能二选一。vLLM 面向通用长短混杂流量，拼起来省下的 padding 大头远比切开图漏掉的那点发射时间值钱；而 kev 是 0.8B 短序列，<b>最拖后腿的恰恰是每层 DeltaNet 外面那约 1 毫秒的 Python 包装</b>——要是把 DeltaNet 切出图外，开图就白忙活了大半。所以 kev 宁可放弃拼接，也要保住整趟前向一刀不切全进一张图。
+</div>
+
+<!-- ==================== 04 ==================== -->
+<h2 id="kev"><span class="n">04</span>kev 怎么把浪费压住：分桶与同题合批</h2>
+<p class="lede">选了「一条一行向上补齐」，就得正面回答两个问题：档位怎么切才不浪费太多 padding？同一批里的长行和短行怎么避免互相拖累？</p>
+
+<h3>第一招：每个 2 的幂区间再等分 8 档</h3>
+
+<p>如果只按 2 的幂设档（512 下一档直接跳 1024），一条 513 token 的序列就得陪跑近一半空位；反过来每 16 个 token 设一档，图的张数又会爆炸。kev 的折中是<b>先看长度落在哪个 2 的幂区间，再把那个区间等切成 8 档</b>：256–512 之间每 64 一档，512–1024 之间每 128 一档（只有 640 / 768 / 896 / 1024 四个落点），1024–2048 之间每 256 一档。这样<b>任意长度补齐的相对浪费封死在 25% 以内</b>，而总档位数只按对数增长。</p>
+
+<div class="fig">
+  <div class="ctrl" style="margin-bottom:6px">
+    <label for="bkin">序列长度 n（含多少个 token）</label>
+    <div class="row">
+      <input type="range" id="bkin" min="16" max="2048" step="1" value="913">
+      <span class="val" id="bkinv">913</span>
+    </div>
+  </div>
+  <div class="readout">
+    <div class="ro"><div class="k">所在 2 的幂区间</div><div class="v" id="bkpow">—</div></div>
+    <div class="ro"><div class="k">本段档位间距</div><div class="v" id="bkstep">—</div></div>
+    <div class="ro"><div class="k">归入档位 Lb</div><div class="v" id="bkout">—</div></div>
+    <div class="ro"><div class="k">补齐的 padding</div><div class="v" id="bkwaste">—</div></div>
+  </div>
+  <div class="verdict" id="bkverdict"></div>
+  <div class="fig-cap">拖动滑块看任意序列长度落进哪个档位；默认停在 <code>913</code>——正是我们线上最长那道题的实测长度。</div>
+  <span class="fig-toggle" onclick="event.stopPropagation();toggleFigDetail(this)">展开说明 ▸</span>
+  <div class="figure-detail">
+    <ul>
+      <li><b>913 刚好踩在悬崖边上</b>：512–1024 区间的最后一档就是 <code>1024</code>，恰好等于 kev 默认的单行准入上限 <code>GRAPH_ROW = 1024</code>。再长 112 个 token 到 <code>1025</code>，下一档直接跳到 <code>1280</code> 超限。</li>
+      <li><b>超限不是斜坡，是悬崖</b>：一旦某条请求跨过 1024，它不会报错、也不会只慢一点点，而是整条请求被拒之图外、退回逐条串行（9.12 req/s 那条平线）。往提示词里塞新示例或改模板前，必须先算这一笔账。</li>
+      <li><b>我们的三道题分别落在哪</b>：913 → <code>1024</code>，698 → <code>768</code>，271 → <code>320</code>。</li>
+    </ul>
+  </div>
+</div>
+
+<h3>第二招：把一条请求拆成「状态趟 + 同题问题行趟」</h3>
+
+<p>落到我们真实的评测数据上，kev 处理一条请求涉及三样东西：</p>
+
+<ul>
+  <li><b>状态（state）</b>：被判断的那条用户查询本身，比如一条约 30 字、<b>24 个 token</b> 的真实用户短查询，每条请求各不相同。</li>
+  <li><b>问题行（row）</b>：针对这条查询提问的某一道题的完整提示文本，一道题占一行。我们一共问三道固定题，实测长度分别是 <b>913 / 698 / 271 个 token</b>，<b>600 条请求共用同一份题面，一字不差</b>。</li>
+  <li><b>状态槽（bank）</b>：显存里预留的一排固定格子（默认 16 格），用来暂存刚算好的查询状态，供后面的问题行按格号取用。</li>
+</ul>
+
+<p>推理分两步走：<b>状态趟</b>先把一批查询（每条 24 token）读一遍，算出各层的注意力 KV 和 DeltaNet 状态矩阵存进状态槽，实测仅需 <b>8.87 ms</b>；紧接着<b>问题行趟</b>让每道题按格号接上各自的状态往下算答案，实测 <b>70.28 ms</b>——<b>近九成算力都花在固定题面上</b>。</p>
+
+<p>更妙的是分组方式。注意<b>缓存里虽然存着好多张不同规格的图，但「一趟前向」一次只能选其中一张跑</b>，输入必须是一个规整的长方形矩阵——同一个矩阵里不可能第 1 行宽 1024、第 2 行宽 320，凡是塞进同一趟的行，只能全部迁就这趟最长的那一行。所以如果把 4 条请求的 12 道问题行硬塞进<b>同一趟</b>，就只能调 1024 宽的那张图，271 的短题也得跟着陪跑到 1024；kev 因此先按行长做动态规划分组，自动把<b>不同请求的同一道题</b>拆成三趟，分别去调 <code>1024</code>、<code>768</code>、<code>320</code> 三张不同宽度的图：</p>
+
+<div class="mathbox">4 条请求 × 3 道题 ＝ 12 条问题行：
+拆成三趟（分别调 1024 / 768 / 320 三张图）：4×1024 ＋ 4×768 ＋ 4×320 ＝ <b>8,448</b> 个 token 位置
+硬塞一趟（只能调 1024 这一张图）：          12×1024                  ＝ <b>12,288</b> 个 token 位置 <span class="muted">（白算 45%）</span></div>
+
+<p>拆开之后，同一趟里装的全是同一道题——不仅省了三分之一面积，而且<b>各行本来就一样长，行与行之间连 1 个 token 的参差都没有</b>，前面放弃拼接的唯一短板在这里顺手消失了。（反过来一旦关掉图开关，kev 退回每次只跑单条请求，把这三道长短悬殊的题硬补成 <code>3 × 913</code> 一起算——连分组方式都跟着退化了。）</p>
+
+<details>
+  <summary>
+    <span class="sum-t">成批明明还要补 12% 的 padding，真正省钱的大头在哪？</span>
+    <span class="sum-s">高并发反而把 padding 从单条串行的 45.5% 压到了 12.2%，更把「搬 1.6 GB 权重 + 发一趟前向」的固定开销平摊了好几倍。</span>
+  </summary>
+  <div class="dbody">
+    <p><b>先看 padding 会不会随并发恶化——恰恰相反：</b>单条串行跑时，1 条请求只有自己的三道题（<code>913 + 698 + 271 = 1,882</code> 个真实 token），硬塞进 <code>3 × 913 = 2,739</code> 的矩阵，<b>白算 45.5% 的空位</b>；而 8 条请求成批分桌后，每条只占 <code>1024 + 768 + 320 = 2,112</code> 个位置，<b>空位反而降到 12.2%</b>。就算换成自由变长流量，同批人越多越容易按长度排成「身高相近的几桌」，同桌身高差反而更小。</p>
+    <p><b>再看成批真正省下的两笔固定大头：</b>0.8B（bf16）权重约 <b>1.6 GB</b>，每跑一趟前向 GPU 都得把整份权重从显存搬进计算单元一遍；行数少时计算单元根本喂不饱，耗时大头全卡在搬权重上。8 条请求逐条串行要跑「状态 1 趟 + 问题 1 趟」× 8 ＝ <b>16 趟前向（来回搬 25.6 GB 权重）</b>；成批后「状态合跑 1 趟 + 三道题各 1 趟」＝ <b>一共只跑 4 趟（搬 6.4 GB 权重）</b>——哪怕凑满 24 条请求，依然还是这 <b>4 趟</b>。多算 12% 的空位换少搬十几遍权重、少发十几趟前向，完全是零头换大头。</p>
+  </div>
+</details>
+
+<details>
+  <summary>
+    <span class="sum-t">补进去的 padding 怎么做到绝对不污染答案？</span>
+    <span class="sum-s">状态趟左填充、问题行右填充，外加一条防止 0 × NaN = NaN 的自注意保护规则。</span>
+  </summary>
+  <div class="dbody">
+    <p><b>状态趟用左填充</b>（padding 垫在真实 token 左边）：DeltaNet 在左边的空位处看到全零输入，状态矩阵推进到第一个真实 token 时恰好还是干净的全零；普通注意力层把左侧空位从可见范围里屏蔽掉，但特意让空位自己注意自己——否则整行全被屏蔽会让 softmax 算出 <code>NaN</code>，而 <code>NaN × 0</code> 还是 <code>NaN</code>，事后乘零也救不回来。</p>
+    <p><b>问题行趟用右填充</b>（padding 垫在末尾）：因果掩码天然让前面的真实 token 看不见末尾空位；从状态槽取出的历史状态在档位内靠右对齐，左侧未填满的槽位一并屏蔽。两套规则合在一起，保证了<b>一条请求的答案绝不取决于同批塞进了什么邻居</b>。</p>
+  </div>
+</details>
+
+<h3>三维规格 <code>(Nb, Lb, Sr)</code>：为什么 kev 只能边跑边录</h3>
+
+<p>主流引擎把上下文切成固定大小的页块存在显存里，算注意力时按一张尺寸固定的「页号表」去取——页号表里的数字每步变，但表本身的张量形状不变，再加上请求连成了一条，所以<b>一张图只需要「总 token 数」这一个维度</b>，启动时就能把所有档位一次录完。</p>
+
+<p>kev 没有分页（DeltaNet 的状态是每层一个固定大小的矩阵，没法按 token 切页），又是按行摆的二维缓冲，所以唯一确定一张问题行图需要<b>三个实时算出来的数字</b>：</p>
+
+<ul>
+  <li><b>行数档 <code>Nb</code></b>（<code>1, 2, 3, 4, 6, 8, 12, 16, 24, 32……</code>）：因为行数也是矩阵形状的第一维，17 行和 18 行在图眼里是两张不同的图，不设档位图数就会翻三倍；但它没粗暴到只取 2 的幂（那样 17 行得陪补 15 行空行），而是在相邻两个 2 的幂中间<b>插了一档半程档</b>（<code>6、12、24、48……</code>）。客户端并发充足时，稳态下几乎趟趟直接打满天花板那一档，中间的小档位只在刚启动、收尾或低谷时才用得上。</li>
+  <li><b>行长档 <code>Lb</code></b>：本趟最长那条问题行归入的 8 等分档位（我们三道题分别是 <code>1024 / 768 / 320</code>）。</li>
+  <li><b>状态长档 <code>Sr</code></b>：本趟最长那条查询长度向上取 2 的幂（24 token 取 <code>32</code>）。</li>
+</ul>
+
+<p>三维组合太多，启动时录不完，kev 只能反过来——<b>运行期第一次撞见某个规格先逐个发射跑过去，同一规格跑热了再停下来花 0.4 秒录成图，图攒多了就把最久没用的淘汰掉</b>。</p>
+
+<div class="fig">
+  <div class="calc">
+    <div class="ctrl">
+      <label for="q">这一趟跑的是哪道题</label>
+      <select id="q">
+        <option value="913">题一 · 913 token（最长）</option>
+        <option value="698">题二 · 698 token</option>
+        <option value="271">题三 · 271 token</option>
+        <option value="1100">假设题面改长到 1100 token</option>
+      </select>
+    </div>
+    <div class="ctrl">
+      <label for="mb">MAX_BATCH（一次从队列取几条请求）</label>
+      <div class="row"><input type="range" id="mb" min="1" max="64" step="1" value="4"><span class="val" id="mbv">4</span></div>
+    </div>
+    <div class="ctrl">
+      <label for="gr">GRAPH_ROWS（单趟行数上限）</label>
+      <div class="row"><input type="range" id="gr" min="8" max="128" step="8" value="32"><span class="val" id="grv">32</span></div>
+    </div>
+    <div class="ctrl">
+      <label for="gt">GRAPH_TOKENS（单趟总面积预算）</label>
+      <div class="row"><input type="range" id="gt" min="16384" max="262144" step="16384" value="32768"><span class="val" id="gtv">32768</span></div>
+    </div>
+  </div>
+
+  <div class="readout">
+    <div class="ro"><div class="k">行长档 Lb</div><div class="v" id="oLb">—</div></div>
+    <div class="ro"><div class="k">状态长档 Sr</div><div class="v" id="oSr">—</div></div>
+    <div class="ro"><div class="k">单趟最多装几行</div><div class="v" id="oGrp">—</div></div>
+    <div class="ro"><div class="k">行数档 Nb</div><div class="v" id="oNb">—</div></div>
+    <div class="ro"><div class="k">这批要拆几趟</div><div class="v" id="oPass">—</div></div>
+    <div class="ro"><div class="k">空位浪费占比</div><div class="v" id="oWaste">—</div></div>
+  </div>
+
+  <div class="verdict" id="verdict"></div>
+
+  <div class="bufwrap"><table class="buf" id="buf"></table></div>
+  <div class="bufkey">
+    <span><i class="cell-s"></i>查询状态（从状态槽取出）</span>
+    <span><i class="cell-r"></i>题面真实 token</span>
+    <span><i class="cell-p"></i>行尾补齐 padding</span>
+    <span><i class="cell-e"></i>凑够 Nb 补的空行</span>
+  </div>
+
+  <div class="fig-cap">一趟问题行图的二维固定缓冲：横向 <code>Sr + Lb</code> 列，纵向 <code>Nb</code> 行（每格代表约 32 个 token 位置）。试着把 <code>MAX_BATCH</code> 拉到 64，看是谁卡住了单趟行数。</div>
+  <span class="fig-toggle" onclick="event.stopPropagation();toggleFigDetail(this)">展开说明 ▸</span>
+  <div class="figure-detail">
+    <ul>
+      <li><b>默认真正卡脖子的不是 <code>GRAPH_ROWS = 32</code>，而是面积预算 <code>GRAPH_TOKENS = 32768</code></b>：跑 913 token 那道题时，每行总宽 <code>32 + 1024 = 1056</code>，<code>32768 ÷ 1056 = 31</code>，对齐行数档位后落到 <b>24 行</b>——哪怕队列一次抓来 64 条请求，也得拆成 3 趟跑。</li>
+      <li><b>四个容量参数必须成套联动调</b>：只拉大 <code>MAX_BATCH</code> 会拆成更多趟（外层还有 <code>GRAPH_STATES = 16</code> 先按 16 条请求切块）；只拉大 <code>GRAPH_ROWS</code> 会被面积预算拦住；把面积和状态槽一起拉大后才会真正推高单趟行数。</li>
+      <li><b>切到「假设题面改长到 1100 token」</b>：<code>Lb = 1280 &gt; 1024</code>，整张图不复存在，64 条请求当场退回逐条串行（原因见下方误区）。</li>
+    </ul>
+  </div>
+</div>
+
+<details>
+  <summary>
+    <span class="sum-t">常见误区：题面超了 1024 只是进不了图，难道不会在图外自己按长度合批吗？</span>
+    <span class="sum-s">真不会——长度归类只写在图模块门里面，门外没有备用合批；而且一题超长，同请求里没超标的短题也会连坐退回逐条串行。</span>
+  </summary>
+  <div class="dbody">
+    <p>正常的推理引擎确实绝不该退化成串行，但 kev 的调度顺序是<b>「先在门口按整条请求安检，过了安检才做长度归类」</b>：</p>
+    <p><b>1. 门外压根没写备用合批：</b>按长度归类分桌的逻辑只住在图模块内部，而且绑死在启动时按 <code>1024</code> 宽一次性划好的固定缓冲上。<code>1100</code> 宽的行物理上塞不进这块缓冲，门外又没另写第二套动态分配显存的跨请求合批，被拦下的请求直接掉进单条 <code>for</code> 循环（作者注释原话：<i>the rest, one at a time</i>）。</p>
+    <p><b>2. 一题超长，全请求连坐：</b>门口安检看的是「这条请求里<b>最长的那道题</b> ≤ 1024」。哪怕只把题一从 913 改到 1100，明明只有 698 和 271 的题二、题三也会跟着整条请求被踢出门外；600 条请求共用题面，一超就是全军覆没——64 条请求一条接一条单跑 64 轮（每轮内含状态 1 趟 + 问题 1 趟，实打实 <b>128 趟前向</b>）。</p>
+    <p><b>3. 对比「查询超长」更能看出是题面侧没写兜底：</b>如果超长的是用户的查询（比如 1,500 token，超过 <code>GRAPH_STATE = 1024</code> 但未超状态槽宽度 <code>BANK_WIDTH = 4096</code>），代码倒专门做了挽救——先把这条长查询单独算完塞进状态槽，后面的三道问题行照样合批跑图；唯独题面超 <code>GRAPH_ROW = 1024</code> 没有任何兜底。这和第 07 节「关图顺带关掉合批」是同一个病根，所以将来只要加长题面，<b>必须同步上调 <code>GRAPH_ROW</code></b>。</p>
+  </div>
+</details>
+
+<h3>发车时机：不凑数、不等点，以及实测抓到的「1 + 3」现象</h3>
+
+<p>有了批次上限 <code>MAX_BATCH</code>，服务线程什么时候发车？<b>答案是完全按「上一趟什么时候跑完」走，一毫秒都不傻等凑数：</b></p>
+
+<ul>
+  <li><b>GPU 闲着时</b>：门口队列只要进来 <b>1 条</b>请求，<b>当场发车</b>，不设任何「再等几毫秒看有没有第 2 条」的凑批定时器——所以低并发下零额外等待延迟。</li>
+  <li><b>GPU 正忙时</b>：上一趟跑的那几十毫秒里，新到的请求自然在队列里排队；<b>上一趟刚算完、GPU 腾出手的瞬间</b>，回头看一眼门口此刻攒了多少条，<b>一把全捞走（最多捞 <code>MAX_BATCH</code> 条）立刻发下一趟</b>——攒了 5 条就捞 5 条（补到 6 行档），攒了 50 条就捞满 <code>MAX_BATCH</code> 条。</li>
+</ul>
+
+<div class="callout">
+  <b>实测抓到的「1 + 3」交替现象：</b>当客户端并发<b>恰好等于</b> <code>MAX_BATCH = 4</code> 时，我们在耗时分解日志里亲眼看到服务全程按 <b><code>1 条、3 条、1 条、3 条</code></b> 交替发车，永远吃不满 4！原因正出在这套发车规则上：第 1 条先到半步，趁 GPU 空闲被<b>单独捞走</b>开跑；剩下 3 条在它跑的那几十毫秒里陆续到齐，等它跑完被合成一趟 <b>3 条</b>（还得补 1 行空行凑够 <code>Nb = 4</code> 的图！）发走；而最早跑完的那 1 个客户端此时刚收到响应并发出下一条，又恰好赶在 3 条跑完时排在队首——从此严丝合缝锁死在 <code>1 + 3</code>。<b>所以压测或线上喂流时，客户端并发必须明显高于单趟批上限（例如批上限 4 配并发 8–16，批上限 32 配并发 64），门口队列才有富余把每一趟真正喂满。</b>
+</div>
+
+<details>
+  <summary>
+    <span class="sum-t">常见误区：队列积压起来之后，kev 到底会不会按长度分类凑批？</span>
+    <span class="sum-s">分两截看：门口大队列纯按先来后到抓前 MAX_BATCH 条，不跨批挑长短；抓进来的这一批内部只要 ≤ 1024，会做两道从短到长的排序归类。</span>
+  </summary>
+  <div class="dbody">
+    <p>把从排队到前向拆成三步，哪一步分、哪一步不分就一目了然了：</p>
+    <p><b>1. 门口大队列：纯先来后到，不挑长短。</b>哪怕队列里已经积压了 200 条请求，服务线程也不会去这 200 条里挑长度相近的凑一锅，而是直接按到达顺序<b>抓走队头前 <code>MAX_BATCH</code> 条</b>。</p>
+    <p><b>2. 抓进来的这一批内部（<code>≤ 1024</code> 的正常请求）：做了两道按长度排序归类。</b>过了 <code>1024</code> 安检的那批请求进来后会重排两次——<b>先按「查询长度」从短到长排</b>，用动态规划切成每桌最多 <code>GRAPH_STATES</code>（默认 16）条，短查询不会去陪长查询补齐；<b>再把同桌的所有「问题行」打散，按「题面长度」从短到长排</b>，把 271、698、913 各自归成独立的一趟。这也是调大 <code>MAX_BATCH</code> 的隐性好处：一次抓进来的池子越大，内部排序分桌越容易凑齐同长度。</p>
+    <p><b>3. 题面 <code>&gt; 1024</code> 的超限请求：连第 2 步的门都进不去。</b>安检发生在第 2 步之前，超标的请求在门口就被踢进单条循环了，压根走不到里面那两道排序归类。</p>
+  </div>
+</details>
+
+<!-- ==================== 05 ==================== -->
+<h2 id="params"><span class="n">05</span>十个超参怎么看：准入、容量、管理</h2>
+<p class="lede">所有能调的旋钮就这十个。按职责分成三类后，调哪个安全、调哪个有悬崖一目了然。</p>
+
+<table class="tbl">
+  <thead><tr><th>参数</th><th class="num">默认值</th><th>管什么</th><th>类别</th></tr></thead>
+  <tbody>
+    <tr><td class="mono">GRAPH_ROW</td><td class="num">1024</td><td>单条问题行归档后的最大长度，<b>超了整条请求不走图</b></td><td><span class="tag adm">准入</span></td></tr>
+    <tr><td class="mono">GRAPH_STATE</td><td class="num">1024</td><td>单条查询状态的最大长度（前缀缓存未命中时）</td><td><span class="tag adm">准入</span></td></tr>
+    <tr><td class="mono">BANK_WIDTH</td><td class="num">4096</td><td>前缀缓存命中时允许接纳的最大状态长度，也是每个状态槽的固定宽度</td><td><span class="tag adm">准入</span></td></tr>
+    <tr><td class="mono">MAX_BATCH</td><td class="num">64</td><td>服务线程每次从请求队列最多抓几条一起处理</td><td><span class="tag">容量</span></td></tr>
+    <tr><td class="mono">GRAPH_ROWS</td><td class="num">32</td><td>单趟问题行图最多允许几行</td><td><span class="tag">容量</span></td></tr>
+    <tr><td class="mono">GRAPH_TOKENS</td><td class="num">32768</td><td>单趟「行数 × (状态宽 + 行宽)」的总面积上限</td><td><span class="tag">容量</span></td></tr>
+    <tr><td class="mono">GRAPH_STATES</td><td class="num">16</td><td>状态槽个数，即一趟最多同时暂存几条不同查询的状态</td><td><span class="tag">容量</span></td></tr>
+    <tr><td class="mono">HOT_BUCKET</td><td class="num">3</td><td>同一规格先逐个发射跑满几次后，忙时也值得停下来录成图</td><td><span class="tag">管理</span></td></tr>
+    <tr><td class="mono">GRAPHS_KEPT</td><td class="num">256</td><td>最多缓存几张已录好的图，超了淘汰最久没用过的那张</td><td><span class="tag">管理</span></td></tr>
+    <tr><td class="mono">PASS_TOKENS</td><td class="num">256</td><td>按长度分组时的每趟固定起步成本常数（<b>不是长度上限</b>）</td><td><span class="tag">管理</span></td></tr>
+  </tbody>
+</table>
+
+<ul>
+  <li><b>准入类决定「谁能进图」</b>：不动它们，支持的最大输入长度就不变；一旦数据变长跨过它们，不会报错，只会静默掉回串行慢路。</li>
+  <li><b>容量类决定「一趟塞多少」</b>：纯粹是吞吐与显存之间的旋钮——<b>把容量调小或调大，绝不会收窄模型能接受的输入长度</b>。</li>
+  <li><b>管理类是三维规格逼出来的独有产物</b>：vLLM / SGLang 在启动时就把图全录完了，所以压根没有 <code>HOT_BUCKET</code> 和 <code>GRAPHS_KEPT</code> 这两个概念；kev 把启动耗时省下来，摊到了服务刚起来的前几十条请求上。</li>
+</ul>
+
+<details>
+  <summary>
+    <span class="sum-t">别把「超参」和「每趟规格 Nb / Lb / Sr」混为一谈</span>
+    <span class="sum-s">表里十个是你设的封顶值；Nb / Lb / Sr 是每来一批请求现场算出来的档位，没法手动指定。</span>
+  </summary>
+  <div class="dbody">
+    <p>服务线程不需要任何标定集：队列里抓到哪几条请求，就按这几条的真实长度算出本趟的 <code>Lb</code>（受 <code>GRAPH_ROW</code> 封顶）、<code>Sr</code>（受 <code>GRAPH_STATE</code> / <code>BANK_WIDTH</code> 封顶）和 <code>Nb</code>（受 <code>GRAPH_ROWS</code> 与 <code>GRAPH_TOKENS ÷ (Sr + Lb)</code> 较小者封顶）。在我们的评测集上，最长那道题固定跑在 <code>(Nb ≤ 24, Lb = 1024, Sr = 32)</code>。</p>
+  </div>
+</details>
+
+<!-- ==================== 06 ==================== -->
+<h2 id="bounds"><span class="n">06</span>后训练研究员的五条生效边界</h2>
+<p class="lede">决定要不要开图、改训练/评测提示词长度、或者怀疑线上结果不对劲时，按这五张卡逐条核对。</p>
+
+<div class="cards" id="edges"></div>
+
+<!-- ==================== 07 ==================== -->
+<h2 id="lessons"><span class="n">07</span>我们在 P800 上踩出来的两个真坑</h2>
+<p class="lede">把 kev 迁到昆仑芯 P800 时摔过的两跤——都不是参数没调优，而是把架构耦合与跨卡数值假设想当然了。</p>
+
+<h3>第一跤：以为只关了图，其实把跨请求合批一起关没了</h3>
+
+<p>刚上 P800 时，出于「非英伟达卡先别碰 CUDA Graph」的保守心理，我们把图开关设成了关闭（<code>KEV_CUDA_GRAPHS=0</code>）。测出来的吞吐是一条死平的直线：并发 1 是 8.78 req/s，拉到并发 32 还是 <b>9.12 req/s</b>，客户端延迟随并发整倍放大（0.11 → 0.44 → 1.75 → 3.49 秒）——典型的单车道排队。</p>
+
+<p>追查后发现：主流引擎（vLLM / SGLang）的合批调度器与图完全独立，就算设了 <code>enforce_eager=True</code> 关掉图，多条请求照样合批跑；<b>但 kev 的跨请求合批只实现在图模块那套二维缓冲里</b>。关掉开关意味着连图管理对象都不创建，所有请求当场退回一条接一条串行算。把开关改回开启（P800 的兼容层直接跑通了图录制，录下 52 张、0 失败）、配 <code>MAX_BATCH = 4</code>，吞吐立刻跳到 <b>17.99 req/s（1.97×）</b>。</p>
+
+<div class="callout">
+  <b>拆开量清这 1.97 倍到底谁出了多少力：</b>保留图模块对象（保住跨请求合批缓冲）但禁止录图后，并发 32 下<b>「仅合批、不录图」就已经从 8.97 冲到了 15.81 req/s（1.76×）</b>，再打开图重放推到 <b>18.02 req/s（相对纯合批再 +14%）</b>——那一倍提速里<b>四分之三来自合批、四分之一来自图重放</b>。更有意思的是把批上限拉到 32 之后，仅合批已达 18.49 req/s，图重放只剩 <b>18.78 req/s（+1.6%）</b>：单趟塞满 25 条请求后 GPU 已被计算喂饱，派活空隙自然消失，完美印证了第 01 节的前提。
+</div>
+
+<h3>第二跤：「答案与同批邻居无关」在换硬件后不自动成立</h3>
+
+<p>前面说过，只要 padding 屏蔽精确，同一条请求不管自己单独跑还是跟 31 条别的请求拼在一批跑，输出应该完全一致——H20 上实测确实零翻转（522/600）。</p>
+
+<p>但搬到 P800 后，把 <code>MAX_BATCH</code> 放到默认 64 时准确率从 523/600 掉到了 522/600；即便压回 <code>MAX_BATCH = 4</code> 保住标签不翻，并发 4 / 16 / 32 下的预测概率仍有最高 <b>0.0177</b> 的浮动。根源在于底层矩阵乘与归约算子在不同批尺寸下走了不同的浮点累加顺序，压小批上限只是收窄了暴露面，并没有根除随负载漂移的现象。</p>
+
+<details>
+  <summary>
+    <span class="sum-t">追查那 1 条翻转样本：掉回 522 丢掉的其实是一次「走运的舍入」</span>
+    <span class="sum-s">所有掉到 522 的配置翻的都是同一条阈值边缘样本——它在 H20 上本来就是答错的。</span>
+  </summary>
+  <div class="dbody">
+    <p>把各个变体在 600 条样本上逐条对齐后发现，凡是掉到 522 的实验臂，多错的永远是同一条压在决策边界上的样本。而这条恰好也是 P800 相对 H20 唯一不同的样本——H20 上它答错（522/600），P800 在小 batch 下因浮点舍入差异碰巧跨过阈值答对了（523/600）。</p>
+    <p>也就是说，拿「不低于 523」当硬红线，相当于要求新配置必须保住一次偶然的舍入运气。<b>真正站得住脚的上线准则应当是「同一配置在不同并发下逐条输出一致」</b>，而不是死守单条边界样本的 0.17 个百分点。</p>
+  </div>
+</details>
+
+<footer>
+  <p><b>参考源码</b>　<a href="https://github.com/jaredpalmer/kev" target="_blank" rel="noopener">jaredpalmer/kev · GitHub</a>（混合注意力决策模型服务与 CUDA Graph 实现）</p>
+  <p><b>统一评测口径</b>　600 条 dev 查询 × 3 道固定题，每档前 8 条预热不计入统计，单卡独占测量客户端端到端延迟。</p>
+</footer>
+</div>
+
+<script>
+/* ---------- 图片说明展开 ---------- */
+function toggleFigDetail(el){
+  const d = el.nextElementSibling;
+  const on = d.classList.toggle('active');
+  el.textContent = on ? '收起 ▴' : '展开说明 ▸';
+}
+
+/* ---------- 分桶算术 ---------- */
+function bitLength(n){ return n <= 0 ? 0 : Math.floor(Math.log2(n)) + 1; }
+function bucket(n, steps, floor){
+  steps = steps || 8; floor = floor === undefined ? 16 : floor;
+  const step = Math.max(floor, Math.floor((1 << bitLength(n - 1)) / steps));
+  return Math.ceil(n / step) * step;
+}
+function pow2(n){ return 1 << bitLength(n - 1); }
+function countBucket(n){ return bucket(n, 4, 1); }
+
+const GRAPH_ROW = 1024, STATE_TOK = 24;
+
+/* ---------- 01 时间轴步进 ---------- */
+const cpubar = document.getElementById('cpubar'), gpubar = document.getElementById('gpubar');
+const tlnote = document.getElementById('tlnote'), tllabel = document.getElementById('tllabel');
+const N_KERNEL = 22;
+const TL_NOTES = [
+  '<b>第 1 步 · 看 CPU 轨：</b>每一小格是 CPU 派发一个 kernel 前做的准备，只能串行往外发；真实一趟有约 2,000 格，线性注意力外层的 Python 包装还会把格子进一步拉宽。',
+  '<b>第 2 步 · 看 GPU 轨：</b>深色窄块才是真正在算，算完一块就得干等下一道指令（斜纹区）。短序列小模型上，<b>斜纹空等比真算的时间还长</b>。',
+  '<b>第 3 步 · 换成图重放：</b>CPU 侧坍缩成一次整图下发，GPU 侧深色计算块首尾相接连成一片。<b>深色块总宽度一分没少，省掉的全是中间那片斜纹。</b>'
+];
+let tlStep = 0;
+
+function renderTL(){
+  cpubar.innerHTML = ''; gpubar.innerHTML = '';
+  if (tlStep === 2){
+    const b = document.createElement('div');
+    b.className = 'blk one'; b.style.left = '0.6%'; b.style.width = '7%';
+    cpubar.appendChild(b);
+    const g = document.createElement('div');
+    g.className = 'blk gpu'; g.style.left = '8.5%'; g.style.width = '46%';
+    gpubar.appendChild(g);
+  } else {
+    const slot = 100 / N_KERNEL;
+    for (let i = 0; i < N_KERNEL; i++){
+      const c = document.createElement('div');
+      c.className = 'blk cpu';
+      c.style.left = (i * slot + 0.3) + '%';
+      c.style.width = (slot * 0.74) + '%';
+      cpubar.appendChild(c);
+      if (tlStep >= 1){
+        const g = document.createElement('div');
+        g.className = 'blk gpu';
+        g.style.left = (i * slot + slot * 0.5) + '%';
+        g.style.width = (slot * 0.3) + '%';
+        gpubar.appendChild(g);
+        const idle = document.createElement('div');
+        idle.className = 'blk idle';
+        idle.style.left = (i * slot + slot * 0.82) + '%';
+        idle.style.width = (slot * 0.66) + '%';
+        gpubar.appendChild(idle);
+      }
+    }
+  }
+  tlnote.innerHTML = TL_NOTES[tlStep];
+  tllabel.textContent = '第 ' + (tlStep + 1) + ' 步 / 共 3 步';
+  const dots = document.getElementById('tldots').children;
+  for (let i = 0; i < dots.length; i++) dots[i].classList.toggle('on', i === tlStep);
+}
+document.getElementById('tlnext').addEventListener('click', function(){ tlStep = (tlStep + 1) % 3; renderTL(); });
+document.getElementById('tlreset').addEventListener('click', function(){ tlStep = 0; renderTL(); });
+renderTL();
+
+/* ---------- 02 预热 / 捕获 / 重放步进 ---------- */
+const N_K = 26;
+const CG_LABEL = ['① 预热', '② 捕获', '③ 重放'];
+const CG_NOTES = [
+  '<b>① 预热（真算一遍，不录）：</b>先把首次编译、试跑挑最快算子、首次申请显存这些「只发生一回、但会让 CPU 停下来等 GPU」的杂活全部做在录制区外面。',
+  '<b>② 捕获（空跑一遍，只记不真算）：</b>把整串「做什么操作 ＋ 读写哪个显存门牌号 ＋ 谁等谁」抄进图里。<b>这一刻起，缓冲地址和张量形状就被锁死了。</b>',
+  '<b>③ 重放（换内容，不换门牌号）：</b>来了新请求批次 B，先把 B 的数据覆盖进<b>同一块固定缓冲</b>，再一次调用把整张图下发给 GPU。'
+];
+const cgEls = {
+  note: document.getElementById('cgnote'), label: document.getElementById('cglabel'),
+  chipA: document.getElementById('chipA'), chipB: document.getElementById('chipB'),
+  buf: document.getElementById('bufbox'), addr: document.getElementById('addr'), held: document.getElementById('held'),
+  strip: document.getElementById('kstrip'), setups: document.getElementById('setups'),
+  gbox: document.getElementById('graphbox'), gbtext: document.getElementById('gbtext'),
+  arr1t: document.getElementById('arr1t'), arr2t: document.getElementById('arr2t'),
+  arr3: document.getElementById('arr3'), arr3t: document.getElementById('arr3t'),
+  dots: document.getElementById('cgdots')
+};
+let cgStep = 0;
+cgEls.strip.innerHTML = Array(N_K).fill('<i></i>').join('');
+
+function renderCG(){
+  const ks = cgEls.strip.children;
+  for (let i = 0; i < ks.length; i++){
+    ks[i].classList.remove('run', 'rec');
+    ks[i].classList.add(cgStep === 1 ? 'rec' : 'run');
+  }
+  cgEls.chipA.className = 'chip ' + (cgStep === 2 ? 'dim' : 'active');
+  cgEls.chipB.className = 'chip ' + (cgStep === 2 ? 'active' : 'dim');
+  cgEls.held.textContent = cgStep === 2 ? '已覆盖成批次 B' : '装着批次 A';
+  cgEls.held.classList.toggle('swap', cgStep === 2);
+  cgEls.buf.classList.toggle('locked', cgStep >= 1);
+  cgEls.addr.textContent = (cgStep >= 1 ? '🔒 ' : '') + '显存地址 0x7f3c…a000' + (cgStep >= 1 ? '（已锁死）' : '');
+  cgEls.setups.classList.toggle('hide', cgStep !== 0);
+  cgEls.gbox.classList.toggle('full', cgStep >= 1);
+  cgEls.gbtext.textContent = cgStep === 0 ? '尚未录制'
+    : cgStep === 1 ? '已录下约 2,000 条指令（每条都写死了操作、门牌号与先后依赖）'
+    : '▶ 一次调用整张下发，CPU 不再逐个派活';
+  cgEls.arr1t.textContent = cgStep === 2 ? '先把批次 B 原地覆盖进老缓冲' : '拷进预留缓冲';
+  cgEls.arr2t.textContent = cgStep === 1 ? '记下「去这块地址取数」' : '按这块地址读输入';
+  cgEls.arr3.classList.toggle('dim', cgStep !== 1);
+  cgEls.arr3t.textContent = cgStep === 1 ? '把整串指令与地址抄进图里'
+    : cgStep === 0 ? '（预热阶段只跑不录）' : '（直接复用已录好的图）';
+
+  cgEls.note.innerHTML = CG_NOTES[cgStep];
+  cgEls.label.textContent = CG_LABEL[cgStep];
+  const dots = cgEls.dots.children;
+  for (let i = 0; i < dots.length; i++) dots[i].classList.toggle('on', i === cgStep);
+}
+document.getElementById('cgnext').addEventListener('click', function(){ cgStep = (cgStep + 1) % 3; renderCG(); });
+document.getElementById('cgreset').addEventListener('click', function(){ cgStep = 0; renderCG(); });
+renderCG();
+
+/* ---------- 02 四张硬约束卡 & 06 五张生效边界卡 ---------- */
+const CONSTRAINTS = [
+  ['📍','门牌号锁死：只能原地换数据','图认的是显存地址，不是 Python 变量名。',
+   '<p>重放时每个 kernel 仍然去捕获那一刻记下的显存地址取数。哪怕你把 Python 变量重新指向一块新张量，图也完全看不见。</p><p>所以每次重放前都必须把新请求的数据<b>原地拷进那块预留缓冲</b>，而且同一块缓冲不能被两个线程同时读写——kev 用单模型线程串行重放来保证安全。</p>'],
+  ['📏','张量尺寸锁死：差 1 个 token 也是另一张图','并行线程数在录制那一刻就按当时的尺寸算死了。',
+   '<p>这是分桶、补 padding、再做掩码屏蔽这一整套设计的唯一来由。尺寸种类越多，录图耗时（每张约 0.4 秒）和图缓存开销就越压不住。</p>'],
+  ['🚫','图里不能夹带 Python 判断或读回 GPU 数值','重放时根本没有 Python 在跑，分支走向永远卡死在录制那一次。',
+   '<p>凡是需要「把显存里的数拿回 CPU 看一眼再决定下一步怎么走」的逻辑——比如按中间结果提前退出、在 CPU 上根据本批长度循环拼数组、打印中间张量——要么当场让录制报错，要么在重放时永远僵死在录制那次的分支上。</p>'],
+  ['🔭','重放期间常规耗时会诊工具会「失明」','整张图在驱动眼里只剩一次整包提交，内部小算子不再逐个露头。',
+   '<p>我们在 P800 上做耗时分解时亲历过：图重放期间常规测时工具抓不到内部算子，连在 GPU 上打事件时间戳都一律返回 0 毫秒，最后切到硬件厂商专用的测时模式才拿到逐层耗时。需要细查慢在哪一层时，记得先临时关图。</p>']
+];
+
+const EDGES = [
+  ['⚖️','训练和大序列预填充别折腾图','先确认你真的卡在派活上，否则收益接近于零。',
+   '<p>训练和几千 token 的长输入预填充早就把 GPU 喂饱了，派活时间被计算完全盖住。SGLang 社区实测过：在单步计算本身要几十毫秒的大模型场景下，开不开图差距<b>不超过 3%</b>；L4 上跑稠密 8B 解码也只省约 <b>1%</b>。只有「模型小、序列短、算子碎」三件事凑齐时，图才值回票价。</p>'],
+  ['🏔️','改长提示词前，先算离 1024 还差几步','越过准入线不是慢慢变慢，是直接摔回串行。',
+   '<p>我们最长的那道题实测 <b>913 个 token</b>，归入 <code>1024</code> 档，离默认上限 <code>GRAPH_ROW = 1024</code> 只剩 <b>111 个 token</b>。往题面里多加两条示例跨过 1024，整条请求就会静默掉出图路径，吞吐直接腰斩回 9.12 req/s。真要加长题面，必须同步上调 <code>GRAPH_ROW</code> 和 <code>GRAPH_TOKENS</code>。</p>'],
+  ['🎲','自由文本流量先看长度分布','长度越杂，运行期录图停顿和缓存淘汰就越频繁。',
+   '<p>评测集题面固定，全程只录下 52–83 张图就稳住了。如果未来接进长短跨度极大的自由提示词，新规格不断冒出来，每次录图都要花约 0.4 秒，超过 <code>GRAPHS_KEPT = 256</code> 后还会反复淘汰重录。上线前应先看真实流量的长度分位数。</p>'],
+  ['🧷','验收正确性要看「跨并发逐条一致」','掩码漏了或算子非确定性不会报错，只会让边界样本悄悄翻牌。',
+   '<p>最省事也最锋利的验收方法：<b>固定同一份权重和参数，分别在并发 1、并发 8、并发 32 下跑完同一批评测集，逐条比对输出</b>。只要有任何一条的预测随并发档位改变，就说明某条请求的答案受到了同批邻居的干扰。</p>'],
+  ['💾','显存按缓冲上限一次性占死','好消息是流量再长也不会中途把显存撑爆。',
+   '<p>kev 启动图模块时就按 <code>GRAPH_TOKENS</code> 和 <code>GRAPH_STATES × BANK_WIDTH</code> 把缓冲一次性划好（在 4B / 9B 模型上约占 1 GB / 2 GB，与实际请求多短无关）。我们 0.8B 在 96 GB 卡上实测峰值仅 <b>8,848 MiB</b>，把容量超参往上翻几倍的显存余量非常充裕。</p>']
+];
+
+function renderCards(id, data){
+  document.getElementById(id).innerHTML = data.map(function(c){
+    return '<div class="card"><div class="hd"><span class="ico">' + c[0] + '</span><span class="tx">' +
+      '<span class="t">' + c[1] + '</span><span class="s">' + c[2] + '</span></span><span class="ar">▸</span></div>' +
+      '<div class="bd"><div class="in">' + c[3] + '</div></div></div>';
+  }).join('');
+  document.querySelectorAll('#' + id + ' .hd').forEach(function(h){
+    h.addEventListener('click', function(e){ e.stopPropagation(); h.parentElement.classList.toggle('open'); });
+  });
+}
+renderCards('constraints', CONSTRAINTS);
+renderCards('edges', EDGES);
+
+/* ---------- 03 拼接 vs 按行补齐交互对比 ---------- */
+const CHUNK = 4;
+const CHK_CASES = [
+  ['1 条请求（长 10）', [10]],
+  ['3 条请求（3 + 2 + 5）', [3, 2, 5]],
+  ['5 条请求（每条 2）', [2, 2, 2, 2, 2]],
+  ['10 条请求（每条 1）', [1,1,1,1,1,1,1,1,1,1]]
+];
+function chunkPlan(lens){
+  const cu = [], seqIdx = []; let pos = 0;
+  lens.forEach(function(L, i){
+    let rem = L;
+    for (let c = 0, n = Math.ceil(L / CHUNK); c < n; c++){
+      seqIdx.push(i); cu.push(pos);
+      const t = Math.min(CHUNK, rem); pos += t; rem -= t;
+    }
+  });
+  cu.push(pos);
+  return { cu: cu, seqIdx: seqIdx };
+}
+function renderChunks(idx){
+  const lens = CHK_CASES[idx][1];
+  const total = lens.reduce(function(a, b){ return a + b; }, 0);
+  const bounds = [0]; lens.forEach(function(L){ bounds.push(bounds[bounds.length - 1] + L); });
+  const plan = chunkPlan(lens), nb = plan.seqIdx.length;
+  const cuts = {}; plan.cu.slice(0, nb).forEach(function(p){ cuts[p] = 1; });
+  const owners = []; lens.forEach(function(L, i){ for (let j = 0; j < L; j++) owners.push(i); });
+
+  let flatCells = '';
+  for (let j = 0; j < total; j++){
+    const tag = String.fromCharCode(65 + (owners[j] % 26));
+    const cls = (owners[j] % 2 === 0 ? 'chka' : 'chkb') + (cuts[j] ? ' cut' : '');
+    flatCells += '<td class="' + cls + '">' + tag + '</td>';
+  }
+  document.getElementById('chkvllm').innerHTML =
+    '<table class="chkgrid"><tr><td class="lbl">排成一条（共 ' + total + '）</td>' + flatCells + '</tr></table>' +
+    '<div class="chkten"><em>递给 kernel 的请求分界点：</em>[' + bounds.join(', ') + ']</div>' +
+    '<div class="chkten"><em>线性注意力被迫切出的各段起点：</em>[' + plan.cu.join(', ') + ']</div>' +
+    '<div class="chksum">同样是 10 个 token，这种摆法要切 <b>' + nb + ' 段</b>。<b>段数由分界点怎么摆决定，单靠「总 token 数 = 10」锁不死</b>——所以 vLLM 到这一层只能把图断开。</div>';
+
+  const T = Math.ceil(Math.max.apply(null, lens) / CHUNK) * CHUNK, per = T / CHUNK;
+  let rows = '';
+  lens.forEach(function(L, i){
+    const tag = String.fromCharCode(65 + (i % 26));
+    let rcells = '';
+    for (let j = 0; j < T; j++){
+      const isReal = j < L;
+      const cls = (isReal ? (i % 2 === 0 ? 'chka' : 'chkb') : 'chkpad') + (j % CHUNK === 0 ? ' cut' : '');
+      rcells += '<td class="' + cls + '">' + (isReal ? tag : '·') + '</td>';
+    }
+    rows += '<tr><td class="lbl">请求 ' + tag + '</td>' + rcells + '</tr>';
+  });
+  document.getElementById('chkkev').innerHTML =
+    '<table class="chkgrid">' + rows + '</table>' +
+    '<div class="chkten"><em>递给 kernel 的请求分界点：</em>不需要，每行本来就是独立的一条（尺寸 [' + lens.length + ' 行, ' + T + ' 列]）</div>' +
+    '<div class="chksum">固定切成 <b>' + lens.length + ' 行 × 每行 ' + per + ' 段 ＝ ' + (lens.length * per) + ' 段</b>。多算了一些斜纹 padding，但<b>工作量完全由「行数、行长」两个数锁死</b>，DeltaNet 可以整层录进图里。</div>';
+}
+document.getElementById('chkbtns').innerHTML = CHK_CASES.map(function(c, i){
+  return '<button class="chkbtn' + (i === 0 ? ' on' : '') + '" data-i="' + i + '">' + c[0] + '</button>';
+}).join('');
+document.querySelectorAll('#chkbtns .chkbtn').forEach(function(b, i){
+  b.addEventListener('click', function(){
+    document.querySelectorAll('#chkbtns .chkbtn').forEach(function(o){ o.classList.remove('on'); });
+    b.classList.add('on');
+    renderChunks(i);
+  });
+});
+renderChunks(1);
+document.querySelectorAll('#chkbtns .chkbtn').forEach(function(o, i){ o.classList.toggle('on', i === 1); });
+
+/* ---------- 04 分桶计算器 ---------- */
+const bkin = document.getElementById('bkin');
+function renderBucket(){
+  const n = +bkin.value;
+  const p = 1 << bitLength(n - 1);
+  const step = Math.max(16, Math.floor(p / 8));
+  const b = bucket(n);
+  document.getElementById('bkinv').textContent = n;
+  document.getElementById('bkpow').textContent = (p >> 1) + '–' + p;
+  document.getElementById('bkstep').textContent = step;
+  document.getElementById('bkout').textContent = b;
+  document.getElementById('bkwaste').textContent = (b - n) + ' 个 token';
+  const v = document.getElementById('bkverdict');
+  if (b <= GRAPH_ROW){
+    v.className = 'verdict';
+    v.innerHTML = '<b>可以进图：</b>归入 <code>' + b + '</code> 档（未超过默认准入上限 <code>1024</code>），距离掉回串行的悬崖还剩 <b>' + (1024 - n) + '</b> 个 token。';
+  } else {
+    v.className = 'verdict bad';
+    v.innerHTML = '<b>掉出图路径：</b>归入 <code>' + b + '</code> 档，已超过默认准入上限 <code>1024</code>——整条请求退回逐条串行（9.12 req/s）。';
+  }
+}
+bkin.addEventListener('input', renderBucket);
+renderBucket();
+
+/* ---------- 04 二维缓冲可视化 ---------- */
+const CELL = 32;
+const els = { q: document.getElementById('q'), mb: document.getElementById('mb'), gr: document.getElementById('gr'), gt: document.getElementById('gt') };
+function renderBuf(){
+  const rowTok = +els.q.value, MAX_BATCH = +els.mb.value, GRAPH_ROWS = +els.gr.value, GRAPH_TOKENS = +els.gt.value;
+  document.getElementById('mbv').textContent = MAX_BATCH;
+  document.getElementById('grv').textContent = GRAPH_ROWS;
+  document.getElementById('gtv').textContent = GRAPH_TOKENS;
+
+  const Lb = bucket(rowTok), Sr = pow2(Math.max(16, STATE_TOK));
+  const admitted = Lb <= GRAPH_ROW;
+  const byArea = Math.floor(GRAPH_TOKENS / (Sr + Lb));
+  const cap = Math.min(GRAPH_ROWS, byArea);
+  let grp = 0;
+  for (let i = 1; i <= cap; i++) if (countBucket(i) <= cap) grp = i;
+  const rowsHere = Math.min(MAX_BATCH, grp || 1);
+  const Nb = countBucket(rowsHere);
+  const passes = grp > 0 ? Math.ceil(MAX_BATCH / grp) : MAX_BATCH;
+
+  document.getElementById('oLb').textContent = Lb;
+  document.getElementById('oSr').textContent = Sr;
+  document.getElementById('oGrp').textContent = admitted ? (grp || '—') : '—';
+  document.getElementById('oNb').textContent = admitted ? Nb : '—';
+  document.getElementById('oPass').textContent = admitted ? (passes + ' 趟') : (MAX_BATCH + ' 趟');
+
+  const area = Nb * (Sr + Lb), useful = rowsHere * (Sr + rowTok);
+  document.getElementById('oWaste').textContent = admitted ? (100 - Math.round(useful / area * 100)) + '%' : '—';
+
+  const v = document.getElementById('verdict');
+  const tbl = document.getElementById('buf');
+  if (!admitted){
+    v.className = 'verdict bad';
+    v.innerHTML = '<b>这一趟图不存在：</b>归档后行长 <code>' + Lb + ' &gt; GRAPH_ROW (1024)</code>，图外没有备用合批，' + MAX_BATCH + ' 条请求全部连坐退回逐条单跑（' + MAX_BATCH + ' 轮单请求，共 <b>' + (MAX_BATCH * 2) + ' 趟前向</b>）。';
+    tbl.innerHTML = '';
+    return;
+  }
+  let bound, hint;
+  if (MAX_BATCH < grp){
+    bound = 'MAX_BATCH（队列取批数）';
+    hint = '缓冲一趟本来能装 <b>' + grp + '</b> 行，但队列一次只抓了 ' + MAX_BATCH + ' 条——两个图容量参数都还没顶到。';
+  } else if (byArea < GRAPH_ROWS){
+    bound = 'GRAPH_TOKENS（总面积预算）';
+    hint = '面积 <code>' + GRAPH_TOKENS + ' ÷ ' + (Sr + Lb) + ' = ' + byArea + '</code>，对齐档位后封死在 <b>' + grp + '</b> 行，<code>GRAPH_ROWS = ' + GRAPH_ROWS + '</code> 还没用上。';
+  } else {
+    bound = 'GRAPH_ROWS（单趟行数上限）';
+    hint = '面积预算够装 ' + byArea + ' 行，当前由行数上限封在 <b>' + grp + '</b> 行。';
+  }
+  v.className = 'verdict';
+  v.innerHTML = '本趟实装 <b>' + rowsHere + '</b> 行（图规格 <code>Nb=' + Nb + ', Lb=' + Lb + ', Sr=' + Sr + '</code>），' + MAX_BATCH + ' 条同题请求拆成 <b>' + passes + ' 趟</b>　·　当前卡在 <b>' + bound + '</b>：' + hint;
+
+  const sCol = Math.max(1, Math.round(Sr / CELL)), rCol = Math.max(1, Math.round(rowTok / CELL)), pCol = Math.round((Lb - rowTok) / CELL);
+  const total = sCol + rCol + pCol;
+  let html = '';
+  for (let r = 0; r < Nb; r++){
+    const empty = r >= rowsHere;
+    html += '<tr><td class="lbl">' + (empty ? '（补空行）' : '请求 ' + (r + 1)) + '</td>';
+    for (let c = 0; c < total; c++){
+      const cls = empty ? 'cell-e' : (c < sCol ? 'cell-s' : (c < sCol + rCol ? 'cell-r' : 'cell-p'));
+      html += '<td class="' + cls + '"></td>';
+    }
+    html += '</tr>';
+  }
+  html += '<tr><td class="lbl"></td><td class="lbl ax" colspan="' + sCol + '">Sr=' + Sr + '</td>' +
+          '<td class="lbl ax" colspan="' + (rCol + pCol) + '">Lb=' + Lb + '（真实 ' + rowTok + ' + 补齐 ' + (Lb - rowTok) + '）</td></tr>';
+  tbl.innerHTML = html;
+}
+['q','mb','gr','gt'].forEach(function(k){ els[k].addEventListener('input', renderBuf); });
+renderBuf();
+</script>
+</body>
+</html>
