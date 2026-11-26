@@ -10,6 +10,11 @@
 #   source_type : "paper" | "blog"  (optional, drives the tag)
 #   source_url  : link to the original paper/blog (optional)
 entries:
+  - slug: qwen35-gated-deltanet
+    title: "Qwen3.5 / 3.8 的 3:1 Gated DeltaNet 混合架构到底怎么算"
+    date: 2026-11-26
+    source_type: paper
+    source_url: "https://arxiv.org/abs/2412.06464"
   - slug: kev-inference-acceleration
     title: "kev 推理加速"
     date: 2026-11-23

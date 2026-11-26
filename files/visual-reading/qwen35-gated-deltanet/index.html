@@ -1,0 +1,1557 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>从零看懂 Qwen3.5 / 3.8 的 Gated DeltaNet：机制、Cache、Decode 提速与 Prefill 边界</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Noto+Sans+SC:wght@400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#fbf6ea;
+  --bg2:#f4ead7;
+  --bg3:#ebe0c9;
+  --line:#dfd1b5;
+  --line2:#cbb998;
+  --ink:#2b2620;
+  --ink2:#5c5447;
+  --ink3:#877d6d;
+  --accent:#b0643a;
+  --accent-soft:#f2dfd0;
+  --warn-bg:#f7e7de;
+  --warn-line:#dfbcae;
+  --warn-ink:#874122;
+  --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:'Inter','Noto Sans SC',-apple-system,system-ui,sans-serif;
+  font-size:16.5px;
+  line-height:1.8;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:860px;margin:0 auto;padding:0 24px}
+code{font-family:var(--mono);font-size:.86em;background:var(--bg3);padding:.12em .4em;border-radius:4px}
+a{color:var(--accent);text-decoration:none;border-bottom:1px solid var(--accent-soft)}
+a:hover{border-bottom-color:var(--accent)}
+
+/* 顶部导航 */
+nav{
+  position:sticky;top:0;z-index:50;
+  background:rgba(251,246,234,.94);
+  backdrop-filter:blur(8px);
+  border-bottom:1px solid var(--line);
+}
+nav .wrap{display:flex;align-items:center;gap:14px;height:52px;overflow-x:auto;white-space:nowrap}
+nav .brand{font-weight:700;font-size:14px;letter-spacing:.01em;flex-shrink:0;color:var(--ink)}
+nav a{font-size:13px;color:var(--ink2);border:none;flex-shrink:0}
+nav a:hover{color:var(--accent)}
+nav .src-link{margin-left:auto;color:var(--accent);font-weight:500}
+
+/* 页头与标题 */
+header{padding:52px 0 30px;border-bottom:1px solid var(--line)}
+h1{font-size:32px;line-height:1.32;margin:0 0 14px;letter-spacing:-.01em}
+.sub{color:var(--ink2);font-size:16.5px;margin:0 0 18px}
+.meta{font-size:13.5px;color:var(--ink3);display:flex;gap:16px;flex-wrap:wrap;align-items:center}
+.meta b{color:var(--ink2);font-weight:500}
+
+h2{font-size:24px;margin:54px 0 6px;letter-spacing:-.01em;scroll-margin-top:68px}
+h2 .n{color:var(--line2);font-weight:400;margin-right:10px;font-size:20px;font-family:var(--mono)}
+h3{font-size:18px;margin:28px 0 8px}
+.lede{color:var(--ink2);margin:0 0 20px;font-size:15.5px}
+p{margin:15px 0}
+ul,ol{padding-left:22px;margin:15px 0}
+li{margin:8px 0}
+
+/* TL;DR 与核心指标 */
+.tldr{
+  background:var(--bg2);
+  border:1px solid var(--line);
+  border-left:3px solid var(--accent);
+  border-radius:8px;
+  padding:20px 24px;
+  margin:28px 0;
+}
+.tldr h4{margin:0 0 10px;font-size:12.5px;text-transform:uppercase;letter-spacing:.09em;color:var(--accent)}
+.tldr p{margin:8px 0}
+.tldr p:last-child{margin-bottom:0}
+
+.metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:24px 0}
+.metric{background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:16px 18px}
+.metric .v{font-size:26px;font-weight:700;line-height:1.15;letter-spacing:-.02em;color:var(--ink)}
+.metric .v small{font-size:14px;font-weight:500;color:var(--ink3)}
+.metric .l{font-size:13.5px;color:var(--ink2);margin-top:5px}
+.metric .n{font-size:12px;color:var(--ink3);margin-top:7px;border-top:1px solid var(--line);padding-top:7px}
+
+/* 通用图容器与渐进说明 */
+.fig{background:var(--bg2);border:1px solid var(--line);border-radius:10px;padding:20px;margin:26px 0}
+.fig-hd{font-size:14px;font-weight:600;color:var(--ink);margin:0 0 12px}
+.fig-cap{font-size:13.5px;color:var(--ink2);margin-top:14px;padding-top:11px;border-top:1px solid var(--line)}
+.fig-toggle{display:inline-block;margin-top:8px;font-size:13px;color:var(--accent);cursor:pointer;user-select:none;font-weight:500}
+.figure-detail{max-height:0;overflow:hidden;transition:max-height .35s ease,opacity .25s ease;opacity:0}
+.figure-detail.active{max-height:1800px;opacity:1;margin-top:10px}
+.figure-detail ul{margin:6px 0;font-size:14.5px;color:var(--ink2)}
+.figure-detail li{margin:7px 0}
+
+/* 按钮与步进器 */
+.stepper{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:16px}
+button.sbtn{
+  font:inherit;font-size:13px;font-weight:500;
+  padding:6px 14px;border-radius:6px;
+  border:1px solid var(--line2);background:var(--bg);color:var(--ink);
+  cursor:pointer;transition:background .18s,border-color .18s,color .18s;
+}
+button.sbtn:hover{background:var(--bg3)}
+button.sbtn.primary{background:var(--accent);color:#fff;border-color:var(--accent)}
+button.sbtn.primary:hover{background:#9b5630}
+.pill-row{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+button.pill{
+  font:inherit;font-size:13px;padding:5px 13px;border:1px solid var(--line2);border-radius:999px;
+  background:var(--bg);color:var(--ink2);cursor:pointer;transition:background .18s,color .18s,border-color .18s;
+}
+button.pill:hover{background:var(--bg3)}
+button.pill.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.stepdots{display:flex;gap:6px;margin-left:4px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--line2);transition:background .2s,transform .2s}
+.dot.on{background:var(--accent);transform:scale(1.3)}
+.steplabel{font-size:13px;color:var(--ink2);margin-left:4px}
+
+/* 01 记忆对比动画舞台 */
+.token-rail{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px}
+.tok{
+  font-family:var(--mono);font-size:12.5px;padding:6px 11px;border-radius:6px;
+  border:1px solid var(--line2);background:var(--bg);color:var(--ink2);
+  transition:border-color .25s,background .25s,color .25s,opacity .25s;
+}
+.tok.past{background:var(--bg3);color:var(--ink)}
+.tok.now{border-color:var(--accent);background:var(--accent-soft);color:var(--ink);font-weight:600}
+.tok.future{opacity:.42}
+.mem-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.mem-box{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:14px}
+.mem-box .mh{font-size:13px;font-weight:600;color:var(--ink);margin-bottom:8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.mem-box .badge{font-family:var(--mono);font-size:11.5px;padding:2px 8px;border-radius:4px;background:var(--bg3);color:var(--ink2);font-weight:500}
+.mem-box .badge.hi{background:var(--accent-soft);color:var(--accent)}
+.slot-list{display:flex;flex-direction:column;gap:6px}
+.slot{
+  display:flex;justify-content:space-between;align-items:center;gap:8px;
+  font-family:var(--mono);font-size:12.5px;padding:6px 10px;border-radius:5px;
+  background:var(--bg2);border:1px solid var(--line);
+  transition:border-color .25s,background .25s,opacity .25s;
+}
+.slot.hl{border-color:var(--accent);background:#fdf4eb}
+.slot.faded{opacity:.45}
+.slot.warn{border-color:var(--warn-line);background:var(--warn-bg);color:var(--warn-ink)}
+.mem-note{
+  margin-top:12px;font-size:14px;color:var(--ink2);
+  background:var(--bg);border:1px solid var(--line);border-radius:6px;padding:10px 14px;
+}
+.mem-note b{color:var(--ink)}
+.gate-row{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.gchip{font-family:var(--mono);font-size:12px;padding:3px 9px;border-radius:4px;background:var(--bg2);border:1px solid var(--line);color:var(--ink2)}
+.gchip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--ink);font-weight:500}
+
+/* 02 SVG 容器与符号速查 */
+.svg-wrap{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:14px;overflow-x:auto}
+.svg-wrap svg{display:block;margin:0 auto;max-width:100%;height:auto}
+.sym-grid{
+  display:grid;grid-template-columns:repeat(3,1fr);gap:8px 12px;
+  background:var(--bg);border:1px solid var(--line);border-radius:8px;
+  padding:12px 14px;margin-bottom:14px;font-size:12.5px;line-height:1.5;
+}
+.sym-item{color:var(--ink2)}
+.sym-item code{font-weight:600;color:var(--ink);margin-right:4px}
+.sym-item .sdim{font-family:var(--mono);font-size:11px;color:var(--ink3);display:block;margin-top:1px}
+
+/* 03 交互计算器 */
+.ctrl-row{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-bottom:16px}
+.ctrl-row label{font-size:14px;font-weight:500;color:var(--ink)}
+.ctrl-row input[type=range]{flex:1;min-width:180px;accent-color:var(--accent);cursor:pointer}
+.ctrl-val{font-family:var(--mono);font-size:14px;font-weight:600;color:var(--accent);min-width:105px;text-align:right}
+.bar-group{display:flex;flex-direction:column;gap:12px;margin:14px 0}
+.bar-item .bh{display:flex;justify-content:space-between;font-size:13px;color:var(--ink2);margin-bottom:5px;gap:8px;flex-wrap:wrap}
+.bar-item .bh b{color:var(--ink);font-family:var(--mono)}
+.stack-track{height:24px;background:var(--bg);border:1px solid var(--line);border-radius:5px;overflow:hidden;display:flex}
+.seg{height:100%;transition:width .35s ease}
+.seg.gdn{background:#8b7d6b}
+.seg.kv{background:var(--accent)}
+.seg.pure{background:#5d5447}
+.legend{display:flex;gap:16px;flex-wrap:wrap;font-size:12.5px;color:var(--ink2);margin-top:8px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.swatch{width:11px;height:11px;border-radius:2px;display:inline-block}
+.batch-compare{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.bcard{background:var(--bg);border:1px solid var(--line);border-radius:7px;padding:12px 14px}
+.bcard .bt{font-size:12.5px;color:var(--ink2);margin-bottom:6px}
+.bcard .bv{font-size:20px;font-weight:700;font-family:var(--mono);color:var(--ink)}
+.bcard .bv.hi{color:var(--accent)}
+.seq-dots{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px}
+.sdot{width:12px;height:12px;border-radius:3px;background:#5d5447}
+.sdot.hi{background:var(--accent)}
+.sdot.oom{width:auto;height:auto;padding:2px 8px;font-size:12px;background:var(--warn-bg);color:var(--warn-ink);border:1px solid var(--warn-line)}
+.verdict{
+  margin-top:14px;padding:11px 14px;border-radius:7px;font-size:14px;
+  background:var(--bg);border:1px solid var(--line);color:var(--ink2);
+}
+.verdict.warn{background:var(--warn-bg);border-color:var(--warn-line);color:var(--warn-ink)}
+
+/* 04 Decode 带宽对比 */
+.bw-panel{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:15px}
+.bw-row{margin-bottom:14px}
+.bw-row:last-child{margin-bottom:0}
+.bw-meta{display:flex;justify-content:space-between;font-size:13px;color:var(--ink2);margin-bottom:5px;gap:8px;flex-wrap:wrap}
+.bw-meta b{color:var(--ink);font-family:var(--mono)}
+.bw-track{height:22px;background:var(--bg2);border:1px solid var(--line);border-radius:4px;overflow:hidden;display:flex}
+.bw-w{background:#7d7160;height:100%;transition:width .35s ease}
+.bw-c{background:var(--accent);height:100%;transition:width .35s ease}
+.bw-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.bw-kpi{background:var(--bg2);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.bw-kpi .kl{font-size:12px;color:var(--ink3)}
+.bw-kpi .kv{font-size:18px;font-weight:700;font-family:var(--mono);color:var(--ink);margin-top:2px}
+.bw-kpi .kv.hi{color:var(--accent)}
+
+/* 05 Prefill 分块可视化 */
+.pf-stage{background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:15px}
+.pf-lane{margin-bottom:12px}
+.pf-lane-lbl{font-size:12.5px;color:var(--ink2);font-family:var(--mono);margin-bottom:6px}
+.pf-cells{display:flex;gap:3px;flex-wrap:wrap;align-items:center}
+.pcell{
+  width:24px;height:24px;border-radius:4px;font-family:var(--mono);font-size:11px;
+  display:flex;align-items:center;justify-content:center;
+  border:1px solid var(--line2);background:var(--bg2);color:var(--ink2);
+  transition:background .25s,border-color .25s,color .25s;
+}
+.pcell.active{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.pcell.done{background:#7d7160;border-color:#685d4e;color:#fff}
+.pcell.chunk{width:auto;padding:0 10px;height:30px}
+.parrow{color:var(--ink3);font-family:var(--mono);font-size:13px;padding:0 2px}
+.curve-bars{display:flex;flex-direction:column;gap:9px;margin-top:6px}
+.crow{display:grid;grid-template-columns:76px 1fr 125px;gap:10px;align-items:center;font-size:12.5px}
+.crow .cl{font-family:var(--mono);color:var(--ink2)}
+.crow .ctrack{display:flex;flex-direction:column;gap:3px}
+.cbar{height:10px;border-radius:2px;transition:width .35s ease}
+.cbar.attn{background:#5d5447}
+.cbar.gdn{background:var(--accent)}
+.crow .cv{font-family:var(--mono);font-size:11.5px;color:var(--ink2);text-align:right}
+
+/* 可展开卡片（折叠态带摘要，仅头部绑定点击） */
+.card-stack{display:flex;flex-direction:column;gap:10px;margin:20px 0}
+.ecard{background:var(--bg2);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+.ecard-hd{
+  padding:13px 16px;cursor:pointer;display:flex;justify-content:space-between;align-items:flex-start;gap:12px;
+  user-select:none;transition:background .18s;
+}
+.ecard-hd:hover{background:var(--bg3)}
+.ecard-title{font-size:15px;font-weight:600;color:var(--ink)}
+.ecard-sum{font-size:13.5px;color:var(--ink3);margin-top:3px;line-height:1.5}
+.ecard-ico{font-size:13px;color:var(--accent);font-weight:600;flex-shrink:0;padding-top:2px}
+.ecard-bd{max-height:0;overflow:hidden;opacity:0;transition:max-height .35s ease,opacity .25s ease}
+.ecard.open .ecard-bd{max-height:900px;opacity:1}
+.ecard-in{padding:0 16px 15px;border-top:1px solid var(--line);font-size:14.5px;color:var(--ink2)}
+.ecard-in p{margin:10px 0}
+.ecard-in ul{margin:8px 0}
+
+/* 表格与 details */
+.tbl-wrap{overflow-x:auto;margin:18px 0}
+table.cmp{width:100%;border-collapse:collapse;font-size:14px;background:var(--bg2);border:1px solid var(--line);border-radius:8px;overflow:hidden}
+table.cmp th,table.cmp td{padding:10px 13px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+table.cmp th{background:var(--bg3);font-weight:600;color:var(--ink);font-size:13px}
+table.cmp tr:last-child td{border-bottom:none}
+table.cmp td{color:var(--ink2)}
+table.cmp td b{color:var(--ink)}
+
+details.box{
+  background:var(--bg2);border:1px solid var(--line);border-radius:8px;padding:12px 16px;margin:18px 0;
+}
+details.box summary{cursor:pointer;font-size:14.5px;font-weight:500;color:var(--ink);list-style:none}
+details.box summary::-webkit-details-marker{display:none}
+details.box summary .dsum{display:block;font-size:13px;font-weight:400;color:var(--ink3);margin-top:3px}
+details.box .dbody{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);font-size:14.5px;color:var(--ink2)}
+
+.callout{
+  background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:8px;
+  padding:14px 18px;margin:20px 0;font-size:14.5px;color:var(--warn-ink);
+}
+.callout b{color:var(--warn-ink)}
+
+footer{margin-top:64px;padding:24px 0 48px;border-top:1px solid var(--line);font-size:13.5px;color:var(--ink3)}
+footer ul{margin:10px 0 0;padding-left:18px}
+footer li{margin:5px 0}
+
+@media (max-width:880px){
+  .metrics,.mem-grid,.batch-compare,.bw-kpis,.sym-grid{grid-template-columns:1fr}
+  h1{font-size:26px}
+  h2{font-size:21px}
+  .crow{grid-template-columns:62px 1fr 98px}
+}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap">
+    <span class="brand">Qwen GDN 图解</span>
+    <a href="#s1">01 记忆机制</a>
+    <a href="#s2">02 混合架构</a>
+    <a href="#s3">03 Cache 变化</a>
+    <a href="#s4">04 Decode 提速</a>
+    <a href="#s5">05 Prefill 边界</a>
+    <a href="#s6">06 选型速查</a>
+    <a class="src-link" href="https://arxiv.org/abs/2412.06464" target="_blank" rel="noopener">论文原文 ↗</a>
+  </div>
+</nav>
+
+<main class="wrap">
+
+<header>
+  <h1>从零看懂 Qwen3.5 / 3.8 的 Gated DeltaNet：记忆机制、Cache 变化与推理快慢的真相</h1>
+  <p class="sub">给不熟悉线性注意力的后训练工程师：把「固定状态矩阵」拆开看懂，再算清长 Decode 到底靠什么提速、Prefill 究竟会不会成为卡点。</p>
+  <div class="meta">
+    <span><b>适用范围：</b>Qwen3.5 全系 &amp; Qwen3.8 主线（27B / 2.4T-A95B，共用同一套 GDN 混合骨干）</span>
+    <span><b>核心论文：</b><a href="https://arxiv.org/abs/2412.06464" target="_blank" rel="noopener">Gated Delta Networks（ICLR 2025）</a></span>
+    <span><b>对照口径：</b>以 <code>Qwen3.5 / 3.8-27B</code>（64 层）精确配置核算</span>
+  </div>
+
+  <div class="tldr">
+    <h4>30 秒先拿走核心结论</h4>
+    <p><strong>1. Gated DeltaNet（GDN）是什么：</strong>它把标准 Attention 越攒越长的「历史 K/V 清单」，换成了一本<strong>固定页数的记忆矩阵（状态 <i>S</i>）</strong>。每来一个新 token，先按「遗忘门」衰减旧记忆，再拿当前 Key 试读旧值、只写入新旧值的误差（Delta 规则）——解决传统线性注意力「反复累加会写糊」和「切换话题清不掉」两个老毛病。</p>
+    <p><strong>2. Cache 怎么变：</strong>Qwen3.5 / 3.8 把 75% 的层换成 GDN（每 3 层 GDN 配 1 层完整 GQA）。Cache 从「全靠长度 <i>L</i> 线性膨胀」，变成<strong>「固定底薪（27B 48 层共 146.8 MiB，需 FP32 保存）+ 1/4 的 KV Cache」</strong>。小于 783 token 时甚至比纯 GQA 更占显存，超过 32K 才省出近 4 倍空间；同时前缀缓存（Prefix Caching）不再免费。</p>
+    <p><strong>3. 长 Decode 为何更快：</strong>Decode 卡在显存带宽而不是算力。短序列单请求时，GDN 并不会神奇加速；真正生效的逻辑是<strong>长上下文时单请求显存缩水近 4 倍 → 单卡能塞下的 Batch Size 放大近 4 倍 → 读一次模型权重能分摊给更多并发序列</strong>，再叠加 75% 的层无需扫描长 KV。</p>
+    <p><strong>4. Prefill 会不会卡：</strong>朴素逐 token 递推确实会惨慢，但现代推理引擎用<strong>分块并行（Chunkwise Parallel，通常 64 token 一块）</strong>把块内更新打包成稠密矩阵乘喂满 Tensor Core。结果是：<strong>短 prompt（&lt;4K）略慢 5%–10% 且极度依赖融合算子；超长 prompt（32K–256K）反而因 <i>O</i>(<i>L</i>) 完胜全注意力的 <i>O</i>(<i>L</i><sup>2</sup>)。</strong></p>
+  </div>
+
+  <div class="metrics">
+    <div class="metric">
+      <div class="v">48 <small>: 16</small></div>
+      <div class="l">27B 模型的 GDN 层与全注意力层</div>
+      <div class="n">每 3 层 Gated DeltaNet 夹 1 层 Gated GQA；Qwen3.5-27B 与 Qwen3.8-27B 架构完全一致</div>
+    </div>
+    <div class="metric">
+      <div class="v">783 <small>tokens</small></div>
+      <div class="l">单请求 Cache 显存交叉点</div>
+      <div class="n">48 层 GDN 固定占 146.8 MiB；短于此长度反而比同规格 64 层纯 GQA 更占显存</div>
+    </div>
+    <div class="metric">
+      <div class="v">4× <small>并发容量</small></div>
+      <div class="l">32K 上下文下的单卡 Batch 放大</div>
+      <div class="n">96 GB 卡留 36 GiB 给缓存：27B 混合架构可塞 16 条（2.14 GiB/条），纯 GQA 仅 4 条</div>
+    </div>
+  </div>
+</header>
+
+<!-- ==================== 01 ==================== -->
+<section id="s1">
+  <h2><span class="n">01</span>从零看懂 Gated DeltaNet：把「翻记录」变成「改笔记本」</h2>
+  <p class="lede">不需要懂状态空间模型或 Mamba，只要顺着你已经熟悉的 Softmax Attention 走三小步，就能把 Gated DeltaNet 的核心机制看透。</p>
+
+  <p>在标准 Transformer 里，每一层 <strong>Softmax Attention（全注意力）</strong> 像一个严谨但笨重的档案员：上下文每多一个 token，它就把对应的 <code>Key</code> 和 <code>Value</code> 抄进档案袋（KV Cache）。等到第 <i>t</i> 步需要查信息时，它拿着当前 <code>Query</code> 把档案袋里前面 <i>t</i> 张卡片<strong>从头到尾全翻一遍</strong>，按相似度加权求和。这样做的好处是<strong>记忆无损</strong>，缺点是上下文越长，档案袋越厚、每次翻找越慢。</p>
+
+  <p><strong>Linear Attention（线性注意力）</strong>换了一个完全不同的思路：不再保留每一张历史卡片，而是只维护一张<strong>固定大小的矩阵状态 <i>S</i></strong>（可以想象成一本固定页数的「键值速记本」）。每来一个新 token，就把它的 <code>(Key, Value)</code> 写进这本速记本；需要读取时，直接拿 <code>Query</code> 乘一下速记本 <i>S</i> 就算完——<strong>不管前面读了 1,000 字还是 200,000 字，速记本永远一样厚</strong>。</p>
+
+  <p>但最朴素的线性注意力（直接累加 <code>S<sub>t</sub> = S<sub>t-1</sub> + k<sub>t</sub> v<sub>t</sub><sup>T</sup></code>）在真实语言任务里效果很差，因为它有两个致命硬伤：</p>
+  <ul>
+    <li><strong>不能「覆盖更新」，越写越糊（Memory Collision）：</strong>假设代码里前面写过 <code>port = 8000</code>，后面又改成了 <code>port = 8080</code>。朴素加法不会擦掉旧值，而是把两次写入直接叠加，再查 <code>port</code> 时读出来的是混在一起的脏值。</li>
+    <li><strong>不能「一键清空」，旧话题占满页数：</strong>速记本页数有限（单个头只有 <code>128 × 128</code> 的容量）。当对话从「修数据库 bug」切到「写前端样式」时，如果不赶紧把旧记忆淡化掉，新旧信息就会挤爆矩阵容量。</li>
+  </ul>
+
+  <p><strong>Gated DeltaNet（GDN）</strong>做的事情非常直白——它给这本固定速记本配齐了两个动作，正好一一补上这两个漏洞：</p>
+  <ul>
+    <li><strong>动作 1 · 遗忘衰减门（Decay Gate, α<sub>t</sub> ∈ (0, 1)）：</strong>每来一个新 token，模型先根据当前内容决定把旧速记本整体保留多少比例。话题没变时 α<sub>t</sub> ≈ 0.99（几乎全留）；遇到任务切换或大段无关噪声时 α<sub>t</sub> → 0（瞬间清空）。</li>
+    <li><strong>动作 2 · 误差纠错写入（Delta Rule，步长 β<sub>t</sub> ∈ (0, 1)）：</strong>写新值 <code>v</code> 之前，先拿当前 <code>k</code> 从速记本里<strong>「试读」一次旧值</strong> <code>v̂ = S<sub>decayed</sub><sup>T</sup> k</code>，算出差值（预测误差）<code>v − v̂</code>，再只把这份差值乘以写入强度 β<sub>t</sub> 写回速记本。如果旧值是 <code>8000</code>、新值是 <code>8080</code>，它只补写 <code>+80</code>，精准覆写而不叠脏。</li>
+  </ul>
+
+  <p>下面用一个最小具体例子，把三种机制在同一个 Coding Agent 轨迹上逐步跑一遍，亲眼看看「档案袋」和「速记本」里每一步存的到底是什么：</p>
+
+  <div class="fig">
+    <div class="fig-hd">交互演示：跟踪 <code>port</code> 变量变更时，三种注意力机制的记忆状态变化</div>
+    <div class="pill-row" id="memModeBtns"></div>
+    <div class="stepper">
+      <button class="sbtn primary" id="memNext">下一步 ▸</button>
+      <button class="sbtn" id="memPrev">◂ 上一步</button>
+      <button class="sbtn" id="memReset">重置</button>
+      <div class="stepdots" id="memDots"></div>
+      <span class="steplabel" id="memStepLabel"></span>
+    </div>
+
+    <div class="token-rail" id="memTokens"></div>
+    <div class="mem-grid" id="memStage"></div>
+    <div class="mem-note" id="memNote"></div>
+
+    <div class="fig-cap">
+      点击「下一步」观察 4 个事件（写入 <code>port=8000</code> → 覆写 <code>port=8080</code> → 切换话题清空 → 查询 <code>port</code>）下，三种机制如何更新记忆。
+      <br><span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明 ▸</span>
+      <div class="figure-detail">
+        <ul>
+          <li><strong>顶部序列条：</strong>模拟一条极简的 Agent 轨迹。高亮项是当前正在处理的 token，灰色是已处理历史。</li>
+          <li><strong>左侧对比面板（全注意力 / 朴素线性）：</strong>切到「对比全注意力」时，左侧列表随步数变长，靠回头找最新条目取胜；切到「对比朴素线性」时，左侧速记本只做加法，第 2 步 <code>8000</code> 与 <code>8080</code> 直接叠成脏值 <code>16080</code>。</li>
+          <li><strong>右侧 Gated DeltaNet 面板：</strong>固定槽位永远不增高。第 2 步先试读旧值 <code>8000</code>，算出误差 <code>+80</code> 后修正为 <code>8080</code>；第 3 步话题切换时将衰减门 α<sub>t</sub> 拉低，主动把无关变量 <code>db_host</code> 淡出，腾出状态容量。</li>
+          <li><strong>一句话总结：</strong>GDN 等于「带自动橡皮擦（α<sub>t</sub>）+ 涂改液精准覆写（Delta 规则）」的固定大小速记本。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <details class="box">
+    <summary>展开看数学公式对照（只需 3 行，核对机制用）
+      <span class="dsum">对比朴素线性注意力、Mamba2 门控衰减与 Gated DeltaNet 单步更新方程的精确差别。</span>
+    </summary>
+    <div class="dbody">
+      <p>对单个头，设状态矩阵为 <code>S<sub>t</sub> ∈ R<sup>d<sub>k</sub> × d<sub>v</sub></sup></code>，当前输入经投影与归一化得到 <code>q<sub>t</sub>, k<sub>t</sub> ∈ R<sup>d<sub>k</sub></sup></code>、<code>v<sub>t</sub> ∈ R<sup>d<sub>v</sub></sup></code>，数据依赖衰减门 <code>α<sub>t</sub> = exp(g<sub>t</sub>) ∈ (0, 1)</code>，写入强度 <code>β<sub>t</sub> ∈ (0, 1)</code>：</p>
+      <ul>
+        <li><strong>朴素线性注意力：</strong><code>S<sub>t</sub> = S<sub>t-1</sub> + k<sub>t</sub> v<sub>t</sub><sup>T</sup></code>（只加不删，必然撞车）。</li>
+        <li><strong>Mamba2（仅衰减门）：</strong><code>S<sub>t</sub> = α<sub>t</sub> · S<sub>t-1</sub> + k<sub>t</sub> v<sub>t</sub><sup>T</sup></code>（能整体淡忘，但同 Key 写入仍会叠加）。</li>
+        <li><strong>Gated DeltaNet：</strong>先整体衰减 <code>S' = α<sub>t</sub> · S<sub>t-1</sub></code>，再按预测误差做一次在线梯度下降更新：<code>S<sub>t</sub> = S' + k<sub>t</sub> · (β<sub>t</sub> · (v<sub>t</sub> − S'<sup>T</sup> k<sub>t</sub>))<sup>T</sup></code>，输出 <code>o<sub>t</sub> = S<sub>t</sub><sup>T</sup> q<sub>t</sub></code>。</li>
+      </ul>
+      <p>从在线学习视角看，<i>S</i><sub>t</sub> 就像一个在推理期间随时微调的「快权重（Fast Weight）」矩阵：每读一个 token，就对着回归损失 <code>½ ‖S<sup>T</sup> k<sub>t</sub> − v<sub>t</sub>‖<sup>2</sup></code> 走一步带权重衰减（α<sub>t</sub>）的 SGD，学习率就是 β<sub>t</sub>。</p>
+    </div>
+  </details>
+</section>
+
+<!-- ==================== 02 ==================== -->
+<section id="s2">
+  <h2><span class="n">02</span>为什么 Qwen3.5 / 3.8 不做成纯线性？3 : 1 混合排布拆解</h2>
+  <p class="lede">既然 GDN 这么省显存，为什么 Qwen 团队没有把 64 层全部换成 GDN，而是固执地每 3 层插回 1 层全注意力？</p>
+
+  <p>答案还是物理容量上限。在 <code>Qwen3.5-27B</code> 和 <code>Qwen3.8-27B</code> 里，GDN 每个 Value 头的状态矩阵尺寸是 <code>128 × 128</code>——从线性代数上讲，它最多只能无损存放 128 个互相正交的键值对。一旦上下文拉长到几万 token，让模型去做<strong>逐字精确回查</strong>（比如从 10 万字日志里抄出一串 32 位随机 UUID，或者精准对比相隔很远的两段代码），纯线性模型依然会输给保存完整 KV 的全注意力。</p>
+
+  <p>因此，Qwen3.5 / 3.8 采用了<strong>「3 层 GDN 负责低成本压缩主干 + 1 层 Full GQA 负责周期性精确回查」</strong>的 3 : 1 混合配方：在 27B 模型的 64 层里，重复 16 个 <code>[GDN → GDN → GDN → Full GQA]</code> 大块（共 48 层 GDN + 16 层 Full GQA）。</p>
+
+  <p>另外注意一个关键细节：<strong>每个 GDN 层内部</strong>（1/4 的 Full GQA 层没有）在 QKV 线性投影之后、进入 Delta 核心之前，会经过一层<strong>核宽 <code>K=4</code> 的深度因果短卷积（Depthwise Causal Conv1d + SiLU）</strong>。它把当前 token 的原始投影 <code>u[t]</code> 和缓存里最近 3 步的原始投影 <code>u[t−3..t−1]</code> 逐通道加权融合（Q、K、V 各自独立卷积，互不交叉），整理出最终的 <code>qₜ, kₜ, vₜ</code>，再送进 Delta 核心——<strong>先用 <code>kₜ, vₜ</code> 更新状态 <code>S</code>，再用 <code>qₜ</code> 读出当前输出 <code>oₜ</code></strong>。</p>
+
+  <div class="fig">
+    <div class="fig-hd">架构图 1：统一符号速查、3:1 混合主干与单个 GDN 层张量级数据流（27B，省去 Batch 维 B）</div>
+    <div class="sym-grid" aria-label="符号含义速查表">
+      <div class="sym-item"><code>X</code>本层输入（经 RMSNorm）<span class="sdim">[L, 5120] BF16</span></div>
+      <div class="sym-item"><code>U</code>(<code>u[t]</code>) 卷积前 <code>q/k/v_raw</code> 拼接<span class="sdim">[L, 10240] = 2048+2048+6144</span></div>
+      <div class="sym-item"><code>conv_state</code>存最近 3 步卷积前 <code>u[t−3..t−1]</code><span class="sdim">[10240, 3] BF16 · 60 KiB/层</span></div>
+      <div class="sym-item"><code>U_conv</code>(<code>u_conv[t]</code>) 卷积后 <code>q/k/v_conv</code><span class="sdim">[L, 10240] BF16</span></div>
+      <div class="sym-item"><code>Q, K, V</code>(<code>qₜ, kₜ, vₜ</code>) 最终入核心张量<span class="sdim">[L, 48, 128] · Q/K 已归一·×3</span></div>
+      <div class="sym-item"><code>α, β</code>(<code>αₜ, βₜ</code>) 遗忘衰减门 / 写入强度门<span class="sdim">[L, 48] FP32 · 每 V 头 1 对</span></div>
+      <div class="sym-item"><code>S</code>(<code>Sₜ</code>) 长期记忆状态（KV 写、Q 读）<span class="sdim">[48, 128, 128] FP32 · 3 MiB/层</span></div>
+      <div class="sym-item"><code>O, Z</code>核心读出结果 / 输出门控向量<span class="sdim">[L, 6144] BF16</span></div>
+      <div class="sym-item"><code>H_out</code>本层最终输出（接残差 + FFN）<span class="sdim">[L, 5120] BF16</span></div>
+    </div>
+    <div class="svg-wrap">
+      <svg viewBox="0 0 820 742" width="820" height="742" role="img" aria-label="Qwen3.5与3.8-27B的3比1混合主干与单个Gated DeltaNet层张量级前向数据流图">
+        <defs>
+          <marker id="arr-ink" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,1 L9,5 L0,9 z" fill="#2b2620"/>
+          </marker>
+          <marker id="arr-mut" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,1 L9,5 L0,9 z" fill="#877d6d"/>
+          </marker>
+          <marker id="arr-acc" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,1 L9,5 L0,9 z" fill="#b0643a"/>
+          </marker>
+          <marker id="arr-acc-s" viewBox="0 0 10 10" refX="2" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M10,1 L1,5 L10,9 z" fill="#b0643a"/>
+          </marker>
+        </defs>
+
+        <!-- ===== 顶带：宏观 64 层 3:1 主干 ===== -->
+        <rect x="12" y="10" width="796" height="78" rx="8" fill="#f4ead7" stroke="#dfd1b5"/>
+        <text x="24" y="29" font-size="12" font-weight="600" fill="#2b2620">宏观排布：64 层 = 16 组 × [ 3 层 Gated DeltaNet + 1 层 Full Gated GQA ]</text>
+
+        <rect x="24" y="38" width="154" height="40" rx="5" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="101" y="54" text-anchor="middle" font-size="11.5" font-weight="600" fill="#2b2620">Layer 1 · GDN</text>
+        <text x="101" y="70" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#5c5447">conv_state + State S</text>
+
+        <line x1="178" y1="58" x2="196" y2="58" stroke="#877d6d" stroke-width="1.4" marker-end="url(#arr-mut)"/>
+
+        <rect x="198" y="38" width="154" height="40" rx="5" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="275" y="54" text-anchor="middle" font-size="11.5" font-weight="600" fill="#2b2620">Layer 2 · GDN</text>
+        <text x="275" y="70" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#5c5447">conv_state + State S</text>
+
+        <line x1="352" y1="58" x2="370" y2="58" stroke="#877d6d" stroke-width="1.4" marker-end="url(#arr-mut)"/>
+
+        <rect x="372" y="38" width="154" height="40" rx="5" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="449" y="54" text-anchor="middle" font-size="11.5" font-weight="600" fill="#2b2620">Layer 3 · GDN</text>
+        <text x="449" y="70" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#5c5447">conv_state + State S</text>
+
+        <line x1="526" y1="58" x2="544" y2="58" stroke="#b0643a" stroke-width="1.4" marker-end="url(#arr-acc)"/>
+
+        <rect x="546" y="38" width="194" height="40" rx="5" fill="#f2dfd0" stroke="#b0643a" stroke-width="1.4"/>
+        <text x="643" y="54" text-anchor="middle" font-size="11.5" font-weight="700" fill="#874122">Layer 4 · Full GQA（无 Conv1d）</text>
+        <text x="643" y="70" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#874122">24Q/4KV×256 · RoPE 64/256</text>
+
+        <text x="774" y="62" text-anchor="middle" font-size="12" font-weight="600" fill="#5c5447">× 16</text>
+
+        <!-- 放大虚线引导 -->
+        <path d="M101,78 L101,94 L406,94 L406,106" fill="none" stroke="#b0643a" stroke-width="1.2" stroke-dasharray="4 3" marker-end="url(#arr-acc)"/>
+
+        <!-- ===== 主框：单层 GDN 张量级前向图 ===== -->
+        <rect x="12" y="108" width="796" height="624" rx="8" fill="#f4ead7" stroke="#dfd1b5"/>
+        <text x="24" y="128" font-size="12" font-weight="600" fill="#2b2620">单层 Gated DeltaNet 计算图（所有符号与上方速查表一一对应）</text>
+
+        <!-- 行 1：输入 X -> RMSNorm -->
+        <rect x="316" y="140" width="180" height="34" rx="5" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="406" y="161" text-anchor="middle" font-size="12" font-weight="600" fill="#2b2620">输入 X → RMSNorm</text>
+        <text x="506" y="161" font-size="10.5" font-family="'JetBrains Mono',monospace" fill="#5c5447">X: [L, 5120]</text>
+
+        <!-- 分叉总线 y=190 -->
+        <line x1="406" y1="174" x2="406" y2="208" stroke="#2b2620" stroke-width="1.5" marker-end="url(#arr-ink)"/>
+        <path d="M406,190 L114,190 L114,208" fill="none" stroke="#877d6d" stroke-width="1.4" marker-end="url(#arr-mut)"/>
+        <path d="M406,190 L699,190 L699,208" fill="none" stroke="#877d6d" stroke-width="1.4" marker-end="url(#arr-mut)"/>
+
+        <!-- ===== 行 2：三路线性投影 ===== -->
+        <rect x="24" y="210" width="180" height="48" rx="6" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="114" y="229" text-anchor="middle" font-size="11.5" font-weight="600" fill="#2b2620">in_proj_a / b（GEMM）</text>
+        <text x="114" y="247" text-anchor="middle" font-size="10" font-family="'JetBrains Mono',monospace" fill="#5c5447">Wₐ, W_b: [5120 → 48] ×2</text>
+
+        <rect x="228" y="210" width="356" height="48" rx="6" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="406" y="229" text-anchor="middle" font-size="11.5" font-weight="600" fill="#2b2620">in_proj_qkv（cuBLAS GEMM）</text>
+        <text x="406" y="247" text-anchor="middle" font-size="10" font-family="'JetBrains Mono',monospace" fill="#5c5447">W_qkv: [5120 → 10240]（一次算出 q_raw, k_raw, v_raw）</text>
+
+        <rect x="606" y="210" width="186" height="48" rx="6" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="699" y="229" text-anchor="middle" font-size="11.5" font-weight="600" fill="#2b2620">in_proj_z（GEMM）</text>
+        <text x="699" y="247" text-anchor="middle" font-size="10" font-family="'JetBrains Mono',monospace" fill="#5c5447">W_z: [5120 → 6144]</text>
+
+        <!-- 左支路门控变换 -->
+        <line x1="114" y1="258" x2="114" y2="278" stroke="#877d6d" stroke-width="1.4" marker-end="url(#arr-mut)"/>
+        <rect x="24" y="280" width="180" height="58" rx="6" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="114" y="298" text-anchor="middle" font-size="11" font-weight="600" fill="#2b2620">门控变换（FP32）</text>
+        <text x="114" y="314" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#5c5447">衰减门 α ∈ (0, 1)</text>
+        <text x="114" y="329" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#5c5447">写入门 β = σ(b) ∈ (0, 1)</text>
+
+        <!-- 左支路连线进 GDN Core（直接指向 Step 1 写状态） -->
+        <path d="M114,338 L114,500 L224,500" fill="none" stroke="#b0643a" stroke-width="1.5" marker-end="url(#arr-acc)"/>
+        <text x="122" y="424" font-size="10" font-family="'JetBrains Mono',monospace" fill="#874122">α, β:</text>
+        <text x="122" y="439" font-size="10" font-family="'JetBrains Mono',monospace" fill="#874122">[L, 48]</text>
+        <text x="122" y="454" font-size="9.5" fill="#877d6d">控写状态 S</text>
+
+        <!-- ===== 中支路：拼接张量 U = q_raw ‖ k_raw ‖ v_raw ===== -->
+        <line x1="406" y1="258" x2="406" y2="272" stroke="#2b2620" stroke-width="1.4"/>
+        <text x="415" y="269" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#5c5447">U: [L, 10240]</text>
+
+        <rect x="228" y="274" width="74" height="30" rx="3" fill="#ebe0c9" stroke="#877d6d"/>
+        <text x="265" y="287" text-anchor="middle" font-size="9.5" font-weight="600" font-family="'JetBrains Mono',monospace" fill="#2b2620">q_raw:2048</text>
+        <text x="265" y="299" text-anchor="middle" font-size="8.6" font-family="'JetBrains Mono',monospace" fill="#5c5447">16×128</text>
+
+        <rect x="302" y="274" width="74" height="30" rx="3" fill="#e5d7bc" stroke="#877d6d"/>
+        <text x="339" y="287" text-anchor="middle" font-size="9.5" font-weight="600" font-family="'JetBrains Mono',monospace" fill="#2b2620">k_raw:2048</text>
+        <text x="339" y="299" text-anchor="middle" font-size="8.6" font-family="'JetBrains Mono',monospace" fill="#5c5447">16×128</text>
+
+        <rect x="376" y="274" width="208" height="30" rx="3" fill="#f2dfd0" stroke="#b0643a"/>
+        <text x="480" y="287" text-anchor="middle" font-size="9.8" font-weight="600" font-family="'JetBrains Mono',monospace" fill="#874122">v_raw: 6144（48×128）</text>
+        <text x="480" y="299" text-anchor="middle" font-size="8.6" fill="#874122">三段拼为 U：2048 + 2048 + 6144 = 10,240</text>
+
+        <line x1="406" y1="304" x2="406" y2="322" stroke="#2b2620" stroke-width="1.5" marker-end="url(#arr-ink)"/>
+
+        <!-- ===== Depthwise Causal Conv1d ===== -->
+        <rect x="228" y="324" width="356" height="54" rx="6" fill="#fdf4eb" stroke="#b0643a" stroke-width="1.5"/>
+        <text x="406" y="343" text-anchor="middle" font-size="11.5" font-weight="700" fill="#874122">Depthwise Causal Conv1d (K=4, groups=10240) + SiLU</text>
+        <text x="406" y="360" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#5c5447">U → U_conv [L, 10240] · Q/K/V 各自独立卷积（详见图 2）</text>
+
+        <!-- HBM conv_state（右侧独立状态列） -->
+        <line x1="586" y1="351" x2="604" y2="351" stroke="#b0643a" stroke-width="1.3" stroke-dasharray="3 2" marker-start="url(#arr-acc-s)" marker-end="url(#arr-acc)"/>
+        <rect x="606" y="324" width="144" height="54" rx="6" fill="#fbf6ea" stroke="#b0643a" stroke-dasharray="4 3"/>
+        <text x="678" y="342" text-anchor="middle" font-size="10.5" font-weight="700" fill="#874122">HBM: conv_state</text>
+        <text x="678" y="357" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#5c5447">[10240, 3] BF16</text>
+        <text x="678" y="371" text-anchor="middle" font-size="9.2" fill="#877d6d">存卷积前 u[t−3..t−1]</text>
+
+        <!-- Split 成 q_conv / k_conv / v_conv -->
+        <line x1="406" y1="378" x2="406" y2="391" stroke="#2b2620" stroke-width="1.4"/>
+        <path d="M283,391 L525,391" fill="none" stroke="#2b2620" stroke-width="1.4"/>
+        <line x1="283" y1="391" x2="283" y2="403" stroke="#2b2620" stroke-width="1.4" marker-end="url(#arr-ink)"/>
+        <line x1="402" y1="391" x2="402" y2="403" stroke="#2b2620" stroke-width="1.4" marker-end="url(#arr-ink)"/>
+        <line x1="525" y1="391" x2="525" y2="403" stroke="#2b2620" stroke-width="1.4" marker-end="url(#arr-ink)"/>
+        <text x="234" y="388" font-size="9" font-family="'JetBrains Mono',monospace" fill="#5c5447">split U_conv</text>
+
+        <!-- q_conv -> Q -->
+        <rect x="228" y="405" width="110" height="46" rx="5" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="283" y="422" text-anchor="middle" font-size="9.8" font-weight="600" font-family="'JetBrains Mono',monospace" fill="#2b2620">q_conv → Q</text>
+        <text x="283" y="438" text-anchor="middle" font-size="8.8" fill="#5c5447">[16,128] 归一·×3</text>
+
+        <!-- k_conv -> K -->
+        <rect x="347" y="405" width="110" height="46" rx="5" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="402" y="422" text-anchor="middle" font-size="9.8" font-weight="600" font-family="'JetBrains Mono',monospace" fill="#2b2620">k_conv → K</text>
+        <text x="402" y="438" text-anchor="middle" font-size="8.8" fill="#5c5447">[16,128] 归一·×3</text>
+
+        <!-- v_conv -> V -->
+        <rect x="466" y="405" width="118" height="46" rx="5" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="525" y="422" text-anchor="middle" font-size="9.8" font-weight="600" font-family="'JetBrains Mono',monospace" fill="#2b2620">v_conv → V</text>
+        <text x="525" y="438" text-anchor="middle" font-size="8.8" fill="#5c5447">reshape [48,128]</text>
+
+        <!-- 三条箭头进 Gated Delta Core，明确区分 Q（读）与 K,V（写） -->
+        <line x1="283" y1="451" x2="283" y2="469" stroke="#2b2620" stroke-width="1.4" marker-end="url(#arr-ink)"/>
+        <line x1="402" y1="451" x2="402" y2="469" stroke="#b0643a" stroke-width="1.4" marker-end="url(#arr-acc)"/>
+        <line x1="525" y1="451" x2="525" y2="469" stroke="#b0643a" stroke-width="1.4" marker-end="url(#arr-acc)"/>
+        <text x="275" y="464" text-anchor="end" font-size="8.8" font-family="'JetBrains Mono',monospace" fill="#2b2620">Q (读)</text>
+        <text x="394" y="464" text-anchor="end" font-size="8.8" font-family="'JetBrains Mono',monospace" fill="#874122">K (写)</text>
+        <text x="517" y="464" text-anchor="end" font-size="8.8" font-family="'JetBrains Mono',monospace" fill="#874122">V (写)</text>
+        <text x="533" y="464" font-size="8.5" font-family="'JetBrains Mono',monospace" fill="#5c5447">[L,48,128]</text>
+
+        <!-- ===== Gated Delta 核心（明确拆出 ① 先写 S → ② 再读 O） ===== -->
+        <rect x="228" y="471" width="356" height="100" rx="7" fill="#f2dfd0" stroke="#b0643a" stroke-width="1.6"/>
+        <text x="406" y="489" text-anchor="middle" font-size="11.5" font-weight="700" fill="#874122">Gated Delta Rule 核心（48 头并行 · fla Triton kernel）</text>
+
+        <!-- Sub-step 1: 写状态 S -->
+        <rect x="238" y="497" width="336" height="32" rx="4" fill="#fbf6ea" stroke="#dfbcae"/>
+        <text x="246" y="510" font-size="9.5" font-weight="700" fill="#874122">① 先用 kₜ, vₜ, αₜ, βₜ 更新状态 S：</text>
+        <text x="246" y="524" font-size="9.2" font-family="'JetBrains Mono',monospace" fill="#2b2620">S' = αₜSₜ₋₁ ,  Sₜ = S' + kₜ(βₜ(vₜ − S'ᵀkₜ))ᵀ</text>
+
+        <!-- Sub-step 2: 读输出 O -->
+        <rect x="238" y="534" width="336" height="29" rx="4" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="246" y="552" font-size="9.5" font-weight="700" fill="#2b2620">② 再用 qₜ 查更新后的 S：</text>
+        <text x="380" y="552" font-size="9.6" font-weight="600" font-family="'JetBrains Mono',monospace" fill="#874122">oₜ = Sₜᵀ qₜ</text>
+        <text x="466" y="552" font-size="9" font-family="'JetBrains Mono',monospace" fill="#5c5447">[128,128]@[128]</text>
+
+        <!-- HBM State S（右侧独立状态列） -->
+        <line x1="586" y1="521" x2="604" y2="521" stroke="#b0643a" stroke-width="1.4" stroke-dasharray="3 2" marker-start="url(#arr-acc-s)" marker-end="url(#arr-acc)"/>
+        <rect x="606" y="489" width="144" height="64" rx="6" fill="#fbf6ea" stroke="#b0643a" stroke-dasharray="4 3"/>
+        <text x="678" y="509" text-anchor="middle" font-size="10.5" font-weight="700" fill="#874122">HBM: State S</text>
+        <text x="678" y="525" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#5c5447">[48, 128, 128] FP32</text>
+        <text x="678" y="541" text-anchor="middle" font-size="9.2" fill="#877d6d">3.00 MiB / 层（恒定）</text>
+
+        <!-- 右侧 Z 门控直通线（最右侧 x=774） -->
+        <path d="M774,258 L774,616 L588,616" fill="none" stroke="#877d6d" stroke-width="1.4" marker-end="url(#arr-mut)"/>
+        <text x="768" y="280" text-anchor="end" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#5c5447">Z: [L, 6144]</text>
+        <text x="680" y="609" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#5c5447">Z: [L, 6144]</text>
+
+        <!-- ===== 输出门控 RMSNorm & out_proj ===== -->
+        <line x1="406" y1="571" x2="406" y2="594" stroke="#2b2620" stroke-width="1.5" marker-end="url(#arr-ink)"/>
+        <text x="415" y="587" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#5c5447">O: [L, 48, 128] → [L, 6144]</text>
+
+        <rect x="228" y="596" width="356" height="40" rx="6" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="406" y="614" text-anchor="middle" font-size="11.5" font-weight="600" fill="#2b2620">Gated RMSNorm：RMSNorm(O) ⊙ SiLU(Z)</text>
+        <text x="406" y="629" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#5c5447">输出 [L, 6144] · Fused RMSNormGated kernel</text>
+
+        <line x1="406" y1="636" x2="406" y2="656" stroke="#2b2620" stroke-width="1.5" marker-end="url(#arr-ink)"/>
+
+        <rect x="272" y="658" width="268" height="40" rx="6" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="406" y="676" text-anchor="middle" font-size="11.5" font-weight="600" fill="#2b2620">out_proj（cuBLAS GEMM）</text>
+        <text x="406" y="691" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#5c5447">W_out: [6144 → 5120]</text>
+
+        <line x1="406" y1="698" x2="406" y2="714" stroke="#2b2620" stroke-width="1.5" marker-end="url(#arr-ink)"/>
+        <text x="406" y="726" text-anchor="middle" font-size="10.5" font-family="'JetBrains Mono',monospace" fill="#2b2620">H_out: [L, 5120]  →  + 残差连接 → SwiGLU FFN</text>
+      </svg>
+    </div>
+    <div class="fig-cap">
+      全图严格区分三个阶段：<code>U</code>（卷积前原始投影）→ <code>U_conv</code>（卷积后）→ <code>Q, K, V</code>（归一化并扩到 48 头后的最终输入）。核心处先用 <code>K, V</code> 更新状态 <code>S</code>，再用 <code>Q</code> 查更新后的 <code>S</code> 读出 <code>O</code>。
+    </div>
+  </div>
+
+  <div class="fig">
+    <div class="fig-hd">架构图 2：Depthwise Causal Conv1d（K=4, groups=10240）怎么卷？与 Prefill / Decode 缓存更新</div>
+    <div class="svg-wrap">
+      <svg viewBox="0 0 820 464" width="820" height="464" role="img" aria-label="Depthwise Causal Conv1d的二维通道时间网格计算示意以及Prefill与Decode的conv_state移位更新流程">
+        <defs>
+          <marker id="c-ink" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,1 L9,5 L0,9 z" fill="#2b2620"/>
+          </marker>
+          <marker id="c-acc" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,1 L9,5 L0,9 z" fill="#b0643a"/>
+          </marker>
+          <marker id="c-mut" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+            <path d="M0,1 L9,5 L0,9 z" fill="#877d6d"/>
+          </marker>
+        </defs>
+
+        <!-- ===== 左面板：2D 张量网格 + 逐通道 4-tap 因果卷积 ===== -->
+        <rect x="12" y="10" width="452" height="444" rx="8" fill="#f4ead7" stroke="#dfd1b5"/>
+        <text x="24" y="30" font-size="12" font-weight="600" fill="#2b2620">A. 逐通道 1D 因果卷积（U → U_conv，通道间零交叉）</text>
+        <text x="24" y="46" font-size="9.8" font-family="'JetBrains Mono',monospace" fill="#5c5447">张量视图 U [C=10240, L] · 每行一个通道 c，每列一个时间步 t</text>
+
+        <!-- 顶部时间轴括号与列标签 -->
+        <path d="M116,70 L116,65 L238,65 L238,70" fill="none" stroke="#877d6d" stroke-width="1.1"/>
+        <text x="177" y="61" text-anchor="middle" font-size="8.8" fill="#877d6d">左侧补 3 零（Causal Pad）</text>
+
+        <text x="135" y="78" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#877d6d">pad</text>
+        <text x="177" y="78" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#877d6d">pad</text>
+        <text x="219" y="78" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#877d6d">pad</text>
+        <text x="261" y="78" text-anchor="middle" font-size="9.5" font-weight="600" font-family="'JetBrains Mono',monospace" fill="#2b2620">t=0</text>
+        <text x="303" y="78" text-anchor="middle" font-size="9.5" font-weight="600" font-family="'JetBrains Mono',monospace" fill="#2b2620">t=1</text>
+        <text x="345" y="78" text-anchor="middle" font-size="9.5" font-weight="600" font-family="'JetBrains Mono',monospace" fill="#2b2620">t=2</text>
+        <text x="387" y="78" text-anchor="middle" font-size="9.5" font-weight="600" font-family="'JetBrains Mono',monospace" fill="#2b2620">t=3</text>
+        <text x="429" y="78" text-anchor="middle" font-size="9.5" font-weight="600" font-family="'JetBrains Mono',monospace" fill="#2b2620">t=4</text>
+
+        <!-- Band 1: q_raw (0..2047) -->
+        <rect x="24" y="86" width="84" height="60" rx="4" fill="#ebe0c9" stroke="#cbb998"/>
+        <text x="66" y="106" text-anchor="middle" font-size="10.2" font-weight="700" font-family="'JetBrains Mono',monospace" fill="#2b2620">q_raw 段</text>
+        <text x="66" y="121" text-anchor="middle" font-size="9.2" font-family="'JetBrains Mono',monospace" fill="#5c5447">0..2047</text>
+        <text x="66" y="135" text-anchor="middle" font-size="8.8" fill="#877d6d">2,048 ch</text>
+
+        <rect x="114" y="86" width="126" height="60" fill="#ebe0c9" stroke="#dfd1b5" stroke-dasharray="3 2"/>
+        <rect x="240" y="86" width="210" height="60" fill="#fbf6ea" stroke="#cbb998"/>
+        <rect x="282" y="101" width="168" height="27" rx="3" fill="#f2dfd0" stroke="#b0643a" stroke-width="1.5"/>
+        <line x1="324" y1="101" x2="324" y2="128" stroke="#b0643a" stroke-width="1"/>
+        <line x1="366" y1="101" x2="366" y2="128" stroke="#b0643a" stroke-width="1"/>
+        <line x1="408" y1="101" x2="408" y2="128" stroke="#b0643a" stroke-width="1"/>
+        <text x="303" y="118" text-anchor="middle" font-size="9.2" font-family="'JetBrains Mono',monospace" fill="#874122">·w₀</text>
+        <text x="345" y="118" text-anchor="middle" font-size="9.2" font-family="'JetBrains Mono',monospace" fill="#874122">·w₁</text>
+        <text x="387" y="118" text-anchor="middle" font-size="9.2" font-family="'JetBrains Mono',monospace" fill="#874122">·w₂</text>
+        <text x="429" y="118" text-anchor="middle" font-size="9.2" font-weight="700" font-family="'JetBrains Mono',monospace" fill="#874122">·w₃</text>
+        <text x="177" y="120" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#877d6d">0   0   0</text>
+        <text x="345" y="141" text-anchor="middle" font-size="8.7" fill="#874122">算 u_conv[4, c]：只卷同行 t=1..4，不看未来</text>
+
+        <!-- Band 2: k_raw (2048..4095) -->
+        <rect x="24" y="154" width="84" height="60" rx="4" fill="#e5d7bc" stroke="#cbb998"/>
+        <text x="66" y="174" text-anchor="middle" font-size="10.2" font-weight="700" font-family="'JetBrains Mono',monospace" fill="#2b2620">k_raw 段</text>
+        <text x="66" y="189" text-anchor="middle" font-size="9.2" font-family="'JetBrains Mono',monospace" fill="#5c5447">2048..4095</text>
+        <text x="66" y="203" text-anchor="middle" font-size="8.8" fill="#877d6d">2,048 ch</text>
+
+        <rect x="114" y="154" width="126" height="60" fill="#ebe0c9" stroke="#dfd1b5" stroke-dasharray="3 2"/>
+        <rect x="240" y="154" width="210" height="60" fill="#fbf6ea" stroke="#cbb998"/>
+        <rect x="114" y="168" width="168" height="28" rx="3" fill="#fdf4eb" stroke="#b0643a" stroke-width="1.3" stroke-dasharray="4 2"/>
+        <line x1="156" y1="168" x2="156" y2="196" stroke="#cbb998"/>
+        <line x1="198" y1="168" x2="198" y2="196" stroke="#cbb998"/>
+        <line x1="240" y1="168" x2="240" y2="196" stroke="#b0643a"/>
+        <text x="135" y="186" text-anchor="middle" font-size="9.2" font-family="'JetBrains Mono',monospace" fill="#877d6d">0·w₀</text>
+        <text x="177" y="186" text-anchor="middle" font-size="9.2" font-family="'JetBrains Mono',monospace" fill="#877d6d">0·w₁</text>
+        <text x="219" y="186" text-anchor="middle" font-size="9.2" font-family="'JetBrains Mono',monospace" fill="#877d6d">0·w₂</text>
+        <text x="261" y="186" text-anchor="middle" font-size="9.2" font-weight="700" font-family="'JetBrains Mono',monospace" fill="#874122">u₀·w₃</text>
+        <text x="366" y="186" text-anchor="middle" font-size="9" fill="#5c5447">← t=0 吃 3 个 0，保证因果性</text>
+
+        <!-- Band 3: v_raw (4096..10239) -->
+        <rect x="24" y="222" width="84" height="74" rx="4" fill="#f2dfd0" stroke="#b0643a"/>
+        <text x="66" y="248" text-anchor="middle" font-size="10.2" font-weight="700" font-family="'JetBrains Mono',monospace" fill="#874122">v_raw 段</text>
+        <text x="66" y="263" text-anchor="middle" font-size="9.2" font-family="'JetBrains Mono',monospace" fill="#874122">4096..10239</text>
+        <text x="66" y="278" text-anchor="middle" font-size="8.8" fill="#874122">6,144 ch</text>
+
+        <rect x="114" y="222" width="126" height="74" fill="#ebe0c9" stroke="#dfd1b5" stroke-dasharray="3 2"/>
+        <rect x="240" y="222" width="210" height="74" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="177" y="262" text-anchor="middle" font-size="9.5" font-family="'JetBrains Mono',monospace" fill="#877d6d">0   0   0</text>
+        <rect x="240" y="238" width="168" height="26" rx="3" fill="#f2dfd0" stroke="#b0643a" stroke-width="1.3"/>
+        <line x1="282" y1="238" x2="282" y2="264" stroke="#b0643a"/>
+        <line x1="324" y1="238" x2="324" y2="264" stroke="#b0643a"/>
+        <line x1="366" y1="238" x2="366" y2="264" stroke="#b0643a"/>
+        <text x="261" y="255" text-anchor="middle" font-size="9" font-family="'JetBrains Mono',monospace" fill="#874122">u₀·w₀</text>
+        <text x="303" y="255" text-anchor="middle" font-size="9" font-family="'JetBrains Mono',monospace" fill="#874122">u₁·w₁</text>
+        <text x="345" y="255" text-anchor="middle" font-size="9" font-family="'JetBrains Mono',monospace" fill="#874122">u₂·w₂</text>
+        <text x="387" y="255" text-anchor="middle" font-size="9" font-weight="700" font-family="'JetBrains Mono',monospace" fill="#874122">u₃·w₃</text>
+        <text x="345" y="282" text-anchor="middle" font-size="9" fill="#5c5447">每行 c 独享 4 个可学权重 w[c, 0..3]（互不干扰）</text>
+
+        <!-- 精确公式栏（统一用 u_conv 与 u） -->
+        <rect x="24" y="308" width="426" height="58" rx="6" fill="#fbf6ea" stroke="#cbb998"/>
+        <rect x="24" y="308" width="4" height="58" rx="2" fill="#b0643a"/>
+        <text x="36" y="327" font-size="9.6" font-weight="600" font-family="'JetBrains Mono',monospace" fill="#2b2620">u_conv[t,c] = SiLU( w[c,0]u[t−3,c] + w[c,1]u[t−2,c]</text>
+        <text x="116" y="343" font-size="9.6" font-weight="600" font-family="'JetBrains Mono',monospace" fill="#2b2620">+ w[c,2]u[t−1,c] + w[c,3]u[t,c] )</text>
+        <text x="36" y="359" font-size="9.2" fill="#5c5447">权重总量仅 10240 × 4 = 40,960 参数/层（BF16 仅 80 KiB）</text>
+
+        <!-- Infra 合并原因说明 -->
+        <rect x="24" y="376" width="426" height="66" rx="6" fill="#ebe0c9" stroke="#dfd1b5"/>
+        <text x="36" y="394" font-size="10.4" font-weight="700" fill="#2b2620">为什么把 q_raw + k_raw + v_raw 拼成 10,240 通道一起卷？</text>
+        <text x="36" y="411" font-size="9.6" fill="#5c5447">因 groups=10240 通道间零交叉，数学上完全等价于 Q、K、V 各自独立</text>
+        <text x="36" y="427" font-size="9.6" fill="#5c5447">卷积；拼在一起只发 1 次 causal-conv1d kernel，卷完再 split 出 q/k/v_conv。</text>
+
+        <!-- ===== 右面板：Infra 双路径 Prefill vs Decode ===== -->
+        <rect x="476" y="10" width="332" height="444" rx="8" fill="#f4ead7" stroke="#dfd1b5"/>
+        <text x="488" y="30" font-size="12" font-weight="600" fill="#2b2620">B. Infra 执行双路径与 conv_state 更新</text>
+
+        <!-- 1. Prefill 路径 -->
+        <rect x="488" y="44" width="308" height="170" rx="6" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="500" y="64" font-size="11" font-weight="700" fill="#2b2620">1. Prefill：全序列并行（causal_conv1d_fn）</text>
+        <text x="500" y="80" font-size="9.2" font-family="'JetBrains Mono',monospace" fill="#5c5447">U [L, 10240] → 并行算完 U_conv [L, 10240]</text>
+
+        <rect x="500" y="92" width="42" height="28" rx="3" fill="#ebe0c9" stroke="#cbb998" stroke-dasharray="2 2"/>
+        <text x="521" y="110" text-anchor="middle" font-size="9" font-family="'JetBrains Mono',monospace" fill="#877d6d">3×pad</text>
+        <rect x="546" y="92" width="110" height="28" rx="3" fill="#f4ead7" stroke="#cbb998"/>
+        <text x="601" y="110" text-anchor="middle" font-size="9.2" font-family="'JetBrains Mono',monospace" fill="#5c5447">u[0] ... u[L−4]</text>
+        <rect x="660" y="92" width="124" height="28" rx="3" fill="#f2dfd0" stroke="#b0643a" stroke-width="1.4"/>
+        <text x="722" y="110" text-anchor="middle" font-size="9.2" font-weight="700" font-family="'JetBrains Mono',monospace" fill="#874122">u[L−3..L−1]</text>
+
+        <line x1="722" y1="120" x2="722" y2="144" stroke="#b0643a" stroke-width="1.4" marker-end="url(#c-acc)"/>
+        <text x="614" y="138" font-size="9.2" fill="#874122">末尾 3 步拷入 HBM →</text>
+
+        <rect x="500" y="146" width="284" height="54" rx="5" fill="#fdf4eb" stroke="#b0643a" stroke-dasharray="4 2"/>
+        <text x="642" y="165" text-anchor="middle" font-size="10.2" font-weight="700" font-family="'JetBrains Mono',monospace" fill="#874122">初始化 conv_state: [10240, 3]</text>
+        <text x="642" y="181" text-anchor="middle" font-size="9.4" fill="#5c5447">存卷积前原始 U（不是卷积后的 U_conv）</text>
+        <text x="642" y="195" text-anchor="middle" font-size="9.2" font-family="'JetBrains Mono',monospace" fill="#877d6d">10240 × 3 × 2 B = 60 KiB / 层</text>
+
+        <!-- 2. Decode 路径 -->
+        <rect x="488" y="226" width="308" height="216" rx="6" fill="#fbf6ea" stroke="#cbb998"/>
+        <text x="500" y="246" font-size="11" font-weight="700" fill="#2b2620">2. Decode：单步移位（causal_conv1d_update）</text>
+        <text x="500" y="262" font-size="9.5" fill="#5c5447">每新来 1 个 token，在单个融合 kernel 内完成两步：</text>
+
+        <text x="500" y="282" font-size="9.4" font-weight="600" fill="#2b2620">① 读 3 步缓存 + 当前 u[t]，加权求和 + SiLU 得 u_conv[t]：</text>
+        <rect x="500" y="290" width="52" height="28" rx="3" fill="#ebe0c9" stroke="#cbb998"/>
+        <text x="526" y="308" text-anchor="middle" font-size="9" font-family="'JetBrains Mono',monospace" fill="#5c5447">u[t−3]</text>
+        <rect x="556" y="290" width="52" height="28" rx="3" fill="#ebe0c9" stroke="#cbb998"/>
+        <text x="582" y="308" text-anchor="middle" font-size="9" font-family="'JetBrains Mono',monospace" fill="#5c5447">u[t−2]</text>
+        <rect x="612" y="290" width="52" height="28" rx="3" fill="#ebe0c9" stroke="#cbb998"/>
+        <text x="638" y="308" text-anchor="middle" font-size="9" font-family="'JetBrains Mono',monospace" fill="#5c5447">u[t−1]</text>
+        <rect x="668" y="290" width="44" height="28" rx="3" fill="#f2dfd0" stroke="#b0643a" stroke-width="1.4"/>
+        <text x="690" y="308" text-anchor="middle" font-size="9" font-weight="700" font-family="'JetBrains Mono',monospace" fill="#874122">u[t]</text>
+
+        <line x1="714" y1="304" x2="727" y2="304" stroke="#b0643a" stroke-width="1.4" marker-end="url(#c-acc)"/>
+        <rect x="729" y="290" width="56" height="28" rx="3" fill="#f2dfd0" stroke="#b0643a"/>
+        <text x="757" y="308" text-anchor="middle" font-size="8.6" font-weight="700" font-family="'JetBrains Mono',monospace" fill="#874122">u_conv[t]</text>
+
+        <text x="500" y="340" font-size="9.4" font-weight="600" fill="#2b2620">② 丢弃 u[t−3]，把当前原始 u[t] 补到队尾：</text>
+        <rect x="500" y="350" width="56" height="26" rx="3" fill="#f4ead7" stroke="#dfd1b5" stroke-dasharray="2 2"/>
+        <text x="528" y="367" text-anchor="middle" font-size="9" font-family="'JetBrains Mono',monospace" fill="#877d6d" text-decoration="line-through">u[t−3]</text>
+        <text x="568" y="367" text-anchor="middle" font-size="11" fill="#877d6d">→</text>
+
+        <rect x="580" y="348" width="204" height="30" rx="4" fill="#fdf4eb" stroke="#b0643a"/>
+        <text x="614" y="367" text-anchor="middle" font-size="9.2" font-family="'JetBrains Mono',monospace" fill="#5c5447">u[t−2]</text>
+        <line x1="648" y1="348" x2="648" y2="378" stroke="#dfd1b5"/>
+        <text x="682" y="367" text-anchor="middle" font-size="9.2" font-family="'JetBrains Mono',monospace" fill="#5c5447">u[t−1]</text>
+        <line x1="716" y1="348" x2="716" y2="378" stroke="#dfd1b5"/>
+        <text x="750" y="367" text-anchor="middle" font-size="9.2" font-weight="700" font-family="'JetBrains Mono',monospace" fill="#874122">u[t]</text>
+
+        <text x="500" y="400" font-size="9.3" fill="#5c5447">· 算力与访存恒定 O(1)，完全不随上下文长度 L 增长；</text>
+        <text x="500" y="416" font-size="9.3" fill="#5c5447">· u_conv[t] 拆出 q/k/v_conv，整理成 qₜ, kₜ, vₜ 进核心。</text>
+      </svg>
+    </div>
+    <div class="fig-cap">
+      左侧展示 <code>U → U_conv</code> 的逐通道卷积过程；右侧展示推理框架（vLLM / SGLang）在 Prefill 与 Decode 阶段如何维护 <code>conv_state</code>。
+      <br><span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明（维度与设计理由细节）▸</span>
+      <div class="figure-detail">
+        <ul>
+          <li><strong>为什么 10,240 是拼接后的维度：</strong>在 27B 中，<code>q_raw</code> 为 16×128 = <code>2,048</code>，<code>k_raw</code> 为 16×128 = <code>2,048</code>，<code>v_raw</code> 为 48×128 = <code>6,144</code>，三者拼接正好 <code>10,240</code>。因为 <code>Depthwise Conv1d</code> 的 <code>groups = C</code>，通道间绝不交叉，拼在一起做单次 GEMM + 单次 Conv1d 在数学上等价、工程上省 kernel launch。</li>
+          <li><strong>为什么只存最近 3 步而不是 4 步：</strong>卷积核宽 <code>K = 4</code>，当前步 <code>u[t]</code> 刚由 <code>in_proj_qkv</code> 算出来，所以只需把过去 <code>K − 1 = 3</code> 步存进 <code>conv_state</code>（<code>[10240, 3]</code> BF16 = <code>60 KiB/层</code>）。注意存的是<strong>卷积前</strong>的 <code>u</code>，不是卷积后的 <code>u_conv</code>。</li>
+          <li><strong>门控 α, β 的完整计算：</strong>图中简写的衰减门完整形式为 <code>αₜ = exp(−exp(A_log) · softplus(aₜ + dt_bias)) ∈ (0, 1)</code>，写入门为 <code>βₜ = σ(bₜ) ∈ (0, 1)</code>，全程 FP32 计算以保证长序列数值稳定。</li>
+          <li><strong>为什么要对 Q 和 K 做 L2 归一化：</strong>Delta 规则包含 <code>I − β<sub>t</sub> k<sub>t</sub> k<sub>t</sub><sup>T</sup></code>；若 <code>‖k<sub>t</sub>‖<sub>2</sub> &gt; 1</code>，连乘下去状态矩阵特征值会爆炸。将 <code>q, k</code> 归一化到单位球面可保证几十万 token 递推数值稳定。</li>
+          <li><strong>为什么 QK 是 16 头而 V 是 48 头：</strong>类似 GQA 分组复用——每个 QK 头复制给 3 个 V 头共享（<code>repeat_interleave(×3)</code>），省投影算力的同时将记忆容量扩到 48 份 <code>128×128</code> 状态矩阵。</li>
+          <li><strong>Full GQA 层怎么配合：</strong>16 层全注意力不走短卷积，直接做带输出门控的 Gated GQA（24 Q / 4 KV，头维 256，Partial RoPE 64/256），兜住跨数万 token 的精确检索底线。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="card-stack">
+    <div class="ecard">
+      <div class="ecard-hd" onclick="toggleCard(this)">
+        <div>
+          <div class="ecard-title">顺带核对：Qwen3.5 到 Qwen3.8，这套架构有调整吗？</div>
+          <div class="ecard-sum">主线模型（27B、2.4T-A95B）底层架构完全沿用 Qwen3.5；只有实验分支 Flash-Next 换了 Qwen4 预览架构。</div>
+        </div>
+        <span class="ecard-ico">展开 ▸</span>
+      </div>
+      <div class="ecard-bd">
+        <div class="ecard-in">
+          <ul>
+            <li><strong>Qwen3.8-27B vs Qwen3.5-27B：</strong>配置文件里的模型类依然是 <code>Qwen3_5ForConditionalGeneration</code>，64 层排布、5120 宽度、16/48 GDN 头数、24/4 GQA 头数与视觉编码器<strong>100% 一致</strong>；提升全部来自预训练/后训练权重与对话模板（新增 <code>reasoning_effort</code> 与 <code>preserve_thinking</code>）。</li>
+            <li><strong>Qwen3.8-2.4T-A95B vs Qwen3.5-397B-A17B：</strong>同构放大——沿用 <code>Qwen3_5MoeForCausalLM</code> 与 512 专家选 10 路由，只是将层数从 60 扩到 92（23 组 3:1）、宽度从 4096 扩到 8192、GDN V 头从 64 扩到 128（开源版为纯文本，去除了视觉塔）。</li>
+            <li><strong>唯一例外 Qwen3.8-Flash-Next：</strong>它是 Qwen4 架构的提前预览（模型类 <code>qwen4_exp</code>），把每第 4 层全注意力换成微块稀疏注意力（QSA），引入 4 分支门控残差与第 2 层 51B N-gram 查表嵌入（注意这是离散词表查表，与 GDN 层里的连续卷积 <code>causal-conv1d</code> 不是一回事），不在本文主线架构讨论范围内。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="ecard">
+      <div class="ecard-hd" onclick="toggleCard(this)">
+        <div>
+          <div class="ecard-title">工程算子映射：图里的每个模块对应哪个 CUDA 库？</div>
+          <div class="ecard-sum">GDN 层靠 <code>fla</code> + <code>causal-conv1d</code>，Full GQA 层靠 <code>FlashAttention</code>；纯 Qwen3 不需要前两个库。</div>
+        </div>
+        <span class="ecard-ico">展开 ▸</span>
+      </div>
+      <div class="ecard-bd">
+        <div class="ecard-in">
+          <ul>
+            <li><strong>入口 4-token 短卷积 → <code>causal-conv1d</code>（Tri Dao）：</strong>将 1D 深度因果卷积与 SiLU 激活融合进单次访存的 CUDA kernel，并直接支持推理侧的 <code>conv_state</code> 原地滚动更新。</li>
+            <li><strong>Gated Delta 核心 → <code>fla</code> / <code>flash-linear-attention</code>（Songlin Yang）：</strong>提供基于 Triton 的分块并行训练（<code>chunk_gated_delta_rule</code>）与单步递推推理（<code>fused_recurrent_gated_delta_rule</code>）算子。</li>
+            <li><strong>1/4 Full GQA 层 → <code>FlashAttention</code>（Tri Dao）：</strong>与常规标准 Transformer 共用同一套注意力算子。如果只训或推理纯 Transformer（如 Qwen3 Dense），环境里不需要安装 <code>fla</code> 或 <code>causal-conv1d</code>。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 03 ==================== -->
+<section id="s3">
+  <h2><span class="n">03</span>Cache 层面的变化：从「纯按长度计费」变成「固定底薪 + 1/4 浮动」</h2>
+  <p class="lede">引入线性注意力后，推理引擎存的不再是一张单一的 KV Cache，而是异构的两套状态——这直接改写了显存占用曲线、交叉点与前缀缓存行为。</p>
+
+  <p>很多人对 Qwen3.5 / 3.8 的第一印象是「没有 KV Cache 了，显存恒定 <i>O</i>(1)」——<strong>这是不准确的</strong>。因为还有 25% 的 Full GQA 层，单条请求在显存里实际要占三样东西（以 <code>Qwen3.5 / 3.8-27B</code> 为例）：</p>
+  <ul>
+    <li><strong>① GDN 循环状态矩阵 <i>S</i>（固定，48 层合计 144.0 MiB）：</strong>每层 <code>48 V头 × 128 × 128 × 4 字节（FP32） = 3.00 MiB</code>。无论上下文是 100 token 还是 262,144 token，永远占这么多。</li>
+    <li><strong>② GDN 短卷积滑窗状态（固定，48 层合计 2.81 MiB）：</strong>核宽为 4 的因果卷积只需要记住最近 3 个 token 的投影输入（<code>3 × 10,240 × 2 字节 BF16 = 60 KiB/层</code>），几乎可忽略。</li>
+    <li><strong>③ Full GQA 的 KV Cache（随长度 <i>L</i> 增长，16 层合计 64 KiB / token）：</strong>每层 <code>2(K/V) × 4 KV头 × 256 维 × 2 字节（BF16） = 4 KiB/token</code>。对比同等深度与 GQA 宽度的 64 层纯 Transformer（<code>256 KiB/token</code>，刚好与 <code>Qwen3-32B</code> 相同），增长斜率直接砍掉 75%。</li>
+  </ul>
+
+  <p>把这三项加起来，你会发现一个非常反直觉的算术事实：<strong>单条请求长度短于 783 tokens 时，混合架构的 Cache 反而比纯 Transformer 更占显存！</strong>拖动下面的滑块，亲自看一遍从 512 token 到 256K 的显存与单卡并发变化：</p>
+
+  <div class="fig">
+    <div class="fig-hd">交互计算器：Qwen3.5/3.8-27B vs 同深度 64 层纯 GQA 的单请求 Cache 与单卡并发数</div>
+    <div class="ctrl-row">
+      <label for="lenSlider">上下文长度 <i>L</i>：</label>
+      <input type="range" id="lenSlider" min="0" max="7" step="1" value="4">
+      <span class="ctrl-val" id="lenVal">32,768 tokens</span>
+    </div>
+
+    <div class="bar-group">
+      <div class="bar-item">
+        <div class="bh"><span>Qwen3.5 / 3.8-27B（48 层 GDN + 16 层 GQA）</span><b id="hybText"></b></div>
+        <div class="stack-track">
+          <div class="seg gdn" id="segGdn"></div>
+          <div class="seg kv" id="segKv"></div>
+        </div>
+      </div>
+      <div class="bar-item">
+        <div class="bh"><span>对照：64 层纯 GQA（每层同 4 KiB/tok，等价 Qwen3-32B）</span><b id="pureText"></b></div>
+        <div class="stack-track">
+          <div class="seg pure" id="segPure"></div>
+        </div>
+      </div>
+    </div>
+    <div class="legend">
+      <span><i class="swatch" style="background:#8b7d6b"></i>GDN 固定状态（146.8 MiB，不随 L 增长）</span>
+      <span><i class="swatch" style="background:#b0643a"></i>16 层 Full GQA KV Cache</span>
+      <span><i class="swatch" style="background:#5d5447"></i>64 层纯 GQA KV Cache</span>
+    </div>
+
+    <div class="batch-compare">
+      <div class="bcard">
+        <div class="bt">96 GB 单卡（留 36 GiB 缓存）· 混合架构最多同时跑</div>
+        <div class="bv hi" id="hybBatch"></div>
+        <div class="seq-dots" id="hybDots"></div>
+      </div>
+      <div class="bcard">
+        <div class="bt">96 GB 单卡（留 36 GiB 缓存）· 纯 GQA 最多同时跑</div>
+        <div class="bv" id="pureBatch"></div>
+        <div class="seq-dots" id="pureDots"></div>
+      </div>
+    </div>
+
+    <div class="verdict" id="cacheVerdict"></div>
+
+    <div class="fig-cap">
+      基于 BF16 权重（27B 约 54 GB，留 36 GiB 给推理状态）、FP32 GDN 状态与 BF16 KV Cache 精确核算。
+      <br><span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明 ▸</span>
+      <div class="figure-detail">
+        <ul>
+          <li><strong>为什么交叉点正好是 783 tokens：</strong>混合架构多付了 <code>146.8 MiB</code> 固定底薪，但每个 token 省下 <code>256 - 64 = 192 KiB</code>，两者相除 <code>146.8 × 1024 ÷ 192 ≈ 783</code> tokens。</li>
+          <li><strong>长上下文时的极限压缩比是 4×：</strong>因为还保留了 1/4 的全注意力层，随着 <i>L</i> → 256K，146.8 MiB 底薪占比趋近于 0，混合架构总缓存趋近于纯 GQA 的 1/4（32K 省 3.73×，128K 省 3.93×，256K 省 3.96×）。</li>
+          <li><strong>为什么 256K 下纯 GQA 显示 0 条：</strong>单条 256K 请求的 64 层纯 KV 就要 <code>64 GiB</code>，加上 54 GB 权重已经超过 96 GB 单卡显存上限；而混合架构单条仅 <code>16.14 GiB</code>，单卡还能稳稳跑 2 条并发。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h3>除了显存大小，Cache 的工程行为还有 3 个深层变化</h3>
+  <p>如果你平时在用 vLLM / SGLang 跑 rollout 或线上服务，下面这三点往往比「省了多少 GB」更容易踩坑：</p>
+
+  <div class="card-stack">
+    <div class="ecard">
+      <div class="ecard-hd" onclick="toggleCard(this)">
+        <div>
+          <div class="ecard-title">变化 1 · Prefix Caching（自动前缀缓存）不再「免费且任意切分」</div>
+          <div class="ecard-sum">KV Cache 是追加列表，天然支持任意前缀复用；GDN 状态是原地覆写的，跑到后面就把前面覆盖了。</div>
+        </div>
+        <span class="ecard-ico">展开 ▸</span>
+      </div>
+      <div class="ecard-bd">
+        <div class="ecard-in">
+          <p>在纯 Transformer 里，两条请求如果共享前 4,000 token 的系统提示词，引擎只要把前 4,000 token 对应的 KV 显存块标成共享只读，第 2 条请求直接从第 4,001 token 开始算——<strong>零额外显存拷贝</strong>。</p>
+          <p>但在 GDN 层里，状态矩阵 <i>S</i> 只有一份，处理到第 4,001 token 时，它是直接在原矩阵 <i>S</i> 上<strong>原地覆写</strong>的。如果不额外留一份拷贝，第 4,000 token 那一刻的状态就永久丢失了，无法回退。因此：</p>
+          <ul>
+            <li>推理引擎要么按固定步长额外存「状态快照检查点（checkpoint）」，用更多显存换前缀复用；</li>
+            <li>要么在不支持状态对齐的场景下干脆关掉前缀缓存（这也是混合架构在 vLLM/SGLang 中实现前缀缓存明显晚于纯 Attention 的原因）。</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <div class="ecard">
+      <div class="ecard-hd" onclick="toggleCard(this)">
+        <div>
+          <div class="ecard-title">变化 2 · GDN 状态必须锁死 FP32，不能随便压成 BF16 / FP8</div>
+          <div class="ecard-sum">KV Cache 彼此独立，压成 FP8 只影响单个 token 精度；GDN 状态要经历上万次连续递推，低精度会滚雪球漂移。</div>
+        </div>
+        <span class="ecard-ico">展开 ▸</span>
+      </div>
+      <div class="ecard-bd">
+        <div class="ecard-in">
+          <p>标准 KV Cache 里，第 100 个 token 的 K/V 和第 10,000 个 token 的 K/V 各自独立存放，做 FP8 量化时误差不会跨步累积。</p>
+          <p>而 GDN 的状态矩阵 <i>S</i><sub>t</sub> 每一 token 都要乘一次衰减再做误差加减；如果把 <i>S</i><sub>t</sub> 降成 BF16（尾数只有 7 bit），微小的舍入误差会连续滚雪球几万步，导致长上下文生成乱码或检索崩塌。因此在 <code>Qwen3.5 / 3.8</code> 的官方配置里，<code>mamba_ssm_dtype</code> 明确锁死为 <code>float32</code>——这也是单层状态占到 3 MiB 而不是 1.5 MiB 的直接原因。</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="ecard">
+      <div class="ecard-hd" onclick="toggleCard(this)">
+        <div>
+          <div class="ecard-title">变化 3 · 内存调度从「纯 Paged KV」变成「双池混合管理」</div>
+          <div class="ecard-sum">引擎要同时管两块账：给 16 层全注意力按页动态分块，给 48 层 GDN 按并发条数预分配固定槽位。</div>
+        </div>
+        <span class="ecard-ico">展开 ▸</span>
+      </div>
+      <div class="ecard-bd">
+        <div class="ecard-in">
+          <p>在纯 Transformer 服务里，你可以放心把最大并发数开很大（比如 256），因为短请求只占很少的 KV 页。但在混合架构里，<strong>每多接一条正在跑的请求，不管它多短，都要立刻为它划出 146.8 MiB 的 GDN 状态槽位</strong>。</p>
+          <p>所以调部署参数时，最大并发序列数（如 <code>max_num_seqs</code>）的显存成本变重了：如果设成 256 条并发，光 27B 的 GDN 固定状态槽就要先吃掉 <code>256 × 146.8 MiB ≈ 36.7 GiB</code> 显存，哪怕每条请求只有 100 个 token。</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 04 ==================== -->
+<section id="s4">
+  <h2><span class="n">04</span>长 Decode 提速的真正逻辑：不是「算得快」，而是「搬得少 + 批得大」</h2>
+  <p class="lede">回到你最关心的问题：这套架构确实是为长上下文、长生成任务（如长思维链、多轮 Agent）设计的，但它的加速逻辑并不是「线性层计算更快」。</p>
+
+  <p>要看清 Decode 阶段为什么慢，先记住 GPU 推理的一条铁律：<strong>Decode 阶段几乎永远是显存带宽受限（Memory-Bandwidth Bound），而不是算力受限。</strong></p>
+
+  <p>每吐出 1 个新 token，GPU 必须把 27B 模型的全部权重（BF16 约 <strong>54 GB</strong>）加上所有正在运行请求的缓存，从 HBM 显存完整搬进芯片算一次。现代加速卡的算力极高，但显存带宽有限——搬完这几十 GB 数据的功夫，算力单元其实只忙了不到 5%，其余时间全在等数据搬运。</p>
+
+  <p>有了这个前提，GDN 在长 Decode 上生效的<strong>两级真实逻辑</strong>一下子就清晰了：</p>
+  <ol>
+    <li><strong>单请求维度（长上下文下省带宽，但短上下文不省）：</strong>每步 Decode 要搬的数据总量 = <code>54 GB 权重 + 本条请求的 Cache</code>。在 2K 短文本下，Cache 只有几百 MB，相对 54 GB 权重几乎可以忽略，所以<strong>单条短序列的 Decode 速度，GDN 并不比纯 Transformer 快</strong>。只有当上下文涨到 32K–128K（纯 GQA 的 KV 膨胀到 8–32 GB，开始逼近甚至反超权重体积）时，把 75% 层的 KV 压成固定的 146.8 MiB 才会明显减少单步搬运量。</li>
+    <li><strong>系统吞吐维度（真正的杀手锏——靠大 Batch 摊薄权重搬运）：</strong>单卡显存容量是死的（例如 96 GB）。在 32K 上下文下，混合架构因为省出了近 4 倍缓存空间，能让单卡同时跑的并发数从 <strong>4 条直接翻到 16 条</strong>。同样从 HBM 搬一次 54 GB 权重，纯 GQA 一次只推进 4 个 token，混合架构一次推进 16 个 token——<strong>分摊到每条请求的权重搬运成本直接打 2.5 折！</strong></li>
+  </ol>
+
+  <div class="fig">
+    <div class="fig-hd">交互对比：不同场景下，每产出 1 个 Decode Token 需要从 HBM 搬运多少数据？</div>
+    <div class="pill-row" id="bwBtns"></div>
+    <div class="bw-panel" id="bwPanel"></div>
+    <div class="fig-cap">
+      切换三个典型场景：直观对比「短上下文单请求」「超长上下文单请求」与「长上下文高并发满载」下，GDN 的真正提速倍数从何而来。
+      <br><span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明 ▸</span>
+      <div class="figure-detail">
+        <ul>
+          <li><strong>场景 1（2K 短文 · Batch=1）：</strong>每步搬运量 99% 都是 54 GB 权重，两种架构的每 token 搬运量相差不到 1%——印证了「短序列单条 Decode 几乎感受不到线性层优势」。</li>
+          <li><strong>场景 2（128K 长文 · Batch=1）：</strong>纯 GQA 的 KV 膨胀到 32 GiB，单步总搬运量涨到 ~88.4 GB；混合架构只需搬 ~62.7 GB（权重 54 GB + 缓存 8.14 GiB），单用户生成速度提升约 <strong>1.4×</strong>。</li>
+          <li><strong>场景 3（32K 长文 · 96 GB 单卡满并发）：</strong>纯 GQA 最多塞 4 条，每条分摊 13.5 GB 权重 + 8 GiB KV = <strong>22.1 GB/token</strong>；混合架构能塞 16 条，每条仅分摊 3.38 GB 权重 + 2.14 GiB 缓存 = <strong>5.68 GB/token</strong>——整卡吞吐拉开 <strong>3.9×</strong>！如果换成 397B-A17B / 2.4T-A95B 这类激活参数更小的 MoE 模型，权重基数更小、Batch 放大更猛，Decode 吞吐优势甚至能拉到 8× 以上。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ==================== 05 ==================== -->
+<section id="s5">
+  <h2><span class="n">05</span>那线性层在 Prefill 时容易成为卡点吗？分块并行与真实拐点</h2>
+  <p class="lede">你的直觉非常敏锐：看第 1 节那个「必须算出 <i>S</i><sub>t-1</sub> 才能算 <i>S</i><sub>t</sub>」的递推公式，任何人第一反应都会问——这在 Prefill 读几万字 Prompt 时岂不是只能串行、慢成蜗牛？</p>
+
+  <p>如果真按递推公式逐个 token 去跑，<strong>答案是：会的，而且会惨不忍睹</strong>。一次 4,096 token 的 Prefill 如果串行做 4,096 次小矩阵运算，Tensor Core 根本吃不饱，全耗在反复读写显存和算子调度上。</p>
+
+  <p>Gated DeltaNet 论文（以及 Qwen3.5 / 3.8 的推理内核）能把 Prefill 救回来，靠的是<strong>分块并行算法（Chunkwise Parallel）</strong>：</p>
+  <ul>
+    <li><strong>切块：</strong>把长度为 <i>L</i> 的输入序列切成固定大小的小块（工程上通常选 <code>chunk = 64</code> 个 token）。</li>
+    <li><strong>块内全并行（喂满 Tensor Core）：</strong>利用线性代数里的 WY 紧凑表示，把块内 64 步前后依赖的 Delta 更新，先通过一次极小的 <code>64 × 64</code> 下三角求解整理好，然后全部转成<strong>高算术强度的稠密矩阵乘法</strong>，64 个 token 一步并行算完。</li>
+    <li><strong>块间才串行传状态：</strong>只有每过 64 个 token，才把块末的最终状态 <i>S</i> 交给下一块。原本 <i>L</i> 步串行被压缩成 <code>L / 64</code> 步，4,096 token 只需跨块接力 64 次。</li>
+  </ul>
+
+  <div class="fig">
+    <div class="fig-hd">机制对比：GDN 如何用「分块并行」化解 Prefill 串行危机，以及与全注意力的算量拐点</div>
+    <div class="pill-row" id="pfBtns"></div>
+    <div class="pf-stage" id="pfStage"></div>
+    <div class="fig-cap">
+      点击上方三个视图：① 朴素逐 token 递推为何会卡；② 分块并行如何把 64 个 token 打包成矩阵乘；③ 不同 Prompt 长度下，GDN 与全注意力单层算量的真实拐点。
+      <br><span class="fig-toggle" onclick="toggleFigDetail(this)">展开说明 ▸</span>
+      <div class="figure-detail">
+        <ul>
+          <li><strong>视图 ①（朴素递推）：</strong>每个 token 都要等前一个 token 写完 <i>S</i>，12 个 token 就要串行 12 步（4K 序列串行 4,096 步），完全用不上 GPU 的矩阵并行能力。</li>
+          <li><strong>视图 ②（分块并行，每块 64 token）：</strong>每 64 个 token 打包成一块，块内转化成几次大矩阵乘 + 一次小三角求解，Tensor Core 利用率拉满；只有块边界处传递一次状态矩阵 <i>S</i>。</li>
+          <li><strong>视图 ③（单层序列混合 FLOPs 对比）：</strong>按 27B 精确维度计算，GDN 核心混合层恒定为 <strong>7.5 MFLOPs/token</strong>；全注意力层在 1K 时仅 12.6 MFLOPs/token（此时整层 95% 以上算量都在 535 MFLOPs 的 FFN 与 210 MFLOPs 的投影矩阵里，两边差距很小），但到了 32K 暴涨到 403 MFLOPs/token，128K 更是高达 <strong>1,611 MFLOPs/token</strong>（达到 FFN 的 3 倍），此时全注意力才是真正的 Prefill 瓶颈。</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <h3>直说结论：什么情况下 GDN 在 Prefill 时「真会成为卡点」？</h3>
+  <p>把理论算量和真实硬件落地合在一起看，Prefill 阶段存在<strong>三个截然不同的区域</strong>——不能一概而论地说它快或慢：</p>
+
+  <div class="tbl-wrap">
+    <table class="cmp">
+      <thead>
+        <tr>
+          <th style="width:22%">场景 / 长度区间</th>
+          <th style="width:18%">线性层是卡点吗？</th>
+          <th>真实原因与工程现象</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>没有融合算子</b><br>（纯 PyTorch / 未启用 FLA 或厂商 kernel）</td>
+          <td><b>是严重卡点</b></td>
+          <td>GDN 多了短卷积、L2 归一化、门控、块内三角求解等一串细碎操作。若不融合，每层会碎成大量小 kernel 反复读写显存。例如我们在昆仑芯 P800 上实测 0.8B 混合模型时，未融合前逐元素/短卷积/GDN 吃掉 <b>41.9%</b> 前向耗时；换上厂商融合算子后吞吐直接翻倍。</td>
+        </tr>
+        <tr>
+          <td><b>短到中等 Prompt</b><br>（512 – 4K，已有融合算子）</td>
+          <td><b>略拖后腿（慢 5–10%）</b></td>
+          <td>短序列下全注意力的 <i>O</i>(<i>L</i><sup>2</sup>) 还没发威（整模型 90% 耗时都在 FFN 与线性投影里）。GDN 省下的 FLOPs 微不足道，反而多付了短卷积、三角求解和跨块接力的固定开销，实测 Prefill 吞吐往往比同尺寸纯 Attention 略低 5%–10%。</td>
+        </tr>
+        <tr>
+          <td><b>长到超长 Prompt</b><br>（16K – 256K，已有融合算子）</td>
+          <td><b>不是卡点，反而是救星</b></td>
+          <td>跨过 16K–32K 后，全注意力层的 <i>O</i>(<i>L</i><sup>2</sup>) 二次项迅速压过 FFN 成为绝对大头；而 GDN 保持严格线性 <i>O</i>(<i>L</i>)，单 token 耗时几乎不随长度恶化。256K 长文 Prefill 下，3:1 混合架构整体速度远快于同尺寸纯 Transformer。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="callout">
+    <b>一个容易被忽略的系统级 Prefill 边界：</b>如果把多条变长请求首尾拼成一条长序列做 Continuous Batching，全注意力可以整条塞进静态 CUDA Graph；但 GDN 的分块并行需要按「请求分界点」切块——同样总计 8,192 个 token，不同长度组合切出的块数不一样，工作量锁不死，导致 vLLM 等引擎往往必须在 GDN 层把 CUDA Graph 断开（退回分段图或 Eager 模式）。在超大模型（27B）上影响较小，但在小模型（0.8B–4B）短请求高并发场景下，这笔 CPU 派活开销非常明显。
+  </div>
+</section>
+
+<!-- ==================== 06 ==================== -->
+<section id="s6">
+  <h2><span class="n">06</span>一张表收束：什么时候值得上这套混合架构？</h2>
+  <p class="lede">把架构特性翻译成选型和推理部署上的直接判断。</p>
+
+  <div class="tbl-wrap">
+    <table class="cmp">
+      <thead>
+        <tr>
+          <th style="width:24%">业务 / 训练负载</th>
+          <th style="width:20%">GDN 混合架构表现</th>
+          <th>核心原因</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><b>长思维链 / 多轮 Agent 长生成</b><br>（32K–256K，高并发 Decode）</td>
+          <td><b>最大受益场景</b></td>
+          <td>Cache 显存压缩近 4×，单卡 Batch 翻倍放大；同时避开了超长 Prefill 的 <i>O</i>(<i>L</i><sup>2</sup>) 爆炸，吞吐和显存双赢。</td>
+        </tr>
+        <tr>
+          <td><b>超长文档阅读 / 问答</b><br>（64K–256K Prefill + 短输出）</td>
+          <td><b>明显受益</b></td>
+          <td>75% 的层 Prefill 严格 <i>O</i>(<i>L</i>)，长文首字延迟（TTFT）远低于同尺寸纯 Transformer；保留的 1/4 全注意力兜住精确检索底线。</td>
+        </tr>
+        <tr>
+          <td><b>短上下文高并发打分 / 分类</b><br>（&lt;2K 纯 Prefill，如短文本判别）</td>
+          <td><b>收益有限，依赖融合算子</b></td>
+          <td>长度低于交叉点，固定状态反而占显存；短序列下无 <i>O</i>(<i>L</i><sup>2</sup>) 红利，且共享前缀缓存与整图捕获不如纯 Attention 省心。必须确认推理框架已开启融合 GDN 算子。</td>
+        </tr>
+        <tr>
+          <td><b>大规模后训练（RL Rollout）</b></td>
+          <td><b>非常友好</b></td>
+          <td>RL 阶段最贵的就是长轨迹多样本采样（高并发长 Decode）。同样 GPU 预算下能把 Rollout 并发度拉高数倍，直接加速策略采样吞吐。</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<footer>
+  <div><b>参考与一手来源（核对口径）：</b></div>
+  <ul>
+    <li>核心算法论文：<a href="https://arxiv.org/abs/2412.06464" target="_blank" rel="noopener">Gated Delta Networks: Improving Mamba2 with Delta Rule（Yang et al., ICLR 2025, arXiv:2412.06464）</a></li>
+    <li>官方模型配置：<a href="https://huggingface.co/Qwen/Qwen3.5-27B" target="_blank" rel="noopener">Qwen/Qwen3.5-27B</a> · <a href="https://huggingface.co/Qwen/Qwen3.8-27B" target="_blank" rel="noopener">Qwen/Qwen3.8-27B</a> · <a href="https://huggingface.co/Qwen/Qwen3.8-2.4T-A95B" target="_blank" rel="noopener">Qwen/Qwen3.8-2.4T-A95B</a> · <a href="https://huggingface.co/Qwen/Qwen3.8-Flash-Next" target="_blank" rel="noopener">Qwen/Qwen3.8-Flash-Next（qwen4_exp）</a></li>
+    <li>推理部署参考：<a href="https://nvidia.github.io/TensorRT-LLM/1.4.0rc2/deployment-guide/deployment-guide-for-qwen3.8-qwen3.5-on-trtllm.html" target="_blank" rel="noopener">NVIDIA TensorRT-LLM Qwen3.8 &amp; Qwen3.5 Deployment Guide</a></li>
+  </ul>
+</footer>
+
+</main>
+
+<script>
+/* ---------- 通用折叠：图片说明 & 深度卡片 ---------- */
+function toggleFigDetail(btn){
+  var box = btn.nextElementSibling;
+  var on = box.classList.toggle('active');
+  btn.textContent = on ? '收起说明 ▴' : '展开说明 ▸';
+}
+function toggleCard(hd){
+  var card = hd.parentElement;
+  var on = card.classList.toggle('open');
+  var ico = hd.querySelector('.ecard-ico');
+  if (ico) ico.textContent = on ? '收起 ▴' : '展开 ▸';
+}
+
+/* ---------- 01 记忆机制步进动画 ---------- */
+var MEM_TOKENS = [
+  '① 写入 port = 8000',
+  '② 改写 port = 8080',
+  '③ 切换话题（无关上下文）',
+  '④ 查询：当前 port 是多少？'
+];
+var MEM_MODES = [
+  { id: 'attn', label: '对比：Softmax 全注意力 vs GDN' },
+  { id: 'linear', label: '对比：朴素线性注意力 vs GDN' }
+];
+var memMode = 'attn';
+var memStep = 0;
+
+var MEM_DATA = {
+  attn: [
+    {
+      leftTitle: 'Softmax 全注意力（档案袋）',
+      leftBadge: '已存 2 条（随长度变长）',
+      leftSlots: [
+        { k: '#1 db_host', v: '10.0.0.1', cls: '' },
+        { k: '#2 port', v: '8000', cls: 'hl' }
+      ],
+      gdnBadge: '固定槽位（不增长）',
+      gdnGates: ['衰减门 α=0.98（保留）', '写入强度 β=0.95'],
+      gdnSlots: [
+        { k: '槽[db_host]', v: '10.0.0.1', cls: '' },
+        { k: '槽[port]', v: '0 → 补写 +8000 = 8000', cls: 'hl' }
+      ],
+      note: '<b>第 1 步（初次写入）：</b>全注意力往 KV 档案袋里追加一张卡片；GDN 试读槽[port] 为 0，算出误差 +8000 后写入固定状态矩阵 S。'
+    },
+    {
+      leftTitle: 'Softmax 全注意力（档案袋）',
+      leftBadge: '已存 3 条（继续增长）',
+      leftSlots: [
+        { k: '#1 db_host', v: '10.0.0.1', cls: '' },
+        { k: '#2 port（旧）', v: '8000', cls: 'faded' },
+        { k: '#3 port（新）', v: '8080', cls: 'hl' }
+      ],
+      gdnBadge: '固定槽位（原地修正）',
+      gdnGates: ['衰减门 α=0.99（保留）', '试读旧值 8000 → 误差 +80'],
+      gdnSlots: [
+        { k: '槽[db_host]', v: '10.0.0.1', cls: '' },
+        { k: '槽[port]', v: '8000 + 误差(+80) = 8080', cls: 'hl' }
+      ],
+      note: '<b>第 2 步（Delta 精准覆盖）：</b>全注意力只能再追加一张卡片；GDN 先试读出旧值 8000，只把差值 +80 写进去，状态矩阵不增高也不写糊。'
+    },
+    {
+      leftTitle: 'Softmax 全注意力（档案袋）',
+      leftBadge: '已存 4 条（噪声全留着）',
+      leftSlots: [
+        { k: '#1 db_host', v: '10.0.0.1', cls: '' },
+        { k: '#2 port（旧）', v: '8000', cls: 'faded' },
+        { k: '#3 port（新）', v: '8080', cls: '' },
+        { k: '#4 话题切换', v: '新子任务说明...', cls: 'hl' }
+      ],
+      gdnBadge: '固定槽位（主动清腾空间）',
+      gdnGates: ['局部头衰减门 α→0.15（快速淡忘）', '保留头 α→0.98'],
+      gdnSlots: [
+        { k: '槽[db_host]', v: '10.0.0.1 × 0.15（淡出）', cls: 'faded' },
+        { k: '槽[port]', v: '8080（长程头保留）', cls: '' }
+      ],
+      note: '<b>第 3 步（遗忘门清场）：</b>全注意力会把旧噪声永远留在 KV Cache 里占显存；GDN 可以按内容把部分头的衰减门 α 拉低，快速腾出有限的状态空间。'
+    },
+    {
+      leftTitle: 'Softmax 全注意力（查询）',
+      leftBadge: '须扫描全部 4 条历史',
+      leftSlots: [
+        { k: '扫描 #1..#4', v: '相似度命中 #3 → 8080', cls: 'hl' },
+        { k: '代价', v: '历史越长，搬运量 O(L) 越大', cls: '' }
+      ],
+      gdnBadge: 'O(1) 一次矩阵乘读取',
+      gdnGates: ['直接计算 o = S^T q', '耗时与历史长度无关'],
+      gdnSlots: [
+        { k: '查槽[port]', v: '直接读出 8080', cls: 'hl' },
+        { k: '代价', v: '固定读写 3 MiB 状态矩阵', cls: '' }
+      ],
+      note: '<b>第 4 步（读取对比）：</b>两者都能答对 8080。全注意力每多 10 万字就要多扫 10 万条 KV；GDN 永远只乘一次固定大小的状态矩阵 S。'
+    }
+  ],
+  linear: [
+    {
+      leftTitle: '朴素线性注意力（只加不擦）',
+      leftBadge: '固定槽位 · 仅累加',
+      leftSlots: [
+        { k: '槽[db_host]', v: '10.0.0.1', cls: '' },
+        { k: '槽[port]', v: '0 + 8000 = 8000', cls: 'hl' }
+      ],
+      gdnBadge: '固定槽位 · 门控+纠错',
+      gdnGates: ['衰减门 α=0.98', '写入强度 β=0.95'],
+      gdnSlots: [
+        { k: '槽[db_host]', v: '10.0.0.1', cls: '' },
+        { k: '槽[port]', v: '0 + 误差(+8000) = 8000', cls: 'hl' }
+      ],
+      note: '<b>第 1 步：</b>槽位最初都是空的，朴素线性注意力和 GDN 写入第一个键值时看起来结果一样。'
+    },
+    {
+      leftTitle: '朴素线性注意力（撞车写糊！）',
+      leftBadge: '固定槽位 · 无纠错',
+      leftSlots: [
+        { k: '槽[db_host]', v: '10.0.0.1', cls: '' },
+        { k: '槽[port]', v: '8000 + 8080 = 16080（写糊）', cls: 'warn' }
+      ],
+      gdnBadge: '固定槽位 · Delta 修正',
+      gdnGates: ['先试读旧值 8000', '只补写差值 +80'],
+      gdnSlots: [
+        { k: '槽[db_host]', v: '10.0.0.1', cls: '' },
+        { k: '槽[port]', v: '8000 + (+80) = 8080', cls: 'hl' }
+      ],
+      note: '<b>第 2 步（核心分水岭）：</b>朴素线性注意力直接把新值 8080 叠在 8000 上，彻底写脏；GDN 先算预测误差 8080 - 8000 = +80，精准完成原地更新。'
+    },
+    {
+      leftTitle: '朴素线性注意力（旧记忆清不掉）',
+      leftBadge: '无衰减门 · 容量拥堵',
+      leftSlots: [
+        { k: '槽[db_host]', v: '10.0.0.1（死占空间）', cls: 'warn' },
+        { k: '槽[port]', v: '16080（继续混入新噪声）', cls: 'warn' }
+      ],
+      gdnBadge: '固定槽位 · 动态衰减清场',
+      gdnGates: ['局部头 α→0.15 清腾空间', '保留头 α→0.98 稳住关键项'],
+      gdnSlots: [
+        { k: '槽[db_host]', v: '淡出释放容量', cls: 'faded' },
+        { k: '槽[port]', v: '8080（保持清晰）', cls: '' }
+      ],
+      note: '<b>第 3 步：</b>没有衰减门时，过时信息永远堆积在有限维度的矩阵里互相干扰；GDN 靠动态衰减门 α 及时清理无关记忆。'
+    },
+    {
+      leftTitle: '朴素线性注意力（查询失败）',
+      leftBadge: '读取结果已失真',
+      leftSlots: [
+        { k: '查槽[port]', v: '读出混合脏值（召回崩塌）', cls: 'warn' },
+        { k: '根因', v: '缺纠错写入 + 缺主动遗忘', cls: '' }
+      ],
+      gdnBadge: '查询准确',
+      gdnGates: ['精准召回 + 恒定 O(1) 读取'],
+      gdnSlots: [
+        { k: '查槽[port]', v: '读出 8080', cls: 'hl' },
+        { k: '代价', v: '与朴素线性同为固定状态大小', cls: '' }
+      ],
+      note: '<b>第 4 步：</b>这就是为什么线性注意力提出了好几年一直打不过 Transformer，直到结合「衰减门（Mamba2）」和「Delta 纠错」的 Gated DeltaNet 出现，才真正能大规模用于 Qwen3.5 / 3.8 主干。'
+    }
+  ]
+};
+
+function renderMem(){
+  var data = MEM_DATA[memMode][memStep];
+  document.getElementById('memStepLabel').textContent = '步骤 ' + (memStep + 1) + ' / ' + MEM_TOKENS.length;
+  document.getElementById('memDots').innerHTML = MEM_TOKENS.map(function(_, i){
+    return '<span class="dot' + (i === memStep ? ' on' : '') + '"></span>';
+  }).join('');
+  document.getElementById('memTokens').innerHTML = MEM_TOKENS.map(function(t, i){
+    var cls = i < memStep ? 'past' : (i === memStep ? 'now' : 'future');
+    return '<div class="tok ' + cls + '">' + t + '</div>';
+  }).join('');
+
+  var leftHtml = '<div class="mem-box">' +
+    '<div class="mh"><span>' + data.leftTitle + '</span><span class="badge">' + data.leftBadge + '</span></div>' +
+    '<div class="slot-list">' + data.leftSlots.map(function(s){
+      return '<div class="slot ' + s.cls + '"><span>' + s.k + '</span><span>' + s.v + '</span></div>';
+    }).join('') + '</div></div>';
+
+  var rightHtml = '<div class="mem-box">' +
+    '<div class="mh"><span>Gated DeltaNet（固定速记本）</span><span class="badge hi">' + data.gdnBadge + '</span></div>' +
+    '<div class="slot-list">' + data.gdnSlots.map(function(s){
+      return '<div class="slot ' + s.cls + '"><span>' + s.k + '</span><span>' + s.v + '</span></div>';
+    }).join('') + '</div>' +
+    '<div class="gate-row">' + data.gdnGates.map(function(g, idx){
+      return '<span class="gchip' + (idx === 0 ? ' on' : '') + '">' + g + '</span>';
+    }).join('') + '</div></div>';
+
+  document.getElementById('memStage').innerHTML = leftHtml + rightHtml;
+  document.getElementById('memNote').innerHTML = data.note;
+}
+
+document.getElementById('memModeBtns').innerHTML = MEM_MODES.map(function(m){
+  return '<button class="pill' + (m.id === memMode ? ' on' : '') + '" data-mode="' + m.id + '">' + m.label + '</button>';
+}).join('');
+document.querySelectorAll('#memModeBtns .pill').forEach(function(b){
+  b.addEventListener('click', function(){
+    memMode = b.getAttribute('data-mode');
+    document.querySelectorAll('#memModeBtns .pill').forEach(function(x){
+      x.classList.toggle('on', x.getAttribute('data-mode') === memMode);
+    });
+    renderMem();
+  });
+});
+document.getElementById('memNext').addEventListener('click', function(){
+  memStep = (memStep + 1) % MEM_TOKENS.length;
+  renderMem();
+});
+document.getElementById('memPrev').addEventListener('click', function(){
+  memStep = (memStep + MEM_TOKENS.length - 1) % MEM_TOKENS.length;
+  renderMem();
+});
+document.getElementById('memReset').addEventListener('click', function(){
+  memStep = 0;
+  renderMem();
+});
+renderMem();
+
+/* ---------- 03 Cache 显存与并发计算器 ---------- */
+var LEN_STOPS = [512, 1024, 4096, 16384, 32768, 65536, 131072, 262144];
+var GDN_FIXED_MIB = 146.8125; // 48 * (3.00 MiB FP32 rec + 60 KiB BF16 conv)
+var HYB_KV_KIB = 64;          // 16 * 4 KiB/tok
+var PURE_KV_KIB = 256;        // 64 * 4 KiB/tok
+var CACHE_BUDGET_MIB = 36 * 1024; // 96 GB 卡扣 54 GB 权重与激活后约留 36 GiB
+
+function fmtMem(mib){
+  if (mib >= 1024) return (mib / 1024).toFixed(2) + ' GiB';
+  return mib.toFixed(1) + ' MiB';
+}
+function renderCache(){
+  var idx = parseInt(document.getElementById('lenSlider').value, 10);
+  var L = LEN_STOPS[idx];
+  document.getElementById('lenVal').textContent = L.toLocaleString() + ' tokens';
+
+  var hybKvMib = (L * HYB_KV_KIB) / 1024;
+  var hybTotal = GDN_FIXED_MIB + hybKvMib;
+  var pureTotal = (L * PURE_KV_KIB) / 1024;
+  var maxMib = Math.max(hybTotal, pureTotal);
+
+  document.getElementById('segGdn').style.width = (GDN_FIXED_MIB / maxMib * 100).toFixed(2) + '%';
+  document.getElementById('segKv').style.width = (hybKvMib / maxMib * 100).toFixed(2) + '%';
+  document.getElementById('segPure').style.width = (pureTotal / maxMib * 100).toFixed(2) + '%';
+
+  document.getElementById('hybText').textContent =
+    fmtMem(hybTotal) + '（GDN ' + fmtMem(GDN_FIXED_MIB) + ' + 16层KV ' + fmtMem(hybKvMib) + '）';
+  document.getElementById('pureText').textContent = fmtMem(pureTotal) + '（64层纯KV）';
+
+  var hybB = Math.floor(CACHE_BUDGET_MIB / hybTotal);
+  var pureB = Math.floor(CACHE_BUDGET_MIB / pureTotal);
+  document.getElementById('hybBatch').textContent = hybB + ' 条并发';
+  document.getElementById('pureBatch').textContent = pureB > 0 ? (pureB + ' 条并发') : '0 条（OOM）';
+
+  function makeDots(n, isHi){
+    if (n <= 0) return '<span class="sdot oom">单条即超 36 GiB，需多卡 TP</span>';
+    var cap = Math.min(n, 48);
+    var out = '';
+    for (var i = 0; i < cap; i++) out += '<span class="sdot' + (isHi ? ' hi' : '') + '"></span>';
+    if (n > cap) out += '<span style="font-size:12px;color:#877d6d;margin-left:4px">…共 ' + n + ' 条</span>';
+    return out;
+  }
+  document.getElementById('hybDots').innerHTML = makeDots(hybB, true);
+  document.getElementById('pureDots').innerHTML = makeDots(pureB, false);
+
+  var v = document.getElementById('cacheVerdict');
+  var ratio = pureTotal / hybTotal;
+  if (L < 783){
+    v.className = 'verdict warn';
+    v.innerHTML = '<b>低于交叉点（783 tokens）：</b>当前长度下，混合架构因为 48 层 GDN 固定底薪（146.8 MiB），单条 Cache 反而比纯 GQA 多占 <b>' + ((hybTotal / pureTotal - 1) * 100).toFixed(0) + '%</b> 显存。短文本高并发并没有缓存优势。';
+  } else if (pureB === 0){
+    v.className = 'verdict';
+    v.innerHTML = '<b>超长上下文（256K）：</b>混合架构单条仅占 <b>' + fmtMem(hybTotal) + '</b>，比纯 GQA 省 <b>' + ratio.toFixed(2) + '×</b>。96 GB 单卡上纯 GQA 已经连 1 条都塞不下，混合架构还能同时跑 <b>' + hybB + ' 条</b>。';
+  } else {
+    v.className = 'verdict';
+    v.innerHTML = '<b>长上下文红利兑现：</b>单条 Cache 缩水 <b>' + ratio.toFixed(2) + '×</b>，同等 36 GiB 缓存预算下，单卡并发容量从 <b>' + pureB + ' 条</b> 扩大到 <b>' + hybB + ' 条</b>（放大 ' + (hybB / pureB).toFixed(1) + '×）。';
+  }
+}
+document.getElementById('lenSlider').addEventListener('input', renderCache);
+renderCache();
+
+/* ---------- 04 Decode HBM 搬运对比 ---------- */
+var BW_SCENES = [
+  {
+    id: 'short1',
+    label: '场景 A：2K 短文 · 单并发 (BS=1)',
+    hybWeight: 54.0, hybCache: 0.27, hybBatch: 1,
+    pureWeight: 54.0, pureCache: 0.50, pureBatch: 1,
+    verdict: '单条短序列 Decode 时，99% 的显存带宽全花在搬 54 GB 模型权重上。线性层省下的 0.23 GB 缓存搬运量几乎为零——此时 GDN 不会带来明显提速。'
+  },
+  {
+    id: 'long1',
+    label: '场景 B：128K 长文 · 单并发 (BS=1)',
+    hybWeight: 54.0, hybCache: 8.74, hybBatch: 1,
+    pureWeight: 54.0, pureCache: 34.36, pureBatch: 1,
+    verdict: '128K 单请求下，纯 GQA 的 KV 搬运量（34.4 GB）已接近权重体量，拖慢单步生成；混合架构把它压到 8.7 GB，单用户生成速度直接快约 1.4×。'
+  },
+  {
+    id: 'longBatch',
+    label: '场景 C：32K 长文 · 96 GB 单卡满载并发',
+    hybWeight: 54.0 / 16, hybCache: 2.30, hybBatch: 16,
+    pureWeight: 54.0 / 4, pureCache: 8.59, pureBatch: 4,
+    verdict: '真正的大招在这里：混合架构把 96 GB 单卡并发从 4 条拉到 16 条，54 GB 权重搬一次分摊给 16 条（每条仅 3.38 GB），再加缓存缩水，每产 1 个 token 的平均 HBM 搬运量从 22.1 GB 降到 5.7 GB，整卡 Decode 吞吐接近 3.9×！'
+  }
+];
+var bwIdx = 2;
+
+function renderBw(){
+  var s = BW_SCENES[bwIdx];
+  var hybSum = s.hybWeight + s.hybCache;
+  var pureSum = s.pureWeight + s.pureCache;
+  var maxSum = Math.max(hybSum, pureSum);
+  var speedup = pureSum / hybSum;
+
+  document.getElementById('bwPanel').innerHTML =
+    '<div class="bw-row">' +
+      '<div class="bw-meta"><span>Qwen3.5 / 3.8-27B（并发 BS=' + s.hybBatch + '）· 每产出 1 token 均摊搬运</span><b>' + hybSum.toFixed(2) + ' GB（权重 ' + s.hybWeight.toFixed(2) + ' + 缓存 ' + s.hybCache.toFixed(2) + '）</b></div>' +
+      '<div class="bw-track"><div class="bw-w" style="width:' + (s.hybWeight / maxSum * 100).toFixed(1) + '%"></div><div class="bw-c" style="width:' + (s.hybCache / maxSum * 100).toFixed(1) + '%"></div></div>' +
+    '</div>' +
+    '<div class="bw-row">' +
+      '<div class="bw-meta"><span>64 层纯 GQA（并发 BS=' + s.pureBatch + '）· 每产出 1 token 均摊搬运</span><b>' + pureSum.toFixed(2) + ' GB（权重 ' + s.pureWeight.toFixed(2) + ' + 缓存 ' + s.pureCache.toFixed(2) + '）</b></div>' +
+      '<div class="bw-track"><div class="bw-w" style="width:' + (s.pureWeight / maxSum * 100).toFixed(1) + '%"></div><div class="bw-c" style="width:' + (s.pureCache / maxSum * 100).toFixed(1) + '%"></div></div>' +
+    '</div>' +
+    '<div class="legend" style="margin-bottom:10px">' +
+      '<span><i class="swatch" style="background:#7d7160"></i>均摊的模型权重读取量（54 GB ÷ Batch）</span>' +
+      '<span><i class="swatch" style="background:#b0643a"></i>本条序列的 Cache / State 读取量</span>' +
+    '</div>' +
+    '<div class="bw-kpis">' +
+      '<div class="bw-kpi"><div class="kl">混合架构每 token 均摊搬运</div><div class="kv hi">' + hybSum.toFixed(2) + ' GB</div></div>' +
+      '<div class="bw-kpi"><div class="kl">纯 GQA 每 token 均摊搬运</div><div class="kv">' + pureSum.toFixed(2) + ' GB</div></div>' +
+      '<div class="bw-kpi"><div class="kl">理论带宽吞吐优势</div><div class="kv hi">' + speedup.toFixed(2) + '×</div></div>' +
+    '</div>' +
+    '<div class="mem-note" style="margin-top:12px">' + s.verdict + '</div>';
+}
+
+document.getElementById('bwBtns').innerHTML = BW_SCENES.map(function(s, i){
+  return '<button class="pill' + (i === bwIdx ? ' on' : '') + '" data-i="' + i + '">' + s.label + '</button>';
+}).join('');
+document.querySelectorAll('#bwBtns .pill').forEach(function(b){
+  b.addEventListener('click', function(){
+    bwIdx = parseInt(b.getAttribute('data-i'), 10);
+    document.querySelectorAll('#bwBtns .pill').forEach(function(x, i){ x.classList.toggle('on', i === bwIdx); });
+    renderBw();
+  });
+});
+renderBw();
+
+/* ---------- 05 Prefill 分块并行与复杂度拐点 ---------- */
+var PF_VIEWS = [
+  { id: 'serial', label: '① 朴素逐 token 递推（为何会卡）' },
+  { id: 'chunk', label: '② 分块并行 Chunkwise（实际跑法）' },
+  { id: 'curve', label: '③ 单层序列混合算量拐点（O(L) vs O(L²)）' }
+];
+var pfView = 'chunk';
+
+function renderPf(){
+  var el = document.getElementById('pfStage');
+  if (pfView === 'serial'){
+    var cells = '';
+    for (var i = 1; i <= 12; i++){
+      cells += '<span class="pcell' + (i === 5 ? ' active' : (i < 5 ? ' done' : '')) + '">t' + i + '</span>';
+      if (i < 12) cells += '<span class="parrow">→</span>';
+    }
+    el.innerHTML =
+      '<div class="pf-lane">' +
+        '<div class="pf-lane-lbl">朴素递推：必须算完 S_{t-1} 才能算 S_t（4,096 token = 4,096 步严格串行）</div>' +
+        '<div class="pf-cells">' + cells + '<span class="parrow">→ …</span></div>' +
+      '</div>' +
+      '<div class="mem-note"><b>为什么绝对不能这么跑 Prefill：</b>每一步只处理 1 个 token 的外积更新，矩阵太小根本喂不饱 GPU Tensor Core，却要把 3 MiB 状态矩阵反复读进读出 4,096 遍。这也是大家直觉担心「线性层卡 Prefill」的根源。</div>';
+  } else if (pfView === 'chunk'){
+    el.innerHTML =
+      '<div class="pf-lane">' +
+        '<div class="pf-lane-lbl">分块并行（实际每块 C = 64 tokens）：块内全部打包成稠密矩阵乘并行算完，仅块间传递状态 S</div>' +
+        '<div class="pf-cells">' +
+          '<span class="pcell chunk done">Chunk 1（t1..t64 并行矩阵乘）</span><span class="parrow">──S₁──▶</span>' +
+          '<span class="pcell chunk active">Chunk 2（t65..t128 并行矩阵乘）</span><span class="parrow">──S₂──▶</span>' +
+          '<span class="pcell chunk">Chunk 3（t129..t192 并行矩阵乘）</span><span class="parrow">──S₃──▶ …</span>' +
+        '</div>' +
+      '</div>' +
+      '<div class="mem-note"><b>分块并行的三步魔法：</b>① 每 64 个 token 为一块，先做一次极小的 64×64 下三角求解把块内连续修正打包；② 块内读写全部转为 Tensor Core 最爱的稠密矩阵乘；③ 只有每块结尾把最终状态 S 传给下一块——4,096 token 的串行深度从 4,096 骤降到 <b>64 步</b>，且总算量严格线性 O(L)。</div>';
+  } else {
+    var rows = [
+      { L: '1K', attn: 12.6, gdn: 7.5 },
+      { L: '4K', attn: 50.3, gdn: 7.5 },
+      { L: '16K', attn: 201.3, gdn: 7.5 },
+      { L: '32K', attn: 402.7, gdn: 7.5 },
+      { L: '128K', attn: 1610.6, gdn: 7.5 }
+    ];
+    var maxV = 1610.6;
+    el.innerHTML =
+      '<div class="pf-lane-lbl">27B 模型单层「序列混合核心」每 token 计算量（MFLOPs / token，参照：单层 FFN 固定约 535 MFLOPs/token）</div>' +
+      '<div class="curve-bars">' + rows.map(function(r){
+        var wA = Math.max(1.2, r.attn / maxV * 100).toFixed(1);
+        var wG = Math.max(1.2, r.gdn / maxV * 100).toFixed(1);
+        return '<div class="crow">' +
+          '<div class="cl">L = ' + r.L + '</div>' +
+          '<div class="ctrack">' +
+            '<div class="cbar attn" style="width:' + wA + '%"></div>' +
+            '<div class="cbar gdn" style="width:' + wG + '%"></div>' +
+          '</div>' +
+          '<div class="cv">' + r.attn.toFixed(0) + ' vs ' + r.gdn.toFixed(1) + ' M</div>' +
+        '</div>';
+      }).join('') + '</div>' +
+      '<div class="legend" style="margin-top:10px">' +
+        '<span><i class="swatch" style="background:#5d5447"></i>Full GQA 单层每 token 算量（随 L 线性暴涨 → 总量 O(L²)）</span>' +
+        '<span><i class="swatch" style="background:#b0643a"></i>Chunkwise GDN 单层每 token 算量（恒定 7.5 M → 总量 O(L)）</span>' +
+      '</div>' +
+      '<div class="mem-note"><b>读懂这个拐点：</b>在 1K–4K 时，两种序列混合算量相对 535 M 的 FFN 都是零头，GDN 的额外小算子开销反而让它略慢 5–10%；一旦冲到 32K–128K，Full GQA 暴涨到 FFN 的 1–3 倍，此时 GDN 的恒定 7.5 M 彻底扭转局势。</div>';
+  }
+}
+
+document.getElementById('pfBtns').innerHTML = PF_VIEWS.map(function(v){
+  return '<button class="pill' + (v.id === pfView ? ' on' : '') + '" data-v="' + v.id + '">' + v.label + '</button>';
+}).join('');
+document.querySelectorAll('#pfBtns .pill').forEach(function(b){
+  b.addEventListener('click', function(){
+    pfView = b.getAttribute('data-v');
+    document.querySelectorAll('#pfBtns .pill').forEach(function(x){
+      x.classList.toggle('on', x.getAttribute('data-v') === pfView);
+    });
+    renderPf();
+  });
+});
+renderPf();
+</script>
+</body>
+</html>
